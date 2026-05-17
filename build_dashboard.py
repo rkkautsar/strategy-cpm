@@ -887,7 +887,7 @@ def main():
 <body>
 
 <h1>CPM-BULL Strategy Dashboard</h1>
-<p class='subtitle'><strong>CPM</strong> (Canary-gated Pair Momentum) defensive engine + <strong>BULL-QQQ</strong> trend overlay.</p>
+<p class='subtitle'><strong>CPM</strong> (canary-gated momentum + min-variance pair selection) + <strong>BULL-QQQ</strong> trend overlay.</p>
 <p class='meta'>Backtest window: {window_str} | Built: {today}</p>
 
 <div class='card'>
@@ -1007,7 +1007,7 @@ def main():
 <details open>
 <summary>CPM Sleeve (70%)</summary>
 <ul>
-<li><strong>Universe (11):</strong> 7 US factor ETFs (QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV) + VEA, VWO (international) + GLD, TLT (diversifiers). All ETFs live since 2007-07 or earlier; no SPY-proxy contamination in post-2008 backtest.
+<li><strong>Universe (11):</strong> 7 US equity ETFs (factor + sector mix: QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV) + VEA, VWO (international) + GLD, TLT (diversifiers). All ETFs live since 2007-07 or earlier; no SPY-proxy contamination in post-2008 backtest.
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> {', '.join(SAFE_POOL)} (best-of by Faber 10m SMA distance)</li>
 <li><strong>Canary:</strong> HYG + TIP, ANY positive Keller 13612W &gt; 0 -&gt; risk-on; both negative -&gt; 100% best safe. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>
@@ -1038,7 +1038,7 @@ def main():
 <div class='card'>
 <ul>
 <li><strong>In-sample selection bias:</strong> hyperparameters and universe tuned on this same data window.</li>
-<li><strong>Universe risk:</strong> 7-name US factor universe is bespoke / human-curated. All ETFs live since 2005 or earlier; no SPY-proxy contamination in post-2008 backtest.</li>
+<li><strong>Universe risk:</strong> 7-name US equity sub-universe is bespoke / human-curated. All ETFs live since 2005 or earlier; no SPY-proxy contamination in post-2008 backtest.</li>
 <li><strong>Pre-2010 proxies:</strong> XMHQ/SPHQ use MDY/SPY proxies pre-2005 inception (only affects 1997-2005 Extended-28y window; live-18y window is proxy-free).</li>
 <li><strong>Crisis-concentrated alpha:</strong> top 4 single years (2008 +45.8pp, 2002 +32.8pp, 2020 +17.6pp, 2022 +17.2pp) contribute +128pp of total +25pp arithmetic excess vs SPY. Non-crisis years generally lag SPY.</li>
 <li><strong>Lags V-shaped recoveries</strong> (verified): 2009 full-year -10.8pp vs SPY; 2020-Q2 -27.6pp vs SPY in the snap-back. Canary slow to re-engage after deep selloffs.</li>

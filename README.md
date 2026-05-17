@@ -1,8 +1,8 @@
 # CPM-BULL
 
-**Canary-gated Pair Momentum + BULL-QQQ overlay** -- a monthly tactical
-asset allocation strategy combining cross-asset momentum rotation with a
-trend-filtered Nasdaq satellite. See [TL;DR](#summary-card) for the
+**Canary-gated Pair Momentum + BULL-QQQ overlay** -- a monthly tactical asset allocation strategy: canary-gated momentum
+with min-variance pair selection (CPM), plus a trend-filtered Nasdaq
+overlay (BULL-QQQ). See [TL;DR](#summary-card) for the
 2-minute version, [Strategy spec](#strategy-spec-compact) for the
 pseudocode, [Validation & Robustness](#validation--robustness) for the
 full rigor.
@@ -13,9 +13,10 @@ Two-sleeve monthly TAA: **70% CPM defensive engine + 30% BULL-QQQ overlay**.
 Monthly rebalance, ETF-only, no leverage, 10 bps/side cost. Designed for
 IRA/401k/Roth only (monthly rotation = short-term gains).
 
-CPM = **factor/diversifier momentum rotation** with canary gating and
-minimum-variance pair selection. 11-asset universe spans equity factors,
-sectors, international, and diversifiers (GLD/TLT structurally critical).
+CPM = **canary-gated momentum + min-variance pair selection** across
+an 11-asset universe. NOT marketed as factor rotation -- ETFs span
+equity factors, sectors, international, and diversifiers, with GLD/TLT
+structurally critical (~-0.32 Sh if removed).
 BULL-QQQ = trend-filtered Nasdaq overlay, independently gated by its own
 3-asset canary (HYG/LQD/TIP). Note the canaries differ by sleeve: CPM uses
 HYG/TIP/GLD (real-asset/tail focus), BULL uses HYG/LQD/TIP (credit/inflation
@@ -43,7 +44,7 @@ focus). Documented in caveat 7 -- intentional, not a bug.
 
 **Top 3 caveats** (full list of 9 in Validation & Robustness section):
 1. **Severe tax drag** -- economically unattractive outside tax-advantaged accounts (IRA/401k/Roth) for most investors. Monthly rotation = short-term gains, ~2-4pp/yr drag.
-2. **CPM is cross-asset momentum, not pure equity factor.** Drop GLD/TLT = -0.32 Sh standalone. Heavily relies on stock/bond negative correlation; degrades in 2022-style positive-correlation regimes.
+2. **CPM is cross-asset momentum + min-variance pair selection, not factor rotation.** Drop GLD/TLT = -0.32 Sh standalone. Heavily relies on stock/bond negative correlation; degrades in 2022-style positive-correlation regimes.
 3. **Structural V-shape recovery lag is permanent.** 13612U slow-by-design; bleeds ~1-2 months of alpha at violent regime turns (COVID 2020 was the tail). Asymmetric-canary fix tested, rejected.
 
 See **Strategy spec** (next section) for full pseudocode and component
@@ -302,7 +303,7 @@ Flat surface 60/40 to 80/20, 70/30 peaks both windows, NOT a sharp peak
    trials is supportive (93-100%) but N_eff is debatable -- if real trial
    count is higher, DSR confidence drops. Take as "supportive under
    assumed multi-test haircut", not "edge is proven real".
-2. **CPM is a cross-asset momentum strategy, not pure equity factor rotation.**
+2. **CPM is a cross-asset momentum + pair-selection strategy. Do not market or interpret as factor rotation.**
    Drop GLD/TLT = -0.32 Sh standalone. The edge heavily relies on the
    negative correlation and crisis-alpha provided by gold and long-duration
    Treasuries. If stock/bond correlation remains positive for an extended
@@ -439,7 +440,7 @@ Honest forward base-case Sharpe expectation: 0.80-1.10.
 
 Production is a two-sleeve TAA strategy:
 
-**CPM sleeve (70%)** selects two equity-factor ETFs each month from a curated
+**CPM sleeve (70%)** selects two ETFs each month from a curated
 11-asset universe (US factors + international + gold + long bond), weighted
 50/50, with a canary risk-gate, defensive cash rotation when conditions warrant,
 and 10% volatility targeting (de-risk only, no leverage).
@@ -466,7 +467,7 @@ The combined strategy is a hybrid of:
 ### Universe (CPM sleeve)
 
 **Risky (11 ETFs):**
-- US factor ETFs (7): QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV
+- 7 US equity ETFs (factor + sector mix): QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV
 - International (2): VEA (developed ex-US), VWO (emerging markets)
 - Diversifiers (2): GLD, TLT
 
@@ -806,7 +807,7 @@ business-cycle framework) + TSMOM/13612U composite trend filter.
 
 ### Bespoke / data-driven
 
-- **US factor universe (11 names)** - curated for sector/factor diversity
+- **11-asset universe (US factor + sector + intl + diversifier)** - curated for sector/asset-class diversity
   (size, value, quality, momentum, energy, retail, healthcare). Each
   constituent passes drop-impact test and liquidity threshold.
 - **International additions (VEA, VWO)** - regime hedge for non-US-led periods.
@@ -823,7 +824,7 @@ in the deployed strategy.
 | Component | Delta Sharpe |
 |---|---:|
 | SPY baseline | 0.58 |
-| Curated factor universe (11 risky) | +0.26 |
+| Curated 11-asset universe (factor + sector + intl + diversifier) | +0.26 |
 | Min-variance pair selection (378d lookback) | +0.18 |
 | Hold buffer 2.5z | +0.04 |
 | Best-safe rotation (BIL/SHV/SHY/IEF) | +0.03 (removed in oracle-v4, simplified to SHV-only) |
@@ -1175,7 +1176,7 @@ Proxy/live splice happens at each ETF's first trading day.
 | CANARY | TIP | 2003-12-04 | `VFITX -> VIPSX -> TIP` |
 
 **Honest caveats on data:**
-- The factor universe (XLE, VBR, SPHQ, XMHQ, XLV) is bespoke. SPHQ and XMHQ
+- The 11-asset universe (incl. XLE, VBR, SPHQ, XMHQ, XLV) is bespoke. SPHQ and XMHQ
   use MDY/SPY proxies pre-2005 inception. This only affects the
   Extended-28y window pre-2005 quality-factor exposure.
 - **Live-only 18y window** (2008-09 to today): every risky ETF is live

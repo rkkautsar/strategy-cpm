@@ -27,7 +27,7 @@ DATA_DIR = ROOT / "data"
 ARTIFACTS_PROXY = ROOT.parent / "artifacts" / "cpa-1997-exact-core-proxy-research" / "proxy_adjusted_close_daily.csv"
 
 # ---------- Configuration ----------
-# US factor universe: 7 names selected for clean live-data history and
+# US equity sub-universe (factor + sector mix): 7 names selected for clean live-data history and
 # positive selection rate in min-var pair audit. All ETFs live since 2005 or
 # earlier (no SPY-proxy contamination in backtest).
 US_FACTORS = [
