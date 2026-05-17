@@ -7,7 +7,7 @@
 #   - ECR repo created (this script creates it if missing)
 #
 # Usage:
-#   cd strategy_fcp
+#   cd strategy_cpm
 #   ./deploy/lambda/build_and_push.sh
 
 set -euo pipefail

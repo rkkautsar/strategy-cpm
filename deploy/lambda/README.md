@@ -116,7 +116,7 @@ export TELEGRAM_BOT_TOKEN=<your-token>
 export TELEGRAM_CHAT_ID=<your-chat-id>
 export DRY_RUN=true  # log signal without sending
 
-cd strategy_fcp
+cd strategy_cpm
 uv run python deploy/lambda/handler.py
 ```
 
