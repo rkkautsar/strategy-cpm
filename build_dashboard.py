@@ -527,8 +527,9 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
         "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
     }
 
+    from matplotlib.patches import Patch
     fig, axes = plt.subplots(2, 1, figsize=(8, 3.2), sharex=True,
-                             gridspec_kw={"hspace": 0.45})
+                             gridspec_kw={"hspace": 0.55})
     dates = [d for d, _, _, _ in cpm_per_date]
 
     # Row 1: CPM canary (HYG/TIP/GLD any-positive)
@@ -536,28 +537,35 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     axes[0].bar(dates, [1] * len(dates), color=cpm_colors, width=25, alpha=0.85, edgecolor="none")
     axes[0].set_yticks([])
     axes[0].set_ylim(0, 1)
-    axes[0].set_title(
-        f"CPM canary (HYG/TIP/GLD any-positive). "
-        f"Defensive {regime_counts['DEFENSIVE']}/{n_total} mo ({regime_counts['DEFENSIVE']/n_total*100:.0f}%). "
-        f"blue=risk-on, red=defensive (-> SHV cash).",
-        fontsize=9)
+    axes[0].set_title("CPM canary (HYG / TIP / GLD any-positive 13612U)", fontsize=9)
+    axes[0].legend(
+        handles=[
+            Patch(facecolor="#0040d0", label="RISK_ON (pair)"),
+            Patch(facecolor="#d04000", label="DEFENSIVE (SHV cash)"),
+        ],
+        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
+        frameon=False, handlelength=1.2, handleheight=0.7,
+    )
 
     # Row 2: BULL-QQQ canary (HYG/LQD/TIP any-positive + QQQ trend)
     bull_colors = []
     for r in bull_regimes:
-        if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")  # green = QQQ on
-        elif r.startswith("BULL_XLP"): bull_colors.append("#a06000")  # amber = late-cycle XLP
-        else: bull_colors.append("#808080")  # gray = cash
+        if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")
+        elif r.startswith("BULL_XLP"): bull_colors.append("#a06000")
+        else: bull_colors.append("#808080")
     axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
     axes[1].set_yticks([])
     axes[1].set_ylim(0, 1)
-    axes[1].set_title(
-        f"BULL canary (HYG/LQD/TIP + QQQ trend). "
-        f"QQQ {regime_counts['BULL_QQQ']}/{n_total} ({regime_counts['BULL_QQQ']/n_total*100:.0f}%), "
-        f"XLP {regime_counts['BULL_XLP']}/{n_total} ({regime_counts['BULL_XLP']/n_total*100:.0f}%), "
-        f"Cash {regime_counts['BULL_CASH']}/{n_total} ({regime_counts['BULL_CASH']/n_total*100:.0f}%). "
-        f"green=QQQ, amber=XLP late-cycle, gray=SHV.",
-        fontsize=9)
+    axes[1].set_title("BULL canary (HYG / LQD / TIP any-positive 13612U + QQQ trend)", fontsize=9)
+    axes[1].legend(
+        handles=[
+            Patch(facecolor="#00a040", label="BULL_QQQ"),
+            Patch(facecolor="#a06000", label="BULL_XLP (late-cycle)"),
+            Patch(facecolor="#808080", label="CASH (SHV)"),
+        ],
+        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=3, fontsize=7,
+        frameon=False, handlelength=1.2, handleheight=0.7,
+    )
     axes[1].xaxis.set_major_locator(mdates.YearLocator(2))
     axes[1].xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     plt.tight_layout()
