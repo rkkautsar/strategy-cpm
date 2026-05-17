@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-FCP - Factor, Canary, Pair
+CPM - Factor, Canary, Pair
 Production allocation runner + backtest.
 
 Usage:
-    python fcp_live.py allocate                          # show this month's target weights
-    python fcp_live.py allocate --signal-date 2026-04-30
-    python fcp_live.py backtest                          # full backtest with all components
-    python fcp_live.py backtest --start 2010-01-01 --out /tmp/fcp_out
-    python fcp_live.py backtest --no-vol-target --no-cost
+    python cpm_live.py allocate                          # show this month's target weights
+    python cpm_live.py allocate --signal-date 2026-04-30
+    python cpm_live.py backtest                          # full backtest with all components
+    python cpm_live.py backtest --start 2010-01-01 --out /tmp/fcp_out
+    python cpm_live.py backtest --no-vol-target --no-cost
 """
 from __future__ import annotations
 
@@ -47,12 +47,12 @@ SAFE_POOL = ["SHV"]            # Single-asset cash mode (unified with BULL-QQQ).
 # HYG_stitched = VWEHX pre-2007-04 + live HYG post (high-yield credit signal).
 # 3-asset canary: HYG (credit), TIP (inflation), GLD (real-asset/tail).
 # GLD added based on 2026 review showing -3% 2023 return when canary off forced
-# FCP into TLT-defensive pair during rate-rising regime. With GLD in canary:
+# CPM into TLT-defensive pair during rate-rising regime. With GLD in canary:
 #   2023: -3.10% -> +6.23%, 2008: +2.38% -> +4.73%, 2022: -2.65% -> -1.21%
 # Bond/credit-based canary chosen because SPY momentum is already gated by
 # the universe's positive-momentum filter (adding SPY to canary is redundant).
 # Note: GLD addition is HARMFUL for BULL-QQQ canary (lone-GLD-positive states
-# have -2.29% mean fwd QQQ) but HELPFUL for FCP because FCP has multi-asset
+# have -2.29% mean fwd QQQ) but HELPFUL for CPM because CPM has multi-asset
 # universe and can pick GLD itself or vol-targeted equity pair when canary on.
 # See research/canary_rule_variants_v2.log + research/canary_state_rotation_notes.md
 CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
@@ -70,7 +70,7 @@ TARGET_VOL = 0.10           # annualized
 VOL_LOOKBACK_DAYS = 63
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
-PP_BLEND = 0.30             # 30% buffer sleeve (default; sweep shows 0.4-0.7 FCP weight roughly tied)
+PP_BLEND = 0.30             # 30% buffer sleeve (default; sweep shows 0.4-0.7 CPM weight roughly tied)
 
 # Buffer sleeve: PP-IEF (Browne 1981 Permanent Portfolio with IEF in place
 # of TLT to reduce duration risk; TLT had -31% drawdown in 2022).
@@ -82,7 +82,7 @@ PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
 # ---------- Data loading ----------
 
 def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
-               cache_dir: str = "/tmp/fcp_cache") -> pd.DataFrame:
+               cache_dir: str = "/tmp/cpm_cache") -> pd.DataFrame:
     """Build the daily price panel from all sources."""
     os.makedirs(cache_dir, exist_ok=True)
     
@@ -377,14 +377,14 @@ def perf_metrics(daily: pd.Series) -> dict:
             "cagr": cagr, "vol": vol, "sharpe": sharpe, "max_drawdown": mdd}
 
 
-def run_fcp_backtest(
+def run_cpm_backtest(
     panel: pd.DataFrame,
     start: pd.Timestamp,
     end: pd.Timestamp,
     apply_vol_target: bool = True,
     cost_bps: float = COST_BPS_PER_SIDE,
 ) -> tuple[pd.Series, list]:
-    """Run FCP standalone (no PP blend). Returns daily returns + diagnostics list."""
+    """Run CPM standalone (no PP blend). Returns daily returns + diagnostics list."""
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     close = panel[cols]
     
@@ -474,8 +474,8 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
 
 
 def run_fcp_pp_blend(panel, start, end, blend_pct=PP_BLEND, **kwargs) -> tuple[pd.Series, pd.Series, pd.Series]:
-    """Returns (blended, fcp, pp)."""
-    fcp_daily, _ = run_fcp_backtest(panel, start, end, **kwargs)
+    """Returns (blended, cpm, pp)."""
+    fcp_daily, _ = run_cpm_backtest(panel, start, end, **kwargs)
     pp_daily = run_pp_backtest(panel, start, end)
     common = fcp_daily.index.intersection(pp_daily.index)
     blended = (1 - blend_pct) * fcp_daily.reindex(common).fillna(0.0) + blend_pct * pp_daily.reindex(common).fillna(0.0)
@@ -507,12 +507,12 @@ def cmd_allocate(args):
                 valid = panel[c].loc[:sig_d].dropna()
                 if len(valid) > 0:
                     sig_d = min(sig_d, valid.index[-1])
-    print(f"FCP Allocation @ {sig_d.date()} (signal date)")
+    print(f"CPM Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)
     
-    # FCP weights
+    # CPM weights
     weights, pair, regime, safe = compute_target_weights(panel, sig_d)
-    print(f"\n[FCP sleeve, 70% of capital]")
+    print(f"\n[CPM sleeve, 70% of capital]")
     print(f"  Regime: {regime}")
     print(f"  Best safe: {safe}")
     if pair:
@@ -545,20 +545,20 @@ def cmd_backtest(args):
     panel = load_panel(start=start, end=end)
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
-    print(f"\nRunning FCP backtest from {start.date()} to {end.date()} ...")
+    print(f"\nRunning CPM backtest from {start.date()} to {end.date()} ...")
     
     kwargs = dict(
         apply_vol_target=not args.no_vol_target,
         cost_bps=0 if args.no_cost else COST_BPS_PER_SIDE,
     )
     
-    blended, fcp, pp = run_fcp_pp_blend(panel, start, end, **kwargs)
+    blended, cpm, pp = run_fcp_pp_blend(panel, start, end, **kwargs)
     
     print(f"\n{'Strategy':25s} {'CAGR':>8s} {'Vol':>7s} {'Sharpe':>7s} {'MaxDD':>8s}")
     print("-" * 60)
-    for label, daily in [("FCP standalone", fcp),
+    for label, daily in [("CPM standalone", cpm),
                          ("Permanent Portfolio", pp),
-                         ("FCP-PP (70/30)", blended)]:
+                         ("CPM-PP (70/30)", blended)]:
         m = perf_metrics(daily)
         print(f"{label:25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
     
@@ -573,7 +573,7 @@ def cmd_backtest(args):
     if args.out:
         out_path = Path(args.out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        df = pd.DataFrame({"FCP": fcp, "PP": pp, "FCP_PP_blend": blended})
+        df = pd.DataFrame({"CPM": cpm, "PP": pp, "FCP_PP_blend": blended})
         df.to_csv(f"{out_path}_daily.csv")
         print(f"\nSaved daily returns: {out_path}_daily.csv")
 

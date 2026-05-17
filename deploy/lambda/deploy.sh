@@ -17,10 +17,10 @@ set -euo pipefail
 
 # === Config (edit if needed) ===
 AWS_REGION="${AWS_REGION:-us-east-1}"
-ECR_REPO="${ECR_REPO:-fcp-bull-signal}"
-LAMBDA_NAME="${LAMBDA_NAME:-fcp-bull-signal}"
+ECR_REPO="${ECR_REPO:-cpm-bull-signal}"
+LAMBDA_NAME="${LAMBDA_NAME:-cpm-bull-signal}"
 LAMBDA_ROLE="${LAMBDA_ROLE:-lambda-basic-execution}"
-SCHEDULE_NAME="${SCHEDULE_NAME:-fcp-bull-monthly}"
+SCHEDULE_NAME="${SCHEDULE_NAME:-cpm-bull-monthly}"
 # Cron: 1st of month at 14:00 UTC (= 10am ET standard / 9am ET DST)
 SCHEDULE_CRON="${SCHEDULE_CRON:-cron(0 14 1 * ? *)}"
 LAMBDA_TIMEOUT="${LAMBDA_TIMEOUT:-120}"

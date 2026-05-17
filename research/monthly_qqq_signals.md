@@ -32,7 +32,7 @@
 - **Rule**: weighted score `(12*r1 + 4*r3 + 2*r6 + r12) / 19` > 0 → in asset.
 - **Designed for**: breadth-protected rotation across multi-asset universe with canary gating, NOT single-asset timing.
 - **Empirical on QQQ alone**: WORST single-asset signal tested (Sh 0.76 vs 0.86-0.94 for others).
-- **Verdict**: don't use for per-asset filtering. Keep for safe-pool rotation in FCP sleeve.
+- **Verdict**: don't use for per-asset filtering. Keep for safe-pool rotation in CPM sleeve.
 
 ### 4. Time-series momentum (3, 6, 12 month returns)
 - **Source**: Jegadeesh & Titman 1993; Moskowitz/Ooi/Pedersen 2012.
@@ -68,7 +68,7 @@
 - Slow filters (EMA 2/10 monthly, Faber 12mo) underperform on tech.
 - Faber 6mo wins the live window; 12-1 momentum is a close second.
 
-### MAX-TOP2 context (top-2 from {QQQ,SMH,SCHG,XLK,IWM} + macro gate, 70/30 blend with FCP)
+### MAX-TOP2 context (top-2 from {QQQ,SMH,SCHG,XLK,IWM} + macro gate, 70/30 blend with CPM)
 
 | Per-asset filter | LIVE 18y blend Sh / CAGR / DD | EXT 28y blend Sh / CAGR / DD |
 |---|---:|---:|

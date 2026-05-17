@@ -2,7 +2,7 @@
 """
 BULL-QQQ - Regime-gated QQQ overlay with SHV cash fallback.
 
-The 20% bull sleeve that pairs with the 80% FCP-11 sleeve in production
+The 20% bull sleeve that pairs with the 80% CPM-11 sleeve in production
 (70/30 or 60/40 also viable, per personal-capital preference).
 
 Strategy:
@@ -26,7 +26,7 @@ Design rationale:
     mega-cap tech exposure (top 100 Nasdaq names)
   - Multi-ETF "diversified" universes (SMH/SCHG/XLK/IWM/GLD) tested and
     rejected: same Sharpe, more complexity, marginal pick noise
-  - SHV cash fallback chosen over FCP fallback: same Sharpe in blend,
+  - SHV cash fallback chosen over CPM fallback: same Sharpe in blend,
     better COVID protection (-5.4% vs -9.0%), zero duration risk
   - Two-filter design: canary + (12-1 mom OR 13612U)
       * Canary catches credit/inflation stress (2022)
@@ -55,9 +55,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from fcp_live import (
+from cpm_live import (
     load_panel,
-    run_fcp_backtest,
+    run_cpm_backtest,
     perf_metrics,
     sig_13612W,
 )
@@ -135,9 +135,9 @@ EQUITY_OVERRIDE_MIN_HISTORY = 24       # min historical observations needed
 # Legacy fixed threshold (kept for reference; not used by default).
 EQUITY_OVERRIDE_THRESHOLD = 0.20
 
-# Production deployment: 70% FCP + 30% BULL-QQQ wired by build_dashboard.py.
+# Production deployment: 70% CPM + 30% BULL-QQQ wired by build_dashboard.py.
 # Sensitivity grid (oracle-v3): 70/30 peaks Sharpe on both LIVE/EXT, flat surface 60/40-80/20.
-PROD_BULL_WEIGHT = 0.30      # for CLI backtest reporting (70/30 FCP/BULL, oracle-v3 Sharpe-optimal)
+PROD_BULL_WEIGHT = 0.30      # for CLI backtest reporting (70/30 CPM/BULL, oracle-v3 Sharpe-optimal)
 
 COST_BPS_PER_SIDE = 10
 
@@ -428,7 +428,7 @@ def cmd_backtest(args):
     cost_bps = 0 if args.no_cost else COST_BPS_PER_SIDE
 
     bull_qqq = run_bull_qqq_backtest(panel, start, end, cost_bps=cost_bps)
-    fcp_rets, _ = run_fcp_backtest(panel, start, end, cost_bps=cost_bps)
+    fcp_rets, _ = run_cpm_backtest(panel, start, end, cost_bps=cost_bps)
     qqq = panel["QQQ"].ffill().pct_change().fillna(0).loc[start:end]
     spy = panel["SPY"].ffill().pct_change().fillna(0).loc[start:end]
 
@@ -436,12 +436,12 @@ def cmd_backtest(args):
     w_b = PROD_BULL_WEIGHT
     w_f = 1 - w_b
     blend = w_f * fcp_rets.loc[common] + w_b * bull_qqq.loc[common]
-    prod_label = f"{int(w_f*100)}% FCP + {int(w_b*100)}% BULL-QQQ (PROD)"
+    prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL-QQQ (PROD)"
 
     strategies = [
         (prod_label, blend),
         ("BULL-QQQ standalone", bull_qqq),
-        ("FCP-11 standalone", fcp_rets),
+        ("CPM-11 standalone", fcp_rets),
         ("QQQ buy-hold", qqq),
         ("SPY buy-hold", spy),
     ]

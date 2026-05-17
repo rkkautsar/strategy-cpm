@@ -1,6 +1,6 @@
 # AWS Lambda monthly signal deployment
 
-Runs the FCP+BULL strategy on the 1st of each month, sends the signal to
+Runs the CPM-BULL strategy on the 1st of each month, sends the signal to
 your Telegram chat. Free at this volume (~$0/year on Lambda + EventBridge).
 
 ## Quick start (one-time setup, ~1 hour)
@@ -25,7 +25,7 @@ aws sts get-caller-identity
 
 ### 3. Build + push container (~20 min, mostly download)
 
-From `strategy_fcp/` root:
+From `strategy_cpm/` root:
 
 ```bash
 chmod +x deploy/lambda/build_and_push.sh
@@ -33,13 +33,13 @@ chmod +x deploy/lambda/build_and_push.sh
 ```
 
 Output ends with the image URI:
-`123456789.dkr.ecr.us-east-1.amazonaws.com/fcp-bull-signal:latest`
+`123456789.dkr.ecr.us-east-1.amazonaws.com/cpm-bull-signal:latest`
 
 ### 4. Create Lambda function (~10 min)
 
 ```bash
 # Replace IMAGE_URI with output from step 3
-IMAGE_URI="123456789.dkr.ecr.us-east-1.amazonaws.com/fcp-bull-signal:latest"
+IMAGE_URI="123456789.dkr.ecr.us-east-1.amazonaws.com/cpm-bull-signal:latest"
 ROLE_ARN="arn:aws:iam::123456789:role/lambda-basic-execution"  # create if missing
 
 # Create role first if you don't have one:
@@ -53,7 +53,7 @@ aws iam attach-role-policy --role-name lambda-basic-execution \
 
 # Create the function (use ROLE_ARN from above)
 aws lambda create-function \
-    --function-name fcp-bull-signal \
+    --function-name cpm-bull-signal \
     --package-type Image \
     --code ImageUri=$IMAGE_URI \
     --role $ROLE_ARN \
@@ -65,7 +65,7 @@ aws lambda create-function \
 Test it:
 
 ```bash
-aws lambda invoke --function-name fcp-bull-signal --payload '{}' /tmp/out.json
+aws lambda invoke --function-name cpm-bull-signal --payload '{}' /tmp/out.json
 cat /tmp/out.json
 # You should receive a Telegram message
 ```
@@ -75,24 +75,24 @@ cat /tmp/out.json
 ```bash
 # Create EventBridge schedule (1st of each month at 14:00 UTC = 10am ET)
 aws events put-rule \
-    --name fcp-bull-monthly \
+    --name cpm-bull-monthly \
     --schedule-expression 'cron(0 14 1 * ? *)' \
     --state ENABLED
 
 # Get the Lambda ARN
-LAMBDA_ARN=$(aws lambda get-function --function-name fcp-bull-signal --query 'Configuration.FunctionArn' --output text)
+LAMBDA_ARN=$(aws lambda get-function --function-name cpm-bull-signal --query 'Configuration.FunctionArn' --output text)
 
 # Wire EventBridge -> Lambda
-aws events put-targets --rule fcp-bull-monthly \
+aws events put-targets --rule cpm-bull-monthly \
     --targets "Id"="1","Arn"="$LAMBDA_ARN"
 
 # Allow EventBridge to invoke Lambda
 aws lambda add-permission \
-    --function-name fcp-bull-signal \
+    --function-name cpm-bull-signal \
     --statement-id allow-eventbridge \
     --action lambda:InvokeFunction \
     --principal events.amazonaws.com \
-    --source-arn $(aws events describe-rule --name fcp-bull-monthly --query 'Arn' --output text)
+    --source-arn $(aws events describe-rule --name cpm-bull-monthly --query 'Arn' --output text)
 ```
 
 Done. You'll receive a Telegram message on the 1st of each month at 10am ET.
@@ -104,7 +104,7 @@ Whenever you change strategy code:
 ```bash
 ./deploy/lambda/build_and_push.sh
 aws lambda update-function-code \
-    --function-name fcp-bull-signal \
+    --function-name cpm-bull-signal \
     --image-uri $IMAGE_URI
 ```
 
@@ -134,7 +134,7 @@ uv run python deploy/lambda/handler.py
 | "Image not found" on Lambda create | Wait 1-2 min after push, ECR propagation |
 | Timeout in Lambda | Increase --timeout to 120 (yfinance can be slow) |
 | "Cannot find package pandas" | Rebuild image; requirements.txt missing or platform mismatch |
-| No Telegram message arrived | Check CloudWatch logs (`aws logs tail /aws/lambda/fcp-bull-signal --follow`) |
+| No Telegram message arrived | Check CloudWatch logs (`aws logs tail /aws/lambda/cpm-bull-signal --follow`) |
 | Schedule not firing | Verify rule is ENABLED and Lambda permission is added |
 
 ## Files

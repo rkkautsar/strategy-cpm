@@ -5,12 +5,12 @@
 set -euo pipefail
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
-ECR_REPO="${ECR_REPO:-fcp-bull-signal}"
-LAMBDA_NAME="${LAMBDA_NAME:-fcp-bull-signal}"
+ECR_REPO="${ECR_REPO:-cpm-bull-signal}"
+LAMBDA_NAME="${LAMBDA_NAME:-cpm-bull-signal}"
 LAMBDA_ROLE="${LAMBDA_ROLE:-lambda-basic-execution}"
-SCHEDULE_NAME="${SCHEDULE_NAME:-fcp-bull-monthly}"
+SCHEDULE_NAME="${SCHEDULE_NAME:-cpm-bull-monthly}"
 
-echo "==> Tearing down FCP+BULL Lambda deployment"
+echo "==> Tearing down CPM-BULL Lambda deployment"
 echo "    Region: $AWS_REGION"
 echo "    Lambda: $LAMBDA_NAME"
 echo ""

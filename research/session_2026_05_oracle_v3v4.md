@@ -10,7 +10,7 @@
 ### Verified (no change needed)
 - Override threshold is expanding-window only (no lookahead)
 - 13612W formula confirmed: `(12r1 + 4r3 + 2r6 + r12)/19` (Keller weighted)
-- FCP <2 candidates fallback handled (1 pos = 50/50 with safe, 0 = full safe)
+- CPM <2 candidates fallback handled (1 pos = 50/50 with safe, 0 = full safe)
 - Top-K ranker uses Faber 10mo SMA distance (NOT 12-1) — pseudocode fixed
 
 ### Tested and rejected
@@ -22,11 +22,11 @@
 - IEF in SAFE pool: by design (best-of-safes rotation by SMA distance picks
   SHV/BIL during rate-rising regimes like 2022, IEF during rate-falling like
   2008-2020). NOT a "duration leak" bug — tactical duration management.
-- BULL-QQQ cash fallback is SHV-only (verified, separate from FCP SAFE)
+- BULL-QQQ cash fallback is SHV-only (verified, separate from CPM SAFE)
 
 ## New PROD metrics
 
-| Window | FCP Sh | BULL Sh | 70/30 PROD Sh | CAGR | MaxDD |
+| Window | CPM Sh | BULL Sh | 70/30 PROD Sh | CAGR | MaxDD |
 |---|---:|---:|---:|---:|---:|
 | LIVE 18y | 1.26 | 1.07 | **1.48** | 14.25% | -12.3% |
 | EXT 32y | 1.14 | 0.91 | **1.27** | 13.17% | -15.2% |
@@ -62,7 +62,7 @@ Key conclusions:
 
 ## Pseudocode correction
 
-Previous pseudocode incorrectly showed FCP using `top_k_by_12_1_momentum`.
+Previous pseudocode incorrectly showed CPM using `top_k_by_12_1_momentum`.
 Actual code uses Faber 10mo SMA distance for cross-sectional ranking, then
 canary (13612W) for risk-on/off decision. Fixed in `strategy_summary.md`.
 

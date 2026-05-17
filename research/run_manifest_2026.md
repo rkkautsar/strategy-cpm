@@ -1,4 +1,4 @@
-# FCP+BULL Run Manifest (current spec, 2026)
+# CPM-BULL Run Manifest (current spec, 2026)
 
 Reproducible specification of the strategy as it stands. NOT versioned
 (nothing has run live or been published; this is the current research
@@ -7,7 +7,7 @@ candidate state).
 ## Blend
 
 ```
-FCP sleeve weight:   0.70
+CPM sleeve weight:   0.70
 BULL sleeve weight:  0.30
 ```
 
@@ -26,7 +26,7 @@ faber_score(asset):  (price[T] - SMA_10mo) / SMA_10mo
                      (Faber 2007 SMA-distance, total-return adjusted)
 ```
 
-## FCP sleeve (70% capital)
+## CPM sleeve (70% capital)
 
 ```
 RISKY universe (11): QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV, VEA, VWO, GLD, TLT
@@ -165,7 +165,7 @@ Canary rules:                           any-positive vs 2-of-3 vs all vs single-
                                         (any-positive wins)
 Asymmetric canary (2-mo confirm):       REJECTED (-0.05 Sh)
 BULL vol-target:                        REJECTED (hurts Sharpe all caps)
-FCP-Core (drop QQQ/IGM):                REJECTED (-0.08 Sh)
+CPM-Core (drop QQQ/IGM):                REJECTED (-0.08 Sh)
 Universe drop tests:                    GLD/TLT critical (-0.32 Sh)
 ```
 
@@ -203,7 +203,7 @@ Run from repo root:
 Required:
   - yfinance (auto_adjust=True for total-return data)
   - pandas, numpy, scipy
-  - Pre-stitched panel via fcp_live.load_panel()
+  - Pre-stitched panel via cpm_live.load_panel()
 
 Random seed: not needed (deterministic given data)
 Time zone:   US/Eastern (NYSE close)

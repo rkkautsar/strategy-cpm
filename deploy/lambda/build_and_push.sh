@@ -14,7 +14,7 @@ set -euo pipefail
 
 # === Config (edit these) ===
 AWS_REGION="${AWS_REGION:-us-east-1}"
-ECR_REPO="${ECR_REPO:-fcp-bull-signal}"
+ECR_REPO="${ECR_REPO:-cpm-bull-signal}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 
 # === Derived ===
@@ -56,6 +56,6 @@ echo "    ${ECR_URI}:${IMAGE_TAG}"
 echo ""
 echo "Next: create/update Lambda to use this image."
 echo "  Or run: aws lambda update-function-code \\"
-echo "    --function-name fcp-bull-signal \\"
+echo "    --function-name cpm-bull-signal \\"
 echo "    --image-uri ${ECR_URI}:${IMAGE_TAG} \\"
 echo "    --region $AWS_REGION"

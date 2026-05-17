@@ -1,7 +1,7 @@
 # Session 2026-05: BULL-QQQ sleeve hardening + spec lockdown
 
 ## Starting state
-- 80/20 FCP+BULL-QQQ blend
+- 80/20 CPM-BULL blend
 - BULL-QQQ: 12-1 trend filter, HYG+TIP 2-asset canary, no override
 - +-+ rule: XLP substitution (oracle-locked previous session)
 
@@ -12,7 +12,7 @@ add academic backing, lock final spec.
 ## Final locked spec
 
 ```
-FCP sleeve (60% capital):
+CPM sleeve (60% capital):
   Universe: 11 risky ETFs (QQQ/IGM/XLE/VBR/SPHQ/XMHQ/XLV/VEA/VWO/GLD/TLT)
             + 4 safe pool (BIL/SHV/SHY/IEF)
   Canary: HYG+TIP any-positive 13612W
@@ -35,12 +35,12 @@ BULL-QQQ sleeve (40% capital):
 **LIVE 18y (2008-2026):**
 - 60/40 PROD: Sharpe 1.47, CAGR 16.10%, MaxDD -13.85%
 - BULL-QQQ standalone: Sh 1.12, CAGR 19.95%, MaxDD -28.56%
-- FCP standalone: Sh 1.29, CAGR 12.94%, MaxDD -10.59%
+- CPM standalone: Sh 1.29, CAGR 12.94%, MaxDD -10.59%
 
 **EXT 32y (1994-2026, incl. dot-com):**
 - 60/40 PROD: Sh 1.22, CAGR 13.63%, MaxDD -18.4%
 - BULL-QQQ standalone: Sh 0.91, CAGR 17.71%, MaxDD -41.1%
-- FCP standalone: Sh 1.09, CAGR 10.24%, MaxDD -14.2%
+- CPM standalone: Sh 1.09, CAGR 10.24%, MaxDD -14.2%
 
 **Forward expectations (heavily discounted):**
 - CAGR 8-12% (NOT backtest 16%)
@@ -104,7 +104,7 @@ BULL-QQQ sleeve (40% capital):
 - Mechanism: "rising rates on healthy growth" != risk-off (HAA conflates)
 
 ### Regime-conditional correlation (refutes diversification skepticism)
-| Regime | n | FCP-BULL corr |
+| Regime | n | CPM-BULL corr |
 |---|---:|---:|
 | Overall | 221 | 0.23 |
 | Risk-on (SPY 12-1 > 0) | 182 | 0.25 |
@@ -146,7 +146,7 @@ Documented in README "Credit-stress regime sector rotation" subsection:
   Credit-stress regime references, exact pseudocode, forward expectations discount,
   COVID-whip caveat, BULL tail-risk caveat, QQQ-era CAGR caveat
 - `build_dashboard.py`: BULL_BLEND = 0.40, header text fixes
-- `fcp_dashboard.html`: regenerated, 807KB
+- `cpm_dashboard.html`: regenerated, 807KB
 
 ## Research artifacts added
 - `research/oracle_v2_validation_2026.log` (641 lines): all validation outputs

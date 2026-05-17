@@ -1,7 +1,7 @@
 [project]
-name = "strategy-fcp"
+name = "strategy-cpm"
 version = "0.1.0"
-description = "FCP+BULL-QQQ — two-sleeve monthly TAA strategy"
+description = "CPM-BULL — two-sleeve monthly TAA strategy"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

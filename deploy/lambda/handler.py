@@ -1,4 +1,4 @@
-"""AWS Lambda entrypoint: compute monthly FCP+BULL signal and send to Telegram.
+"""AWS Lambda entrypoint: compute monthly CPM-BULL signal and send to Telegram.
 
 Triggered by EventBridge cron on the 1st of each month at 14:00 UTC.
 Reads ETF prices via yfinance, computes target allocation, sends formatted
@@ -60,7 +60,7 @@ def refresh_live_data(panel, today):
         "HYG", "LQD", "TIP", "GLD",
         # BULL bull asset + substitute
         "QQQ", "XLP",
-        # FCP universe (need fresh for momentum ranking)
+        # CPM universe (need fresh for momentum ranking)
         "IGM", "XLE", "VBR", "SPHQ", "XMHQ", "XLV", "VEA", "VWO", "TLT",
         # Cash + reference
         "SHV", "SPY",
@@ -111,16 +111,16 @@ def refresh_live_data(panel, today):
 
 
 def compute_signal() -> str:
-    """Run BULL-QQQ + FCP allocate commands and capture stdout."""
+    """Run BULL-QQQ + CPM allocate commands and capture stdout."""
     import pandas as pd
     import bull_qqq_live as bql
-    import fcp_live as fcp_mod
-    from fcp_live import load_panel, compute_target_weights, SAFE_POOL
+    import cpm_live as fcp_mod
+    from cpm_live import load_panel, compute_target_weights, SAFE_POOL
 
     # Clear yfinance disk cache to force fresh fetch (Lambda /tmp persists
     # across warm invocations; monthly cron cold-starts but safest to clear).
     import shutil
-    shutil.rmtree("/tmp/fcp_cache", ignore_errors=True)
+    shutil.rmtree("/tmp/cpm_cache", ignore_errors=True)
 
     # Load panel up to most recent month-end
     today = pd.Timestamp.today().normalize()
@@ -142,7 +142,7 @@ def compute_signal() -> str:
         )
     bull_text = bull_buf.getvalue()
 
-    # === FCP sleeve ===
+    # === CPM sleeve ===
     weights_fcp, pair, regime_fcp, safe = compute_target_weights(panel, sig_d)
 
     # === Combined portfolio ===
@@ -158,11 +158,11 @@ def compute_signal() -> str:
 
     # === Format message ===
     lines = []
-    lines.append(f"📊 FCP+BULL Monthly Signal")
+    lines.append(f"📊 CPM-BULL Monthly Signal")
     lines.append(f"Signal date: {sig_d.date()}")
     lines.append(f"Trade at next MOC (T+1)")
     lines.append("")
-    lines.append(f"━━━ FCP sleeve ({int(PROD_FCP_W*100)}%) ━━━")
+    lines.append(f"━━━ CPM sleeve ({int(PROD_FCP_W*100)}%) ━━━")
     lines.append(f"Regime: {regime_fcp}")
     for t, w in sorted(weights_fcp.items(), key=lambda x: -x[1]):
         lines.append(f"  {t:6s}  {w*100:5.1f}%")
@@ -227,7 +227,7 @@ def lambda_handler(event, context):
         }
 
     except Exception as e:
-        err_msg = f"❌ FCP+BULL signal FAILED\n{type(e).__name__}: {e}\n\n{traceback.format_exc()[:1500]}"
+        err_msg = f"❌ CPM-BULL signal FAILED\n{type(e).__name__}: {e}\n\n{traceback.format_exc()[:1500]}"
         logger.error(err_msg)
         # Try to send error to Telegram so you know it failed
         try:

@@ -1,19 +1,19 @@
-# FCP - Factor, Canary, Pair
+# CPM - Factor, Canary, Pair
 
 A monthly tactical asset allocation strategy combining factor-ETF momentum
 rotation with risk-parity-style diversification.
 
 ## Summary Card
 
-Two-sleeve monthly TAA: **70% FCP defensive engine + 30% BULL-QQQ overlay**.
+Two-sleeve monthly TAA: **70% CPM defensive engine + 30% BULL-QQQ overlay**.
 Monthly rebalance, ETF-only, no leverage, 10 bps/side cost. Designed for
 IRA/401k/Roth only (monthly rotation = short-term gains).
 
-FCP = **factor/diversifier momentum rotation** with canary gating and
+CPM = **factor/diversifier momentum rotation** with canary gating and
 minimum-variance pair selection. 11-asset universe spans equity factors,
 sectors, international, and diversifiers (GLD/TLT structurally critical).
 BULL-QQQ = trend-filtered Nasdaq overlay, independently gated by its own
-3-asset canary (HYG/LQD/TIP). Note the canaries differ by sleeve: FCP uses
+3-asset canary (HYG/LQD/TIP). Note the canaries differ by sleeve: CPM uses
 HYG/TIP/GLD (real-asset/tail focus), BULL uses HYG/LQD/TIP (credit/inflation
 focus). Documented in caveat 7 -- intentional, not a bug.
 
@@ -22,8 +22,8 @@ focus). Documented in caveat 7 -- intentional, not a bug.
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30 FCP+BULL-QQQ** | **1.56** | **16.63%** | **-12.3%** |
-| FCP standalone | 1.34 | 13.48% | -10.8% |
+| **PROD 70/30 CPM-BULL** | **1.56** | **16.63%** | **-12.3%** |
+| CPM standalone | 1.34 | 13.48% | -10.8% |
 | BULL-QQQ standalone | 1.26 | 23.15% | -28.6% |
 | Naive 70/30 PP/QQQ-trend (counterfactual) | 1.01 | 8.4% | -14.9% |
 | QQQ buy-hold (raw target) | 0.89 | 18.95% | -35.1% |
@@ -39,7 +39,7 @@ focus). Documented in caveat 7 -- intentional, not a bug.
 
 **Top 3 caveats** (full list of 9 in Validation & Robustness section):
 1. **Severe tax drag** -- economically unattractive outside tax-advantaged accounts (IRA/401k/Roth) for most investors. Monthly rotation = short-term gains, ~2-4pp/yr drag.
-2. **FCP is cross-asset momentum, not pure equity factor.** Drop GLD/TLT = -0.32 Sh standalone. Heavily relies on stock/bond negative correlation; degrades in 2022-style positive-correlation regimes.
+2. **CPM is cross-asset momentum, not pure equity factor.** Drop GLD/TLT = -0.32 Sh standalone. Heavily relies on stock/bond negative correlation; degrades in 2022-style positive-correlation regimes.
 3. **Structural V-shape recovery lag is permanent.** 13612U slow-by-design; bleeds ~1-2 months of alpha at violent regime turns (COVID 2020 was the tail). Asymmetric-canary fix tested, rejected.
 
 See **Strategy spec** (next section) for full pseudocode and component
@@ -56,22 +56,22 @@ mom_13612U(asset)  = (r1 + r3 + r6 + r12) / 4    # canonical HAA unweighted aver
                                                   # (U = Unweighted; matches Keller paper)
 faber_score(asset) = (price[T] - SMA_10mo) / SMA_10mo
 
-# ====== FCP sleeve (70% capital) ======
+# ====== CPM sleeve (70% capital) ======
 RISKY = [QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV, VEA, VWO, GLD, TLT]   # 11 ETFs
 canary_on = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0 OR mom_13612U(GLD) > 0
 
 if not canary_on:
-    fcp = {SHV: 1.0}                                     # defensive: cash
+    cpm = {SHV: 1.0}                                     # defensive: cash
 else:
     candidates = [a for a in top_K=6 by faber_score if faber_score(a) > 0]
     # Candidate-count fallback (deterministic):
     if len(candidates) >= 2:
         pair = min_variance_pair(candidates, lookback=756d)  # ~3y covariance
-        fcp = {pair[0]: 0.5, pair[1]: 0.5}
+        cpm = {pair[0]: 0.5, pair[1]: 0.5}
     elif len(candidates) == 1:
-        fcp = {candidates[0]: 0.5, SHV: 0.5}                 # partial defensive
+        cpm = {candidates[0]: 0.5, SHV: 0.5}                 # partial defensive
     else:
-        fcp = {SHV: 1.0}                                     # full defensive
+        cpm = {SHV: 1.0}                                     # full defensive
     # Hold-buffer (deterministic, leg-level): retain prior pair member if its
     # cross-sectional z-score (sample-std over positive candidates) is within
     # HOLD_BUFFER = 2.5 units of the worst new pick. Stale members (faber<=0)
@@ -80,8 +80,8 @@ else:
 
 # Vol cap (de-risk only, scale capped at 1.0; no leverage)
 scale = min(1.0, 0.10 / realized_vol_63d(proposed_fcp_basket))
-fcp = {asset: weight * scale for asset, weight in fcp.items()}
-fcp[SHV] = fcp.get(SHV, 0.0) + (1.0 - sum(fcp.values()))   # cash absorbs residual
+cpm = {asset: weight * scale for asset, weight in cpm.items()}
+cpm[SHV] = cpm.get(SHV, 0.0) + (1.0 - sum(cpm.values()))   # cash absorbs residual
 
 # ====== BULL-QQQ sleeve (30% capital) ======
 trend_ok = mom_12_1(QQQ) > 0 OR mom_13612U(QQQ) > 0
@@ -93,7 +93,7 @@ if trend_ok AND macro_on:
 else:
     bull = {SHV: 1.0}
 
-# Combined: 70% FCP + 30% BULL, T+1 MOC execution, 10 bps/side
+# Combined: 70% CPM + 30% BULL, T+1 MOC execution, 10 bps/side
 ```
 
 ## Component sources
@@ -105,9 +105,9 @@ else:
 | Composite OR trend (12-1 OR 13612U) | Our extension |
 | TIP canary | Keller HAA 2022 |
 | HYG/LQD multi-canary | Our extension of Keller DAA (2018) |
-| Faber 10mo SMA ranker (FCP) | Faber 2007 SSRN-inspired; uses adjusted total-return prices (yfinance auto_adjust=True, dividend-reinvested). |
-| Min-variance pair selection | Optimum3/AllocateSmartly 2022-inspired; exact implementation is FCP's (756d covariance on total-return data). Beats lowest_corr (-0.22 Sh) and inv_vol (-0.08 Sh) variants; robust across 126-1260d lookback. |
-| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. NOT the strict Moskowitz/Ooi/Pedersen 2012 construction. Applied to FCP basket via 63d realized total-return vol; not portfolio-level. |
+| Faber 10mo SMA ranker (CPM) | Faber 2007 SSRN-inspired; uses adjusted total-return prices (yfinance auto_adjust=True, dividend-reinvested). |
+| Min-variance pair selection | Optimum3/AllocateSmartly 2022-inspired; exact implementation is CPM's (756d covariance on total-return data). Beats lowest_corr (-0.22 Sh) and inv_vol (-0.08 Sh) variants; robust across 126-1260d lookback. |
+| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. NOT the strict Moskowitz/Ooi/Pedersen 2012 construction. Applied to CPM basket via 63d realized total-return vol; not portfolio-level. |
 | Cross-sectional selection (top-K rank) | Conceptual inspiration: Jegadeesh & Titman 1993 JoF (return-rank momentum). Actual implementation: Faber 2007 SMA score. J&T listed for transparency of mechanism family, NOT as direct citation. |
 | Hold-buffer dampener | Practitioner standard (AQR notes); applied as z-score of Faber distance |
 | **XLP in HYG-/LQD-/TIP+** | Neuberger Berman 2024 (credit-spread sector rotation), Fidelity business cycle, Hartford Funds 2025 (inflation duration) |
@@ -202,15 +202,15 @@ covariance in first ~2 years; strict no-proxy / full-lookback runs
   over thoughtful-but-simpler implementation of same meta-architecture.
 - vs **QQQ buy-hold** (raw target): **+0.67 Sh, -2.32pp CAGR, MaxDD
   -12% vs -35%** (~3x lower DD). Trades CAGR for crisis protection.
-- vs **FCP alone**: +0.22 Sh, +3.15pp CAGR (the 30% bull sleeve adds
+- vs **CPM alone**: +0.22 Sh, +3.15pp CAGR (the 30% bull sleeve adds
   Nasdaq-100 upside in risk-on months without contaminating defensive logic).
 
-### Universe robustness (asset-class drop, FCP standalone)
+### Universe robustness (asset-class drop, CPM standalone)
 
-| Drop | Delta FCP Sh | Verdict |
+| Drop | Delta CPM Sh | Verdict |
 |---|---:|---|
 | International (VEA/VWO) | +0.02 | not load-bearing |
-| Tech (QQQ/IGM) | +0.03 / -0.08 | mixed (older spec helped; current 13612U+756d hurts -- FCP-Core rejected) |
+| Tech (QQQ/IGM) | +0.03 / -0.08 | mixed (older spec helped; current 13612U+756d hurts -- CPM-Core rejected) |
 | Equity factors (XMHQ/SPHQ/VBR) | -0.02 | helpful, not overwhelming |
 | Sectors (XLE/XLV) | -0.12 | matter |
 | **Diversifiers (GLD/TLT)** | **-0.32** | **structurally essential** |
@@ -298,11 +298,11 @@ Flat surface 60/40 to 80/20, 70/30 peaks both windows, NOT a sharp peak
    trials is supportive (93-100%) but N_eff is debatable -- if real trial
    count is higher, DSR confidence drops. Take as "supportive under
    assumed multi-test haircut", not "edge is proven real".
-2. **FCP is a cross-asset momentum strategy, not pure equity factor rotation.**
+2. **CPM is a cross-asset momentum strategy, not pure equity factor rotation.**
    Drop GLD/TLT = -0.32 Sh standalone. The edge heavily relies on the
    negative correlation and crisis-alpha provided by gold and long-duration
    Treasuries. If stock/bond correlation remains positive for an extended
-   secular period (like 2022), the FCP sleeve's efficiency degrades. This
+   secular period (like 2022), the CPM sleeve's efficiency degrades. This
    was a 2-2.5 sigma event historically but cannot be assumed away.
 3. **Structural V-shape recovery lag is permanent.** 13612U momentum
    lookback (1/3/6/12-month avg) is slow by design. Strategy bleeds
@@ -318,23 +318,23 @@ Flat surface 60/40 to 80/20, 70/30 peaks both windows, NOT a sharp peak
    + state 0-13%. Use only in IRA / 401k / Roth / tax-deferred. In a
    taxable account, after-tax CAGR drops to ~4-7% (vs 8-12% forward
    pre-tax expectation) -- not worth the operational complexity.
-6. **Vol-target is sleeve-level, not portfolio-level**: FCP has 10% vol
+6. **Vol-target is sleeve-level, not portfolio-level**: CPM has 10% vol
    target (de-risk only, scale capped at 1.0, no leverage), BULL has none. Realized vol
-   computed on 63-day daily total-return std of the proposed current FCP
+   computed on 63-day daily total-return std of the proposed current CPM
    basket. Combined portfolio is NOT explicitly vol-targeted -- BULL
    contributes raw exposure. Tested adding vol-target to BULL (oracle-v6):
    hurts Sharpe across all caps 15-30% because cuts QQQ exposure exactly
    when rallies are hardest.
 7. **LQD divergence quirk** -- psychological execution risk. BULL sleeve
    has independent macro gate (HYG OR LQD OR TIP positive 13612U). When
-   FCP canary off (HYG- AND TIP- AND GLD-) but LQD+, BULL may remain risk-on:
-   combined portfolio can hold 30% QQQ while FCP is 70% SHV. By design --
-   BULL catches IG-credit-only recovery signals FCP's 2-asset canary
+   CPM canary off (HYG- AND TIP- AND GLD-) but LQD+, BULL may remain risk-on:
+   combined portfolio can hold 30% QQQ while CPM is 70% SHV. By design --
+   BULL catches IG-credit-only recovery signals CPM's 2-asset canary
    misses -- but holding 30% Nasdaq-100 while the core engine screams
    "cash" will be psychologically difficult to execute in real-time.
    Have a written plan to not override the rule.
-8. **Defensive avoids INTERMEDIATE-duration only**: FCP defensive mode is
-   100% SHV (ultra-short Treasury, ~0.3y effective duration). But FCP
+8. **Defensive avoids INTERMEDIATE-duration only**: CPM defensive mode is
+   100% SHV (ultra-short Treasury, ~0.3y effective duration). But CPM
    risky universe still includes TLT when canary on -- strategy holds
    duration via TLT pair selection in risk-on. The cleaner claim:
    "defensive fallback uses short-treasury cash, not intermediate
@@ -382,28 +382,28 @@ proven alpha source.
 
 ## Bottom line (full spec)
 
-**Production deployment: 70% FCP defensive sleeve + 30% BULL-QQQ bull sleeve.**
+**Production deployment: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve.**
 
-FCP engine spec: 11 risky ETFs, `TOP_K_CANDIDATES=6`, `HOLD_BUFFER=2.5z`,
+CPM engine spec: 11 risky ETFs, `TOP_K_CANDIDATES=6`, `HOLD_BUFFER=2.5z`,
 **HYG+TIP+GLD "any positive" 13612U canary**, vol-target 10% (de-risk only,
 no leverage), 10 bps/side cost, SHV-only cash fallback. BULL-QQQ spec:
 composite trend (12-1 momentum OR 13612U > 0) AND multi-canary
 (HYG/LQD/TIP any-positive 13612U); bull asset is XLP in HYG-/LQD-/TIP+
 state, QQQ elsewhere; SHV cash when filters fail.
 
-| Metric (LIVE 18y, post-cost) | FCP only | BULL-QQQ only | **70/30 PROD** |
+| Metric (LIVE 18y, post-cost) | CPM only | BULL-QQQ only | **70/30 PROD** |
 |---|---:|---:|---:|
 | **Sharpe** | 1.34 | 1.26 | **1.56** |
 | CAGR | 13.48% | 23.15% | **16.63%** |
 | MaxDD | -9.74% | -28.56% | **-12.29%** |
 | Vol | 9.48% | 16.99% | **9.66%** |
 
-Production blend improves on FCP alone: +0.22 Sharpe (1.56 vs 1.34),
+Production blend improves on CPM alone: +0.22 Sharpe (1.56 vs 1.34),
 +3.15pp CAGR (16.63% vs 13.48%), with marginally wider DD (-12.3% vs
 -10.8%). The 30% bull sleeve adds Nasdaq-100 upside in regime-on months
 and sits in cash during regime stress.
 
-FCP canary fires defensive when none of HYG/TIP/GLD has positive 13612U
+CPM canary fires defensive when none of HYG/TIP/GLD has positive 13612U
 momentum -- ~15% defensive on the live window. BULL-QQQ uses the same canary
 plus QQQ 12-1 momentum > 0; sleeve is in cash ~29% of months. The two filters
 catch different bear types: canary catches credit/inflation stress (2022);
@@ -423,19 +423,19 @@ Production blend cuts drawdown ~5x with substantially better risk-adjusted retur
 
 ### Production blend
 
-70/30 FCP+BULL-QQQ: Sharpe 1.48, CAGR 14.25%, MaxDD -12.3% (live 18y).
+70/30 CPM-BULL: Sharpe 1.48, CAGR 14.25%, MaxDD -12.3% (live 18y).
 Sensitivity grid (oracle-v3): Sharpe-optimal blend across LIVE/EXT/TEST OOS,
 flat surface 60/40-80/20.
 
 Bootstrap CI on the live window is wide (95% CI on Sharpe is [0.86, 1.71]),
-not statistically distinguishable from FCP standalone within 95% bounds.
+not statistically distinguishable from CPM standalone within 95% bounds.
 Honest forward base-case Sharpe expectation: 0.80-1.10.
 
 ## What it does
 
 Production is a two-sleeve TAA strategy:
 
-**FCP sleeve (70%)** selects two equity-factor ETFs each month from a curated
+**CPM sleeve (70%)** selects two equity-factor ETFs each month from a curated
 11-asset universe (US factors + international + gold + long bond), weighted
 50/50, with a canary risk-gate, defensive cash rotation when conditions warrant,
 and 10% volatility targeting (de-risk only, no leverage).
@@ -452,14 +452,14 @@ Otherwise 100% SHV cash.
 
 The combined strategy is a hybrid of:
 - Antonacci 12-1 absolute momentum (BULL-QQQ per-asset filter)
-- Faber 10-month SMA distance (FCP cross-sectional ranker)
-- Min-variance pair selection (FCP sleeve)
-- Keller HAA-style canary regime gating (FCP: 3-asset HYG+TIP+GLD any-positive 13612U; BULL: 3-asset HYG+LQD+TIP any-positive 13612U)
-- AQR/Moskowitz vol targeting on FCP sleeve (de-risk only, no leverage)
+- Faber 10-month SMA distance (CPM cross-sectional ranker)
+- Min-variance pair selection (CPM sleeve)
+- Keller HAA-style canary regime gating (CPM: 3-asset HYG+TIP+GLD any-positive 13612U; BULL: 3-asset HYG+LQD+TIP any-positive 13612U)
+- AQR/Moskowitz vol targeting on CPM sleeve (de-risk only, no leverage)
 
 ## Strategy spec
 
-### Universe (FCP sleeve)
+### Universe (CPM sleeve)
 
 **Risky (11 ETFs):**
 - US factor ETFs (7): QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV
@@ -484,7 +484,7 @@ best-of [BIL/SHV/SHY/IEF] rotation captured ~0.03 Sh of rotation alpha but
 added operational complexity + IEF duration ambiguity; simplified to SHV-only
 to match BULL-QQQ cash fallback and eliminate oracle-v4 "duration leak" worry.
 
-**Canary assets (FCP):** HYG (stitched: VWEHX pre-2007-04 + live HYG), TIP, GLD
+**Canary assets (CPM):** HYG (stitched: VWEHX pre-2007-04 + live HYG), TIP, GLD
 
 ### Engine
 
@@ -492,7 +492,7 @@ Each month at month-end close (T):
 
 1. **Canary check** - compute Keller 13612U on HYG (high-yield credit) and
    TIP (inflation-linked bonds). Risk-on if EITHER is positive (`any_positive`
-   rule, `CANARY_RULE` in `fcp_live.py`). Defensive (100% best safe) only when
+   rule, `CANARY_RULE` in `cpm_live.py`). Defensive (100% best safe) only when
    BOTH are negative simultaneously. Pre-2007 HYG uses VWEHX (Vanguard
    High-Yield Corp Fund) as proxy; monthly correlation with live HYG is 0.91.
 2. **Faber SMA10m ranker** - for each universe asset compute
@@ -518,8 +518,8 @@ Each month at month-end close (T):
 - **Signal computed at month-end close (T)** - frozen, no intramonth refresh.
 - **Trade at MOC of T+1** - next trading day.
 - Single tranche per month. ~13 unique ETFs total when running the 70/30 blend
-  (11 FCP risky + SHV cash + QQQ + XLP, with QQQ shared between
-  sleeves and SHV shared with FCP safe pool).
+  (11 CPM risky + SHV cash + QQQ + XLP, with QQQ shared between
+  sleeves and SHV shared with CPM safe pool).
 
 ### BULL-QQQ sleeve (30% bull capture)
 
@@ -588,16 +588,16 @@ Sharpe 1.12, CAGR 19.97%, Vol 17.2%, MaxDD -28.56%.
 (BULL-QQQ standalone is path-risky as single-asset bet; the 70/30 blend
 is the production deployment.)
 
-**Why it pairs with FCP:** the 70% FCP sleeve provides defensive alpha;
+**Why it pairs with CPM:** the 70% CPM sleeve provides defensive alpha;
 pairing it with a 30% bull-tilted sleeve adds Nasdaq-100 upside without
-duplicating defensive picks. Blend math: 70% FCP + 30% BULL-QQQ lifts
-Sharpe to 1.48 (vs 1.26 FCP alone) and CAGR to 14.25% (vs 12.12%) with
+duplicating defensive picks. Blend math: 70% CPM + 30% BULL-QQQ lifts
+Sharpe to 1.48 (vs 1.26 CPM alone) and CAGR to 14.25% (vs 12.12%) with
 narrower DD (-12.3% vs -13.5%). Sensitivity grid: 70/30 is Sharpe-optimal
 on both LIVE and EXT windows; surface flat 60/40-80/20.
 
 **Why the blend math holds: regime-conditional correlation (LIVE):**
 
-| Regime | n | FCP-BULL correlation |
+| Regime | n | CPM-BULL correlation |
 |---|---:|---:|
 | Overall | 221 | 0.23 |
 | SPY risk-on (12-1 > 0) | 182 | 0.25 |
@@ -611,7 +611,7 @@ artifact of two equity-heavy sleeves.
 **Known structural tail: V-shaped recoveries and fast crashes.** COVID
 2020 is the calibration point: SPY -9.2%, BULL -16.8% (canary slow to
 go defensive on a V-shaped intramonth crash), but blend held to -1.6%
-because FCP absorbed it. Both sleeves share the canary-based defense lag
+because CPM absorbed it. Both sleeves share the canary-based defense lag
 by design -- calibrated for sustained stress, not intramonth shocks.
 Document as known tail, not a spec defect.
 
@@ -639,7 +639,7 @@ Document as known tail, not a spec defect.
   with 12-1 (this design) it adds real value via fast re-entry.
 - EMA(50/200) MONTHLY: math error (50 months / 200 months filter, useless).
 - IEF fallback (intermediate bonds): +0.02 Sharpe but adds duration risk.
-- FCP fallback: +0.85pp CAGR but worse Martin Ratio on extended; alpha duplicated with the 80% FCP sleeve.
+- CPM fallback: +0.85pp CAGR but worse Martin Ratio on extended; alpha duplicated with the 80% CPM sleeve.
 
 ### Cost assumption
 
@@ -649,7 +649,7 @@ Document as known tail, not a spec defect.
 ## How it differs from peers
 
 Faithfully-reproduced peer Sharpes (same data, same 10 bps/side cost, same
-live-only window as FCP). Published "paper" Sharpes are excluded because
+live-only window as CPM). Published "paper" Sharpes are excluded because
 they use different windows, often zero-cost assumptions, and were overstated
 by 0.10-0.95 vs faithful reproduction (e.g. VAA-G4 paper 1.44 vs reproduced
 0.49). See `research/peer_strategy_faithful_reproduction.log` for engine
@@ -662,20 +662,20 @@ rules and assumptions.
 | Keller VAA-G4 | VAA-7 | VAA | 0.49 | 6.0% | -27.8% | 17.6y |
 | Keller HAA-Bal | HAA-Bal | HAA | 0.93 | 9.1% | -15.5% | 13.1y |
 | ReSolve AAA (RDMIX) | live fund | live, net of 0.95% fee | 0.48 | 4.9% | -21.9% | 8.2y |
-| **FCP standalone** | FCP-11 | FCP | **1.34** | 13.48% | -10.8% | 18y |
-| **FCP + 30% BULL-QQQ (PROD 70/30)** | FCP-11 + QQQ | FCP+regime-bull | **1.56** | **16.63%** | **-12.29%** | 18y |
+| **CPM standalone** | CPM-11 | CPM | **1.34** | 13.48% | -10.8% | 18y |
+| **CPM + 30% BULL-QQQ (PROD 70/30)** | CPM-11 + QQQ | CPM+regime-bull | **1.56** | **16.63%** | **-12.29%** | 18y |
 | **Naive 70/30 PP/QQQ-trend** | 25/25/25/25 + 10mo SMA | passive + Faber | 1.01 | 8.4% | -14.9% | 18y |
 
-**Window-aligned FCP edge vs best fair peer**: FCP on the HAA window
+**Window-aligned CPM edge vs best fair peer**: CPM on the HAA window
 (2013-04-18 to today, 13.1y) gives Sharpe 1.204. HAA gives 0.933. Same
 window, same data, same cost: **+0.27 Sharpe edge**. Other peer engines
-underperform by larger margins (+0.66 to +0.71 vs FCP), so HAA is the most
+underperform by larger margins (+0.66 to +0.71 vs CPM), so HAA is the most
 competitive fair benchmark.
 
-**FCP has both engine and universe alpha, not just co-tuning**:
-- FCP engine on peer universes beats peer engines on the same universes by
+**CPM has both engine and universe alpha, not just co-tuning**:
+- CPM engine on peer universes beats peer engines on the same universes by
   +0.14 to +0.22 Sharpe (HAA engine is parity)
-- FCP universe on peer engines beats peer universes on the same engines
+- CPM universe on peer engines beats peer universes on the same engines
   by +0.05 to +0.40 Sharpe
 - Both components contribute independent edge
 
@@ -683,7 +683,7 @@ competitive fair benchmark.
 
 | Strategy | Sh | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30 FCP+BULL-QQQ** | **1.56** | **16.63%** | **-12.3%** |
+| **PROD 70/30 CPM-BULL** | **1.56** | **16.63%** | **-12.3%** |
 | Naive 70/30 PP / QQQ-trend | 1.01 | 8.4% | -14.9% |
 | QQQ buy-hold (raw target) | 0.86 | 18.66% | -50.0% (LIVE) |
 
@@ -828,7 +828,7 @@ in the deployed strategy.
 | Vol targeting overlay (10% annual, no leverage) | +0.02 |
 | Frozen-EOM signal + T+1 MOC execution | -0.01 |
 | 10bps cost drag | -0.06 |
-| **Total FCP standalone** | **1.20** |
+| **Total CPM standalone** | **1.20** |
 | **+ 30% BULL-QQQ bull sleeve (70/30 PROD)** | **+0.22 -> 1.48, +2.13pp CAGR, narrower DD** |
 
 ## Validation hygiene
@@ -844,20 +844,20 @@ in the deployed strategy.
   universe tuning is roughly neutral OOS, not a clear improvement.
 - **Hyperparameter robustness** (walk-forward across 5 OOS slices): selected
   config wins on 4/5 slices.
-- **Bootstrap CI on Sharpe** (B=2000, 21-day blocks): FCP standalone Sh 1.20,
+- **Bootstrap CI on Sharpe** (B=2000, 21-day blocks): CPM standalone Sh 1.20,
   95% CI [0.78, 1.63]. 60/40 blend Sh 1.24, 95% CI ~[0.80, 1.65]. CIs are wide.
 - **Head-to-head vs live ReSolve AAA fund (RDMIX)** (see
   `research/fcp_vs_resolve_live.log`): 2018-03 to 2026-05 (8.2y, aligned with
-  RDMIX inception). FCP gross Sh 1.31 / CAGR 11.6% / MaxDD -10.7% vs RDMIX
-  Sh 0.48 / CAGR 4.9% / MaxDD -21.9%. Bootstrap difference test: FCP-gross
-  beats RDMIX by +0.82 Sharpe at 95% significance. FCP-net (with -1%/y fee
-  drag) still beats by +0.71 Sh (just below 95%). FCP and RDMIX correlation
-  only 0.22. Caveat: FCP universe finalized with hindsight, so RDMIX
+  RDMIX inception). CPM gross Sh 1.31 / CAGR 11.6% / MaxDD -10.7% vs RDMIX
+  Sh 0.48 / CAGR 4.9% / MaxDD -21.9%. Bootstrap difference test: CPM-gross
+  beats RDMIX by +0.82 Sharpe at 95% significance. CPM-net (with -1%/y fee
+  drag) still beats by +0.71 Sh (just below 95%). CPM and RDMIX correlation
+  only 0.22. Caveat: CPM universe finalized with hindsight, so RDMIX
   comparison contains selection bias.
 - **Regime / crisis attribution** (see `research/fcp_regime_attribution.log`):
-  8/8 crisis windows show FCP positive alpha vs SPY (mean +21.5pp). 3/3
-  sustained bull rallies show FCP underperforms SPY (mean -28.6pp). Regime
-  buckets: FCP wins risk-off (Sh +0.54 vs SPY -0.80) and high-vol (Sh +1.03
+  8/8 crisis windows show CPM positive alpha vs SPY (mean +21.5pp). 3/3
+  sustained bull rallies show CPM underperforms SPY (mean -28.6pp). Regime
+  buckets: CPM wins risk-off (Sh +0.54 vs SPY -0.80) and high-vol (Sh +1.03
   vs +0.47), loses risk-on by small gap (Sh +2.29 vs +2.65). Top defensive
   pairs: TLT+XLV, GLD+TLT, SPHQ+TLT. Top bull pairs: GLD+SPHQ, IGM+XMHQ.
   Strategy gives up bull upside in exchange for crisis alpha as designed
@@ -945,7 +945,7 @@ XLP, no single ETF materially better. See `research/oracle_v2_validation_2026.lo
 
 **Dot-com stress (1999-2003, 60/40 PROD via production module):**
 
-| Year | SPY | QQQ | FCP | BULL | 60/40 |
+| Year | SPY | QQQ | CPM | BULL | 60/40 |
 |---|---:|---:|---:|---:|---:|
 | 1999 | +20.4% | +98.7% | +9.9% | +98.7% | +40.9% |
 | 2000 | -9.7% | -36.1% | +4.4% | -16.3% | -2.2% |
@@ -962,7 +962,7 @@ not just post-GFC corrections.
 
 | | Sharpe | CAGR | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|
-| FCP standalone EXT | 1.09 | 10.24% | -14.2% | 4.35% |
+| CPM standalone EXT | 1.09 | 10.24% | -14.2% | 4.35% |
 | BULL-QQQ standalone EXT | 0.91 | 17.71% | -41.1% | 10.65% |
 | **60/40 PROD EXT** | **1.22** | **13.63%** | **-18.4%** | **4.67%** |
 | SPY buy-hold EXT | 0.57 | 10.50% | -55.2% | 14.72% |
@@ -984,7 +984,7 @@ Sharpe survives multiple-testing data-mining haircut.
 | TEST OOS 2017-26 | 1.56 | 100% | 99.9% | 95.3% | 93.4% |
 | EXT 32y | 1.22 | 100% | 100% | 89.6% | 100% |
 
-**FCP standalone:**
+**CPM standalone:**
 
 | Window | SR | DSR (N=1000) |
 |---|---:|---:|
@@ -1007,7 +1007,7 @@ data-mining concerns.
 ### Honest caveats
 
 1. **In-sample selection bias.** Hyperparameters and universe selected after
-   seeing this data. Forward Sharpe base case 0.80-1.10 for FCP standalone
+   seeing this data. Forward Sharpe base case 0.80-1.10 for CPM standalone
    (point estimate 1.20 but bootstrap CI [0.78, 1.63]; walk-forward shows
    recent tuning is OOS-neutral, not a clear improvement). DSR (deflated
    Sharpe with N=1000 trials) shows 97.5%+ probability the edge is real.
@@ -1029,7 +1029,7 @@ data-mining concerns.
    MaxDD -28.56% (LIVE) / -41.1% (EXT 32y). 60/40 blend caps total impact
    to MaxDD -13.85% LIVE / -18.4% EXT. COVID 2020 is the calibration
    tail: SPY -9.2%, BULL -16.8% (canary slow on V-shaped intramonth
-   crash), blend held to -1.6% only because FCP absorbed it. Both sleeves
+   crash), blend held to -1.6% only because CPM absorbed it. Both sleeves
    share canary-based-defense lag by design -- calibrated for sustained
    stress, not intramonth shocks.
 7. **BULL-QQQ standalone CAGR is QQQ-era driven.** LIVE-18y 20% CAGR
@@ -1054,7 +1054,7 @@ data-mining concerns.
 ### Monthly rebalance procedure
 
 At T (last trading day of month, after close):
-1. Pull data for all FCP universe + canary + safe assets
+1. Pull data for all CPM universe + canary + safe assets
 2. Compute monthly returns up to month-end T
 3. Apply canary check (HYG+TIP+GLD 13612U, any-positive rule)
 4. If canary off: target = 100% best safe
@@ -1131,11 +1131,11 @@ See BULL-QQQ sleeve section above for rationale and rejected variants.
 
 ### Total portfolio composition
 
-For $X total capital, with chosen FCP weight w:
-- $wX to FCP strategy (11 risky ETFs + SHV cash)
+For $X total capital, with chosen CPM weight w:
+- $wX to CPM strategy (11 risky ETFs + SHV cash)
 - $(1-w)X to BULL-QQQ bull sleeve (QQQ + SHV cash fallback)
 
-w=1.0 -> pure FCP. w=0.8 -> max-Sharpe blend. w=0.7 -> moderate bull tilt.
+w=1.0 -> pure CPM. w=0.8 -> max-Sharpe blend. w=0.7 -> moderate bull tilt.
 w=0.7 -> 70/30 production default (oracle-v3 Sharpe-optimal).
 w=0.6 -> 60/40 alternate (more bull-tilted, accepted wider DD for CAGR).
 
@@ -1180,7 +1180,7 @@ Proxy/live splice happens at each ETF's first trading day.
 
 ## Forward expectations
 
-**Anchor real-world Sharpe to 0.80-1.10 base case for FCP standalone**, not
+**Anchor real-world Sharpe to 0.80-1.10 base case for CPM standalone**, not
 the backtest 1.20. Reasons:
 - `HOLD_BUFFER=2.5z` was tuned on this window (see
   `research/hold_buffer_threshold_diagnosis.log`)
@@ -1192,7 +1192,7 @@ the backtest 1.20. Reasons:
   performance is essentially proxy-driven, not factor-mechanism driven
 - Live execution friction not perfectly modeled
 
-**Target return profile (forward 5y, FCP standalone, base case):**
+**Target return profile (forward 5y, CPM standalone, base case):**
 - CAGR: 6-10%
 - Vol: 8-11%
 - MaxDD: -12% to -22% (vs backtest -10.7%)
@@ -1217,7 +1217,7 @@ real forward edge; absolute level is not.
 
 Forward BULL-QQQ standalone Sharpe expectation: 0.65-0.95. The 60/40
 weighting captures most of the diversification benefit while preserving
-FCP's defensive bias and bounding the BULL sleeve's path risk contribution.
+CPM's defensive bias and bounding the BULL sleeve's path risk contribution.
 
 ## Live review gates
 
@@ -1239,14 +1239,14 @@ reconsider whether HYG/TIP/GLD canary is still capturing regime correctly.
 
 ## Reproduction
 
-Production code (in `strategy_fcp/`):
-- `fcp_live.py` - FCP sleeve runner (allocate + backtest CLI)
+Production code (in `strategy_cpm/`):
+- `cpm_live.py` - CPM sleeve runner (allocate + backtest CLI)
 - `bull_qqq_live.py` - BULL-QQQ sleeve runner (allocate + backtest CLI)
 - `build_dashboard.py` - dashboard generator (production 70/30 blend + variants)
 - `data/` - stitched price series (GLD-clean, TIP, AGG, KMLM)
 - `research/` - archived research and validation scripts
 
-Key research artifacts (in `strategy_fcp/research/`):
+Key research artifacts (in `strategy_cpm/research/`):
 - `walk_forward_rule_freeze.log` - true OOS rule-freeze validation
 - `fcp_vs_resolve_live.log` - head-to-head vs live RDMIX fund
 - `fcp_regime_attribution.log` - crisis / regime attribution
@@ -1260,7 +1260,7 @@ Source data:
 - `artifacts/cpa-1997-exact-core-proxy-research/proxy_adjusted_close_daily.csv`
 - `support/data/kfa_mlm_index_tr_monthly_returns.csv`
 
-Stitched series in `strategy_fcp/data/`:
+Stitched series in `strategy_cpm/data/`:
 - `gld_stitched_daily_clean.csv` (GC=F -> GLD)
 - `kmlm_stitched_daily.csv` (KFA-MLM Index -> live KMLM)
 - `tip_stitched_daily.csv` (VIPSX -> TIP)
@@ -1299,7 +1299,7 @@ in four areas:
 1. Hyperparameters (buffer=2.5z, corr lookback=378d) selected by viewing this data
 2. Universe (US factor + intl + GLD + TLT) curated via drop-impact testing on same window
 3. BULL-QQQ composition (single-ticker + 2-filter selection + SHV fallback) selected from variant sweep
-4. Blend weight (any of 50-70% FCP) selected from this same window
+4. Blend weight (any of 50-70% CPM) selected from this same window
 
 Walk-forward validation showed selected hyperparameters consistently win OOS,
 partially mitigating concern (1). Universe and blend contamination remain
@@ -1315,5 +1315,5 @@ Before live deployment (personal-capital context):
 ## Status
 
 Backtest period: 1997-08 to 2026-05 (28.7y extended, 18y live-only)
-Author: rkautsar; FCP = Factor + Canary + Pair (the three core mechanics)
+Author: rkautsar; CPM = Factor + Canary + Pair (the three core mechanics)
 Live deployment: ready for ramped personal-capital pilot per oracle review

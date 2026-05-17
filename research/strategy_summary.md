@@ -1,8 +1,8 @@
-# FCP+BULL-QQQ Strategy — Concise Summary
+# CPM-BULL Strategy — Concise Summary
 
 ## What it is
 
-Two-sleeve monthly-rebalanced tactical asset allocation, blended 60% FCP + 40% BULL-QQQ.
+Two-sleeve monthly-rebalanced tactical asset allocation, blended 60% CPM + 40% BULL-QQQ.
 
 ## Performance
 
@@ -15,7 +15,7 @@ Two-sleeve monthly-rebalanced tactical asset allocation, blended 60% FCP + 40% B
 
 vs SPY buy-hold LIVE: Sharpe 0.73, CAGR 13%, MaxDD -41%.
 
-## FCP sleeve (70% capital)
+## CPM sleeve (70% capital)
 
 Defensive engine: cross-sectional Faber SMA ranker + min-variance pair selection + canary regime gating.
 
@@ -25,7 +25,7 @@ RISKY = [QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV, VEA, VWO, GLD, TLT]  # 11
 SAFE  = SHV   # single-asset cash mode, ultra-short Treasury (~0.3y duration)
               # unified with BULL-QQQ cash fallback
 CANARY = [HYG, TIP, GLD]   # 3-asset any-positive (GLD added 2026 review,
-                            # captures real-asset/tail regimes -- see fcp_live.py)
+                            # captures real-asset/tail regimes -- see cpm_live.py)
 K = 5  # half-of-universe rule
 
 # 1. Faber SMA-distance ranker (NOT 12-1 momentum)
@@ -145,7 +145,7 @@ for t, w in bull_weights.items():
 - **Signal date T**: last trading day of month
 - **Trade date**: T+1 MOC (market-on-close next day)
 - **12-1 momentum**: total return T-13mo → T-1mo (excludes most recent month)
-- **13612U (canonical HAA)**: simple unweighted average = (r1 + r3 + r6 + r12) / 4. Per Keller & Keuning 2022 HAA paper. Function name `sig_13612W` kept for back-compat; alias `sig_13612U` available in fcp_live.
+- **13612U (canonical HAA)**: simple unweighted average = (r1 + r3 + r6 + r12) / 4. Per Keller & Keuning 2022 HAA paper. Function name `sig_13612W` kept for back-compat; alias `sig_13612U` available in cpm_live.
 - **Returns**: dividend-adjusted (yfinance Adj Close)
 - **Costs**: 10 bps/side on any state change (20 bps round-trip)
 - **Rebalance**: monthly only, no intramonth updates
@@ -168,8 +168,8 @@ for t, w in bull_weights.items():
 
 ## Headline risk
 
-- **MaxDD bounded** by canary-cash regime + FCP defensive bias
-- **COVID 2020 weakness**: blend -1.6% (vs SPY -9.2%) due to FCP absorbing BULL whip
+- **MaxDD bounded** by canary-cash regime + CPM defensive bias
+- **COVID 2020 weakness**: blend -1.6% (vs SPY -9.2%) due to CPM absorbing BULL whip
 - **Structural lag** on V-shaped recoveries (canary slow to re-engage)
 - **BULL CAGR (20% LIVE)** is QQQ-era artifact, not forward expectation
 - **Tail risk** in 2022-style rate-rise regimes (BULL drew -16.8% intramonth)
