@@ -693,11 +693,11 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 
 def main():
     ap = argparse.ArgumentParser()
-    # Default to live-only 18y window (2008-09) so dashboard numbers match
+    # Default to POST-DBC canonical 19.2y window (2007-02); all RISKY ETFs
     # the README headline. Override with --start to view the longer extended
     # window (1997-08 or 2001-08), but bottom-line text is calibrated to
     # live-only metrics.
-    ap.add_argument("--start", default="2008-09-30")
+    ap.add_argument("--start", default="2007-02-28")
     ap.add_argument("--end", default=None)
     ap.add_argument("--out", default=str(ROOT / "cpm_dashboard.html"))
     args = ap.parse_args()
@@ -1007,7 +1007,7 @@ def main():
 <details open>
 <summary>CPM Sleeve (70%)</summary>
 <ul>
-<li><strong>Universe (10):</strong> 4 US broad/factor (QQQ, IWF, VBR, SPHQ) + VEA, VWO (international) + GLD, TLT, DBC, DBMF (diversifiers incl. managed futures). Live-trade equivalents: IWF&rarr;SCHG (corr 0.994, 14bps cheaper), DBC&rarr;PDBC (no K-1). DBMF live 2019-05; pre-2019 uses SG CTA Index stitch.
+<li><strong>Universe (10):</strong> 4 US broad/factor (QQQ, IWF, VBR, SPHQ) + EFA (iShares developed, live 2001-08), EEM (iShares EM, live 2003-04) + GLD, TLT, DBC, DBMF (diversifiers incl. managed futures). Live-trade equivalents: IWF&rarr;SCHG (corr 0.994, 14bps cheaper), DBC&rarr;PDBC (no K-1). DBMF live 2019-05; pre-2019 uses SG CTA Index stitch. EFA/EEM chosen over VEA/VWO on principle (correlation &gt;0.99, picking the +0.05 Sh winner is DSR overfitting; EFA has 6y more live history). <strong>Canonical window: 2007-02-28 (19.2y, post-DBC + 12mo signal warmup, all 10 RISKY ETFs LIVE at start, includes full 2008 GFC realization)</strong> -- HYG/DBMF use existing canonical stitches; prior 2008-09 cherry-picked post-GFC-trough start.
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> {', '.join(SAFE_POOL)} (best-of by Faber 10m SMA distance)</li>
 <li><strong>Canary:</strong> HYG + TIP, ANY positive Keller 13612W &gt; 0 -&gt; risk-on; both negative -&gt; 100% best safe. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>

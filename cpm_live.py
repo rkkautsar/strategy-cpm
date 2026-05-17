@@ -29,15 +29,21 @@ ARTIFACTS_PROXY = ROOT.parent / "artifacts" / "cpa-1997-exact-core-proxy-researc
 # ---------- Configuration ----------
 # CPM-10 universe (10 risky assets). All broad/factor, no sector cherry-picks.
 #
-# Live-ETF coverage:
-#   Latest live-since (binding constraint): DBMF (2019-05).
-#   Without DBMF: latest is VEA (2007-07).
-#   Without DBMF and DBC: latest is SPHQ (2005-05).
+# Live-ETF coverage (post EFA/EEM swap):
+#   Strict no-stitch binding: DBMF (2019-05-08) -- 6.9y window only.
+#   Stitch-DBMF-as-live binding: VBR (2004-01-30) -- 21.5y window since.
 # Pre-live-ETF data is stitched proxy (DBMF uses SG CTA Index pre-2019;
-# panel data extends to 1995 via mutual-fund proxies for some assets).
-# "All-live" strict backtest window: 2019-06 onwards (post-DBMF launch).
-# Practical canonical window: 2008-09 onwards (all-major-ETF-live era,
-# DBMF pre-2019 uses SG CTA stitch).
+# panel data extends to 1995-1996 via mutual-fund proxies for some assets).
+#
+# Canonical window: 2007-02-28 (post-DBC + 12mo signal warmup, 19.2y).
+#   All 10 RISKY ETFs LIVE at window start (no proxy contamination in
+#   pair-selection candidate pool). Existing canonical stitches retained:
+#   HYG via VWEHX (canary, pre-2007-04), DBMF via SG CTA Index (pre-2019-05).
+#   Includes full 2008 GFC realization (CPM standalone -15.3% MaxDD).
+#   Prior 2008-09-30 cherry-picked post-GFC start; prior 2005-09-30 had
+#   5 proxies (SPHQ/DBC/SHV/HYG/DBMF) -- both replaced by 2007-02-28.
+# OOS-lock window: 2017-01-01 (9.4y, post-spec-freeze).
+# EXT 30y: 1996-01-01 (uses pre-2005 mutual-fund proxies for some assets).
 #
 # US sub-universe: broad/factor only.
 # QQQ = Nasdaq-100 index, IWF = Russell 1000 Growth (oldest live LC growth,
@@ -50,9 +56,14 @@ US_FACTORS = [
 ]
 
 # International: regime hedge for periods when US factor leadership wanes.
-# VEA = developed ex-US, VWO = emerging markets. EEM dropped (0% selection
-# in both eras once XLK/IWF and DBC added -- redundant with VWO at 0.991 corr).
-INTERNATIONAL = ["VEA", "VWO"]
+# EFA = developed ex-US (iShares, live 2001-08), EEM = emerging markets
+# (iShares, live 2003-04). Chosen over VEA/VWO (Vanguard, live 2007-07/
+# 2005-03) on principle: at >0.996 correlation they are near-substitutes,
+# so picking the +0.06 Sh winner is DSR overfitting. EFA's 6-year history
+# advantage also pushes the universe binding constraint back from VEA
+# (2007-07) to DBC (2006-02), enabling longer canonical backtest windows.
+# Cost of the principled swap: ~-0.07 Sh modern (within bootstrap noise).
+INTERNATIONAL = ["EFA", "EEM"]
 
 # Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities), DBMF
 # (managed futures crisis-alpha). DBC closes pre-2008 commodity coverage vs

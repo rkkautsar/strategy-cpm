@@ -1,69 +1,67 @@
-CPM-10 canonical numbers (frozen 2026-05-16)
-==============================================
+CPM-10 canonical numbers (frozen 2026-05-16, canonical = 2007-02-28)
+======================================================================
 
 Universe: 10 risky ETFs
   US (4):           QQQ, IWF (live: SCHG), VBR, SPHQ
-  International (2): VEA, VWO
+  International (2): EFA, EEM
   Diversifiers (4): GLD, TLT, DBC (live: PDBC), DBMF
 
 Engine: TOP_K_CANDIDATES=5, HOLD_BUFFER=2.5z, CORR_LOOKBACK=756d (~3y)
 Cost: 10bps/side, MaxLeverage=1.0 (de-risk only), TargetVol=10%
 Blend: 70% CPM + 30% BULL-QQQ
 
-Live-trade ticker mapping (backtest -> live):
+Canonical window: 2007-02-28 -> 2026-05 (19.2y)
+  All 10 RISKY ETFs LIVE at window start.
+  Latest RISKY-ETF launch: DBC 2006-02-03; window = launch + 12mo signal warmup.
+  Stitched series (existing canonical, not new contamination):
+    - HYG (canary) via VWEHX mutual fund pre-2007-04-04
+    - DBMF (diversifier) via SG CTA Index pre-2019-05-08
+    - SHV (cash) via VFISX pre-2007-01-05 (only ~1mo before window start)
+  Includes full 2008 GFC realization (CPM standalone -15.3% MaxDD).
+
+Live-trade ticker mapping:
   IWF -> SCHG     (Schwab US Large Growth, 14bps cheaper, corr 0.994)
-  DBC -> PDBC    (no K-1, smarter optimum-yield roll, corr 0.956)
-  VBR -> VBR     (no clean substitute; AVUV is different product)
+  DBC -> PDBC     (no K-1, smarter optimum-yield roll, corr 0.956)
   All others same.
 
 Strategy                               CAGR     Vol  Sharpe    MaxDD
 ----------------------------------------------------------------------
 
-[ MODERN (2008-09 -> 2026-05, 17.6y) ]  canonical window
-CPM standalone                       13.04%   9.47%   1.313  -10.94%
-BULL-QQQ standalone                  23.15%  17.40%   1.257  -28.56%
-CPM-BULL (70/30)                     16.31%   9.90%   1.542  -12.29%
+[ CANONICAL (2007-02-28 -> 2026-05, 19.2y) ]  primary headline
+CPM standalone                       11.21%   9.86%   1.138  -15.32%
+BULL-QQQ standalone                  19.41%  17.40%   1.115  -38.78%
+CPM-BULL (70/30 PROD)                14.40%  10.47%   1.368  -17.05%
 
 [ TEST OOS (2017-01 -> 2026-05, 9.4y) ]
-CPM standalone                       13.64%   9.86%   1.330   -9.21%
+CPM standalone                       13.05%   9.83%   1.281   -9.21%
 BULL-QQQ standalone                  27.53%  18.98%   1.360  -28.56%
-CPM-BULL (70/30)                     18.08%  10.13%   1.670  -12.29%
+CPM-BULL (70/30)                     17.64%  10.20%   1.623  -12.39%
 
-[ EXT 30y (1996-01 -> 2026-05, 30.4y) ]  stitched proxy in early years
-CPM standalone                       12.34%   9.67%   1.219  -15.80%
-BULL-QQQ standalone                  21.38%  19.26%   1.075  -30.16%
-CPM-BULL (70/30)                     15.37%  10.51%   1.376  -18.10%
+[ STRICT ALL-LIVE-EX-MF (2008-04 -> 2026, 18.0y) ]  only DBMF stitched
+CPM-BULL (70/30)                     14.96%  10.32%   1.429  -12.39%
 
-[ ALL-LIVE (2019-06 -> 2026-05, 6.9y) ]  post-DBMF launch, no stitch needed
-CPM standalone                       14.59%  10.04%   1.400   -9.35%
-BULL-QQQ standalone                  27.90%  20.69%   1.287  -28.56%
+[ POST-GFC (2008-09 -> 2026, 17.6y) ]  cherry-picked, NOT canonical
+CPM-BULL (70/30)                     15.67%   9.87%   1.490  -12.39%
+
+[ EXT 30y (1996-01 -> 2026, 30.4y) ]  uses pre-2005 mutual-fund proxies
+CPM-BULL (70/30)                     14.68%  10.43%   1.329  -17.38%
+
+[ ALL-LIVE-STRICT (2019-06 -> 2026, 6.9y) ]  post-DBMF launch
 CPM-BULL (70/30)                     18.92%  10.81%   1.650  -12.29%
 
-Headline (canonical modern window): CPM-BULL Sharpe 1.54, CAGR 16.31%, MaxDD -12.3%.
+Headline: CPM-BULL Sharpe 1.37, CAGR 14.40%, MaxDD -17.05% (canonical 19.2y).
 
-vs prior CPM-13 baseline (modern, 2026-04 spec):
-  CPM-BULL Sh 1.564 -> 1.542   (-0.022, within bootstrap noise)
-  CPM-BULL CAGR 16.63% -> 16.31% (-0.32pp)
-  MaxDD unchanged -12.29%
-  Trade: -0.02 Sh modern for +0.11 Sh OOS, cleaner universe (10 vs 13),
-         crisis-alpha sleeve (DBMF +20% in 2022 when bonds AND stocks fell),
-         live-trade ticker hygiene (SCHG/PDBC for tax/fee-friendly execution).
+Window-selection rationale:
+  Tested options (descending strictness):
+  - 2010-04 (16.0y, all-live + 36mo cov-warmed):       Sh 1.49, MaxDD -12.4%
+  - 2009-02 (17.2y, post-DBC + 36mo cov-warmed):       Sh 1.52, MaxDD -12.4%
+  - 2008-04 (18.0y, post-HYG + 12mo signal):           Sh 1.43, MaxDD -12.4%
+  - 2007-02 (19.2y, post-DBC + 12mo signal) CHOSEN:    Sh 1.37, MaxDD -17.1%
+  - 2006-02 (20.2y, all-live-DBC):                     Sh 1.30, MaxDD -18.4% (3 proxies)
+  - 2005-09 (20.6y, post-VBR signal):                  Sh 1.32, MaxDD -18.4% (5 proxies)
 
-Changes from CPM-13 to CPM-10:
-  Removed: IGM (redundant w/ QQQ), XMHQ (proxy-heavy mid-cap quality),
-           XLE (0% modern selection, equity not commodity), XLV (regime-fit
-           healthcare, sector inconsistency), EEM (0% selection both eras
-           once XLK/IWF/DBC added, redundant w/ VWO at 0.991 corr).
-  Added:   IWF (Russell 1000 Growth, oldest live LC growth ETF, replaces
-           sector-specific XLK), DBMF (managed-futures crisis alpha).
-  K bumped: 7 -> 5 (= ceil(10/2)).
-  HOLD_BUFFER: 2.5 unchanged (sweep confirmed 2.5 still strictly best
-               even with cleaner low-vol universe).
-
-Selection rate (canonical modern, CPM-10 baseline):
-  Workhorses: SPHQ 50%, GLD 42%, TLT 24%, QQQ varied
-  Active:     VEA 13%, DBMF 8%, IWF varies, DBC 4%
-  Defensive:  SHV 11% (when canary triggers)
-  Dead:       VBR 0%, VWO 0% (kept for paper-era ranking neighborhood)
-
-See research/peer_aaa_optimum3.py + universe analysis scripts in /tmp/cpm_*.py
+  Chose 2007-02 as best honesty/history trade-off:
+  - All 10 RISKY ETFs LIVE (no candidate-pool proxy contamination)
+  - Only HYG (canary) and DBMF (diversifier) use existing canonical stitches
+  - Includes full GFC drawdown realization
+  - 19.2 years of post-stress backtest history

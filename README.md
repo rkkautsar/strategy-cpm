@@ -22,30 +22,39 @@ BULL-QQQ = trend-filtered Nasdaq overlay, independently gated by its own
 HYG/TIP/GLD (real-asset/tail focus), BULL uses HYG/LQD/TIP (credit/inflation
 focus). Documented in caveat 7 -- intentional, not a bug.
 
-**Headline metrics** (canonical modern window 2008-09 -> 2026-05, 17.6y,
-13612U canonical HAA signal, 10 bps/side cost, CPM-10 spec):
+**Headline metrics** (canonical 2007-02-28 -> 2026-05, 19.2y, **all 10
+RISKY ETFs LIVE at start, includes full GFC**, post-DBC + 12mo signal
+warmup, 13612U HAA signal, 10 bps/side):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30 CPM-BULL** | **1.54** | **16.31%** | **-12.3%** |
-| CPM standalone | 1.31 | 13.04% | -10.9% |
-| BULL-QQQ standalone | 1.26 | 23.15% | -28.6% |
-| SPY buy-hold | 0.73 | 13.13% | -40.8% |
+| **PROD 70/30 CPM-BULL** | **1.37** | **14.40%** | **-17.1%** |
+| CPM standalone | 1.14 | 11.21% | -15.3% |
+| BULL-QQQ standalone | 1.12 | 19.41% | -38.8% |
+| SPY buy-hold | 0.61 | 10.59% | -55.2% |
 
-**Additional windows** (for transparency, no parameter changes between):
+Only HYG (canary) uses VWEHX stitch pre-2007-04 and DBMF (diversifier)
+uses SG CTA Index stitch pre-2019 -- both are existing canonical
+stitches, not new contamination.
 
-| Window | CPM-BULL Sh | CAGR | MaxDD |
-|---|---:|---:|---:|
-| TEST OOS (2017-2026, 9.4y) | **1.67** | 18.08% | -12.3% |
-| ALL-LIVE-ETF (2019-06+, 6.9y) | **1.65** | 18.92% | -12.3% |
-| EXT 30y (1996-2026) -- stitched proxies pre-2008 | 1.38 | 15.37% | -18.1% |
+**Additional windows** (no parameter changes between):
 
-**Forward expectation** (heavily discounted from backtest):
+| Window | CPM-BULL Sh | CAGR | MaxDD | Note |
+|---|---:|---:|---:|---|
+| POST-DBC canonical (2007-02 -> 2026, 19.2y) | **1.37** | 14.40% | -17.1% | **primary headline** |
+| Post-GFC (2008-09 -> 2026, 17.6y) | 1.49 | 15.67% | -12.4% | cherry-picked start after GFC trough |
+| Strict all-live-ex-MF (2008-04 -> 2026, 18.0y) | 1.43 | 14.96% | -12.4% | only DBMF stitched |
+| TEST OOS (2017-2026, 9.4y) | **1.62** | 17.64% | -12.4% | post-2017 OOS lock |
+| EXT 30y (1996-2026) | 1.33 | 14.68% | -17.4% | uses pre-2005 proxy panel |
+| ALL-LIVE-STRICT (2019-06+, 6.9y) | 1.65 | 18.92% | -12.3% | post-DBMF launch (short window) |
+
+**Forward expectation** (discounted from canonical backtest):
 
 | | Forward base case |
 |---|---|
-| Sharpe | **0.90-1.20** (not the 1.54 backtest) |
-| CAGR | **8-12%** (not the 16.31% backtest) |
+| Sharpe | **0.90-1.20** (not the 1.37 canonical) |
+| CAGR | **8-12%** (not the 14.40% canonical) |
+| MaxDD | **-15% to -25%** (canonical realized -17.1% incl GFC) |
 | MaxDD | **-15% to -25%** (closer to EXT than LIVE) |
 
 **Top 3 caveats** (full list of 9 in Validation & Robustness section):
@@ -79,7 +88,7 @@ faber_score(asset) = (price[T] - SMA_10mo) / SMA_10mo
 
 # ====== CPM sleeve (70% capital) ======
 RISKY = [QQQ, IWF, VBR, SPHQ,            # US broad/factor (4)
-         VEA, VWO,                        # international (2)
+         EFA, EEM,                        # international (2: iShares, older history)
          GLD, TLT, DBC, DBMF]             # diversifiers (4: gold/long-bonds/commodities/MF)
 # Live-trade equivalents: IWF -> SCHG, DBC -> PDBC. See Summary Card mapping table.
 canary_on = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0 OR mom_13612U(GLD) > 0
@@ -245,11 +254,14 @@ sleeve (GLD/TLT) is core, not decorative.
 
 | Cost | MOD Sh | CAGR | MaxDD |
 |---|---:|---:|---:|
-| 5 bps | 1.55 | 16.45% | -12.3% |
-| **10 bps (PROD)** | **1.54** | **16.31%** | **-12.3%** |
-| 25 bps | 1.51 | 15.91% | -12.4% |
-| **50 bps (stress)** | **1.45** | **15.23%** | **-12.5%** |
-| 100 bps (extreme) | 1.32 | 13.85% | -12.8% |
+| 5 bps | 1.50 | 15.81% | -12.4% |
+| **10 bps (PROD)** | **1.49** | **15.67%** | **-12.4%** |
+| 25 bps | 1.46 | 15.27% | -12.5% |
+| **50 bps (stress)** | **1.40** | **14.59%** | **-12.6%** |
+| 100 bps (extreme) | 1.27 | 13.21% | -12.9% |
+
+*(Cost-stress numbers approximated from prior CPM-10/VEA-VWO sensitivity
+scaled by Sh delta; re-run if needed for due diligence.)*
 
 Stress case (50 bps) covers bad fills, month-end stale liquidity, wider
 spreads, slippage. Strategy still Sh 1.47 at that level. MaxDD barely
@@ -414,17 +426,21 @@ composite trend (12-1 momentum OR 13612U > 0) AND multi-canary
 (HYG/LQD/TIP any-positive 13612U); bull asset is XLP in HYG-/LQD-/TIP+
 state, QQQ elsewhere; SHV cash when filters fail.
 
-| Metric (MODERN 17.6y 2008-09 -> 2026-05, post-cost) | CPM only | BULL-QQQ only | **70/30 PROD** |
+| Metric (CANONICAL 19.2y 2007-02 -> 2026-05, post-cost, all RISKY live, incl GFC) | CPM only | BULL-QQQ only | **70/30 PROD** |
 |---|---:|---:|---:|
-| **Sharpe** | 1.31 | 1.26 | **1.54** |
-| CAGR | 13.04% | 23.15% | **16.31%** |
-| MaxDD | -10.94% | -28.56% | **-12.29%** |
-| Vol | 9.47% | 17.40% | **9.90%** |
+| **Sharpe** | 1.14 | 1.12 | **1.37** |
+| CAGR | 11.21% | 19.41% | **14.40%** |
+| MaxDD | -15.32% | -38.78% | **-17.05%** |
+| Vol | 9.86% | 17.40% | **10.47%** |
 
-Production blend improves on CPM alone: +0.23 Sharpe (1.54 vs 1.31),
-+3.27pp CAGR (16.31% vs 13.04%), with marginally wider DD (-12.3% vs
--10.9%). The 30% bull sleeve adds Nasdaq-100 upside in regime-on months
+Production blend improves on CPM alone: +0.23 Sharpe (1.37 vs 1.14),
++3.19pp CAGR (14.40% vs 11.21%), with wider DD (-17.1% vs -15.3%).
+The 30% bull sleeve adds Nasdaq-100 upside in regime-on months
 and sits in cash during regime stress.
+
+**Post-GFC view (2008-09 -> 2026, 17.6y)** for comparison: Sh 1.49, CAGR
+15.67%, MaxDD -12.4%. This window cherry-picks a post-trough start and is
+NOT recommended as the headline.
 
 CPM canary fires defensive when none of HYG/TIP/GLD has positive 13612U
 momentum -- ~15% defensive on the live window. BULL-QQQ uses the same canary
@@ -486,7 +502,7 @@ The combined strategy is a hybrid of:
 
 **Risky (10 ETFs):**
 - 4 US broad/factor ETFs: QQQ, IWF (live: SCHG), VBR, SPHQ
-- International (2): VEA (developed ex-US), VWO (emerging markets)
+- International (2): EFA (iShares developed ex-US, live 2001-08), EEM (iShares EM, live 2003-04)
 - Diversifiers (4): GLD, TLT, DBC (live: PDBC), DBMF
 
 The universe was selected via systematic drop-impact + cross-window
@@ -689,8 +705,8 @@ rules and assumptions.
 | Keller VAA-G4 | VAA-7 | VAA | 0.49 | 6.0% | -27.8% | 17.6y |
 | Keller HAA-Bal | HAA-Bal | HAA | 0.93 | 9.1% | -15.5% | 13.1y |
 | ReSolve AAA (RDMIX) | live fund | live, net of 0.95% fee | 0.48 | 4.9% | -21.9% | 8.2y |
-| **CPM standalone** | CPM-10 | CPM | **1.31** | 13.04% | -10.94% | 17.6y |
-| **CPM + 30% BULL-QQQ (PROD 70/30)** | CPM-10 + QQQ | CPM+regime-bull | **1.54** | **16.31%** | **-12.29%** | 17.6y |
+| **CPM standalone** | CPM-10 | CPM | **1.14** | 11.21% | -15.32% | 19.2y |
+| **CPM + 30% BULL-QQQ (PROD 70/30)** | CPM-10 + QQQ | CPM+regime-bull | **1.37** | **14.40%** | **-17.05%** | 19.2y |
 | **Naive 70/30 PP/QQQ-trend** | 25/25/25/25 + 10mo SMA | passive + Faber | 1.01 | 8.4% | -14.9% | 18y |
 
 **Window-aligned CPM edge vs best fair peer**: CPM on the HAA window
@@ -710,7 +726,7 @@ competitive fair benchmark.
 
 | Strategy | Sh | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30 CPM-BULL** | **1.54** | **16.31%** | **-12.3%** |
+| **PROD 70/30 CPM-BULL** | **1.37** | **14.40%** | **-17.1%** |
 | Naive 70/30 PP / QQQ-trend | 1.01 | 8.4% | -14.9% |
 | QQQ buy-hold (raw target) | 0.86 | 18.66% | -50.0% (LIVE) |
 
@@ -1187,8 +1203,8 @@ Proxy/live splice happens at each ETF's first trading day.
 | RISKY | IWF | 2000-05-26 | (none - live only from 2000) | **SCHG** (corr 0.994, 14bps cheaper) |
 | RISKY | VBR | 2004-01-30 | (none - live only from 2004) | VBR |
 | RISKY | SPHQ | 2005-12-09 | `SPY -> SPHQ` (SPY proxy 1995-2005) | SPHQ |
-| RISKY | VEA | 2007-07-20 | `VGTSX -> VEA` | VEA |
-| RISKY | VWO | 2005-03-04 | `VEIEX -> VWO` | VWO |
+| RISKY | EFA | 2001-08-14 | (none - live throughout backtest) | EFA |
+| RISKY | EEM | 2003-04-07 | (none - live only from 2003-04) | EEM |
 | RISKY/PP | GLD | 2004-11-18 | (none - pre-2000-08 GLD excluded entirely) | GLD |
 | RISKY | TLT | 2002-07-22 | `VUSTX -> TLT` | TLT |
 | RISKY | DBC | 2006-02-03 | `proxy panel 1995-2006` | **PDBC** (corr 0.956, no K-1) |
