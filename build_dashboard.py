@@ -488,48 +488,78 @@ def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
     return fig
 
 def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
-    """Run signal dates and collect (sig_d, regime, pair, safe). Plot bars colored by regime.
+    """Run signal dates and collect (sig_d, cpm_regime, bull_regime, pair, safe).
+    Plot two stacked rows: CPM canary (HYG/TIP/GLD) + BULL canary (HYG/LQD/TIP).
     Returns (fig, regime_counts dict, picks Counter, pair_counter Counter)."""
     from collections import Counter
     monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
     sigs = monthly_idx.index[(monthly_idx.index >= start)].tolist()
 
-    regime_per_date = []
+    cpm_per_date = []
+    bull_per_date = []
     picks = Counter()
     pair_counter = Counter()
     prev_pair = None
     for sd in sigs:
         weights, pair, regime, safe = compute_target_weights(panel, sd, prev_pair=prev_pair)
-        regime_per_date.append((sd, regime, pair, safe))
+        cpm_per_date.append((sd, regime, pair, safe))
         prev_pair = pair
         for asset, w in weights.items():
             if w > 0:
                 picks[asset] += 1
         if pair and len(pair) == 2:
-            sorted_pair = tuple(sorted(pair))
-            pair_counter[sorted_pair] += 1
+            pair_counter[tuple(sorted(pair))] += 1
+        # BULL-QQQ canary state
+        try:
+            _bw, bregime, _bdiag = compute_bull_qqq_weights(panel, sd)
+            bull_per_date.append((sd, bregime))
+        except Exception:
+            bull_per_date.append((sd, "CASH"))
 
-    regimes = [r for _, r, _, _ in regime_per_date]
-    n_total = len(regimes)
+    cpm_regimes = [r for _, r, _, _ in cpm_per_date]
+    bull_regimes = [r for _, r in bull_per_date]
+    n_total = len(cpm_regimes)
     regime_counts = {
-        "RISK_ON": regimes.count("RISK_ON"),
-        "DEFENSIVE": regimes.count("DEFENSIVE"),
+        "RISK_ON": cpm_regimes.count("RISK_ON"),
+        "DEFENSIVE": cpm_regimes.count("DEFENSIVE"),
+        "BULL_QQQ": sum(1 for r in bull_regimes if r.startswith("BULL_QQQ")),
+        "BULL_XLP": sum(1 for r in bull_regimes if r.startswith("BULL_XLP")),
+        "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
     }
 
-    fig, ax = plt.subplots(figsize=(8, 2.6))
-    colors = []
-    for r in regimes:
-        if r == "DEFENSIVE":
-            colors.append("#d04000")
-        else:
-            colors.append("#0040d0")
-    dates = [d for d, _, _, _ in regime_per_date]
-    ax.bar(dates, [1] * len(dates), color=colors, width=25, alpha=0.85, edgecolor="none")
-    ax.set_yticks([])
-    ax.set_ylim(0, 1)
-    ax.set_title(f"Canary Regime Timeline (blue=risk-on, red=defensive). {regime_counts['DEFENSIVE']}/{n_total} defensive months.")
-    ax.xaxis.set_major_locator(mdates.YearLocator(2))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    fig, axes = plt.subplots(2, 1, figsize=(8, 3.2), sharex=True,
+                             gridspec_kw={"hspace": 0.45})
+    dates = [d for d, _, _, _ in cpm_per_date]
+
+    # Row 1: CPM canary (HYG/TIP/GLD any-positive)
+    cpm_colors = ["#d04000" if r == "DEFENSIVE" else "#0040d0" for r in cpm_regimes]
+    axes[0].bar(dates, [1] * len(dates), color=cpm_colors, width=25, alpha=0.85, edgecolor="none")
+    axes[0].set_yticks([])
+    axes[0].set_ylim(0, 1)
+    axes[0].set_title(
+        f"CPM canary (HYG/TIP/GLD any-positive). "
+        f"Defensive {regime_counts['DEFENSIVE']}/{n_total} mo ({regime_counts['DEFENSIVE']/n_total*100:.0f}%). "
+        f"blue=risk-on, red=defensive (-> SHV cash).",
+        fontsize=9)
+
+    # Row 2: BULL-QQQ canary (HYG/LQD/TIP any-positive + QQQ trend)
+    bull_colors = []
+    for r in bull_regimes:
+        if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")  # green = QQQ on
+        elif r.startswith("BULL_XLP"): bull_colors.append("#a06000")  # amber = late-cycle XLP
+        else: bull_colors.append("#808080")  # gray = cash
+    axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
+    axes[1].set_yticks([])
+    axes[1].set_ylim(0, 1)
+    axes[1].set_title(
+        f"BULL canary (HYG/LQD/TIP + QQQ trend). "
+        f"QQQ {regime_counts['BULL_QQQ']}/{n_total} ({regime_counts['BULL_QQQ']/n_total*100:.0f}%), "
+        f"XLP {regime_counts['BULL_XLP']}/{n_total} ({regime_counts['BULL_XLP']/n_total*100:.0f}%), "
+        f"Cash {regime_counts['BULL_CASH']}/{n_total} ({regime_counts['BULL_CASH']/n_total*100:.0f}%). "
+        f"green=QQQ, amber=XLP late-cycle, gray=SHV.",
+        fontsize=9)
+    axes[1].xaxis.set_major_locator(mdates.YearLocator(2))
+    axes[1].xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     plt.tight_layout()
     return fig, regime_counts, picks, pair_counter
 
@@ -762,7 +792,8 @@ def main():
     fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 70/30 PP/QQQ-trend"], bull_qqq_rets)
     fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 70/30 PP/QQQ-trend"], bull_qqq_rets)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(panel, start)
-    n_signals = sum(regime_counts.values())
+    # CPM regimes sum to total months; BULL regimes also sum to total. Use CPM as denominator.
+    n_signals = regime_counts["RISK_ON"] + regime_counts["DEFENSIVE"]
     picks_html = picks_table_html(picks, pair_counter, n_signals)
     regime_pct_def = regime_counts["DEFENSIVE"] / max(1, n_signals) * 100
     regime_pct_ron = regime_counts["RISK_ON"] / max(1, n_signals) * 100
@@ -950,8 +981,9 @@ def main():
 <h2>Canary Regime History</h2>
 <div class='card'>
 {fig_to_html(fig_canary)}
-<p>Risk-on: <strong>{regime_pct_ron:.1f}%</strong> of months ({regime_counts['RISK_ON']}/{n_signals}). Defensive: <strong>{regime_pct_def:.1f}%</strong> ({regime_counts['DEFENSIVE']}/{n_signals}).</p>
-<p class='footnote'>HYG+TIP "any positive" canary: defensive only when BOTH bond/credit signals are negative simultaneously. ~85% risk-on / ~15% defensive on live window. HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
+<p><strong>CPM canary (HYG/TIP/GLD any-positive 13612U):</strong> Risk-on <strong>{regime_pct_ron:.1f}%</strong> ({regime_counts['RISK_ON']}/{n_signals}) -- pair selection runs. Defensive <strong>{regime_pct_def:.1f}%</strong> ({regime_counts['DEFENSIVE']}/{n_signals}) -- 100% SHV cash. Defensive fires only when ALL three of HYG (credit), TIP (inflation), GLD (real-asset/tail) are simultaneously negative. GLD added (vs original HYG+TIP) to avoid TLT-bias when canary triggers in rate-rising regimes.</p>
+<p><strong>BULL canary (HYG/LQD/TIP any-positive 13612U + QQQ trend):</strong> QQQ on <strong>{regime_counts['BULL_QQQ']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_QQQ']}/{n_signals}), XLP late-cycle <strong>{regime_counts['BULL_XLP']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_XLP']}/{n_signals}, HYG-/LQD-/TIP+ state only), cash <strong>{regime_counts['BULL_CASH']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_CASH']}/{n_signals}). Uses LQD instead of GLD because bull-overlay's lone-GLD-positive states have -2.3% mean forward QQQ (canary differentiation documented in caveat 7).</p>
+<p class='footnote'>The two canaries differ by sleeve design: CPM uses HYG/TIP/GLD (real-asset focus, suits cross-asset pair selection); BULL-QQQ uses HYG/LQD/TIP (credit/inflation focus, suits single-asset equity overlay). HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
 </div>
 
 <h2>Asset Pick Frequency & Top Pair Archetypes</h2>
