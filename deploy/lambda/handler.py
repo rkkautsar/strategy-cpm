@@ -177,7 +177,7 @@ def compute_signal() -> str:
         lines.append(f"  {t:6s}  {w*100:5.1f}%")
     lines.append("")
     lines.append(f"⚠️  Use only in tax-advantaged accounts (IRA/401k/Roth)")
-    lines.append(f"⚠️  Forward Sharpe expectation 0.90-1.20 (not 1.56 backtest)")
+    lines.append(f"⚠️  Forward Sharpe expectation 0.90-1.20 (not 1.54 backtest)")
 
     return "\n".join(lines)
 

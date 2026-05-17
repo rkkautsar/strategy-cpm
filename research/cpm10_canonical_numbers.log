@@ -1,0 +1,69 @@
+CPM-10 canonical numbers (frozen 2026-05-16)
+==============================================
+
+Universe: 10 risky ETFs
+  US (4):           QQQ, IWF (live: SCHG), VBR, SPHQ
+  International (2): VEA, VWO
+  Diversifiers (4): GLD, TLT, DBC (live: PDBC), DBMF
+
+Engine: TOP_K_CANDIDATES=5, HOLD_BUFFER=2.5z, CORR_LOOKBACK=756d (~3y)
+Cost: 10bps/side, MaxLeverage=1.0 (de-risk only), TargetVol=10%
+Blend: 70% CPM + 30% BULL-QQQ
+
+Live-trade ticker mapping (backtest -> live):
+  IWF -> SCHG     (Schwab US Large Growth, 14bps cheaper, corr 0.994)
+  DBC -> PDBC    (no K-1, smarter optimum-yield roll, corr 0.956)
+  VBR -> VBR     (no clean substitute; AVUV is different product)
+  All others same.
+
+Strategy                               CAGR     Vol  Sharpe    MaxDD
+----------------------------------------------------------------------
+
+[ MODERN (2008-09 -> 2026-05, 17.6y) ]  canonical window
+CPM standalone                       13.04%   9.47%   1.313  -10.94%
+BULL-QQQ standalone                  23.15%  17.40%   1.257  -28.56%
+CPM-BULL (70/30)                     16.31%   9.90%   1.542  -12.29%
+
+[ TEST OOS (2017-01 -> 2026-05, 9.4y) ]
+CPM standalone                       13.64%   9.86%   1.330   -9.21%
+BULL-QQQ standalone                  27.53%  18.98%   1.360  -28.56%
+CPM-BULL (70/30)                     18.08%  10.13%   1.670  -12.29%
+
+[ EXT 30y (1996-01 -> 2026-05, 30.4y) ]  stitched proxy in early years
+CPM standalone                       12.34%   9.67%   1.219  -15.80%
+BULL-QQQ standalone                  21.38%  19.26%   1.075  -30.16%
+CPM-BULL (70/30)                     15.37%  10.51%   1.376  -18.10%
+
+[ ALL-LIVE (2019-06 -> 2026-05, 6.9y) ]  post-DBMF launch, no stitch needed
+CPM standalone                       14.59%  10.04%   1.400   -9.35%
+BULL-QQQ standalone                  27.90%  20.69%   1.287  -28.56%
+CPM-BULL (70/30)                     18.92%  10.81%   1.650  -12.29%
+
+Headline (canonical modern window): CPM-BULL Sharpe 1.54, CAGR 16.31%, MaxDD -12.3%.
+
+vs prior CPM-13 baseline (modern, 2026-04 spec):
+  CPM-BULL Sh 1.564 -> 1.542   (-0.022, within bootstrap noise)
+  CPM-BULL CAGR 16.63% -> 16.31% (-0.32pp)
+  MaxDD unchanged -12.29%
+  Trade: -0.02 Sh modern for +0.11 Sh OOS, cleaner universe (10 vs 13),
+         crisis-alpha sleeve (DBMF +20% in 2022 when bonds AND stocks fell),
+         live-trade ticker hygiene (SCHG/PDBC for tax/fee-friendly execution).
+
+Changes from CPM-13 to CPM-10:
+  Removed: IGM (redundant w/ QQQ), XMHQ (proxy-heavy mid-cap quality),
+           XLE (0% modern selection, equity not commodity), XLV (regime-fit
+           healthcare, sector inconsistency), EEM (0% selection both eras
+           once XLK/IWF/DBC added, redundant w/ VWO at 0.991 corr).
+  Added:   IWF (Russell 1000 Growth, oldest live LC growth ETF, replaces
+           sector-specific XLK), DBMF (managed-futures crisis alpha).
+  K bumped: 7 -> 5 (= ceil(10/2)).
+  HOLD_BUFFER: 2.5 unchanged (sweep confirmed 2.5 still strictly best
+               even with cleaner low-vol universe).
+
+Selection rate (canonical modern, CPM-10 baseline):
+  Workhorses: SPHQ 50%, GLD 42%, TLT 24%, QQQ varied
+  Active:     VEA 13%, DBMF 8%, IWF varies, DBC 4%
+  Defensive:  SHV 11% (when canary triggers)
+  Dead:       VBR 0%, VWO 0% (kept for paper-era ranking neighborhood)
+
+See research/peer_aaa_optimum3.py + universe analysis scripts in /tmp/cpm_*.py

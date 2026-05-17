@@ -1007,7 +1007,7 @@ def main():
 <details open>
 <summary>CPM Sleeve (70%)</summary>
 <ul>
-<li><strong>Universe (11):</strong> 7 US equity ETFs (factor + sector mix: QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV) + VEA, VWO (international) + GLD, TLT (diversifiers). All ETFs live since 2007-07 or earlier; no SPY-proxy contamination in post-2008 backtest.
+<li><strong>Universe (10):</strong> 4 US broad/factor (QQQ, IWF, VBR, SPHQ) + VEA, VWO (international) + GLD, TLT, DBC, DBMF (diversifiers incl. managed futures). Live-trade equivalents: IWF&rarr;SCHG (corr 0.994, 14bps cheaper), DBC&rarr;PDBC (no K-1). DBMF live 2019-05; pre-2019 uses SG CTA Index stitch.
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> {', '.join(SAFE_POOL)} (best-of by Faber 10m SMA distance)</li>
 <li><strong>Canary:</strong> HYG + TIP, ANY positive Keller 13612W &gt; 0 -&gt; risk-on; both negative -&gt; 100% best safe. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>
@@ -1039,7 +1039,7 @@ def main():
 <ul>
 <li><strong>In-sample selection bias:</strong> hyperparameters and universe tuned on this same data window.</li>
 <li><strong>Universe risk:</strong> 7-name US equity sub-universe is bespoke / human-curated. All ETFs live since 2005 or earlier; no SPY-proxy contamination in post-2008 backtest.</li>
-<li><strong>Pre-2010 proxies:</strong> XMHQ/SPHQ use MDY/SPY proxies pre-2005 inception (only affects 1997-2005 Extended-28y window; live-18y window is proxy-free).</li>
+<li><strong>Pre-2019 proxies:</strong> SPHQ uses SPY proxy pre-2005, DBMF uses SG CTA Index pre-2019 (affects EXT 30y window only; MODERN 17.6y window has all ETFs live except DBMF which uses CTA stitch).</li>
 <li><strong>Crisis-concentrated alpha:</strong> top 4 single years (2008 +45.8pp, 2002 +32.8pp, 2020 +17.6pp, 2022 +17.2pp) contribute +128pp of total +25pp arithmetic excess vs SPY. Non-crisis years generally lag SPY.</li>
 <li><strong>Lags V-shaped recoveries</strong> (verified): 2009 full-year -10.8pp vs SPY; 2020-Q2 -27.6pp vs SPY in the snap-back. Canary slow to re-engage after deep selloffs.</li>
 <li><strong>Bullish-rally underperformance is structural:</strong> MAX_LEVERAGE=1.0 prevents the vol-target from levering up in low-vol bull runs. Strategy gives up bull upside in exchange for crisis alpha as designed.</li>

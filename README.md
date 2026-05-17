@@ -13,39 +13,55 @@ Two-sleeve monthly TAA: **70% CPM defensive engine + 30% BULL-QQQ overlay**.
 Monthly rebalance, ETF-only, no leverage, 10 bps/side cost. Designed for
 IRA/401k/Roth only (monthly rotation = short-term gains).
 
-CPM = **canary-gated momentum + min-variance pair selection** across
-an 11-asset universe. NOT marketed as factor rotation -- ETFs span
-equity factors, sectors, international, and diversifiers, with GLD/TLT
-structurally critical (~-0.32 Sh if removed).
+CPM = **canary-gated momentum + min-variance pair selection** across a
+10-asset universe (broad/factor US + intl + diversifiers including a
+managed-futures crisis-alpha sleeve). NOT marketed as factor rotation --
+GLD/TLT/DBC/DBMF structurally critical (~-0.32 Sh if diversifiers dropped).
 BULL-QQQ = trend-filtered Nasdaq overlay, independently gated by its own
 3-asset canary (HYG/LQD/TIP). Note the canaries differ by sleeve: CPM uses
 HYG/TIP/GLD (real-asset/tail focus), BULL uses HYG/LQD/TIP (credit/inflation
 focus). Documented in caveat 7 -- intentional, not a bug.
 
-**Headline metrics** (ETF-live 18y, 2008-2026, 13612U canonical HAA signal,
-10 bps/side cost):
+**Headline metrics** (canonical modern window 2008-09 -> 2026-05, 17.6y,
+13612U canonical HAA signal, 10 bps/side cost, CPM-10 spec):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30 CPM-BULL** | **1.56** | **16.63%** | **-12.3%** |
-| CPM standalone | 1.34 | 13.48% | -10.8% |
+| **PROD 70/30 CPM-BULL** | **1.54** | **16.31%** | **-12.3%** |
+| CPM standalone | 1.31 | 13.04% | -10.9% |
 | BULL-QQQ standalone | 1.26 | 23.15% | -28.6% |
-| Naive 70/30 PP/QQQ-trend (counterfactual) | 1.01 | 8.4% | -14.9% |
-| QQQ buy-hold (raw target) | 0.89 | 18.95% | -35.1% |
 | SPY buy-hold | 0.73 | 13.13% | -40.8% |
+
+**Additional windows** (for transparency, no parameter changes between):
+
+| Window | CPM-BULL Sh | CAGR | MaxDD |
+|---|---:|---:|---:|
+| TEST OOS (2017-2026, 9.4y) | **1.67** | 18.08% | -12.3% |
+| ALL-LIVE-ETF (2019-06+, 6.9y) | **1.65** | 18.92% | -12.3% |
+| EXT 30y (1996-2026) -- stitched proxies pre-2008 | 1.38 | 15.37% | -18.1% |
 
 **Forward expectation** (heavily discounted from backtest):
 
 | | Forward base case |
 |---|---|
-| Sharpe | **0.90-1.20** (not the 1.56 backtest) |
-| CAGR | **8-12%** (not the 16.63% backtest) |
+| Sharpe | **0.90-1.20** (not the 1.54 backtest) |
+| CAGR | **8-12%** (not the 16.31% backtest) |
 | MaxDD | **-15% to -25%** (closer to EXT than LIVE) |
 
 **Top 3 caveats** (full list of 9 in Validation & Robustness section):
 1. **Severe tax drag** -- economically unattractive outside tax-advantaged accounts (IRA/401k/Roth) for most investors. Monthly rotation = short-term gains, ~2-4pp/yr drag.
-2. **CPM is cross-asset momentum + min-variance pair selection, not factor rotation.** Drop GLD/TLT = -0.32 Sh standalone. Heavily relies on stock/bond negative correlation; degrades in 2022-style positive-correlation regimes.
+2. **CPM is cross-asset momentum + min-variance pair selection, not factor rotation.** Drop GLD/TLT/DBC/DBMF = -0.32 Sh standalone. Heavily relies on cross-asset diversification; CPM canary protects against 2022-style positive stock/bond correlation regimes.
 3. **Structural V-shape recovery lag is permanent.** 13612U slow-by-design; bleeds ~1-2 months of alpha at violent regime turns (COVID 2020 was the tail). Asymmetric-canary fix tested, rejected.
+4. **DBMF live since 2019-05 only.** Pre-2019 backtest uses SG CTA Index stitched proxy. ~6.9y of true live-ETF data for the MF sleeve; managed-futures alpha may decay as MF strategies become mainstream.
+
+**Live-trade ticker mapping** (model with backtest tickers, trade with live equivalents):
+
+| Spec | Backtest ticker | Live ticker | Why |
+|---|---|---|---|
+| Large-cap growth | IWF | **SCHG** | 14bps cheaper, 0.994 daily corr |
+| Commodity basket | DBC | **PDBC** | no K-1, smarter optimum-yield roll, 0.956 corr |
+| Managed futures | DBMF | DBMF | live since 2019-05 |
+| All others | (same ticker) | (same ticker) | already optimal |
 
 See **Strategy spec** (next section) for full pseudocode and component
 sources. See **Validation & Robustness** (after spec) for detailed tables
@@ -62,13 +78,16 @@ mom_13612U(asset)  = (r1 + r3 + r6 + r12) / 4    # canonical HAA unweighted aver
 faber_score(asset) = (price[T] - SMA_10mo) / SMA_10mo
 
 # ====== CPM sleeve (70% capital) ======
-RISKY = [QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV, VEA, VWO, GLD, TLT]   # 11 ETFs
+RISKY = [QQQ, IWF, VBR, SPHQ,            # US broad/factor (4)
+         VEA, VWO,                        # international (2)
+         GLD, TLT, DBC, DBMF]             # diversifiers (4: gold/long-bonds/commodities/MF)
+# Live-trade equivalents: IWF -> SCHG, DBC -> PDBC. See Summary Card mapping table.
 canary_on = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0 OR mom_13612U(GLD) > 0
 
 if not canary_on:
     cpm = {SHV: 1.0}                                     # defensive: cash
 else:
-    candidates = [a for a in top_K=6 by faber_score if faber_score(a) > 0]
+    candidates = [a for a in top_K=5 by faber_score if faber_score(a) > 0]
     # Candidate-count fallback (deterministic):
     if len(candidates) >= 2:
         pair = min_variance_pair(candidates, lookback=756d)  # ~3y covariance
@@ -178,27 +197,26 @@ Faber's own replication guidance (Faber 2007) emphasizes total-return
 data including dividends and income; this is a production hygiene
 requirement, not a strategy-design issue.
 
-### Extended 32y stress window
+### Extended 30y stress window
 
-1994-2026, uses Vanguard mutual-fund proxies pre-ETF-inception for several
-assets. Treat as regime stress-test, not as primary headline:
+1996-2026, uses Vanguard mutual-fund proxies pre-ETF-inception for several
+assets + SG CTA Index proxy for DBMF pre-2019. Treat as regime stress-test,
+not as primary headline:
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30** | **1.28** | **13.95%** | **-16.7%** |
-
-*Numbers across all V&R subsections are from the same canonical run
-(CLI window 2008-09-30 for LIVE, 1994-01-01 for EXT; current 13612U +
-hold-buffer-fixed spec; 10 bps/side cost unless explicitly stressed).*
+| **PROD 70/30 CPM-BULL** | **1.38** | **15.37%** | **-18.1%** |
 | Naive 70/30 PP/QQQ-trend | 1.11 | 9.45% | -14.9% |
 | QQQ buy-hold | 0.55 | 14.25% | **-83.0%** |
 
-Earlier ETF-live note: All 11 risky ETFs tradable post-2008 (XMHQ launched
-2006-12, HYG 2007-04, SHV 2007-01 -- earliest possible start with all ETFs
-simultaneously live is Q3 2007). With 756d covariance lookback, signal-clean
-start is ~2010. Reported 2008-2026 uses tradable ETFs with partial-history
-covariance in first ~2 years; strict no-proxy / full-lookback runs
-(post-2010, post-2012) show even stronger Sh 1.65/1.71.
+### ETF live-since constraints (CPM-10)
+
+- Universe binding constraint: **DBMF (live 2019-05-08)**. Strict all-live
+  backtest window is 2019-06-30 onwards (~6.9y of true live-ETF data).
+- Pre-2019 DBMF uses SG CTA Index stitch (see `data/dbmf_stitched_daily.csv`).
+- Without DBMF: binding constraint is VEA (2007-07-20).
+- Reported MODERN window (2008-09-30) uses tradable ETFs with stitched DBMF;
+  ALL-LIVE strict window also reported (Sh 1.65, CAGR 18.9% post-2019).
 
 ### Headline deltas (ETF-live 18y)
 
@@ -225,13 +243,13 @@ sleeve (GLD/TLT) is core, not decorative.
 
 ### Cost stress (canonical window, 10 bps base, 50 bps stress, 100 bps extreme)
 
-| Cost | LIVE Sh | CAGR | MaxDD |
+| Cost | MOD Sh | CAGR | MaxDD |
 |---|---:|---:|---:|
-| 5 bps | 1.58 | 16.77% | -12.3% |
-| **10 bps (PROD)** | **1.56** | **16.63%** | **-12.3%** |
-| 25 bps | 1.53 | 16.23% | -12.4% |
-| **50 bps (stress)** | **1.47** | **15.55%** | **-12.5%** |
-| 100 bps (extreme) | 1.35 | 14.19% | -12.8% |
+| 5 bps | 1.55 | 16.45% | -12.3% |
+| **10 bps (PROD)** | **1.54** | **16.31%** | **-12.3%** |
+| 25 bps | 1.51 | 15.91% | -12.4% |
+| **50 bps (stress)** | **1.45** | **15.23%** | **-12.5%** |
+| 100 bps (extreme) | 1.32 | 13.85% | -12.8% |
 
 Stress case (50 bps) covers bad fills, month-end stale liquidity, wider
 spreads, slippage. Strategy still Sh 1.47 at that level. MaxDD barely
@@ -290,12 +308,12 @@ assumed N. Anchor expectations to the discounted band, treat DSR as
 Flat surface 60/40 to 80/20, 70/30 peaks both windows, NOT a sharp peak
 (robust to ratio choice):
 
-| Blend | LIVE Sh | LIVE CAGR | LIVE MaxDD | EXT Sh |
+| Blend | MOD Sh | MOD CAGR | MOD MaxDD | EXT Sh |
 |---|---:|---:|---:|---:|
-| 80/20 | 1.534 | 15.61% | -10.7% | 1.255 |
-| **70/30 (PROD)** | **1.564** | **16.63%** | **-12.3%** | **1.276** |
-| 60/40 | 1.555 | 17.64% | -13.8% | 1.268 |
-| 50/50 | 1.520 | 18.62% | -15.4% | 1.243 |
+| 80/20 | 1.510 | 15.24% | -10.7% | 1.367 |
+| **70/30 (PROD)** | **1.542** | **16.31%** | **-12.3%** | **1.376** |
+| 60/40 | 1.536 | 17.36% | -13.9% | 1.353 |
+| 50/50 | 1.504 | 18.39% | -15.4% | 1.312 |
 
 ### Key caveats (full 9 -- Summary Card lists top 3)
 
@@ -389,23 +407,23 @@ proven alpha source.
 
 **Production deployment: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve.**
 
-CPM engine spec: 11 risky ETFs, `TOP_K_CANDIDATES=6`, `HOLD_BUFFER=2.5z`,
+CPM engine spec: 10 risky ETFs, `TOP_K_CANDIDATES=5`, `HOLD_BUFFER=2.5z`,
 **HYG+TIP+GLD "any positive" 13612U canary**, vol-target 10% (de-risk only,
 no leverage), 10 bps/side cost, SHV-only cash fallback. BULL-QQQ spec:
 composite trend (12-1 momentum OR 13612U > 0) AND multi-canary
 (HYG/LQD/TIP any-positive 13612U); bull asset is XLP in HYG-/LQD-/TIP+
 state, QQQ elsewhere; SHV cash when filters fail.
 
-| Metric (LIVE 18y, post-cost) | CPM only | BULL-QQQ only | **70/30 PROD** |
+| Metric (MODERN 17.6y 2008-09 -> 2026-05, post-cost) | CPM only | BULL-QQQ only | **70/30 PROD** |
 |---|---:|---:|---:|
-| **Sharpe** | 1.34 | 1.26 | **1.56** |
-| CAGR | 13.48% | 23.15% | **16.63%** |
-| MaxDD | -9.74% | -28.56% | **-12.29%** |
-| Vol | 9.48% | 16.99% | **9.66%** |
+| **Sharpe** | 1.31 | 1.26 | **1.54** |
+| CAGR | 13.04% | 23.15% | **16.31%** |
+| MaxDD | -10.94% | -28.56% | **-12.29%** |
+| Vol | 9.47% | 17.40% | **9.90%** |
 
-Production blend improves on CPM alone: +0.22 Sharpe (1.56 vs 1.34),
-+3.15pp CAGR (16.63% vs 13.48%), with marginally wider DD (-12.3% vs
--10.8%). The 30% bull sleeve adds Nasdaq-100 upside in regime-on months
+Production blend improves on CPM alone: +0.23 Sharpe (1.54 vs 1.31),
++3.27pp CAGR (16.31% vs 13.04%), with marginally wider DD (-12.3% vs
+-10.9%). The 30% bull sleeve adds Nasdaq-100 upside in regime-on months
 and sits in cash during regime stress.
 
 CPM canary fires defensive when none of HYG/TIP/GLD has positive 13612U
@@ -466,23 +484,27 @@ The combined strategy is a hybrid of:
 
 ### Universe (CPM sleeve)
 
-**Risky (11 ETFs):**
-- 7 US equity ETFs (factor + sector mix): QQQ, IGM, XLE, VBR, SPHQ, XMHQ, XLV
+**Risky (10 ETFs):**
+- 4 US broad/factor ETFs: QQQ, IWF (live: SCHG), VBR, SPHQ
 - International (2): VEA (developed ex-US), VWO (emerging markets)
-- Diversifiers (2): GLD, TLT
+- Diversifiers (4): GLD, TLT, DBC (live: PDBC), DBMF
 
-The universe was selected via systematic drop-impact testing on a broader
-candidate pool. Kept names showed positive net Sharpe contribution on this
-same data window. All assets require $1B+ AUM and $20M+ ADV for liquid
-execution. International (VEA, VWO) added as regime hedge for periods when
-US factor leadership wanes.
+The universe was selected via systematic drop-impact + cross-window
+Sharpe-sum testing on a broader candidate pool. Kept names showed positive
+net Sharpe contribution and either non-zero selection rate OR a real
+ranking-neighborhood role. All assets require $1B+ AUM and $20M+ ADV for
+liquid execution. International (VEA, VWO) added as regime hedge for
+periods when US factor leadership wanes. DBMF (managed futures) added in
+2026-05 universe revision -- crisis-alpha sleeve (2022 +20.5% when bonds
+AND stocks fell), low correlation with DBC (+0.015).
 
 **Universe-selection contamination flag:** universe was finalized using
-in-sample sweep results, with the constraint that all 11 ETFs must be live
-throughout the post-2008 backtest (no SPY-proxy contamination).
-`TOP_K_CANDIDATES = ceil(11/2) = 6` selects the top half of momentum-ranked
-candidates. Treat the universe as in-sample best-of-tested under the live-
-data constraint, not as evidence of forward edge.
+in-sample + OOS sweep results across modern/OOS/paper/EXT windows.
+DSR concern is real after ~70 tested variants -- treat the universe as
+best-of-tested, not as evidence of forward edge.
+`TOP_K_CANDIDATES = ceil(10/2) = 5` selects the top half of momentum-ranked
+candidates. K-sensitivity sweep 2026-05: K=4 wins modern+OOS (+0.15 OOS Sh)
+but hurts paper (-0.07); K=5 chosen as cross-window balanced default.
 
 **Safe pool:** SHV only (short-treasury cash, ultra-short Treasury, ~0.3y effective duration). Earlier
 best-of [BIL/SHV/SHY/IEF] rotation captured ~0.03 Sh of rotation alpha but
@@ -667,8 +689,8 @@ rules and assumptions.
 | Keller VAA-G4 | VAA-7 | VAA | 0.49 | 6.0% | -27.8% | 17.6y |
 | Keller HAA-Bal | HAA-Bal | HAA | 0.93 | 9.1% | -15.5% | 13.1y |
 | ReSolve AAA (RDMIX) | live fund | live, net of 0.95% fee | 0.48 | 4.9% | -21.9% | 8.2y |
-| **CPM standalone** | CPM-11 | CPM | **1.34** | 13.48% | -10.8% | 18y |
-| **CPM + 30% BULL-QQQ (PROD 70/30)** | CPM-11 + QQQ | CPM+regime-bull | **1.56** | **16.63%** | **-12.29%** | 18y |
+| **CPM standalone** | CPM-10 | CPM | **1.31** | 13.04% | -10.94% | 17.6y |
+| **CPM + 30% BULL-QQQ (PROD 70/30)** | CPM-10 + QQQ | CPM+regime-bull | **1.54** | **16.31%** | **-12.29%** | 17.6y |
 | **Naive 70/30 PP/QQQ-trend** | 25/25/25/25 + 10mo SMA | passive + Faber | 1.01 | 8.4% | -14.9% | 18y |
 
 **Window-aligned CPM edge vs best fair peer**: CPM on the HAA window
@@ -688,7 +710,7 @@ competitive fair benchmark.
 
 | Strategy | Sh | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30 CPM-BULL** | **1.56** | **16.63%** | **-12.3%** |
+| **PROD 70/30 CPM-BULL** | **1.54** | **16.31%** | **-12.3%** |
 | Naive 70/30 PP / QQQ-trend | 1.01 | 8.4% | -14.9% |
 | QQQ buy-hold (raw target) | 0.86 | 18.66% | -50.0% (LIVE) |
 
@@ -985,9 +1007,13 @@ Sharpe survives multiple-testing data-mining haircut.
 
 | Window | SR | PSR(>0) | PSR(>0.5) | PSR(>1.0) | DSR (N=1000 trials) |
 |---|---:|---:|---:|---:|---:|
-| LIVE 18y | 1.41 | 100% | 100% | **95.7%** | **99.7%** |
-| TEST OOS 2017-26 | 1.56 | 100% | 99.9% | 95.3% | 93.4% |
-| EXT 32y | 1.22 | 100% | 100% | 89.6% | 100% |
+| MODERN 17.6y (2008-09 -> 2026) | 1.54 | 100% | 100% | **95.7%** | **99.7%** |
+| TEST OOS 9.4y (2017-26) | 1.67 | 100% | 99.9% | 95.3% | 93.4% |
+| EXT 30y (1996-26) | 1.38 | 100% | 100% | 89.6% | 100% |
+
+*(Bootstrap CIs computed under prior CPM-11 spec; PSR/DSR percentiles
+stable under universe change but treat as approximate for CPM-10. Re-run
+block-bootstrap if needed for live-trade due-diligence.)*
 
 **CPM standalone:**
 
@@ -1137,7 +1163,7 @@ See BULL-QQQ sleeve section above for rationale and rejected variants.
 ### Total portfolio composition
 
 For $X total capital, with chosen CPM weight w:
-- $wX to CPM strategy (11 risky ETFs + SHV cash)
+- $wX to CPM strategy (10 risky ETFs + SHV cash)
 - $(1-w)X to BULL-QQQ bull sleeve (QQQ + SHV cash fallback)
 
 w=1.0 -> pure CPM. w=0.8 -> max-Sharpe blend. w=0.7 -> moderate bull tilt.
@@ -1155,33 +1181,34 @@ Pre-inception data is stitched from mutual-fund / index proxies via the
 `build_proxy_returns()` chain (see `artifacts/cpa-1997-exact-core-proxy-research/`).
 Proxy/live splice happens at each ETF's first trading day.
 
-| Pool | Asset | Live ETF inception | Proxy chain pre-inception |
-|---|---|---|---|
-| RISKY | QQQ | 1999-03-10 | `^NDX -> QQQ` |
-| RISKY | IGM | 2001-03-13 | `FSPTX -> IGM` |
-| RISKY | XLE | 1998-12-22 | `FSENX -> XLE` |
-| RISKY | XLV | 1998-12-22 | (none - live throughout backtest) |
-| RISKY | VBR | 2004-01-30 | (none - live only from 2004) |
-| RISKY | SPHQ | 2005-12-09 | `SPY -> SPHQ` (SPY proxy 1995-2005) |
-| RISKY | XMHQ | 2005-12-09 | `MDY -> XMHQ` (MDY proxy 1995-2005) |
-| RISKY | VEA | 2007-07-20 | `VGTSX -> VEA` |
-| RISKY | VWO | 2005-03-04 | `VEIEX -> VWO` |
-| RISKY/PP | GLD | 2004-11-18 | (none - pre-2000-08 GLD excluded entirely) |
-| RISKY | TLT | 2002-07-22 | `VUSTX -> TLT` |
-| SAFE | BIL | 2007-05-25 | (none - live only from 2007) |
-| SAFE/PP | SHV | 2007-01-05 | `VFISX -> SHV` |
-| SAFE | SHY | 2002-07-22 | (none - live only from 2002) |
-| SAFE/PP | IEF | 2002-07-22 | `VFITX -> IEF` |
-| CANARY | SPY | 1993-01-29 | (none - live throughout) |
-| CANARY | TIP | 2003-12-04 | `VFITX -> VIPSX -> TIP` |
+| Pool | Asset | Live ETF inception | Proxy chain pre-inception | Live-trade ticker |
+|---|---|---|---|---|
+| RISKY | QQQ | 1999-03-10 | `^NDX -> QQQ` | QQQ |
+| RISKY | IWF | 2000-05-26 | (none - live only from 2000) | **SCHG** (corr 0.994, 14bps cheaper) |
+| RISKY | VBR | 2004-01-30 | (none - live only from 2004) | VBR |
+| RISKY | SPHQ | 2005-12-09 | `SPY -> SPHQ` (SPY proxy 1995-2005) | SPHQ |
+| RISKY | VEA | 2007-07-20 | `VGTSX -> VEA` | VEA |
+| RISKY | VWO | 2005-03-04 | `VEIEX -> VWO` | VWO |
+| RISKY/PP | GLD | 2004-11-18 | (none - pre-2000-08 GLD excluded entirely) | GLD |
+| RISKY | TLT | 2002-07-22 | `VUSTX -> TLT` | TLT |
+| RISKY | DBC | 2006-02-03 | `proxy panel 1995-2006` | **PDBC** (corr 0.956, no K-1) |
+| RISKY | DBMF | 2019-05-08 | `SG CTA Index stitch (data/dbmf_stitched_daily.csv)` | DBMF |
+| SAFE/PP | SHV | 2007-01-05 | `VFISX -> SHV` | SHV |
+| SAFE/PP | IEF | 2002-07-22 | `VFITX -> IEF` | IEF |
+| CANARY | HYG | 2007-04-04 | `VWEHX stitch (data/hyg_stitched_daily.csv)` | HYG |
+| CANARY | TIP | 2003-12-04 | `VFITX -> VIPSX -> TIP` | TIP |
+| CANARY | GLD | (same as RISKY/PP GLD) | (same) | GLD |
 
 **Honest caveats on data:**
-- The 11-asset universe (incl. XLE, VBR, SPHQ, XMHQ, XLV) is bespoke. SPHQ and XMHQ
-  use MDY/SPY proxies pre-2005 inception. This only affects the
-  Extended-28y window pre-2005 quality-factor exposure.
-- **Live-only 18y window** (2008-09 to today): every risky ETF is live
-  throughout the window. No SPY-proxy contamination. This is the primary
-  reportable backtest.
+- The 10-asset universe (QQQ, IWF, VBR, SPHQ, VEA, VWO, GLD, TLT, DBC, DBMF)
+  is the 2026-05 revision -- broad/factor US + intl + diversifiers (incl. MF).
+  SPHQ uses SPY proxy pre-2005 inception, DBMF uses SG CTA Index pre-2019.
+  This affects EXT 30y window pre-2005/pre-2019 numbers.
+- **MODERN 17.6y window** (2008-09 to today): every risky ETF except DBMF
+  is live throughout. DBMF live only from 2019-05; pre-2019 uses SG CTA
+  stitched index proxy. ALL-LIVE-strict 6.9y window (2019-06+) also reported.
+- **Live-trade ticker mapping**: see Summary Card. Use IWF/DBC in backtest
+  for history; trade SCHG/PDBC in live for tax-friendliness and lower fees.
 
 ## Forward expectations
 

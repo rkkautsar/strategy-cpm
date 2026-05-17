@@ -27,18 +27,43 @@ DATA_DIR = ROOT / "data"
 ARTIFACTS_PROXY = ROOT.parent / "artifacts" / "cpa-1997-exact-core-proxy-research" / "proxy_adjusted_close_daily.csv"
 
 # ---------- Configuration ----------
-# US equity sub-universe (factor + sector mix): 7 names selected for clean live-data history and
-# positive selection rate in min-var pair audit. All ETFs live since 2005 or
-# earlier (no SPY-proxy contamination in backtest).
+# CPM-10 universe (10 risky assets). All broad/factor, no sector cherry-picks.
+#
+# Live-ETF coverage:
+#   Latest live-since (binding constraint): DBMF (2019-05).
+#   Without DBMF: latest is VEA (2007-07).
+#   Without DBMF and DBC: latest is SPHQ (2005-05).
+# Pre-live-ETF data is stitched proxy (DBMF uses SG CTA Index pre-2019;
+# panel data extends to 1995 via mutual-fund proxies for some assets).
+# "All-live" strict backtest window: 2019-06 onwards (post-DBMF launch).
+# Practical canonical window: 2008-09 onwards (all-major-ETF-live era,
+# DBMF pre-2019 uses SG CTA stitch).
+#
+# US sub-universe: broad/factor only.
+# QQQ = Nasdaq-100 index, IWF = Russell 1000 Growth (oldest live LC growth,
+# 2000-05), SPHQ = S&P 500 Quality, VBR = small-cap value.
+# Live-trade equivalent: IWF -> SCHG (Schwab US Large Growth, 14bps cheaper,
+# corr 0.994). Earlier sector ETFs (IGM, XLE, XLV, XMHQ) dropped after
+# selection-rate + cross-window Sharpe-sum analysis 2026-05.
 US_FACTORS = [
-    "QQQ", "IGM", "XLE", "VBR", "SPHQ", "XMHQ", "XLV",
+    "QQQ", "IWF", "VBR", "SPHQ",
 ]
 
 # International: regime hedge for periods when US factor leadership wanes.
+# VEA = developed ex-US, VWO = emerging markets. EEM dropped (0% selection
+# in both eras once XLK/IWF and DBC added -- redundant with VWO at 0.991 corr).
 INTERNATIONAL = ["VEA", "VWO"]
 
-DIVERSIFIERS = ["GLD", "TLT"]
-RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 11 risky
+# Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities), DBMF
+# (managed futures crisis-alpha). DBC closes pre-2008 commodity coverage vs
+# AAA paper-era. DBMF adds CTA crisis-alpha (2022 +20.5% when bonds AND stocks
+# fell, 2008 +5%). DBMF beats KMLM in CPM context because lower vol works
+# better in min-var pair selection despite KMLM having bigger crisis returns.
+# Live-trade equivalents: DBC -> PDBC (no K-1, smarter roll, corr 0.956).
+# DBMF live since 2019-05; pre-2019 stitched via SG CTA Index proxy.
+# See research/peer_aaa_optimum3.py + universe analysis 2026-05.
+DIVERSIFIERS = ["GLD", "TLT", "DBC", "DBMF"]
+RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 10 risky
 SAFE_POOL = ["SHV"]            # Single-asset cash mode (unified with BULL-QQQ).
                                 # Best-of-4 rotation (was [BIL,SHV,SHY,IEF])
                                 # captured ~0.03 Sh of bootstrap-noise alpha;
@@ -60,8 +85,10 @@ CANARY_RULE = "any_positive"  # alternatives: "all_positive", "majority"
 DEFAULT_CASH = "SHV"
 
 # Engine parameters
-TOP_K_CANDIDATES = 6        # Cap on momentum-ranked candidates passed to pair selection.
-#                              = ceil(len(RISKY_UNIVERSE) / 2) = top half of 11 candidates.
+TOP_K_CANDIDATES = 5        # Cap on momentum-ranked candidates passed to pair selection.
+#                              = ceil(len(RISKY_UNIVERSE) / 2) = top half of 10 candidates.
+#                              K-sensitivity 2026-05: K=4 wins modern+OOS (+0.15 OOS Sh)
+#                              but hurts paper (-0.07); K=5 chosen as balanced default.
 HOLD_BUFFER = 2.5           # z-score units. Keep prior pair member unless new
 #                              candidate exceeds prior z-score by this margin.
 #                              See research/hold_buffer_threshold_diagnosis.log.
@@ -93,13 +120,17 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         panel = pd.DataFrame()
     
     # Stitched series from data/ (overwrites any same-named column in proxy panel).
-    # KMLM stitched = KFA-MLM Index pre-2020-12 + live KMLM ETF post.
-    # Used as buffer sleeve component (managed futures crisis-alpha).
+    # Stitches replace live yfinance data with proxy-extended series:
+    #   - DBMF: SG CTA Index pre-2019-05 + live DBMF ETF post (crisis-alpha sleeve).
+    #   - KMLM: KFA-MLM Index pre-2020-12 + live KMLM ETF post (reserved).
+    #   - HYG_stitched: VWEHX mutual fund pre-2007-04 + live HYG post (canary).
+    #   - GLD, TIP, AGG: clean stitches for canary/PP usage pre-live-ETF.
     for fname, col in [
         ("gld_stitched_daily_clean.csv", "GLD"),
         ("tip_stitched_daily.csv", "TIP"),
         ("agg_stitched_daily.csv", "AGG_stitched"),
         ("kmlm_stitched_daily.csv", "KMLM"),
+        ("dbmf_stitched_daily.csv", "DBMF"),  # SG CTA Index pre-2019-05 + live DBMF
         ("hyg_stitched_daily.csv", "HYG_stitched"),  # VWEHX pre-2007-04 + live HYG
     ]:
         fpath = DATA_DIR / fname
