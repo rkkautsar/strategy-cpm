@@ -1,7 +1,11 @@
-# CPM - Factor, Canary, Pair
+# CPM-BULL
 
-A monthly tactical asset allocation strategy combining factor-ETF momentum
-rotation with risk-parity-style diversification.
+**Canary-gated Pair Momentum + BULL-QQQ overlay** -- a monthly tactical
+asset allocation strategy combining cross-asset momentum rotation with a
+trend-filtered Nasdaq satellite. See [TL;DR](#summary-card) for the
+2-minute version, [Strategy spec](#strategy-spec-compact) for the
+pseudocode, [Validation & Robustness](#validation--robustness) for the
+full rigor.
 
 ## Summary Card
 
@@ -1315,5 +1319,6 @@ Before live deployment (personal-capital context):
 ## Status
 
 Backtest period: 1997-08 to 2026-05 (28.7y extended, 18y live-only)
-Author: rkautsar; CPM = Factor + Canary + Pair (the three core mechanics)
+Author: rkautsar; CPM = Canary-gated Pair Momentum (cross-asset rotation
+with canary regime gate + min-variance pair selection)
 Live deployment: ready for ramped personal-capital pilot per oracle review
