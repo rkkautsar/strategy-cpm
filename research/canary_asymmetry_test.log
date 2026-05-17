@@ -1,0 +1,19 @@
+## Canary asymmetry test
+Mechanism: canary signals (HYG/LQD/TIP) require 2 consecutive positive months for ON
+Goal: reduce V-recovery whipsaw, slower re-engagement after defense
+
+
+## LIVE 18y
+  Variant                          | FCP Sh    CAGR    DD | 70/30 Sh   CAGR    DD
+  Current (1-month signal)         | 1.232  11.74% -14.3% | 1.454  13.99% -12.3%
+  Asymmetric (2-mo confirm ON)     | 1.253  11.96% -14.0% | 1.407  13.45% -12.3%
+
+## TEST OOS
+  Variant                          | FCP Sh    CAGR    DD | 70/30 Sh   CAGR    DD
+  Current (1-month signal)         | 1.485  14.96%  -9.7% | 1.640  16.85% -12.3%
+  Asymmetric (2-mo confirm ON)     | 1.485  14.96%  -9.7% | 1.600  16.36% -12.3%
+
+## EXT 32y
+  Variant                          | FCP Sh    CAGR    DD | 70/30 Sh   CAGR    DD
+  Current (1-month signal)         | 1.098  10.32% -13.8% | 1.232  12.47% -15.6%
+  Asymmetric (2-mo confirm ON)     | 1.108  10.41% -13.3% | 1.211  12.14% -14.9%

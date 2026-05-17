@@ -1,0 +1,144 @@
+==============================================================================
+FCP WALK-FORWARD RULE-FREEZE VALIDATION
+Global window : 1997-08-31 -> 2026-05-15
+Freeze years  : [2010, 2012, 2014, 2016, 2018, 2020]
+Bootstrap     : N=3000, block=21d
+==============================================================================
+Loading price panel ...
+Panel: 1996-05-31 -> 2026-05-14, 46 assets
+
+-- CURRENT PRODUCTION SPEC --
+   universe (15): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'XLV', 'VEA', 'VWO', 'GLD', 'TLT']
+   HOLD_BUFFER=2.5  TOP_K=7  CORR=378d  VOL_TARGET=10%  COST=10bps/side
+  [PROD] universe=15 risky, buf=2.5
+  [PROD] done: 7435 trading days
+
+-- FROZEN-2014/2020 SPEC (14 risky, buf=3.0) --
+   universe (14): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'SPHQ', 'XMMO', 'XMHQ', 'AVUV', 'VEA', 'VWO', 'GLD', 'TLT']
+  [SPEC-2014] universe=14 risky, buf=3.0
+  [SPEC-2014] done: 7435 trading days
+
+==============================================================================
+WALK-FORWARD SPLITS -- CURRENT PRODUCTION SPEC
+==============================================================================
+
+  Freeze 2010: IS=13.3y  OOS=15.4y
+    IS  Sh=+1.134  CAGR=+10.80%  MaxDD=-10.43%  UPI=+3.108
+    OOS Sh=+1.246  CAGR=+10.17%  MaxDD=-10.72%  UPI=+2.581
+    delta Sharpe (OOS - IS) = +0.111
+    Bootstrap CI (N=3000, block=21d) ...
+    IS-OOS diff: obs=-0.111  boot_mean=-0.108  std=0.343
+    95% CI: [-0.776, +0.560]  p_deg_sig=0.614  n=3000  ns
+    OOS sub-window Sharpes: 2011-2015: +1.54  2015-2018: +0.37  2018-2022: +1.62  2022-2026: +1.09
+
+  Freeze 2012: IS=15.3y  OOS=13.4y
+    IS  Sh=+1.118  CAGR=+10.46%  MaxDD=-10.43%  UPI=+3.175
+    OOS Sh=+1.284  CAGR=+10.50%  MaxDD=-10.72%  UPI=+2.513
+    delta Sharpe (OOS - IS) = +0.166
+    Bootstrap CI (N=3000, block=21d) ...
+    IS-OOS diff: obs=-0.166  boot_mean=-0.115  std=0.345
+    95% CI: [-0.792, +0.542]  p_deg_sig=0.627  n=3000  ns
+    OOS sub-window Sharpes: 2011-2015: +2.18  2015-2018: +0.37  2018-2022: +1.62  2022-2026: +1.09
+
+  Freeze 2014: IS=17.3y  OOS=11.4y
+    IS  Sh=+1.209  CAGR=+11.12%  MaxDD=-10.43%  UPI=+3.538
+    OOS Sh=+1.151  CAGR=+9.52%  MaxDD=-10.72%  UPI=+2.118
+    delta Sharpe (OOS - IS) = -0.058
+    Bootstrap CI (N=3000, block=21d) ...
+    IS-OOS diff: obs=+0.058  boot_mean=+0.087  std=0.360
+    95% CI: [-0.611, +0.782]  p_deg_sig=0.396  n=3000  ns
+    OOS sub-window Sharpes: 2015-2018: +0.37  2018-2022: +1.62  2022-2026: +1.09
+
+  Freeze 2016: IS=19.3y  OOS=9.4y
+    IS  Sh=+1.094  CAGR=+9.69%  MaxDD=-10.43%  UPI=+2.689
+    OOS Sh=+1.382  CAGR=+12.15%  MaxDD=-10.72%  UPI=+3.247
+    delta Sharpe (OOS - IS) = +0.288
+    Bootstrap CI (N=3000, block=21d) ...
+    IS-OOS diff: obs=-0.288  boot_mean=-0.274  std=0.369
+    95% CI: [-0.992, +0.448]  p_deg_sig=0.769  n=3000  ns
+    OOS sub-window Sharpes: 2015-2018: +1.50  2018-2022: +1.62  2022-2026: +1.09
+
+  Freeze 2018: IS=21.3y  OOS=7.4y
+    IS  Sh=+1.132  CAGR=+9.82%  MaxDD=-10.43%  UPI=+2.746
+    OOS Sh=+1.339  CAGR=+12.43%  MaxDD=-10.72%  UPI=+2.989
+    delta Sharpe (OOS - IS) = +0.207
+    Bootstrap CI (N=3000, block=21d) ...
+    IS-OOS diff: obs=-0.207  boot_mean=-0.209  std=0.382
+    95% CI: [-0.949, +0.526]  p_deg_sig=0.705  n=3000  ns
+    OOS sub-window Sharpes: 2018-2022: +1.61  2022-2026: +1.09
+
+  Freeze 2020: IS=23.3y  OOS=5.4y
+    IS  Sh=+1.198  CAGR=+10.60%  MaxDD=-10.43%  UPI=+3.050
+    OOS Sh=+1.135  CAGR=+9.99%  MaxDD=-10.72%  UPI=+2.119
+    delta Sharpe (OOS - IS) = -0.063
+    Bootstrap CI (N=3000, block=21d) ...
+    IS-OOS diff: obs=+0.063  boot_mean=+0.115  std=0.437
+    95% CI: [-0.749, +0.959]  p_deg_sig=0.399  n=3000  ns
+    OOS sub-window Sharpes: 2018-2022: +1.18  2022-2026: +1.09
+
+==============================================================================
+RANKED SUMMARY TABLE  (sorted by OOS Sharpe desc)
+==============================================================================
+  FY   IS_Yrs   IS_Sh  IS_CAGR   IS_DD  IS_UPI | OOS_Yrs  OOS_Sh OOS_CAGR  OOS_DD OOS_UPI |    dSh
+--------------------------------------------------------------------------------------------------
+  2016    19.3  +1.094   +9.69% -10.43%  +2.689 |     9.4  +1.382   +12.15% -10.72%  +3.247 |  +0.288
+  2018    21.3  +1.132   +9.82% -10.43%  +2.746 |     7.4  +1.339   +12.43% -10.72%  +2.989 |  +0.207
+  2012    15.3  +1.118  +10.46% -10.43%  +3.175 |    13.4  +1.284   +10.50% -10.72%  +2.513 |  +0.166
+  2010    13.3  +1.134  +10.80% -10.43%  +3.108 |    15.4  +1.246   +10.17% -10.72%  +2.581 |  +0.111
+  2014    17.3  +1.209  +11.12% -10.43%  +3.538 |    11.4  +1.151    +9.52% -10.72%  +2.118 |  -0.058
+  2020    23.3  +1.198  +10.60% -10.43%  +3.050 |     5.4  +1.135    +9.99% -10.72%  +2.119 |  -0.063
+
+Bootstrap significance:
+  FY   obs_diff    ci_lo    ci_hi   p_sig  n_boot     verdict
+  --------------------------------------------------------------
+  2010    -0.111   -0.776   +0.560   0.614    3000          ns
+  2012    -0.166   -0.792   +0.542   0.627    3000          ns
+  2014    +0.058   -0.611   +0.782   0.396    3000          ns
+  2016    -0.288   -0.992   +0.448   0.769    3000          ns
+  2018    -0.207   -0.949   +0.526   0.705    3000          ns
+  2020    +0.063   -0.749   +0.959   0.399    3000          ns
+
+==============================================================================
+OOS SUB-WINDOW SHARPE CONSISTENCY (current prod spec)
+  nan = sub-window pre-OOS or < 60 trading days
+==============================================================================
+             2011-2015  2015-2018  2018-2022  2022-2026
+freeze_year                                            
+2010             1.536      0.368      1.625      1.092
+2012             2.177      0.368      1.625      1.092
+2014               NaN      0.368      1.625      1.092
+2016               NaN      1.500      1.625      1.092
+2018               NaN        NaN      1.609      1.092
+2020               NaN        NaN      1.185      1.092
+
+==============================================================================
+SPEC COMPARISON: CURRENT-PROD vs FROZEN-AS-OF-YEAR
+  current : 15 risky (VBR+XLV, no AVUV), buf=2.5
+  frozen  : 14 risky (AVUV, no VBR/XLV),  buf=3.0
+==============================================================================
+
+    FY               Spec |   IS_Sh  IS_CAGR   IS_DD |  OOS_Sh  OOS_CAGR  OOS_DD  OOS_UPI |     dSh
+  -----------------------------------------------------------------------------------------------------------
+  2014     current-15/2.5 |  +1.209  +11.12% -10.43% |  +1.151    +9.52% -10.72%   +2.118 |  -0.058
+  2014      frozen-14/3.0 |  +1.208  +10.99% -14.83% |  +1.205   +10.13%  -9.38%   +2.370 |  -0.003
+  2020     current-15/2.5 |  +1.198  +10.60% -10.43% |  +1.135    +9.99% -10.72%   +2.119 |  -0.063
+  2020      frozen-14/3.0 |  +1.227  +10.83% -14.83% |  +1.119    +9.96%  -9.34%   +2.355 |  -0.107
+
+OOS winner per freeze year:
+  2014: OOS winner=frozen-14/3.0  (Sh=+1.205)  vs current-15/2.5  (Sh=+1.151)  delta=+0.054  [IS winner=current-15/2.5]
+  2020: OOS winner=current-15/2.5  (Sh=+1.135)  vs frozen-14/3.0  (Sh=+1.119)  delta=+0.016  [IS winner=frozen-14/3.0]
+
+==============================================================================
+CAVEATS & METHODOLOGY
+==============================================================================
+  1. Rule-freeze: ALL splits use CURRENT PRODUCTION SPEC. No re-tuning per year.
+  2. IS always starts 1997-08-31. Proxy data pre-2000 may differ from live ETFs.
+     Treat IS metrics for early splits (IS starting 1997) with extra caution.
+  3. Bootstrap CI (N=3000, block=21d): IS-OOS Sharpe gap vs block-resampled noise.
+     p_deg_sig < 0.05 => degradation exceeds what noise can explain.
+  4. AVUV live since Sept-2019; proxy_adjusted_close_daily.csv fills pre-2019.
+     Frozen-spec OOS window 2015-2019 uses proxy AVUV; post-2019 uses live.
+  5. Short OOS (freeze_year=2020: ~5y) has high Sharpe variance. Wide CI normal.
+  6. NO production changes recommended. Empirical evidence only.
+
+DONE. Log -> /Users/rkautsar/personal/scripts/strategy_fcp/research/walk_forward_rule_freeze.log

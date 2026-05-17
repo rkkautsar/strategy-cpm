@@ -1,0 +1,142 @@
+2026-05-16 09:37:27,060 INFO peer_strategy_faithful_reproduction.py — START
+2026-05-16 09:37:27,060 INFO Standard window: 2008-09-30 to 2026-05-16
+2026-05-16 09:37:27,060 INFO Cost: 10bps/side (uniform). FCP: vol-target ON. Peer engines: vol-target OFF.
+2026-05-16 09:37:27,060 INFO 
+2026-05-16 09:37:27,060 INFO Loading base FCP panel ...
+2026-05-16 09:37:27,110 INFO   FCP base: 1986-12-11 to 2026-05-14, 46 cols
+2026-05-16 09:37:27,110 INFO Fetching 4 peer tickers: ['AGG', 'EFV', 'OEF', 'VTV']
+2026-05-16 09:37:27,121 INFO Full panel: 1986-12-11 to 2026-05-15, 50 cols
+2026-05-16 09:37:27,121 INFO 
+2026-05-16 09:37:27,121 INFO ======================================================================
+2026-05-16 09:37:27,121 INFO BASELINE: FCP engine + FCP-15 (production)
+2026-05-16 09:37:27,121 INFO ======================================================================
+2026-05-16 09:37:27,830 INFO   Sh=1.204  CAGR=10.23%  DD=-10.72%  [2008-09-30  17.6y]
+2026-05-16 09:37:27,830 INFO 
+2026-05-16 09:37:27,830 INFO ======================================================================
+2026-05-16 09:37:27,830 INFO STRATEGY 1: Faber GTAA5
+2026-05-16 09:37:27,830 INFO   Universe: ['SPY', 'EFA', 'IEF', 'VNQ', 'DBC']  Cash: SHV
+2026-05-16 09:37:27,830 INFO   Rule: equal-weight price>SMA10; else SHV. No vol-target.
+2026-05-16 09:37:27,830 INFO   ASSUMPTION: SHV as T-bill proxy. T+1 execution.
+2026-05-16 09:37:27,830 INFO ======================================================================
+2026-05-16 09:37:27,830 INFO 
+[1A] Faber engine + Faber-5 universe (paper reproduction)
+2026-05-16 09:37:28,249 INFO   Sh=0.498  CAGR=5.77%  DD=-25.35%  [2008-09-30  17.6y]
+2026-05-16 09:37:28,249 INFO 
+[1B] Faber engine + FCP-15 universe
+2026-05-16 09:37:28,812 INFO   Sh=0.898  CAGR=13.18%  DD=-20.48%  [2008-09-30  17.6y]
+2026-05-16 09:37:28,812 INFO 
+[1C] FCP engine + Faber-5 universe
+2026-05-16 09:37:29,411 INFO   Sh=0.659  CAGR=4.62%  DD=-11.09%  [2008-09-30  17.6y]
+2026-05-16 09:37:29,411 INFO 
+2026-05-16 09:37:29,411 INFO ======================================================================
+2026-05-16 09:37:29,411 INFO STRATEGY 2: Antonacci GEM
+2026-05-16 09:37:29,411 INFO   Risky: ['SPY', 'EFA']  Bond: AGG  T-bill proxy: SHV
+2026-05-16 09:37:29,411 INFO   Rule: SPY 12mo > T-bill → top SPY/EFA by 12mo; else AGG
+2026-05-16 09:37:29,411 INFO   No vol-target. T+1 execution.
+2026-05-16 09:37:29,411 INFO   ASSUMPTION: SHV as T-bill proxy (tracks 0-3mo T-bills).
+2026-05-16 09:37:29,411 INFO ======================================================================
+2026-05-16 09:37:29,411 INFO 
+[2A] GEM engine + GEM-3 universe (paper reproduction)
+2026-05-16 09:37:29,702 INFO   Sh=0.544  CAGR=7.85%  DD=-33.72%  [2008-09-30  17.6y]
+2026-05-16 09:37:29,702 INFO 
+[2B] GEM engine + FCP-15 universe
+2026-05-16 09:37:29,702 INFO   ASSUMPTION: SPY used for absolute momentum filter (external to FCP-15 risky basket).
+2026-05-16 09:37:29,702 INFO   ASSUMPTION: defensive=TLT (in FCP-15; natural bond defensive). Risk-on: top-1 FCP-15 by 12mo.
+2026-05-16 09:37:30,046 INFO   Sh=0.614  CAGR=11.41%  DD=-36.04%  [2008-09-30  17.6y]
+2026-05-16 09:37:30,046 INFO 
+[2C] FCP engine + GEM-3 universe
+2026-05-16 09:37:30,619 INFO   Sh=0.680  CAGR=4.37%  DD=-11.55%  [2008-09-30  17.6y]
+2026-05-16 09:37:30,619 INFO 
+2026-05-16 09:37:30,619 INFO ======================================================================
+2026-05-16 09:37:30,619 INFO STRATEGY 3: Keller VAA-G4
+2026-05-16 09:37:30,619 INFO   Risky: ['SPY', 'VEA', 'EEM', 'AGG']  Safe: ['LQD', 'IEF', 'SHY']
+2026-05-16 09:37:30,619 INFO   Rule: 13612W breadth; breadth/n risky, rest safe. No vol-target.
+2026-05-16 09:37:30,619 INFO   ASSUMPTION: live dates (no synthetic back-extension for EEM/VEA).
+2026-05-16 09:37:30,619 INFO ======================================================================
+2026-05-16 09:37:30,619 INFO 
+[3A] VAA engine + VAA-G4 universe (paper reproduction)
+2026-05-16 09:37:30,966 INFO   Sh=0.494  CAGR=6.01%  DD=-27.84%  [2008-09-30  17.6y]
+2026-05-16 09:37:30,966 INFO 
+[3B] VAA engine + FCP-15 universe
+2026-05-16 09:37:30,966 INFO   ASSUMPTION: breadth denominator=15. Safe pool: LQD/IEF/SHY unchanged.
+2026-05-16 09:37:31,461 INFO   Sh=0.549  CAGR=8.15%  DD=-28.31%  [2008-09-30  17.6y]
+2026-05-16 09:37:31,462 INFO 
+[3C] FCP engine + VAA-G4 universe
+2026-05-16 09:37:32,052 INFO   Sh=0.714  CAGR=4.69%  DD=-11.83%  [2008-09-30  17.6y]
+2026-05-16 09:37:32,053 INFO 
+2026-05-16 09:37:32,053 INFO ======================================================================
+2026-05-16 09:37:32,053 INFO STRATEGY 4: Keller HAA-Balanced (2023)
+2026-05-16 09:37:32,053 INFO   Canary: TIP  Offensive: ['VTV', 'IWM', 'OEF', 'MTUM', 'EFV', 'DBC', 'TLT', 'IEF']
+2026-05-16 09:37:32,053 INFO   Safe: ['BIL', 'IEF', 'TLT']  Top-K: 4
+2026-05-16 09:37:32,053 INFO   Rule: 13612W(TIP)>0 → risk-on → top-4 offensive; else best-safe.
+2026-05-16 09:37:32,053 INFO   No vol-target. T+1 execution.
+2026-05-16 09:37:32,053 INFO   ASSUMPTION: MTUM live April 2013 → peer-universe start ~2013-05.
+2026-05-16 09:37:32,053 INFO   ASSUMPTION: BIL as primary safe pool anchor.
+2026-05-16 09:37:32,053 INFO ======================================================================
+2026-05-16 09:37:32,053 INFO 
+[4A] HAA engine + HAA-Balanced universe (paper reproduction)
+2026-05-16 09:37:32,365 INFO   Sh=0.933  CAGR=9.10%  DD=-15.45%  [2013-04-18  13.1y]
+2026-05-16 09:37:32,365 INFO 
+[4B] HAA engine + FCP-15 universe
+2026-05-16 09:37:32,365 INFO   ASSUMPTION: offensive=FCP-15, canary=TIP, safe=BIL/IEF/TLT.
+2026-05-16 09:37:32,842 INFO   Sh=0.981  CAGR=13.32%  DD=-24.06%  [2008-09-30  17.6y]
+2026-05-16 09:37:32,842 INFO 
+[4C] FCP engine + HAA-Balanced universe (offensive basket as risky)
+2026-05-16 09:37:33,336 INFO   Sh=0.932  CAGR=5.80%  DD=-9.42%  [2013-04-18  13.1y]
+2026-05-16 09:37:33,336 INFO 
+2026-05-16 09:37:33,336 INFO ======================================================================
+2026-05-16 09:37:33,336 INFO FINAL COMPARISON TABLE
+2026-05-16 09:37:33,336 INFO ======================================================================
+2026-05-16 09:37:33,336 INFO 
+2026-05-16 09:37:33,336 INFO Strategy                       Universe   Engine            Sh    CAGR    Vol      DD   Sort   Cal   UPI  Yrs
+2026-05-16 09:37:33,336 INFO -------------------------------------------------------------------------------------------------------------
+2026-05-16 09:37:33,336 INFO FCP-production                 FCP-15     FCP-engine     1.204  10.23%  8.19% -10.72%  1.471  0.95  2.55 17.6
+2026-05-16 09:37:33,336 INFO Faber-GTAA5                    Faber-5    Faber-engine   0.498   5.77% 12.62% -25.35%  0.597  0.23  0.66 17.6
+2026-05-16 09:37:33,336 INFO Faber-GTAA5                    FCP-15     Faber-engine   0.898  13.18% 14.68% -20.48%  1.163  0.64  2.16 17.6
+2026-05-16 09:37:33,336 INFO Faber-GTAA5                    Faber-5    FCP-engine     0.659   4.62%  7.08% -11.09%  0.745  0.42  1.36 17.6
+2026-05-16 09:37:33,336 INFO GEM                            GEM-3      GEM-engine     0.544   7.85% 15.91% -33.72%  0.640  0.23  0.95 17.6
+2026-05-16 09:37:33,336 INFO GEM                            FCP-15     GEM-engine     0.614  11.41% 20.70% -36.04%  0.817  0.32  0.81 17.6
+2026-05-16 09:37:33,336 INFO GEM                            GEM-3      FCP-engine     0.680   4.37%  6.46% -11.55%  0.803  0.38  1.10 17.6
+2026-05-16 09:37:33,336 INFO VAA-G4                         VAA-7      VAA-engine     0.494   6.01% 13.36% -27.84%  0.631  0.22  0.57 17.6
+2026-05-16 09:37:33,336 INFO VAA-G4                         FCP-15     VAA-engine     0.549   8.15% 16.42% -28.31%  0.691  0.29  0.71 17.6
+2026-05-16 09:37:33,336 INFO VAA-G4                         VAA-7      FCP-engine     0.714   4.69%  6.59% -11.83%  0.853  0.40  1.14 17.6
+2026-05-16 09:37:33,336 INFO HAA-Balanced                   HAA-Bal    HAA-engine     0.933   9.10%  9.66% -15.45%  1.049  0.59  2.03 13.1
+2026-05-16 09:37:33,336 INFO HAA-Balanced                   FCP-15     HAA-engine     0.981  13.32% 13.38% -24.06%  1.158  0.55  2.46 17.6
+2026-05-16 09:37:33,336 INFO HAA-Balanced                   HAA-Bal    FCP-engine     0.932   5.80%  6.14%  -9.42%  1.066  0.62  1.75 13.1
+2026-05-16 09:37:33,336 INFO 
+2026-05-16 09:37:33,337 INFO ======================================================================
+2026-05-16 09:37:33,337 INFO ANALYSIS: ENGINE vs UNIVERSE DECOMPOSITION
+2026-05-16 09:37:33,337 INFO ======================================================================
+2026-05-16 09:37:33,337 INFO 
+2026-05-16 09:37:33,337 INFO Q1: Does FCP ENGINE beat peer engine on SAME peer universe?
+2026-05-16 09:37:33,337 INFO     (FCP-engine vs peer-engine, both on peer universe)
+2026-05-16 09:37:33,337 INFO 
+2026-05-16 09:37:33,337 INFO   Faber GTAA5         : FCP=0.659  peer=0.498  delta=+0.161  FCP BETTER
+2026-05-16 09:37:33,337 INFO   GEM                 : FCP=0.680  peer=0.544  delta=+0.136  FCP BETTER
+2026-05-16 09:37:33,337 INFO   VAA-G4              : FCP=0.714  peer=0.494  delta=+0.220  FCP BETTER
+2026-05-16 09:37:33,337 INFO   HAA-Balanced        : FCP=0.932  peer=0.933  delta=-0.001  PARITY
+2026-05-16 09:37:33,337 INFO 
+2026-05-16 09:37:33,337 INFO Q2: Does FCP UNIVERSE beat peer universe on SAME peer engine?
+2026-05-16 09:37:33,337 INFO     (FCP-15 vs peer universe, both with peer engine)
+2026-05-16 09:37:33,337 INFO 
+2026-05-16 09:37:33,337 INFO   Faber GTAA5         : FCP-15=0.898  peer-univ=0.498  delta=+0.400  FCP-15 BETTER
+2026-05-16 09:37:33,337 INFO   GEM                 : FCP-15=0.614  peer-univ=0.544  delta=+0.070  FCP-15 BETTER
+2026-05-16 09:37:33,337 INFO   VAA-G4              : FCP-15=0.549  peer-univ=0.494  delta=+0.055  FCP-15 BETTER
+2026-05-16 09:37:33,337 INFO   HAA-Balanced        : FCP-15=0.981  peer-univ=0.933  delta=+0.048  PARITY
+2026-05-16 09:37:33,337 INFO 
+2026-05-16 09:37:33,337 INFO Q3: FCP-engine vs peer-engine on FCP-15 (same playing field)
+2026-05-16 09:37:33,337 INFO     FCP baseline (FCP-engine, FCP-15): 1.204
+2026-05-16 09:37:33,337 INFO 
+2026-05-16 09:37:33,337 INFO   Faber GTAA5          engine on FCP-15: 0.898  (FCP edge: +0.306)
+2026-05-16 09:37:33,337 INFO   GEM                  engine on FCP-15: 0.614  (FCP edge: +0.590)
+2026-05-16 09:37:33,337 INFO   VAA-G4               engine on FCP-15: 0.549  (FCP edge: +0.656)
+2026-05-16 09:37:33,337 INFO   HAA-Balanced         engine on FCP-15: 0.981  (FCP edge: +0.223)
+2026-05-16 09:37:33,337 INFO 
+2026-05-16 09:37:33,337 INFO INTERPRETATION GUIDE:
+2026-05-16 09:37:33,337 INFO   Engine alpha: FCP-engine > peer-engine on SAME universe (Q1)
+2026-05-16 09:37:33,337 INFO   Universe alpha: FCP-15 > peer-univ on SAME engine (Q2)
+2026-05-16 09:37:33,337 INFO   Co-tuning: if FCP wins Q3 but not Q1/Q2, FCP = engine+universe synergy
+2026-05-16 09:37:33,338 INFO 
+2026-05-16 09:37:33,338 INFO CSV: /Users/rkautsar/personal/scripts/strategy_fcp/research/peer_strategy_faithful_reproduction.csv
+2026-05-16 09:37:33,338 INFO peer_strategy_faithful_reproduction.py — DONE
+2026-05-16 09:37:33,338 INFO Log: /Users/rkautsar/personal/scripts/strategy_fcp/research/peer_strategy_faithful_reproduction.log

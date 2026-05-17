@@ -1,0 +1,62 @@
+=====================================================================================================================================================================
+AAA ENGINE on FCP-15 universe (US factor + intl + diversifiers)
+FCP-15 = ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'AVUV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+=====================================================================================================================================================================
+
+>>> REFERENCE: AAA K=5 canonical on HAA-9 (cleanest AAA from prior work)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  AAA K=5 canonical, HAA-9 (REFERENCE)                    Sh +0.952  CAGR +10.38%  DD -26.74%  Vol 11.02%  AnnTO   989%
+
+>>> REFERENCE: FCP standalone (current production, no vol-target)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  FCP standalone (production)                             Sh +1.150  CAGR +12.05%  DD -20.34%  Vol 10.36%  AnnTO     0%
+
+=====================================================================================================================================================================
+>>> Hybrid 28.7y -- AAA engine on FCP-15 universe
+=====================================================================================================================================================================
+
+[A] CANONICAL cov (126d corr x 20d vol), 6mo signal
+  AAA K=3, 6mo, canonical cov                             Sh +0.648  CAGR +9.16%  DD -37.58%  Vol 15.35%  AnnTO  1283%
+  AAA K=5, 6mo, canonical cov                             Sh +0.720  CAGR +9.14%  DD -35.51%  Vol 13.42%  AnnTO  1254%
+  AAA K=7, 6mo, canonical cov                             Sh +0.760  CAGR +8.88%  DD -25.98%  Vol 12.19%  AnnTO  1199%
+  AAA K=10, 6mo, canonical cov                            Sh +0.847  CAGR +9.20%  DD -28.56%  Vol 11.12%  AnnTO  1141%
+  AAA K=15, 6mo, canonical cov                            Sh +0.834  CAGR +8.04%  DD -27.71%  Vol  9.86%  AnnTO   970%
+
+[B] CANONICAL cov, 13612W signal
+  AAA K=3, 13612W, canonical cov                          Sh +0.792  CAGR +11.76%  DD -25.89%  Vol 15.58%  AnnTO  1618%
+  AAA K=5, 13612W, canonical cov                          Sh +0.688  CAGR +8.81%  DD -28.17%  Vol 13.63%  AnnTO  1590%
+  AAA K=7, 13612W, canonical cov                          Sh +0.681  CAGR +8.09%  DD -26.79%  Vol 12.59%  AnnTO  1539%
+  AAA K=10, 13612W, canonical cov                         Sh +0.711  CAGR +7.85%  DD -25.62%  Vol 11.57%  AnnTO  1404%
+  AAA K=15, 13612W, canonical cov                         Sh +0.686  CAGR +6.77%  DD -28.26%  Vol 10.34%  AnnTO  1248%
+
+[C] NAIVE 20d cov, 6mo signal
+  AAA K=3, 6mo, naive 20d cov                             Sh +0.643  CAGR +9.09%  DD -35.47%  Vol 15.38%  AnnTO  1274%
+  AAA K=5, 6mo, naive 20d cov                             Sh +0.701  CAGR +8.88%  DD -36.71%  Vol 13.43%  AnnTO  1258%
+  AAA K=7, 6mo, naive 20d cov                             Sh +0.729  CAGR +8.51%  DD -27.65%  Vol 12.23%  AnnTO  1218%
+  AAA K=10, 6mo, naive 20d cov                            Sh +0.815  CAGR +8.82%  DD -30.82%  Vol 11.15%  AnnTO  1167%
+  AAA K=15, 6mo, naive 20d cov                            Sh +0.766  CAGR +7.39%  DD -29.83%  Vol  9.96%  AnnTO  1056%
+
+[D] CANONICAL cov, longer vol lookback (60d)
+  AAA K=5, 6mo, canonical cov + 60d vol                   Sh +0.685  CAGR +8.60%  DD -34.75%  Vol 13.33%  AnnTO  1085%
+  AAA K=7, 6mo, canonical cov + 60d vol                   Sh +0.789  CAGR +9.17%  DD -24.93%  Vol 12.04%  AnnTO  1005%
+  AAA K=10, 6mo, canonical cov + 60d vol                  Sh +0.860  CAGR +9.23%  DD -26.82%  Vol 10.97%  AnnTO   915%
+
+=====================================================================================================================================================================
+>>> Live-only 18y -- AAA engine on FCP-15 universe (post-2008-09)
+=====================================================================================================================================================================
+
+[A] CANONICAL cov, 6mo signal
+  AAA K=3, 6mo, canonical cov                             Sh +0.816  CAGR +11.99%  DD -21.55%  Vol 15.32%  AnnTO  1262%
+  AAA K=5, 6mo, canonical cov                             Sh +0.863  CAGR +11.32%  DD -22.81%  Vol 13.49%  AnnTO  1240%
+  AAA K=7, 6mo, canonical cov                             Sh +0.966  CAGR +11.71%  DD -19.73%  Vol 12.24%  AnnTO  1178%
+  AAA K=10, 6mo, canonical cov                            Sh +0.915  CAGR +10.34%  DD -18.80%  Vol 11.48%  AnnTO  1109%
+  AAA K=15, 6mo, canonical cov                            Sh +0.783  CAGR +8.06%  DD -19.57%  Vol 10.63%  AnnTO   980%
+
+[B] CANONICAL cov, 13612W signal
+  AAA K=3, 13612W, canonical cov                          Sh +0.836  CAGR +12.48%  DD -25.62%  Vol 15.50%  AnnTO  1676%
+  AAA K=5, 13612W, canonical cov                          Sh +0.704  CAGR +9.13%  DD -28.17%  Vol 13.75%  AnnTO  1601%
+  AAA K=7, 13612W, canonical cov                          Sh +0.776  CAGR +9.63%  DD -26.79%  Vol 12.93%  AnnTO  1541%
+  AAA K=10, 13612W, canonical cov                         Sh +0.683  CAGR +7.83%  DD -25.62%  Vol 12.12%  AnnTO  1433%
+  AAA K=15, 13612W, canonical cov                         Sh +0.637  CAGR +6.69%  DD -28.26%  Vol 11.14%  AnnTO  1331%
+  FCP standalone (production) [REFERENCE]                 Sh +1.124  CAGR +11.19%  DD -12.58%  Vol  9.87%  AnnTO     0%
+  AAA K=5 canonical, HAA-9 [REFERENCE]                    Sh +0.842  CAGR +9.65%  DD -24.90%  Vol 11.77%  AnnTO  1008%

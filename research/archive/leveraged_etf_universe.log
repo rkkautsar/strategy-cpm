@@ -1,0 +1,147 @@
+
+====================================================================================================
+LEVERAGED ETF UNIVERSE EXPERIMENT
+====================================================================================================
+FCP-15 live-only baseline  start=2008-09-30  end=2026-05-16
+Production params: TOP_K=7, HOLD_BUFFER=2.5, VOL_TARGET=10%, MAX_LEV=1.0, cost=10bps/side
+
+Fetching all tickers (leveraged ETFs + single stocks) via yfinance...
+Panel: 2005-06-30 -> 2026-05-15, 59 columns
+
+Ticker availability:
+  Ticker  Description   Inception   First data  In panel
+  -----------------------------------------------------------------
+  SSO     2x SPY        2006-06-21  2006-06-21  YES     
+  QLD     2x QQQ        2006-06-21  2006-06-21  YES     
+  DDM     2x DIA        2006-06-21  2006-06-21  YES     
+  SAA     2x small      2007-11-06  2007-01-25  YES     
+  TQQQ    3x QQQ        2010-02-09  2010-02-11  YES     
+  UPRO    3x SPY        2009-06-25  2009-06-25  YES     
+  SPXL    3x SPY        2008-11-05  2008-11-05  YES     
+  TMF     3x TLT        2009-04-16  2009-04-16  YES     
+  UBT     2x TLT        2010-01-19  2010-01-21  YES     
+  UGL     2x GLD        2008-12-01  2008-12-03  YES     
+  NVDA    stock         n/a         2005-06-30  YES     
+  AAPL    stock         n/a         2005-06-30  YES     
+  MSFT    stock         n/a         2005-06-30  YES     
+
+====================================================================================================
+BASELINE: FCP-15 (live-only, 2008-09-30)
+====================================================================================================
+  FCP-15 baseline                               15   2008-09-30     1.20    10.23%    8.19%   -10.72%  GLD, TLT, SPHQ, XLV, QQQ
+
+====================================================================================================
+EXPERIMENT 1: Single Leveraged ETF Additions (FCP-15 + 1)
+====================================================================================================
+  Label                                          N        Start   Sharpe      CAGR      Vol     MaxDD  Notes
+  --------------------------------------------------------------------------------------------------------------
+  FCP-15 + SSO (2x SPY)                         16   2008-09-30     1.13     9.72%    8.33%   -10.27%  sel=0% (0% of risk-on) | risk_on=59% | top: SPHQ, TLT, GLD
+  FCP-15 + QLD (2x QQQ)                         16   2008-09-30     1.08     9.30%    8.39%   -10.35%  sel=0% (0% of risk-on) | risk_on=59% | top: TLT, SPHQ, GLD
+  FCP-15 + DDM (2x DIA)                         16   2008-09-30     1.16     9.97%    8.30%   -10.27%  sel=0% (0% of risk-on) | risk_on=59% | top: GLD, SPHQ, TLT
+  FCP-15 + SAA (2x small)                       16   2008-12-06     1.15     9.89%    8.31%   -10.72%  sel=0% (0% of risk-on) | risk_on=60% | top: GLD, TLT, SPHQ
+  FCP-15 + TQQQ (3x QQQ)                        16   2011-03-09     1.13     9.50%    8.14%   -10.35%  sel=0% (0% of risk-on) | risk_on=60% | top: SPHQ, TLT, XLV
+  FCP-15 + UPRO (3x SPY)                        16   2010-07-25     1.18     9.89%    8.09%   -10.27%  sel=0% (0% of risk-on) | risk_on=60% | top: SPHQ, TLT, XLV
+  FCP-15 + SPXL (3x SPY)                        16   2009-12-05     1.05     8.93%    8.26%   -10.27%  sel=0% (0% of risk-on) | risk_on=60% | top: TLT, SPHQ, XLV
+  FCP-15 + TMF (3x TLT)                         16   2010-05-16     1.29    10.61%    7.92%   -10.72%  sel=0% (0% of risk-on) | risk_on=59% | top: TLT, SPHQ, GLD
+  FCP-15 + UBT (2x TLT)                         16   2011-02-19     1.25    10.34%    7.93%   -10.72%  sel=0% (0% of risk-on) | risk_on=60% | top: TLT, SPHQ, XLV
+  FCP-15 + UGL (2x GLD)                         16   2010-01-01     1.10     9.37%    8.25%   -10.72%  sel=2% (3% of risk-on) | risk_on=60% | top: TLT, XLV, SPHQ
+
+  >> Best Sharpe: FCP-15 + TMF (3x TLT)  Sh=1.286
+  >> Best CAGR:   FCP-15 + TMF (3x TLT)  CAGR=10.61%
+
+  Actually selected (sel>=5%): 
+  Essentially ignored (<5%):   SSO, QLD, DDM, SAA, TQQQ, UPRO, SPXL, TMF, UBT, UGL
+
+====================================================================================================
+EXPERIMENT 2: Leverage Pairs (FCP-15 + 2 leveraged)
+====================================================================================================
+  Label                                          N        Start   Sharpe      CAGR      Vol     MaxDD  Notes
+  --------------------------------------------------------------------------------------------------------------
+  FCP-15 + SSO+QLD                              17   2008-09-30     1.07     9.33%    8.49%   -11.11%  SSO=0%, QLD=0% | top: TLT, GLD, SPHQ
+  FCP-15 + TQQQ+UPRO                            17   2011-03-09     1.08     9.14%    8.26%   -11.11%  TQQQ=0%, UPRO=0% | top: TLT, XLV, SPHQ
+  FCP-15 + QLD+TMF                              17   2010-05-16     1.14     9.57%    8.14%   -10.35%  QLD=0%, TMF=0% | top: SPHQ, TLT, GLD
+  FCP-15 + UPRO+UGL                             17   2010-07-25     1.13     9.52%    8.15%   -10.27%  UPRO=0%, UGL=0% | top: TLT, XLV, SPMO
+
+====================================================================================================
+EXPERIMENT 3: Full Leverage Universe (TQQQ/UPRO/SSO/QLD/TMF/UGL + sector/intl)
+====================================================================================================
+  Universe (13): ['TQQQ', 'UPRO', 'SSO', 'QLD', 'TMF', 'UGL', 'XLE', 'XRT', 'XLV', 'VEA', 'VWO', 'GLD', 'TLT']
+  Start: 2011-03-09
+  Full Leverage Universe                        13   2011-03-09     0.95     8.49%    8.77%   -14.17%  sel: GLD=24%, XLV=22%, VEA=18%, XRT=15%, TLT=15%, XLE=7%, VWO=5%, TMF=5%, UGL=4%, SSO=4%
+
+  Per-asset selection rates (full leverage universe):
+  Ticker    All months    Risk-on months  
+  GLD              24.2%             40.4%
+  XLV              22.0%             36.7%
+  VEA              18.1%             30.3%
+  XRT              14.8%             24.8%
+  TLT              14.8%             24.8%
+  XLE               7.1%             11.9%
+  VWO               5.5%              9.2%
+  TMF               4.9%              8.3%
+  UGL               4.4%              7.3%
+  SSO               3.8%              6.4%
+
+====================================================================================================
+EXPERIMENT 4: Canary/Hold-Buffer Interaction -- Crisis Window Drawdowns
+====================================================================================================
+  TQQQ added to FCP-15. Does canary protect?
+
+  TQQQ universe: 182 months | DEFENSIVE=73 (40%) | RISK_ON=109 (60%)
+  TQQQ selection: 0.0% all months | 0.0% risk-on months
+
+  Window                 FCP-15 DD   FCP-15+TQQQ DD     Delta   TQQQ pre-crisis sel (12m)
+  -----------------------------------------------------------------------------------------------
+  2018_Q4                   -0.37%           -0.21%    +0.16%  0% (12 months)
+  2020_COVID                -4.15%           -4.15%    -0.00%  0% (12 months)
+  2022_bear                 -7.90%           -7.38%    +0.52%  0% (12 months)
+
+  FCP-15 (2011-03-09)                          : Sh=1.223 | CAGR=9.98% | Vol=7.87% | DD=-10.72%
+  FCP-15+TQQQ (2011-03-09)                     : Sh=1.132 | CAGR=9.50% | Vol=8.14% | DD=-10.35%
+
+  Months TQQQ was selected (with partner):
+    (TQQQ never selected in this window)
+
+====================================================================================================
+EXPERIMENT 5: Single Stocks Added to FCP-15 (NVDA, AAPL, MSFT)
+====================================================================================================
+
+  Ticker    All months    Risk-on months  
+  NVDA              0.0%              0.0%
+  AAPL              0.0%              0.0%
+  MSFT              0.0%              0.0%
+
+  Months single stocks were selected:
+    (none selected)
+
+  FCP-15 + NVDA+AAPL+MSFT                       18   2008-09-30     1.14    10.08%    8.56%   -11.73%  RISK: single-name concentration | NVDA=0%, AAPL=0%, MSFT=0%
+
+====================================================================================================
+FINAL SUMMARY TABLE
+====================================================================================================
+  Variant                                        N        Start   Sharpe      CAGR      Vol     MaxDD  Notes / Top Picks
+  ----------------------------------------------------------------------------------------------------------------------------------
+  FCP-15 baseline                               15   2008-09-30     1.20    10.23%    8.19%   -10.72%  GLD, TLT, SPHQ, XLV, QQQ
+  FCP-15 + SSO (2x SPY)                         16   2008-09-30     1.13     9.72%    8.33%   -10.27%  sel=0% (0% of risk-on) | risk_on=59% | top: SPHQ, TLT, GLD
+  FCP-15 + QLD (2x QQQ)                         16   2008-09-30     1.08     9.30%    8.39%   -10.35%  sel=0% (0% of risk-on) | risk_on=59% | top: TLT, SPHQ, GLD
+  FCP-15 + DDM (2x DIA)                         16   2008-09-30     1.16     9.97%    8.30%   -10.27%  sel=0% (0% of risk-on) | risk_on=59% | top: GLD, SPHQ, TLT
+  FCP-15 + SAA (2x small)                       16   2008-12-06     1.15     9.89%    8.31%   -10.72%  sel=0% (0% of risk-on) | risk_on=60% | top: GLD, TLT, SPHQ
+  FCP-15 + TQQQ (3x QQQ)                        16   2011-03-09     1.13     9.50%    8.14%   -10.35%  sel=0% (0% of risk-on) | risk_on=60% | top: SPHQ, TLT, XLV
+  FCP-15 + UPRO (3x SPY)                        16   2010-07-25     1.18     9.89%    8.09%   -10.27%  sel=0% (0% of risk-on) | risk_on=60% | top: SPHQ, TLT, XLV
+  FCP-15 + SPXL (3x SPY)                        16   2009-12-05     1.05     8.93%    8.26%   -10.27%  sel=0% (0% of risk-on) | risk_on=60% | top: TLT, SPHQ, XLV
+  FCP-15 + TMF (3x TLT)                         16   2010-05-16     1.29    10.61%    7.92%   -10.72%  sel=0% (0% of risk-on) | risk_on=59% | top: TLT, SPHQ, GLD
+  FCP-15 + UBT (2x TLT)                         16   2011-02-19     1.25    10.34%    7.93%   -10.72%  sel=0% (0% of risk-on) | risk_on=60% | top: TLT, SPHQ, XLV
+  FCP-15 + UGL (2x GLD)                         16   2010-01-01     1.10     9.37%    8.25%   -10.72%  sel=2% (3% of risk-on) | risk_on=60% | top: TLT, XLV, SPHQ
+  FCP-15 + SSO+QLD                              17   2008-09-30     1.07     9.33%    8.49%   -11.11%  SSO=0%, QLD=0% | top: TLT, GLD, SPHQ
+  FCP-15 + TQQQ+UPRO                            17   2011-03-09     1.08     9.14%    8.26%   -11.11%  TQQQ=0%, UPRO=0% | top: TLT, XLV, SPHQ
+  FCP-15 + QLD+TMF                              17   2010-05-16     1.14     9.57%    8.14%   -10.35%  QLD=0%, TMF=0% | top: SPHQ, TLT, GLD
+  FCP-15 + UPRO+UGL                             17   2010-07-25     1.13     9.52%    8.15%   -10.27%  UPRO=0%, UGL=0% | top: TLT, XLV, SPMO
+  Full Leverage Universe                        13   2011-03-09     0.95     8.49%    8.77%   -14.17%  sel: GLD=24%, XLV=22%, VEA=18%, XRT=15%, TLT=15%, XLE=7%, VWO=5%, TMF=5%, UGL=4%, SSO=4%
+  FCP-15 + NVDA+AAPL+MSFT                       18   2008-09-30     1.14    10.08%    8.56%   -11.73%  RISK: single-name concentration | NVDA=0%, AAPL=0%, MSFT=0%
+
+  >> Best Sharpe:  FCP-15 + TMF (3x TLT)  Sh=1.286
+  >> Best CAGR:    FCP-15 + TMF (3x TLT)  CAGR=10.61%
+  >> Worst MaxDD:  Full Leverage Universe  DD=-14.17%
+  >> Worst Sharpe: Full Leverage Universe  Sh=0.954
+
+Done.

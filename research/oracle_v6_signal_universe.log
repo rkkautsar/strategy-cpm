@@ -1,0 +1,27 @@
+## A: Canary momentum signal variants (LIVE 18y, 70/30 blend)
+  13612W (PROD, weighted)      | FCP Sh 1.268 CAGR 12.18% | 70/30 Sh 1.532 CAGR 15.13% DD -12.3% <- PROD
+  13612U (HAA canonical)       | FCP Sh 1.268 CAGR 12.18% | 70/30 Sh 1.532 CAGR 15.13% DD -12.3%
+  12-1 (Antonacci)             | FCP Sh 1.127 CAGR 10.79% | 70/30 Sh 1.265 CAGR 12.87% DD -14.3%
+  6-1 momentum                 | FCP Sh 1.061 CAGR 10.30% | 70/30 Sh 1.211 CAGR 12.04% DD -15.1%
+  10mo SMA distance            | FCP Sh 1.122 CAGR 10.80% | 70/30 Sh 1.353 CAGR 13.33% DD -12.5%
+
+## B: Pair selection rule (LIVE 18y, FCP standalone)
+  Current: min_variance (Tresidder Optimum3)
+  PAIR_SELECTION setting: min_variance
+  Available helpers: lowest_corr_pair, min_vol_pair
+  Skipping deeper test — pair logic deeply embedded in compute_target_weights
+
+## C: Drop entire asset class from FCP universe (LIVE 18y, 70/30 blend)
+  Full universe (PROD)                       (n=11,K=5) | FCP Sh 1.191 CAGR 11.49% | 70/30 Sh 1.466 CAGR 14.63%
+  Drop equity factors (XMHQ,SPHQ,VBR)        (n=8,K=4) | FCP Sh 1.069 CAGR 10.67% | 70/30 Sh 1.396 CAGR 14.05%
+  Drop sectors (XLE,XLV)                     (n=9,K=4) | FCP Sh 1.048 CAGR 10.20% | 70/30 Sh 1.362 CAGR 13.70%
+  Drop international (VEA,VWO)               (n=9,K=4) | FCP Sh 1.187 CAGR 11.48% | 70/30 Sh 1.452 CAGR 14.62%
+  Drop diversifiers (GLD,TLT)                (n=9,K=4) | FCP Sh 0.941 CAGR 9.45% | 70/30 Sh 1.139 CAGR 13.02%
+  Drop tech (QQQ,IGM)                        (n=9,K=4) | FCP Sh 1.186 CAGR 11.48% | 70/30 Sh 1.505 CAGR 14.66%
+
+## D: Execution cost stress (LIVE 18y, 70/30 blend)
+  Cost   0 bps/side | FCP Sh 1.268 CAGR 12.18% | 70/30 Sh 1.532 CAGR 15.13% DD -12.3%
+  Cost   5 bps/side | FCP Sh 1.268 CAGR 12.18% | 70/30 Sh 1.532 CAGR 15.13% DD -12.3%
+  Cost  10 bps/side | FCP Sh 1.268 CAGR 12.18% | 70/30 Sh 1.532 CAGR 15.13% DD -12.3% <- PROD
+  Cost  25 bps/side | FCP Sh 1.268 CAGR 12.18% | 70/30 Sh 1.532 CAGR 15.13% DD -12.3%
+  Cost  50 bps/side | FCP Sh 1.268 CAGR 12.18% | 70/30 Sh 1.532 CAGR 15.13% DD -12.3%

@@ -1,0 +1,106 @@
+=================================================================================================================================================
+HOLD_BUFFER threshold diagnosis: WHY does 2z -> 3z give big Sharpe jump?
+=================================================================================================================================================
+
+[Fine-grained HOLD_BUFFER sweep]
+-------------------------------------------------------------------------------------------------------------------------------------------------
+  Hybrid 28.7y:
+    HOLD_BUFFER =  0.00z   Sh +0.943  CAGR +8.06%  DD -14.40%
+    HOLD_BUFFER =  0.50z   Sh +1.067  CAGR +9.38%  DD -14.83%
+    HOLD_BUFFER =  1.00z   Sh +1.057  CAGR +9.27%  DD -14.83%
+    HOLD_BUFFER =  1.50z   Sh +1.082  CAGR +9.45%  DD -14.83%
+    HOLD_BUFFER =  2.00z   Sh +1.073  CAGR +9.32%  DD -14.83%
+    HOLD_BUFFER =  2.25z   Sh +1.087  CAGR +9.45%  DD -14.83%
+    HOLD_BUFFER =  2.50z   Sh +1.149  CAGR +10.00%  DD -14.83%
+    HOLD_BUFFER =  2.75z   Sh +1.149  CAGR +10.00%  DD -14.83%
+    HOLD_BUFFER =  3.00z   Sh +1.208  CAGR +10.50%  DD -14.83%
+    HOLD_BUFFER =  3.25z   Sh +1.191  CAGR +10.32%  DD -14.83%
+    HOLD_BUFFER =  3.50z   Sh +1.174  CAGR +10.10%  DD -14.83%
+    HOLD_BUFFER =  4.00z   Sh +1.174  CAGR +10.10%  DD -14.83%
+    HOLD_BUFFER =  5.00z   Sh +1.174  CAGR +10.10%  DD -14.83%
+    HOLD_BUFFER = 10.00z   Sh +1.174  CAGR +10.10%  DD -14.83%
+
+  Live-only 18y:
+    HOLD_BUFFER =  0.00z   Sh +0.875  CAGR +7.22%  DD -14.40%
+    HOLD_BUFFER =  0.50z   Sh +0.973  CAGR +8.24%  DD -12.73%
+    HOLD_BUFFER =  1.00z   Sh +0.974  CAGR +8.20%  DD -11.64%
+    HOLD_BUFFER =  1.50z   Sh +0.971  CAGR +8.17%  DD -11.64%
+    HOLD_BUFFER =  2.00z   Sh +0.968  CAGR +8.07%  DD -11.64%
+    HOLD_BUFFER =  2.25z   Sh +0.992  CAGR +8.28%  DD -11.64%
+    HOLD_BUFFER =  2.50z   Sh +1.095  CAGR +9.18%  DD -10.53%
+    HOLD_BUFFER =  2.75z   Sh +1.095  CAGR +9.18%  DD -10.53%
+    HOLD_BUFFER =  3.00z   Sh +1.196  CAGR +9.98%  DD  -9.38%
+    HOLD_BUFFER =  3.25z   Sh +1.167  CAGR +9.70%  DD  -9.38%
+    HOLD_BUFFER =  3.50z   Sh +1.167  CAGR +9.70%  DD  -9.38%
+    HOLD_BUFFER =  4.00z   Sh +1.167  CAGR +9.70%  DD  -9.38%
+    HOLD_BUFFER =  5.00z   Sh +1.167  CAGR +9.70%  DD  -9.38%
+    HOLD_BUFFER = 10.00z   Sh +1.167  CAGR +9.70%  DD  -9.38%
+
+[Holdings diff: HOLD_BUFFER=2z vs 3z, live-only 18y]
+-------------------------------------------------------------------------------------------------------------------------------------------------
+  Months where 2z and 3z chose different pairs: 15 / 213
+
+  Showing first 20 differences:
+    2009-08-31: buf=2z ['IGM', 'QQQ']  -->  buf=3z ['GLD', 'QQQ']
+    2009-09-30: buf=2z ['IGM', 'QQQ']  -->  buf=3z ['GLD', 'QQQ']
+    2009-10-30: buf=2z ['IGM', 'QQQ']  -->  buf=3z ['GLD', 'QQQ']
+    2009-11-30: buf=2z ['IGM', 'QQQ']  -->  buf=3z ['GLD', 'QQQ']
+    2009-12-31: buf=2z ['IGM', 'QQQ']  -->  buf=3z ['GLD', 'QQQ']
+    2010-01-29: buf=2z ['IGM', 'QQQ']  -->  buf=3z ['GLD', 'QQQ']
+    2011-06-30: buf=2z ['QQQ', 'SPHQ']  -->  buf=3z ['IGM', 'QQQ']
+    2012-03-30: buf=2z ['QQQ', 'SPHQ']  -->  buf=3z ['SPHQ', 'TLT']
+    2012-04-30: buf=2z ['QQQ', 'SPHQ']  -->  buf=3z ['SPHQ', 'TLT']
+    2012-09-28: buf=2z ['GLD', 'SPHQ']  -->  buf=3z ['SPHQ', 'TLT']
+    2012-10-31: buf=2z ['GLD', 'SPHQ']  -->  buf=3z ['SPHQ', 'TLT']
+    2012-11-30: buf=2z ['GLD', 'SPHQ']  -->  buf=3z ['SPHQ', 'TLT']
+    2012-12-31: buf=2z ['GLD', 'SPHQ']  -->  buf=3z ['SPHQ', 'XMHQ']
+    2019-12-31: buf=2z ['GLD', 'SPHQ']  -->  buf=3z ['GLD', 'TLT']
+    2020-01-31: buf=2z ['GLD', 'SPHQ']  -->  buf=3z ['GLD', 'TLT']
+
+[Monthly P&L impact of holdings differences (buf=3z - buf=2z)]
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+  Top 15 months where 3z beat 2z most:
+    2012-05-31: 2z=-5.25%  3z=+2.45%  diff=+7.70%
+    2020-02-29: 2z=-4.44%  3z=+2.99%  diff=+7.43%
+    2020-01-31: 2z=+1.66%  3z=+6.09%  diff=+4.43%
+    2012-04-30: 2z=-1.04%  3z=+2.32%  diff=+3.36%
+    2009-11-30: 2z=+3.64%  3z=+6.85%  diff=+3.21%
+    2013-01-31: 2z=+2.39%  3z=+5.42%  diff=+3.03%
+    2010-01-31: 2z=-4.69%  3z=-2.38%  diff=+2.31%
+    2009-10-31: 2z=-1.54%  3z=+0.13%  diff=+1.66%
+    2012-06-30: 2z=-3.13%  3z=-1.56%  diff=+1.57%
+    2012-10-31: 2z=-1.88%  3z=-0.58%  diff=+1.30%
+    2011-07-31: 2z=-0.41%  3z=+0.68%  diff=+1.10%
+    2012-11-30: 2z=+0.43%  3z=+1.27%  diff=+0.84%
+    2012-07-31: 2z=+2.14%  3z=+2.61%  diff=+0.47%
+    2020-05-31: 2z=+2.26%  3z=+2.59%  diff=+0.34%
+    2010-04-30: 2z=+1.59%  3z=+1.89%  diff=+0.31%
+
+  Top 15 months where 3z LOST to 2z most:
+    2016-01-31: 2z=-0.13%  3z=-0.13%  diff=+0.00%
+    2016-02-29: 2z=+0.04%  3z=+0.04%  diff=+0.00%
+    2016-03-31: 2z=+0.47%  3z=+0.47%  diff=+0.00%
+    2019-09-30: 2z=-2.53%  3z=-2.53%  diff=-0.00%
+    2011-03-31: 2z=+0.26%  3z=+0.26%  diff=-0.00%
+    2019-12-31: 2z=+0.22%  3z=+0.22%  diff=-0.00%
+    2011-06-30: 2z=-1.65%  3z=-1.65%  diff=-0.00%
+    2012-12-31: 2z=-1.00%  3z=-1.01%  diff=-0.01%
+    2012-08-31: 2z=+0.33%  3z=+0.29%  diff=-0.04%
+    2011-09-30: 2z=+1.48%  3z=+1.38%  diff=-0.11%
+    2010-02-28: 2z=+2.59%  3z=+2.34%  diff=-0.25%
+    2009-09-30: 2z=+4.33%  3z=+4.05%  diff=-0.28%
+    2010-03-31: 2z=+0.64%  3z=+0.15%  diff=-0.48%
+    2020-03-31: 2z=+5.34%  3z=+2.82%  diff=-2.52%
+    2009-12-31: 2z=+3.26%  3z=-0.87%  diff=-4.13%
+
+  Total cumulative outperformance of 3z over 2z (live-only 18y): +35.89%
+  Number of months where diff > 1%: 13
+  Number of months where diff > 3%: 7
+  Mean monthly absolute diff: 0.222%
+
+[Subwindow stability of HOLD_BUFFER 2z vs 3z gap]
+-------------------------------------------------------------------------------------------------------------------------------------------------
+  2008-09 to 2014-12:  buf=2z Sh +0.799, buf=3z Sh +1.236, gap +0.436
+  2015-01 to 2019-12:  buf=2z Sh +0.738, buf=3z Sh +0.738, gap +0.000
+  2020-01 to 2026-05:  buf=2z Sh +1.248, buf=3z Sh +1.248, gap +0.000

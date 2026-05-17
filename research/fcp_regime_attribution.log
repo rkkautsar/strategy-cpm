@@ -1,0 +1,266 @@
+================================================================================
+FCP REGIME / CRISIS ATTRIBUTION ANALYSIS
+Production spec: 15 risky, HOLD_BUFFER=2.5, TOP_K=7, vol-target 10%, 10bps/side
+================================================================================
+
+[1/6] Loading price panel ...
+      Panel: 1997-10-01 -> 2026-05-14, 46 assets
+
+[2/6] Running FCP backtest (with vol-target, 10bps cost) ...
+      FCP net: 7086 trading days, 328 monthly signals
+[3/6] Running FCP gross (no vol-target, no cost) for leverage series ...
+[4/6] Building benchmarks (SPY, 60/40, PP-IEF) ...
+[5/6] Computing window metrics ...
+
+[6/6] Writing report ...
+
+==================================================================================================================================
+SECTION 1: CRISIS & REGIME WINDOW COMPARISON TABLE
+==================================================================================================================================
+Window                                      Period    FCPRet  FCPSh    FCPdd    SPYRet  SPYSh    SPYdd   6040Ret  6040Sh   6040dd     PPRet   PPSh     PPdd     Alpha  %RiskOn  AvgLev
+----------------------------------------------------------------------------------------------------------------------------------
+--- Crisis windows ---
+dot-com bust                2000-03-01 / 2002-09-30    +15.3%    0.81     -7.4%    -38.4%   -0.67    -46.5%    -12.8%   -0.32    -24.2%     +8.2%    0.51     -6.4%    +53.8%      19%   0.94
+GFC                         2007-10-01 / 2009-03-31    +11.2%    0.78     -5.5%    -46.0%   -0.86    -55.2%    -22.5%   -0.67    -31.4%     -0.6%    0.03    -15.5%    +57.2%      17%   0.96
+EU debt scare               2010-05-01 / 2010-08-31     -2.3%   -0.53     -7.0%    -10.9%   -1.30    -14.7%     -2.5%   -0.55     -6.7%     +1.4%    0.68     -2.7%     +8.7%      25%   0.68
+EU+US downgrade             2011-08-01 / 2011-10-31     +2.9%    1.41     -3.6%     -2.5%   -0.09    -14.2%     +1.3%    0.37     -6.8%     +2.8%    1.20     -4.4%     +5.3%      33%   0.65
+oil/China shock             2015-08-01 / 2016-02-29     -1.6%   -0.76     -2.9%     -7.0%   -0.53    -12.8%     -2.0%   -0.27     -6.5%     +2.9%    0.90     -3.7%     +5.4%       0%    n/a
+Q4 2018 selloff             2018-10-01 / 2018-12-31     +0.6%    3.46     -0.2%    -13.5%   -2.30    -19.2%     -6.8%   -1.97    -10.7%     -0.6%   -0.37     -2.9%    +14.1%       0%   1.00
+COVID crash                 2020-02-01 / 2020-04-30     +6.1%    2.02     -4.2%     -9.2%   -0.36    -33.7%     -1.7%   -0.04    -19.1%     +2.1%    0.58     -9.4%    +15.3%      33%   1.00
+COVID rally                 2020-04-01 / 2020-12-31    +12.1%    1.67     -5.8%    +46.9%    2.36     -9.4%    +26.4%    2.44     -5.7%    +15.9%    2.58     -3.5%    -34.8%     100%   0.91
+reopening/inflation         2021-01-01 / 2021-12-31    +12.0%    1.18     -7.0%    +28.7%    2.01     -5.1%    +15.1%    1.82     -3.7%     +4.8%    0.89     -4.1%    -16.7%      75%   0.90
+2022 rate-shock bear        2022-01-01 / 2022-10-31     -5.4%   -0.92     -7.9%    -17.7%   -0.84    -24.5%    -16.9%   -1.34    -20.7%    -11.1%   -1.60    -12.5%    +12.4%      10%   0.96
+AI rally                    2023-01-01 / 2024-12-31    +23.4%    1.34     -6.3%    +57.6%    1.85    -10.0%    +33.6%    1.75     -8.3%    +27.4%    2.02     -5.2%    -34.2%      58%   0.95
+2025-2026 cross-asset       2025-01-01 / 2026-05-14    +26.5%    1.78     -6.8%    +28.0%    1.10    -18.8%    +20.1%    1.28    -10.6%    +28.3%    2.24     -6.8%     -1.5%      81%   0.83
+
+--- Regime buckets ---
+Low-vol bull 2013-2018      2013-01-01 / 2018-12-31    +60.4%    1.24     -9.4%    +97.7%    0.93    -19.3%    +58.4%    1.07    -10.8%    +16.2%    0.52     -7.0%    -37.3%      46%   1.00
+Full backtest period        2001-09-01 / 2026-05-14  +1256.7%    1.29    -10.7%   +914.6%    0.58    -55.2%   +569.2%    0.75    -31.4%   +495.9%    1.09    -15.5%   +342.2%      57%   0.93
+
+==================================================================================================================================
+SECTION 2: CRISIS WINDOW DETAIL — CANARY STATE & TOP PAIRS
+==================================================================================================================================
+
+  [SHIELD ★] dot-com bust  (2000-03-01 to 2002-09-30)
+    FCP:  ret=  +15.3%  Sharpe=  0.81  MaxDD=   -7.4%
+    SPY:  ret=  -38.4%  Sharpe= -0.67  MaxDD=  -46.5%
+    60/40: ret=  -12.8%  PP: ret=   +8.2%
+    Alpha (FCP-SPY):   +53.8%
+    Canary: 19% RISK_ON (6/31 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.94x
+    Top pair holdings:
+      SPMO + TLT  (3 signal months)
+      SPMO + VEA  (1 signal months)
+      TLT + XMMO  (1 signal months)
+
+  [SHIELD ★] GFC  (2007-10-01 to 2009-03-31)
+    FCP:  ret=  +11.2%  Sharpe=  0.78  MaxDD=   -5.5%
+    SPY:  ret=  -46.0%  Sharpe= -0.86  MaxDD=  -55.2%
+    60/40: ret=  -22.5%  PP: ret=   -0.6%
+    Alpha (FCP-SPY):   +57.2%
+    Canary: 17% RISK_ON (3/18 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.96x
+    Top pair holdings:
+      TLT + VEA  (1 signal months)
+      GLD + TLT  (1 signal months)
+      GLD + XMHQ  (1 signal months)
+
+  [SHIELD ★] EU debt scare  (2010-05-01 to 2010-08-31)
+    FCP:  ret=   -2.3%  Sharpe= -0.53  MaxDD=   -7.0%
+    SPY:  ret=  -10.9%  Sharpe= -1.30  MaxDD=  -14.7%
+    60/40: ret=   -2.5%  PP: ret=   +1.4%
+    Alpha (FCP-SPY):    +8.7%
+    Canary: 25% RISK_ON (1/4 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.68x
+    Top pair holdings:
+      SPHQ + TLT  (1 signal months)
+
+  [SHIELD ★] EU+US downgrade  (2011-08-01 to 2011-10-31)
+    FCP:  ret=   +2.9%  Sharpe=  1.41  MaxDD=   -3.6%
+    SPY:  ret=   -2.5%  Sharpe= -0.09  MaxDD=  -14.2%
+    60/40: ret=   +1.3%  PP: ret=   +2.8%
+    Alpha (FCP-SPY):    +5.3%
+    Canary: 33% RISK_ON (1/3 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.65x
+    Top pair holdings:
+      TLT + XLV  (1 signal months)
+
+  [SHIELD ★] oil/China shock  (2015-08-01 to 2016-02-29)
+    FCP:  ret=   -1.6%  Sharpe= -0.76  MaxDD=   -2.9%
+    SPY:  ret=   -7.0%  Sharpe= -0.53  MaxDD=  -12.8%
+    60/40: ret=   -2.0%  PP: ret=   +2.9%
+    Alpha (FCP-SPY):    +5.4%
+    Canary: 0% RISK_ON (0/7 signal months)
+    Avg vol-target leverage (RISK_ON days): n/a
+    Top pairs: [all defensive - safe asset held]
+
+  [SHIELD ★] Q4 2018 selloff  (2018-10-01 to 2018-12-31)
+    FCP:  ret=   +0.6%  Sharpe=  3.46  MaxDD=   -0.2%
+    SPY:  ret=  -13.5%  Sharpe= -2.30  MaxDD=  -19.2%
+    60/40: ret=   -6.8%  PP: ret=   -0.6%
+    Alpha (FCP-SPY):   +14.1%
+    Canary: 0% RISK_ON (0/3 signal months)
+    Avg vol-target leverage (RISK_ON days): 1.00x
+    Top pairs: [all defensive - safe asset held]
+
+  [SHIELD ★] COVID crash  (2020-02-01 to 2020-04-30)
+    FCP:  ret=   +6.1%  Sharpe=  2.02  MaxDD=   -4.2%
+    SPY:  ret=   -9.2%  Sharpe= -0.36  MaxDD=  -33.7%
+    60/40: ret=   -1.7%  PP: ret=   +2.1%
+    Alpha (FCP-SPY):   +15.3%
+    Canary: 33% RISK_ON (1/3 signal months)
+    Avg vol-target leverage (RISK_ON days): 1.00x
+    Top pair holdings:
+      TLT + XLV  (1 signal months)
+
+  [HURT ✗] COVID rally  (2020-04-01 to 2020-12-31)
+    FCP:  ret=  +12.1%  Sharpe=  1.67  MaxDD=   -5.8%
+    SPY:  ret=  +46.9%  Sharpe=  2.36  MaxDD=   -9.4%
+    60/40: ret=  +26.4%  PP: ret=  +15.9%
+    Alpha (FCP-SPY):   -34.8%
+    Canary: 100% RISK_ON (9/9 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.91x
+    Top pair holdings:
+      TLT + XLV  (6 signal months)
+      VWO + XLV  (3 signal months)
+
+  [HURT ✗] reopening/inflation  (2021-01-01 to 2021-12-31)
+    FCP:  ret=  +12.0%  Sharpe=  1.18  MaxDD=   -7.0%
+    SPY:  ret=  +28.7%  Sharpe=  2.01  MaxDD=   -5.1%
+    60/40: ret=  +15.1%  PP: ret=   +4.8%
+    Alpha (FCP-SPY):   -16.7%
+    Canary: 75% RISK_ON (9/12 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.90x
+    Top pair holdings:
+      COWZ + IGM  (5 signal months)
+      SPHQ + XLV  (3 signal months)
+      VWO + XLV  (1 signal months)
+
+  [SHIELD ★] 2022 rate-shock bear  (2022-01-01 to 2022-10-31)
+    FCP:  ret=   -5.4%  Sharpe= -0.92  MaxDD=   -7.9%
+    SPY:  ret=  -17.7%  Sharpe= -0.84  MaxDD=  -24.5%
+    60/40: ret=  -16.9%  PP: ret=  -11.1%
+    Alpha (FCP-SPY):   +12.4%
+    Canary: 10% RISK_ON (1/10 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.96x
+    Top pair holdings:
+      XLE + XLV  (1 signal months)
+
+  [HURT ✗] AI rally  (2023-01-01 to 2024-12-31)
+    FCP:  ret=  +23.4%  Sharpe=  1.34  MaxDD=   -6.3%
+    SPY:  ret=  +57.6%  Sharpe=  1.85  MaxDD=  -10.0%
+    60/40: ret=  +33.6%  PP: ret=  +27.4%
+    Alpha (FCP-SPY):   -34.2%
+    Canary: 58% RISK_ON (14/24 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.95x
+    Top pair holdings:
+      GLD + SPHQ  (8 signal months)
+      GLD + SPMO  (5 signal months)
+      GLD + VEA  (1 signal months)
+
+  [NEUTRAL ≈] 2025-2026 cross-asset  (2025-01-01 to 2026-05-14)
+    FCP:  ret=  +26.5%  Sharpe=  1.78  MaxDD=   -6.8%
+    SPY:  ret=  +28.0%  Sharpe=  1.10  MaxDD=  -18.8%
+    60/40: ret=  +20.1%  PP: ret=  +28.3%
+    Alpha (FCP-SPY):    -1.5%
+    Canary: 81% RISK_ON (13/16 signal months)
+    Avg vol-target leverage (RISK_ON days): 0.83x
+    Top pair holdings:
+      GLD + SPHQ  (12 signal months)
+      VEA + VWO  (1 signal months)
+
+==================================================================================================================================
+SECTION 3: DYNAMIC REGIME BUCKETS (conditioned days, non-contiguous)
+==================================================================================================================================
+Note: ann_ret = daily_mean * 252 (not geometric CAGR); MaxDD not reported (non-contiguous)
+
+Regime                                 Days  FCP AnnRet  FCP Sh  SPY AnnRet  SPY Sh  60/40 AnnRet  60/40 Sh  PP AnnRet   PP Sh  AvgLev
+--------------------------------------------------------------------------------------------------------------
+High-vol (SPY 60d vol>20%)             1712       +8.4%    1.03      +14.3%    0.47        +10.7%      0.62      +8.1%    0.91    0.90
+Risk-off (SPY 6mo ret<0%)              1899       +3.9%    0.54      -22.9%   -0.80         -9.7%     -0.59      +0.2%    0.02    0.95
+Risk-on (SPY 6mo ret>10%)              2022      +20.7%    2.29      +31.9%    2.65        +18.5%      2.53     +11.5%    2.00    0.91
+
+==================================================================================================================================
+SECTION 4: QUALITATIVE NARRATIVE
+==================================================================================================================================
+
+>>> CRISES WHERE FCP SHIELDED (alpha > +5% vs SPY): 8
+
+  dot-com bust (2000-03-01 -> 2002-09-30)
+    FCP   +15.3% vs SPY   -38.4% | alpha   +53.8% | DD gap   +39.1% (FCP-SPY, negative = FCP better)
+    Canary: 19% months risk-on (6/31)
+    Dominant hold: SPMO + TLT
+
+  GFC (2007-10-01 -> 2009-03-31)
+    FCP   +11.2% vs SPY   -46.0% | alpha   +57.2% | DD gap   +49.7% (FCP-SPY, negative = FCP better)
+    Canary: 17% months risk-on (3/18)
+    Dominant hold: TLT + VEA
+
+  EU debt scare (2010-05-01 -> 2010-08-31)
+    FCP    -2.3% vs SPY   -10.9% | alpha    +8.7% | DD gap    +7.7% (FCP-SPY, negative = FCP better)
+    Canary: 25% months risk-on (1/4)
+    Dominant hold: SPHQ + TLT
+
+  EU+US downgrade (2011-08-01 -> 2011-10-31)
+    FCP    +2.9% vs SPY    -2.5% | alpha    +5.3% | DD gap   +10.6% (FCP-SPY, negative = FCP better)
+    Canary: 33% months risk-on (1/3)
+    Dominant hold: TLT + XLV
+
+  oil/China shock (2015-08-01 -> 2016-02-29)
+    FCP    -1.6% vs SPY    -7.0% | alpha    +5.4% | DD gap    +9.9% (FCP-SPY, negative = FCP better)
+    Canary: 0% months risk-on (0/7)
+
+  Q4 2018 selloff (2018-10-01 -> 2018-12-31)
+    FCP    +0.6% vs SPY   -13.5% | alpha   +14.1% | DD gap   +19.0% (FCP-SPY, negative = FCP better)
+    Canary: 0% months risk-on (0/3)
+
+  COVID crash (2020-02-01 -> 2020-04-30)
+    FCP    +6.1% vs SPY    -9.2% | alpha   +15.3% | DD gap   +29.6% (FCP-SPY, negative = FCP better)
+    Canary: 33% months risk-on (1/3)
+    Dominant hold: TLT + XLV
+
+  2022 rate-shock bear (2022-01-01 -> 2022-10-31)
+    FCP    -5.4% vs SPY   -17.7% | alpha   +12.4% | DD gap   +16.6% (FCP-SPY, negative = FCP better)
+    Canary: 10% months risk-on (1/10)
+    Dominant hold: XLE + XLV
+
+>>> CRISES WHERE FCP HURT (alpha < -5% vs SPY): 3
+
+  COVID rally (2020-04-01 -> 2020-12-31)
+    FCP   +12.1% vs SPY   +46.9% | alpha   -34.8% | DD gap    +3.7%
+    Canary: 100% months risk-on | may reflect momentum chase or whipsaw
+    Dominant hold: TLT + XLV
+
+  reopening/inflation (2021-01-01 -> 2021-12-31)
+    FCP   +12.0% vs SPY   +28.7% | alpha   -16.7% | DD gap    -1.9%
+    Canary: 75% months risk-on | may reflect momentum chase or whipsaw
+    Dominant hold: COWZ + IGM
+
+  AI rally (2023-01-01 -> 2024-12-31)
+    FCP   +23.4% vs SPY   +57.6% | alpha   -34.2% | DD gap    +3.6%
+    Canary: 58% months risk-on | may reflect momentum chase or whipsaw
+    Dominant hold: GLD + SPHQ
+
+>>> NEUTRAL / MIXED (|alpha| < 5%): 1
+  2025-2026 cross-asset: FCP   +26.5% vs SPY   +28.0% | alpha    -1.5%
+
+─────────────────────────────────────────────────────────────────────────────
+CANARY INTERPRETATION:
+  0% risk-on during crash      = canary fired early (clean defensive posture)
+  100% risk-on during crash    = canary missed / fired after the fact
+  Partial risk-on during crash = partial protection; check for month-end timing gap
+
+VOL-TARGET LEVERAGE:
+  avg_lev < 0.80 = systematically de-risked (high realized vol period)
+  avg_lev ~ 1.00 = near-target
+  avg_lev = 1.00 = MAX_LEVERAGE cap hit (MAX_LEVERAGE=1.0, no borrowing)
+
+DATA CONFIDENCE BY ERA:
+  HIGH  : 2010-present  (most ETFs live; proxy only for COWZ/SPMO/XMMO/XMHQ)
+  MEDIUM: 2007-2010     (VBR live 2004; GLD stitched; major ETFs live)
+  LOW   : 2000-2007     (COWZ/SPMO/XMMO/XMHQ/VBR/VEA/VWO heavily proxied)
+─────────────────────────────────────────────────────────────────────────────
+
+================================================================================
+END OF REPORT
+================================================================================

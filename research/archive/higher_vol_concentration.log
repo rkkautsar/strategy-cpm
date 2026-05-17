@@ -1,0 +1,126 @@
+========================================================================================================================
+FCP CONCENTRATION EXPERIMENTS -- higher_vol_concentration.py
+Run date : 2026-05-16
+Universe : ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'XLV', 'VEA', 'VWO', 'GLD', 'TLT']
+Fixed    : HOLD_BUFFER=2.5, TOP_K=7, CORR_LOOKBACK=378d, VOL_LOOKBACK=63d, MAX_LEVERAGE=1.0, COST=10bps/side
+========================================================================================================================
+
+Loading panel ...
+Panel: 1993-10-01 -> 2026-05-14, 46 assets
+
+------------------------------------------------------------------------------------------------------------------------
+PRODUCTION REFERENCE -- TARGET_VOL=0.10, pair_50_50, partial_safe=half
+------------------------------------------------------------------------------------------------------------------------
+  PROD ref [Live-18y]                             tv=0.10  Sh  +1.204  CAGR   +9.99%  rVol   8.19%  DD  -10.72%  UPI   +2.59  DDur  685d  clip 69.0%  [0.6s]
+  PROD ref [Extended-28y]                         tv=0.10  Sh  +1.188  CAGR  +10.26%  rVol   8.52%  DD  -10.72%  UPI   +2.77  DDur  685d  clip 67.3%  [1.0s]
+
+------------------------------------------------------------------------------------------------------------------------
+EXP 1: pair_mode comparison -- TARGET_VOL=0.15
+  A. pair_50_50   -- min-var pair, 50/50 (production selection, higher TV)
+  B. single       -- top momentum-ranked asset, 100%
+  C. triple_equal -- min-var triple, 1/3 each
+------------------------------------------------------------------------------------------------------------------------
+
+  [Live-18y]
+  A pair_50_50 [Live-18y]                         tv=0.15  Sh  +1.173  CAGR  +10.93%  rVol   9.20%  DD  -10.74%  UPI   +2.71  DDur  685d  clip 94.9%  [0.7s]
+  B single [Live-18y]                             tv=0.15  Sh  +0.691  CAGR   +8.39%  rVol  12.87%  DD  -20.61%  UPI   +1.17  DDur  909d  clip 62.5%  [0.6s]
+  C triple_equal [Live-18y]                       tv=0.15  Sh  +0.921  CAGR   +8.41%  rVol   9.23%  DD  -11.31%  UPI   +1.97  DDur  609d  clip 94.2%  [0.8s]
+
+  [Extended-28y]
+  A pair_50_50 [Extended-28y]                     tv=0.15  Sh  +1.179  CAGR  +11.37%  rVol   9.52%  DD  -12.54%  UPI   +2.78  DDur  685d  clip 93.4%  [0.9s]
+  B single [Extended-28y]                         tv=0.15  Sh  +0.823  CAGR  +10.86%  rVol  13.66%  DD  -21.99%  UPI   +1.59  DDur  909d  clip 55.8%  [0.7s]
+  C triple_equal [Extended-28y]                   tv=0.15  Sh  +1.029  CAGR   +9.84%  rVol   9.56%  DD  -13.71%  UPI   +2.37  DDur  609d  clip 92.2%  [1.1s]
+
+------------------------------------------------------------------------------------------------------------------------
+EXP 2: inverse-vol pair weighting vs 50/50 -- TARGET_VOL=0.15
+------------------------------------------------------------------------------------------------------------------------
+
+  [Live-18y]
+  pair_50_50   (equal weight) [Live-18y]          tv=0.15  Sh  +1.173  CAGR  +10.93%  rVol   9.20%  DD  -10.74%  UPI   +2.71  DDur  685d  clip 94.9%  [0.6s]
+  pair_inv_vol (1/vol weight) [Live-18y]          tv=0.15  Sh  +1.137  CAGR  +10.38%  rVol   9.05%  DD  -11.79%  UPI   +2.52  DDur  684d  clip 95.2%  [0.7s]
+
+  [Extended-28y]
+  pair_50_50   (equal weight) [Extended-28y]      tv=0.15  Sh  +1.179  CAGR  +11.37%  rVol   9.52%  DD  -12.54%  UPI   +2.78  DDur  685d  clip 93.4%  [0.9s]
+  pair_inv_vol (1/vol weight) [Extended-28y]      tv=0.15  Sh  +1.143  CAGR  +10.59%  rVol   9.18%  DD  -13.75%  UPI   +2.53  DDur  684d  clip 94.9%  [1.1s]
+
+------------------------------------------------------------------------------------------------------------------------
+EXP 3: partial_safe_mode -- half vs full @ TARGET_VOL=0.15
+  half: 50% asset + 50% safe when 1 positive (production)
+  full: 100% to asset, no safe fill
+------------------------------------------------------------------------------------------------------------------------
+
+  [Live-18y]
+  partial_safe=half [Live-18y]                    tv=0.15  Sh  +1.173  CAGR  +10.93%  rVol   9.20%  DD  -10.74%  UPI   +2.71  DDur  685d  clip 94.9%  [0.6s]
+  partial_safe=full [Live-18y]                    tv=0.15  Sh  +1.173  CAGR  +10.93%  rVol   9.20%  DD  -10.74%  UPI   +2.71  DDur  685d  clip 94.9%  [0.6s]
+
+  [Extended-28y]
+  partial_safe=half [Extended-28y]                tv=0.15  Sh  +1.179  CAGR  +11.37%  rVol   9.52%  DD  -12.54%  UPI   +2.78  DDur  685d  clip 93.4%  [1.0s]
+  partial_safe=full [Extended-28y]                tv=0.15  Sh  +1.179  CAGR  +11.38%  rVol   9.53%  DD  -12.54%  UPI   +2.78  DDur  685d  clip 93.4%  [1.0s]
+
+------------------------------------------------------------------------------------------------------------------------
+EXP 4: all combinations (pair_mode x partial_safe) @ TARGET_VOL=0.15
+------------------------------------------------------------------------------------------------------------------------
+
+  [Live-18y]
+  pair_50_50   + half   [baseline] [Live-18y]     tv=0.15  Sh  +1.173  CAGR  +10.93%  rVol   9.20%  DD  -10.74%  UPI   +2.71  DDur  685d  clip 94.9%  [0.6s]
+  pair_50_50   + full [Live-18y]                  tv=0.15  Sh  +1.173  CAGR  +10.93%  rVol   9.20%  DD  -10.74%  UPI   +2.71  DDur  685d  clip 94.9%  [0.7s]
+  single       + half [Live-18y]                  tv=0.15  Sh  +0.691  CAGR   +8.39%  rVol  12.87%  DD  -20.61%  UPI   +1.17  DDur  909d  clip 62.5%  [0.5s]
+  single       + full [Live-18y]                  tv=0.15  Sh  +0.691  CAGR   +8.39%  rVol  12.87%  DD  -20.61%  UPI   +1.17  DDur  909d  clip 62.5%  [0.6s]
+  triple_equal + half [Live-18y]                  tv=0.15  Sh  +0.921  CAGR   +8.41%  rVol   9.23%  DD  -11.31%  UPI   +1.97  DDur  609d  clip 94.2%  [0.8s]
+  triple_equal + full [Live-18y]                  tv=0.15  Sh  +0.921  CAGR   +8.41%  rVol   9.23%  DD  -11.31%  UPI   +1.97  DDur  609d  clip 94.2%  [0.8s]
+  pair_inv_vol + half [Live-18y]                  tv=0.15  Sh  +1.137  CAGR  +10.38%  rVol   9.05%  DD  -11.79%  UPI   +2.52  DDur  684d  clip 95.2%  [0.7s]
+  pair_inv_vol + full [Live-18y]                  tv=0.15  Sh  +1.137  CAGR  +10.38%  rVol   9.05%  DD  -11.79%  UPI   +2.52  DDur  684d  clip 95.2%  [0.7s]
+
+  [Extended-28y]
+  pair_50_50   + half   [baseline] [Extended-28y]  tv=0.15  Sh  +1.179  CAGR  +11.37%  rVol   9.52%  DD  -12.54%  UPI   +2.78  DDur  685d  clip 93.4%  [1.0s]
+  pair_50_50   + full [Extended-28y]              tv=0.15  Sh  +1.179  CAGR  +11.38%  rVol   9.53%  DD  -12.54%  UPI   +2.78  DDur  685d  clip 93.4%  [1.0s]
+  single       + half [Extended-28y]              tv=0.15  Sh  +0.823  CAGR  +10.86%  rVol  13.66%  DD  -21.99%  UPI   +1.59  DDur  909d  clip 55.8%  [0.7s]
+  single       + full [Extended-28y]              tv=0.15  Sh  +0.823  CAGR  +10.86%  rVol  13.66%  DD  -21.99%  UPI   +1.59  DDur  909d  clip 55.8%  [0.7s]
+  triple_equal + half [Extended-28y]              tv=0.15  Sh  +1.029  CAGR   +9.84%  rVol   9.56%  DD  -13.71%  UPI   +2.37  DDur  609d  clip 92.2%  [1.4s]
+  triple_equal + full [Extended-28y]              tv=0.15  Sh  +1.030  CAGR   +9.85%  rVol   9.57%  DD  -13.71%  UPI   +2.37  DDur  609d  clip 92.2%  [1.2s]
+  pair_inv_vol + half [Extended-28y]              tv=0.15  Sh  +1.143  CAGR  +10.59%  rVol   9.18%  DD  -13.75%  UPI   +2.53  DDur  684d  clip 94.9%  [1.1s]
+  pair_inv_vol + full [Extended-28y]              tv=0.15  Sh  +1.143  CAGR  +10.60%  rVol   9.18%  DD  -13.75%  UPI   +2.53  DDur  684d  clip 94.9%  [1.1s]
+
+  >> EXP4 Winner (Live-18y Sharpe): pair_mode='pair_50_50'  partial_safe='half'
+       pair_50_50   + half   [baseline] [Live-18y]     tv=0.15  Sh  +1.173  CAGR  +10.93%  rVol   9.20%  DD  -10.74%  UPI   +2.71  DDur  685d  clip 94.9%  [0.6s]
+
+------------------------------------------------------------------------------------------------------------------------
+EXP 5: TARGET_VOL sweep on winner (pair_mode='pair_50_50', partial_safe='half')
+  Sweep: [0.1, 0.12, 0.14, 0.16, 0.18, 0.2]
+------------------------------------------------------------------------------------------------------------------------
+
+  [Live-18y]
+  tv=0.10 [Live-18y]                              tv=0.10  Sh  +1.204  CAGR   +9.99%  rVol   8.19%  DD  -10.72%  UPI   +2.59  DDur  685d  clip 69.0%  [0.7s]
+  tv=0.12 [Live-18y]                              tv=0.12  Sh  +1.182  CAGR  +10.51%  rVol   8.78%  DD  -10.76%  UPI   +2.63  DDur  685d  clip 80.7%  [0.7s]
+  tv=0.14 [Live-18y]                              tv=0.14  Sh  +1.176  CAGR  +10.86%  rVol   9.12%  DD  -10.67%  UPI   +2.69  DDur  685d  clip 92.2%  [0.6s]
+  tv=0.16 [Live-18y]                              tv=0.16  Sh  +1.169  CAGR  +10.96%  rVol   9.26%  DD  -10.85%  UPI   +2.72  DDur  685d  clip 96.3%  [0.7s]
+  tv=0.18 [Live-18y]                              tv=0.18  Sh  +1.161  CAGR  +10.97%  rVol   9.34%  DD  -11.50%  UPI   +2.70  DDur  685d  clip 97.1%  [0.8s]
+  tv=0.20 [Live-18y]                              tv=0.20  Sh  +1.151  CAGR  +10.94%  rVol   9.41%  DD  -12.04%  UPI   +2.68  DDur  685d  clip 97.6%  [0.8s]
+
+  [Extended-28y]
+  tv=0.10 [Extended-28y]                          tv=0.10  Sh  +1.188  CAGR  +10.26%  rVol   8.52%  DD  -10.72%  UPI   +2.77  DDur  685d  clip 67.3%  [1.1s]
+  tv=0.12 [Extended-28y]                          tv=0.12  Sh  +1.183  CAGR  +10.89%  rVol   9.09%  DD  -10.79%  UPI   +2.83  DDur  685d  clip 79.8%  [1.0s]
+  tv=0.14 [Extended-28y]                          tv=0.14  Sh  +1.180  CAGR  +11.27%  rVol   9.43%  DD  -12.03%  UPI   +2.80  DDur  685d  clip 91.1%  [1.0s]
+  tv=0.16 [Extended-28y]                          tv=0.16  Sh  +1.179  CAGR  +11.47%  rVol   9.60%  DD  -12.85%  UPI   +2.78  DDur  685d  clip 94.6%  [1.0s]
+  tv=0.18 [Extended-28y]                          tv=0.18  Sh  +1.173  CAGR  +11.55%  rVol   9.73%  DD  -13.45%  UPI   +2.73  DDur  685d  clip 96.2%  [1.0s]
+  tv=0.20 [Extended-28y]                          tv=0.20  Sh  +1.161  CAGR  +11.54%  rVol   9.82%  DD  -14.03%  UPI   +2.65  DDur  685d  clip 97.0%  [1.0s]
+
+  >> Best calibrated tv (realized~target, low clip): TARGET_VOL=0.10  realized=8.19%  clip=69.0%
+
+========================================================================================================================
+FINAL SUMMARY TABLE -- Live-18y window, all TARGET_VOL=0.15 unless noted
+  variant                                        |   tv |  rVol% |  Sharpe |   CAGR% |  MaxDD% |    UPI |   DDur |  clip%
+  --------------------------------------------------------------------------------------------------------------
+  PROD baseline tv=0.10                          | 0.10 |   8.19 |  +1.204 |   +9.99% |  -10.72% |  +2.59 |   685d |  69.0%
+  A  pair_50_50   tv=0.15                        | 0.15 |   9.20 |  +1.173 |  +10.93% |  -10.74% |  +2.71 |   685d |  94.9%
+  B  single       tv=0.15                        | 0.15 |  12.87 |  +0.691 |   +8.39% |  -20.61% |  +1.17 |   909d |  62.5%
+  C  triple_equal tv=0.15                        | 0.15 |   9.23 |  +0.921 |   +8.41% |  -11.31% |  +1.97 |   609d |  94.2%
+     pair_inv_vol tv=0.15                        | 0.15 |   9.05 |  +1.137 |  +10.38% |  -11.79% |  +2.52 |   684d |  95.2%
+     pair_50_50  +full tv=0.15                   | 0.15 |   9.20 |  +1.173 |  +10.93% |  -10.74% |  +2.71 |   685d |  94.9%
+  B+ single      +full tv=0.15                   | 0.15 |  12.87 |  +0.691 |   +8.39% |  -20.61% |  +1.17 |   909d |  62.5%
+  C+ triple      +full tv=0.15                   | 0.15 |   9.23 |  +0.921 |   +8.41% |  -11.31% |  +1.97 |   609d |  94.2%
+     inv_vol     +full tv=0.15                   | 0.15 |   9.05 |  +1.137 |  +10.38% |  -11.79% |  +2.52 |   684d |  95.2%
+  WINNER pair_50_50+half tv=0.10                 | 0.10 |   8.19 |  +1.204 |   +9.99% |  -10.72% |  +2.59 |   685d |  69.0%
+
+========================================================================================================================
+Done.

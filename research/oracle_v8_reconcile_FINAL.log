@@ -1,0 +1,56 @@
+## CANONICAL HEADLINE (CLI window 2008-09-30, current 13612U spec)
+  FCP standalone : {'cagr': np.float64(13.152357882973398), 'sh': np.float64(1.3761060719000386), 'dd': np.float64(-10.774211105194787), 'vol': np.float64(9.557662851391587)}
+  BULL standalone: {'cagr': np.float64(22.560522662501302), 'sh': np.float64(1.296695185176945), 'dd': np.float64(-28.55935173149654), 'vol': np.float64(17.398478008093115)}
+  PROD 70/30     : {'cagr': np.float64(16.222660036064894), 'sh': np.float64(1.6330051615348131), 'dd': np.float64(-12.28943516579346), 'vol': np.float64(9.934236840266749)}
+
+## Weight sensitivity (CLI window, current 13612U spec)
+  100/ 0: Sh 1.376 CAGR 13.15% DD -10.8%
+  90/10: Sh 1.510 CAGR 14.20% DD -9.7%
+  80/20: Sh 1.596 CAGR 15.22% DD -10.7%
+  70/30: Sh 1.633 CAGR 16.22% DD -12.3% <- PROD
+  60/40: Sh 1.627 CAGR 17.20% DD -13.8%
+  50/50: Sh 1.591 CAGR 18.16% DD -15.4%
+  40/60: Sh 1.538 CAGR 19.09% DD -16.9%
+  30/70: Sh 1.477 CAGR 20.00% DD -19.4%
+  0/100: Sh 1.297 CAGR 22.56% DD -28.6%
+
+## EXT 32y (current 13612U spec)
+  80/20: Sh 1.280 CAGR 12.54% DD -15.7%
+  70/30: Sh 1.305 CAGR 13.53% DD -16.7% <- PROD
+  60/40: Sh 1.298 CAGR 14.50% DD -17.8%
+
+## Cost stress (CLI window, current 13612U spec)
+    0 bps: Sh 1.659 CAGR 16.49% DD -12.2%
+    5 bps: Sh 1.646 CAGR 16.35% DD -12.3%
+   10 bps: Sh 1.633 CAGR 16.22% DD -12.3% <- PROD
+   25 bps: Sh 1.593 CAGR 15.83% DD -12.4%
+   50 bps: Sh 1.525 CAGR 15.16% DD -12.5%
+  100 bps: Sh 1.386 CAGR 13.84% DD -12.8%
+
+## JOINT STRESS TEST (50bps cost + drop GLD/TLT + EXT window)
+
+  Baseline (current spec, EXT, 10bps):
+    PROD 70/30: {'cagr': np.float64(13.529176056413572), 'sh': np.float64(1.3049097759880812), 'dd': np.float64(-16.72970596608928), 'vol': np.float64(10.367901524968838)}
+
+  Stress 1: 50bps cost, full universe, EXT:
+    PROD 70/30: {'cagr': np.float64(12.311376009425224), 'sh': np.float64(1.1854451343599202), 'dd': np.float64(-19.03613846171659), 'vol': np.float64(10.385445646181456)}
+
+  Stress 2: 10bps, DROP GLD/TLT, EXT:
+    PROD 70/30: {'cagr': np.float64(12.306620019844438), 'sh': np.float64(1.0860175093901492), 'dd': np.float64(-19.08892176179394), 'vol': np.float64(11.33187993143425)}
+
+  Stress 3 (JOINT): 50bps cost, DROP GLD/TLT, EXT:
+    PROD 70/30: {'cagr': np.float64(11.177778018483565), 'sh': np.float64(0.9856995279946151), 'dd': np.float64(-19.25269532929463), 'vol': np.float64(11.339944578470599)}
+
+## XLP rule bootstrap CI (n=16 +-+ months in EXT)
+  n = 18 +-+ firings
+  Mean edge: +0.94%/month
+  Median:    +1.88%/month
+  Hit% (XLP>QQQ): 66.7%
+  95% CI: [-1.23%, +3.05%]
+  P(edge > 0):    81.0%
+  P(edge > 0.5%): 65.5%
+  t-stat: 0.85, p=0.409
+  LIVE 18y             n=12 mean +1.17% hit%   67%
+  TRAIN 2008-16        n= 2 mean +2.89% hit%  100%
+  TEST OOS 2017+       n=10 mean +0.83% hit%   60%
+  EXT pre-LIVE         n= 6 mean +0.49% hit%   67%

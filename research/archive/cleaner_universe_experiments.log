@@ -1,0 +1,580 @@
+================================================================================
+FCP CLEANER UNIVERSE EXPERIMENTS
+Generated : 2026-05-16 02:27
+HOLD_BUFFER=2.5  vol-target=ON  cost=10bps/side
+================================================================================
+
+Loading panel for superset of 20 risky assets + safe/canary …
+Panel     : 1996-05-31 → 2026-05-15, 35 assets
+
+── Asset availability ───────────────────────────────────────────────
+  Ticker  In proxy    Panel first valid     Live inception
+  AVUV    yes         1996-05-31            2019-09-24
+  COWZ    yes         1996-05-31            2016-12-16
+  EEM     yes         1996-05-31            2003-04-14
+  EFA     yes         1996-05-31            2001-11-01
+  GLD     yes         2000-08-30            2004-11-18
+  IGM     yes         1996-05-31            2001-05-17
+  MTUM    yes         2013-04-18            2013-04-16
+  PRF     yes         2005-12-20            2005-12-22
+  QQQ     yes         1996-05-31            1999-03-10
+  SLYV    yes         2000-10-02            2000-09-25
+  SPHQ    yes         1996-05-31            2005-12-06
+  SPMO    yes         1996-05-31            2015-10-13
+  TLT     yes         1996-05-31            2002-07-30
+  VBR     yes         2004-01-30            2004-01-30
+  VEA     yes         1996-05-31            2007-07-20
+  VWO     yes         1996-05-31            2005-03-04
+  XLE     yes         1996-05-31            1998-12-22
+  XMHQ    yes         1996-05-31            2006-12-15
+  XMMO    yes         1996-05-31            2005-07-08
+  XRT     yes         1996-05-31            2006-06-23
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : FCP-15 (baseline)
+Universe (15): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'AVUV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2020-09-24
+  Hybrid-28y   Sh=+1.148  CAGR=+10.00%  DD=-14.83%  UPI=2.541  Sortino=1.381  TO=921%  [1.0s]
+  Live-18y     Sh=+1.095  CAGR=+9.18%  DD=-10.53%  UPI=2.312  Sortino=1.325  TO=911%  [0.7s]
+  All-live     Sh=+1.091  CAGR=+9.90%  DD=-8.34%  UPI=2.836  Sortino=1.180  TO=918%  [0.2s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : A1 drop-SPMO
+Universe (14): ['QQQ', 'IGM', 'XLE', 'XRT', 'COWZ', 'AVUV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2020-09-24
+  Hybrid-28y   Sh=+1.068  CAGR=+9.22%  DD=-14.83%  UPI=2.326  Sortino=1.282  TO=924%  [1.1s]
+  Live-18y     Sh=+1.036  CAGR=+8.65%  DD=-10.53%  UPI=2.167  Sortino=1.256  TO=917%  [0.7s]
+  All-live     Sh=+1.071  CAGR=+9.61%  DD=-8.34%  UPI=2.880  Sortino=1.180  TO=935%  [0.2s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : A2 drop-COWZ
+Universe (14): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'AVUV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2020-09-24
+  Hybrid-28y   Sh=+1.112  CAGR=+9.64%  DD=-14.83%  UPI=2.401  Sortino=1.328  TO=921%  [1.0s]
+  Live-18y     Sh=+1.111  CAGR=+9.33%  DD=-10.53%  UPI=2.291  Sortino=1.334  TO=911%  [0.7s]
+  All-live     Sh=+1.108  CAGR=+10.07%  DD=-9.27%  UPI=2.488  Sortino=1.186  TO=918%  [0.2s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : A3 drop-AVUV
+Universe (14): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2017-12-16
+  Hybrid-28y   Sh=+1.139  CAGR=+9.78%  DD=-10.53%  UPI=2.491  Sortino=1.359  TO=914%  [1.0s]
+  Live-18y     Sh=+1.125  CAGR=+9.37%  DD=-10.53%  UPI=2.254  Sortino=1.355  TO=911%  [0.6s]
+  All-live     Sh=+1.414  CAGR=+12.68%  DD=-9.34%  UPI=3.431  Sortino=1.599  TO=879%  [0.3s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : A4 drop-all3
+Universe (12): ['QQQ', 'IGM', 'XLE', 'XRT', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2008-07-20
+  Hybrid-28y   Sh=+1.096  CAGR=+9.40%  DD=-11.64%  UPI=2.262  Sortino=1.312  TO=917%  [0.9s]
+  Live-18y     Sh=+1.024  CAGR=+8.49%  DD=-11.64%  UPI=1.860  Sortino=1.231  TO=917%  [0.6s]
+  All-live     Sh=+1.023  CAGR=+8.50%  DD=-11.64%  UPI=1.869  Sortino=1.232  TO=920%  [0.6s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : A5 drop-AVUV-ctrl
+Universe (14): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2017-12-16
+  Hybrid-28y   Sh=+1.139  CAGR=+9.78%  DD=-10.53%  UPI=2.491  Sortino=1.359  TO=914%  [0.9s]
+  Live-18y     Sh=+1.125  CAGR=+9.37%  DD=-10.53%  UPI=2.254  Sortino=1.355  TO=911%  [0.6s]
+  All-live     Sh=+1.414  CAGR=+12.68%  DD=-9.34%  UPI=3.431  Sortino=1.599  TO=879%  [0.3s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : B1 SPMO->MTUM
+Universe (15): ['QQQ', 'IGM', 'MTUM', 'XLE', 'XRT', 'COWZ', 'AVUV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2020-09-24
+  Hybrid-28y   Sh=+1.092  CAGR=+9.47%  DD=-14.83%  UPI=2.413  Sortino=1.308  TO=921%  [0.9s]
+  Live-18y     Sh=+1.077  CAGR=+9.05%  DD=-10.53%  UPI=2.307  Sortino=1.299  TO=911%  [0.7s]
+  All-live     Sh=+1.089  CAGR=+9.87%  DD=-8.34%  UPI=3.018  Sortino=1.180  TO=918%  [0.2s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : B2 COWZ->PRF
+Universe (15): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'PRF', 'AVUV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2020-09-24
+  Hybrid-28y   Sh=+1.111  CAGR=+9.60%  DD=-14.83%  UPI=2.431  Sortino=1.338  TO=921%  [1.0s]
+  Live-18y     Sh=+1.107  CAGR=+9.24%  DD=-10.53%  UPI=2.333  Sortino=1.348  TO=911%  [0.7s]
+  All-live     Sh=+1.096  CAGR=+9.89%  DD=-8.34%  UPI=2.923  Sortino=1.209  TO=918%  [0.2s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : B3 AVUV->SLYV
+Universe (15): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'SLYV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2017-12-16
+  Hybrid-28y   Sh=+1.153  CAGR=+10.00%  DD=-10.53%  UPI=2.627  Sortino=1.384  TO=914%  [1.0s]
+  Live-18y     Sh=+1.111  CAGR=+9.30%  DD=-10.53%  UPI=2.349  Sortino=1.344  TO=911%  [0.7s]
+  All-live     Sh=+1.392  CAGR=+12.50%  DD=-8.34%  UPI=3.908  Sortino=1.580  TO=879%  [0.3s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : B4 all3-swaps
+Universe (15): ['QQQ', 'IGM', 'MTUM', 'XLE', 'XRT', 'PRF', 'SLYV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'VEA', 'VWO', 'GLD', 'TLT']
+  All-live window start: 2014-04-16
+  Hybrid-28y   Sh=+1.074  CAGR=+9.24%  DD=-10.53%  UPI=2.380  Sortino=1.292  TO=914%  [1.0s]
+  Live-18y     Sh=+1.042  CAGR=+8.71%  DD=-10.53%  UPI=2.134  Sortino=1.268  TO=911%  [0.7s]
+  All-live     Sh=+1.099  CAGR=+8.94%  DD=-9.38%  UPI=2.176  Sortino=1.300  TO=894%  [0.5s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : C1 VEA->EFA VWO->EEM
+Universe (15): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'AVUV', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'EFA', 'EEM', 'GLD', 'TLT']
+  All-live window start: 2020-09-24
+  Hybrid-28y   Sh=+1.063  CAGR=+9.15%  DD=-14.83%  UPI=2.327  Sortino=1.273  TO=924%  [1.1s]
+  Live-18y     Sh=+1.102  CAGR=+9.24%  DD=-10.53%  UPI=2.333  Sortino=1.334  TO=911%  [0.7s]
+  All-live     Sh=+1.108  CAGR=+10.07%  DD=-8.20%  UPI=2.924  Sortino=1.198  TO=918%  [0.2s]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VARIANT : D combined-clean
+Universe (14): ['QQQ', 'IGM', 'MTUM', 'XLE', 'XRT', 'PRF', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'EFA', 'EEM', 'GLD', 'TLT']
+  All-live window start: 2014-04-16
+  Hybrid-28y   Sh=+1.035  CAGR=+8.90%  DD=-11.64%  UPI=2.289  Sortino=1.244  TO=921%  [1.0s]
+  Live-18y     Sh=+1.065  CAGR=+8.89%  DD=-11.64%  UPI=2.150  Sortino=1.292  TO=911%  [0.7s]
+  All-live     Sh=+1.178  CAGR=+9.60%  DD=-9.38%  UPI=2.421  Sortino=1.386  TO=894%  [0.5s]
+
+Full results CSV → /Users/rkautsar/personal/scripts/strategy_fcp/research/cleaner_universe_results.csv
+
+================================================================================
+RESULTS — sorted by Live-18y Sharpe DESC
+================================================================================
+
+── All-live  (2017-12-18 → 2026-05-15) ──
+                 variant  years  CAGR%  Vol%  Sharpe  MaxDD%   UPI  Sortino  Calmar  Pain%  AnnTO%
+0           A3 drop-AVUV  8.500 12.680 8.710   1.414  -9.340 3.431    1.599   1.358  2.898 879.200
+1      A5 drop-AVUV-ctrl  8.500 12.680 8.710   1.414  -9.340 3.431    1.599   1.358  2.898 879.200
+2          B3 AVUV->SLYV  8.500 12.500 8.740   1.392  -8.340 3.908    1.580   1.499  2.484 879.200
+3       D combined-clean 12.300  9.600 8.060   1.178  -9.380 2.421    1.386   1.024  3.141 893.800
+4           A2 drop-COWZ  5.600 10.070 9.040   1.108  -9.270 2.488    1.186   1.087  3.182 917.600
+5   C1 VEA->EFA VWO->EEM  5.600 10.070 9.030   1.108  -8.200 2.924    1.198   1.229  2.738 917.600
+6          B4 all3-swaps 12.300  8.940 8.090   1.099  -9.380 2.176    1.300   0.953  3.314 893.800
+7           B2 COWZ->PRF  5.600  9.890 8.970   1.096  -8.340 2.923    1.209   1.186  2.703 917.600
+8      FCP-15 (baseline)  5.600  9.900 9.030   1.091  -8.340 2.836    1.180   1.187  2.767 917.600
+9          B1 SPMO->MTUM  5.600  9.870 9.020   1.089  -8.340 3.018    1.180   1.183  2.532 917.600
+10          A1 drop-SPMO  5.600  9.610 8.940   1.071  -8.340 2.880    1.180   1.152  2.643 935.300
+11          A4 drop-all3 18.200  8.500 8.310   1.023 -11.640 1.869    1.232   0.730  3.400 919.600
+
+── Live-18y  (2008-09-30 → 2026-05-15) ──
+                 variant  years  CAGR%  Vol%  Sharpe  MaxDD%   UPI  Sortino  Calmar  Pain%  AnnTO%
+0           A3 drop-AVUV 18.000  9.370 8.270   1.125 -10.530 2.254    1.355   0.890  3.177 911.300
+1      A5 drop-AVUV-ctrl 18.000  9.370 8.270   1.125 -10.530 2.254    1.355   0.890  3.177 911.300
+2           A2 drop-COWZ 18.000  9.330 8.340   1.111 -10.530 2.291    1.334   0.886  3.048 911.300
+3          B3 AVUV->SLYV 18.000  9.300 8.320   1.111 -10.530 2.349    1.344   0.884  2.983 911.300
+4           B2 COWZ->PRF 18.000  9.240 8.300   1.107 -10.530 2.333    1.348   0.878  2.996 911.300
+5   C1 VEA->EFA VWO->EEM 18.000  9.240 8.340   1.102 -10.530 2.333    1.334   0.878  2.992 911.300
+6      FCP-15 (baseline) 18.000  9.180 8.340   1.095 -10.530 2.312    1.325   0.872  2.995 911.300
+7          B1 SPMO->MTUM 18.000  9.050 8.360   1.077 -10.530 2.307    1.299   0.859  2.957 911.300
+8       D combined-clean 18.000  8.890 8.330   1.065 -11.640 2.150    1.292   0.764  3.159 911.300
+9          B4 all3-swaps 18.000  8.710 8.350   1.042 -10.530 2.134    1.268   0.828  3.167 911.300
+10          A1 drop-SPMO 18.000  8.650 8.340   1.036 -10.530 2.167    1.256   0.822  3.054 917.000
+11          A4 drop-all3 18.000  8.490 8.300   1.024 -11.640 1.860    1.231   0.729  3.409 917.000
+
+── Hybrid-28y  (1997-09-01 → 2026-05-15) ──
+                 variant  years  CAGR%  Vol%  Sharpe  MaxDD%   UPI  Sortino  Calmar  Pain%  AnnTO%
+0          B3 AVUV->SLYV 29.500 10.000 8.590   1.153 -10.530 2.627    1.384   0.950  2.856 914.000
+1      FCP-15 (baseline) 29.500 10.000 8.630   1.148 -14.830 2.541    1.381   0.675  2.904 920.900
+2           A3 drop-AVUV 29.500  9.780 8.510   1.139 -10.530 2.491    1.359   0.929  2.978 914.000
+3      A5 drop-AVUV-ctrl 29.500  9.780 8.510   1.139 -10.530 2.491    1.359   0.929  2.978 914.000
+4           A2 drop-COWZ 29.500  9.640 8.610   1.112 -14.830 2.401    1.328   0.650  2.961 920.900
+5           B2 COWZ->PRF 29.500  9.600 8.580   1.111 -14.830 2.431    1.338   0.647  2.929 920.900
+6           A4 drop-all3 29.500  9.400 8.530   1.096 -11.640 2.262    1.312   0.807  3.081 917.400
+7          B1 SPMO->MTUM 29.500  9.470 8.620   1.092 -14.830 2.413    1.308   0.638  2.905 920.900
+8          B4 all3-swaps 29.500  9.240 8.570   1.074 -10.530 2.380    1.292   0.878  2.978 914.000
+9           A1 drop-SPMO 29.500  9.220 8.610   1.068 -14.830 2.326    1.282   0.622  2.964 924.400
+10  C1 VEA->EFA VWO->EEM 29.500  9.150 8.580   1.063 -14.830 2.327    1.273   0.617  2.922 924.400
+11      D combined-clean 29.500  8.900 8.590   1.035 -11.640 2.289    1.244   0.764  2.974 920.900
+
+================================================================================
+PICK FREQUENCY — % of risk-on months selected (Hybrid window)
+================================================================================
+
+FCP-15 (baseline)  [344 months, 198 risk-on (58%)]:
+  TLT      31.8%  █████████
+  SPHQ     27.8%  ████████
+  GLD      27.8%  ████████
+  QQQ      18.2%  █████
+  AVUV     14.6%  ████
+  VEA      14.6%  ████
+  SPMO     14.1%  ████
+  XMHQ     13.1%  ███
+  VWO       7.6%  ██
+  IGM       6.6%  █
+  XRT       6.6%  █
+  XLE       5.6%  █
+  COWZ      5.1%  █
+  VBR       3.0%  
+  XMMO      2.5%  
+
+A1 drop-SPMO  [344 months, 198 risk-on (58%)]:
+  TLT      33.3%  ██████████
+  SPHQ     32.3%  █████████
+  GLD      26.8%  ████████
+  QQQ      18.2%  █████
+  VEA      14.6%  ████
+  AVUV     13.6%  ████
+  COWZ     13.1%  ███
+  XMHQ     13.1%  ███
+  IGM       6.6%  █
+  XRT       6.6%  █
+  VWO       6.6%  █
+  XLE       5.1%  █
+  VBR       4.5%  █
+  XMMO      4.5%  █
+
+A2 drop-COWZ  [344 months, 198 risk-on (58%)]:
+  TLT      33.3%  ██████████
+  SPHQ     27.8%  ████████
+  GLD      27.8%  ████████
+  QQQ      20.7%  ██████
+  XMHQ     15.7%  ████
+  AVUV     14.6%  ████
+  VEA      14.6%  ████
+  SPMO     14.1%  ████
+  IGM       9.1%  ██
+  XRT       6.6%  █
+  VWO       6.1%  █
+  XLE       5.6%  █
+  VBR       3.0%  
+  XMMO      0.0%  
+
+A3 drop-AVUV  [344 months, 198 risk-on (58%)]:
+  TLT      38.9%  ███████████
+  SPHQ     30.8%  █████████
+  GLD      27.8%  ████████
+  SPMO     17.7%  █████
+  VEA      17.2%  █████
+  QQQ      16.2%  ████
+  XMHQ     12.1%  ███
+  XRT       8.1%  ██
+  VWO       8.1%  ██
+  COWZ      7.1%  ██
+  IGM       6.6%  █
+  VBR       4.5%  █
+  XLE       3.0%  
+  XMMO      1.0%  
+
+A4 drop-all3  [344 months, 198 risk-on (58%)]:
+  SPHQ     40.9%  ████████████
+  TLT      37.4%  ███████████
+  GLD      28.8%  ████████
+  VEA      21.7%  ██████
+  QQQ      20.2%  ██████
+  XMHQ     17.2%  █████
+  IGM       9.1%  ██
+  VWO       8.1%  ██
+  XRT       6.6%  █
+  VBR       4.0%  █
+  XLE       3.0%  
+  XMMO      2.0%  
+
+A5 drop-AVUV-ctrl  [344 months, 198 risk-on (58%)]:
+  TLT      38.9%  ███████████
+  SPHQ     30.8%  █████████
+  GLD      27.8%  ████████
+  SPMO     17.7%  █████
+  VEA      17.2%  █████
+  QQQ      16.2%  ████
+  XMHQ     12.1%  ███
+  XRT       8.1%  ██
+  VWO       8.1%  ██
+  COWZ      7.1%  ██
+  IGM       6.6%  █
+  VBR       4.5%  █
+  XLE       3.0%  
+  XMMO      1.0%  
+
+B1 SPMO->MTUM  [344 months, 198 risk-on (58%)]:
+  TLT      33.3%  ██████████
+  SPHQ     27.8%  ████████
+  GLD      27.8%  ████████
+  QQQ      16.7%  █████
+  VEA      16.2%  ████
+  AVUV     13.6%  ████
+  XMHQ     13.1%  ███
+  COWZ     12.1%  ███
+  IGM       6.6%  █
+  XLE       6.6%  █
+  XRT       6.6%  █
+  MTUM      6.1%  █
+  VWO       6.1%  █
+  XMMO      3.5%  █
+  VBR       3.0%  
+
+B2 COWZ->PRF  [344 months, 198 risk-on (58%)]:
+  TLT      33.3%  ██████████
+  SPHQ     26.8%  ████████
+  GLD      25.3%  ███████
+  QQQ      18.2%  █████
+  PRF      17.2%  █████
+  AVUV     14.6%  ████
+  XMHQ     14.6%  ████
+  VEA      14.6%  ████
+  SPMO     10.1%  ███
+  XRT       6.1%  █
+  VWO       6.1%  █
+  XLE       5.1%  █
+  IGM       4.0%  █
+  VBR       3.0%  
+  XMMO      0.0%  
+
+B3 AVUV->SLYV  [344 months, 198 risk-on (58%)]:
+  TLT      37.4%  ███████████
+  SPHQ     27.8%  ████████
+  GLD      27.8%  ████████
+  SPMO     18.7%  █████
+  QQQ      18.2%  █████
+  VEA      15.2%  ████
+  XMHQ     12.1%  ███
+  XRT       8.6%  ██
+  VWO       7.6%  ██
+  SLYV      6.6%  █
+  COWZ      5.1%  █
+  IGM       4.0%  █
+  XLE       3.5%  █
+  XMMO      3.5%  █
+  VBR       3.0%  
+
+B4 all3-swaps  [344 months, 198 risk-on (58%)]:
+  TLT      38.9%  ███████████
+  SPHQ     32.8%  █████████
+  GLD      25.3%  ███████
+  QQQ      16.7%  █████
+  VEA      16.7%  █████
+  PRF      14.1%  ████
+  XMHQ     14.1%  ████
+  MTUM      7.1%  ██
+  SLYV      7.1%  ██
+  IGM       6.6%  █
+  XRT       6.6%  █
+  VWO       6.1%  █
+  XLE       3.0%  
+  VBR       3.0%  
+  XMMO      1.0%  
+
+C1 VEA->EFA VWO->EEM  [344 months, 198 risk-on (58%)]:
+  TLT      33.8%  ██████████
+  GLD      29.3%  ████████
+  SPHQ     27.8%  ████████
+  QQQ      18.2%  █████
+  SPMO     15.7%  ████
+  AVUV     14.6%  ████
+  XMHQ     13.1%  ███
+  EFA       9.6%  ██
+  IGM       8.1%  ██
+  EEM       8.1%  ██
+  COWZ      7.6%  ██
+  XRT       7.1%  ██
+  XLE       3.5%  █
+  XMMO      2.5%  
+  VBR       0.0%  
+
+D combined-clean  [344 months, 198 risk-on (58%)]:
+  TLT      37.4%  ███████████
+  SPHQ     34.3%  ██████████
+  GLD      28.8%  ████████
+  PRF      16.7%  █████
+  QQQ      16.2%  ████
+  XMHQ     12.6%  ███
+  EFA      11.6%  ███
+  IGM      10.6%  ███
+  EEM       8.1%  ██
+  XRT       7.1%  ██
+  MTUM      6.1%  █
+  XMMO      5.1%  █
+  XLE       3.0%  
+  VBR       1.5%  
+
+================================================================================
+PAIR COMPOSITION DIFF vs FCP-15 baseline (Hybrid window, pick-freq delta)
+  ▲ = more often selected in variant  ▼ = less often selected
+================================================================================
+
+A1 drop-SPMO:
+  SPMO    ▼ 14.1pp  (base=14.1%  →  new=0.0%)
+  COWZ    ▲ 8.1pp  (base=5.1%  →  new=13.1%)
+  SPHQ    ▲ 4.5pp  (base=27.8%  →  new=32.3%)
+  XMMO    ▲ 2.0pp  (base=2.5%  →  new=4.5%)
+  VBR     ▲ 1.5pp  (base=3.0%  →  new=4.5%)
+  TLT     ▲ 1.5pp  (base=31.8%  →  new=33.3%)
+  AVUV    ▼ 1.0pp  (base=14.6%  →  new=13.6%)
+  GLD     ▼ 1.0pp  (base=27.8%  →  new=26.8%)
+  VWO     ▼ 1.0pp  (base=7.6%  →  new=6.6%)
+
+A2 drop-COWZ:
+  COWZ    ▼ 5.1pp  (base=5.1%  →  new=0.0%)
+  XMMO    ▼ 2.5pp  (base=2.5%  →  new=0.0%)
+  IGM     ▲ 2.5pp  (base=6.6%  →  new=9.1%)
+  QQQ     ▲ 2.5pp  (base=18.2%  →  new=20.7%)
+  XMHQ    ▲ 2.5pp  (base=13.1%  →  new=15.7%)
+  VWO     ▼ 1.5pp  (base=7.6%  →  new=6.1%)
+  TLT     ▲ 1.5pp  (base=31.8%  →  new=33.3%)
+
+A3 drop-AVUV:
+  AVUV    ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  TLT     ▲ 7.1pp  (base=31.8%  →  new=38.9%)
+  SPMO    ▲ 3.5pp  (base=14.1%  →  new=17.7%)
+  SPHQ    ▲ 3.0pp  (base=27.8%  →  new=30.8%)
+  VEA     ▲ 2.5pp  (base=14.6%  →  new=17.2%)
+  XLE     ▼ 2.5pp  (base=5.6%  →  new=3.0%)
+  COWZ    ▲ 2.0pp  (base=5.1%  →  new=7.1%)
+  QQQ     ▼ 2.0pp  (base=18.2%  →  new=16.2%)
+  VBR     ▲ 1.5pp  (base=3.0%  →  new=4.5%)
+  XRT     ▲ 1.5pp  (base=6.6%  →  new=8.1%)
+  XMMO    ▼ 1.5pp  (base=2.5%  →  new=1.0%)
+  XMHQ    ▼ 1.0pp  (base=13.1%  →  new=12.1%)
+
+A4 drop-all3:
+  AVUV    ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  SPMO    ▼ 14.1pp  (base=14.1%  →  new=0.0%)
+  SPHQ    ▲ 13.1pp  (base=27.8%  →  new=40.9%)
+  VEA     ▲ 7.1pp  (base=14.6%  →  new=21.7%)
+  TLT     ▲ 5.6pp  (base=31.8%  →  new=37.4%)
+  COWZ    ▼ 5.1pp  (base=5.1%  →  new=0.0%)
+  XMHQ    ▲ 4.0pp  (base=13.1%  →  new=17.2%)
+  IGM     ▲ 2.5pp  (base=6.6%  →  new=9.1%)
+  XLE     ▼ 2.5pp  (base=5.6%  →  new=3.0%)
+  QQQ     ▲ 2.0pp  (base=18.2%  →  new=20.2%)
+  GLD     ▲ 1.0pp  (base=27.8%  →  new=28.8%)
+  VBR     ▲ 1.0pp  (base=3.0%  →  new=4.0%)
+
+A5 drop-AVUV-ctrl:
+  AVUV    ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  TLT     ▲ 7.1pp  (base=31.8%  →  new=38.9%)
+  SPMO    ▲ 3.5pp  (base=14.1%  →  new=17.7%)
+  SPHQ    ▲ 3.0pp  (base=27.8%  →  new=30.8%)
+  VEA     ▲ 2.5pp  (base=14.6%  →  new=17.2%)
+  XLE     ▼ 2.5pp  (base=5.6%  →  new=3.0%)
+  COWZ    ▲ 2.0pp  (base=5.1%  →  new=7.1%)
+  QQQ     ▼ 2.0pp  (base=18.2%  →  new=16.2%)
+  VBR     ▲ 1.5pp  (base=3.0%  →  new=4.5%)
+  XRT     ▲ 1.5pp  (base=6.6%  →  new=8.1%)
+  XMMO    ▼ 1.5pp  (base=2.5%  →  new=1.0%)
+  XMHQ    ▼ 1.0pp  (base=13.1%  →  new=12.1%)
+
+B1 SPMO->MTUM:
+  SPMO    ▼ 14.1pp  (base=14.1%  →  new=0.0%)
+  COWZ    ▲ 7.1pp  (base=5.1%  →  new=12.1%)
+  MTUM    ▲ 6.1pp  (base=0.0%  →  new=6.1%)
+  QQQ     ▼ 1.5pp  (base=18.2%  →  new=16.7%)
+  VEA     ▲ 1.5pp  (base=14.6%  →  new=16.2%)
+  VWO     ▼ 1.5pp  (base=7.6%  →  new=6.1%)
+  TLT     ▲ 1.5pp  (base=31.8%  →  new=33.3%)
+  AVUV    ▼ 1.0pp  (base=14.6%  →  new=13.6%)
+  XLE     ▲ 1.0pp  (base=5.6%  →  new=6.6%)
+  XMMO    ▲ 1.0pp  (base=2.5%  →  new=3.5%)
+
+B2 COWZ->PRF:
+  PRF     ▲ 17.2pp  (base=0.0%  →  new=17.2%)
+  COWZ    ▼ 5.1pp  (base=5.1%  →  new=0.0%)
+  SPMO    ▼ 4.0pp  (base=14.1%  →  new=10.1%)
+  IGM     ▼ 2.5pp  (base=6.6%  →  new=4.0%)
+  XMMO    ▼ 2.5pp  (base=2.5%  →  new=0.0%)
+  GLD     ▼ 2.5pp  (base=27.8%  →  new=25.3%)
+  VWO     ▼ 1.5pp  (base=7.6%  →  new=6.1%)
+  TLT     ▲ 1.5pp  (base=31.8%  →  new=33.3%)
+  XMHQ    ▲ 1.5pp  (base=13.1%  →  new=14.6%)
+  SPHQ    ▼ 1.0pp  (base=27.8%  →  new=26.8%)
+
+B3 AVUV->SLYV:
+  AVUV    ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  SLYV    ▲ 6.6pp  (base=0.0%  →  new=6.6%)
+  TLT     ▲ 5.6pp  (base=31.8%  →  new=37.4%)
+  SPMO    ▲ 4.5pp  (base=14.1%  →  new=18.7%)
+  IGM     ▼ 2.5pp  (base=6.6%  →  new=4.0%)
+  XLE     ▼ 2.0pp  (base=5.6%  →  new=3.5%)
+  XRT     ▲ 2.0pp  (base=6.6%  →  new=8.6%)
+  XMHQ    ▼ 1.0pp  (base=13.1%  →  new=12.1%)
+  XMMO    ▲ 1.0pp  (base=2.5%  →  new=3.5%)
+
+B4 all3-swaps:
+  AVUV    ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  PRF     ▲ 14.1pp  (base=0.0%  →  new=14.1%)
+  SPMO    ▼ 14.1pp  (base=14.1%  →  new=0.0%)
+  TLT     ▲ 7.1pp  (base=31.8%  →  new=38.9%)
+  MTUM    ▲ 7.1pp  (base=0.0%  →  new=7.1%)
+  SLYV    ▲ 7.1pp  (base=0.0%  →  new=7.1%)
+  COWZ    ▼ 5.1pp  (base=5.1%  →  new=0.0%)
+  SPHQ    ▲ 5.1pp  (base=27.8%  →  new=32.8%)
+  GLD     ▼ 2.5pp  (base=27.8%  →  new=25.3%)
+  XLE     ▼ 2.5pp  (base=5.6%  →  new=3.0%)
+  VEA     ▲ 2.0pp  (base=14.6%  →  new=16.7%)
+  QQQ     ▼ 1.5pp  (base=18.2%  →  new=16.7%)
+  VWO     ▼ 1.5pp  (base=7.6%  →  new=6.1%)
+  XMMO    ▼ 1.5pp  (base=2.5%  →  new=1.0%)
+  XMHQ    ▲ 1.0pp  (base=13.1%  →  new=14.1%)
+
+C1 VEA->EFA VWO->EEM:
+  VEA     ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  EFA     ▲ 9.6pp  (base=0.0%  →  new=9.6%)
+  EEM     ▲ 8.1pp  (base=0.0%  →  new=8.1%)
+  VWO     ▼ 7.6pp  (base=7.6%  →  new=0.0%)
+  VBR     ▼ 3.0pp  (base=3.0%  →  new=0.0%)
+  COWZ    ▲ 2.5pp  (base=5.1%  →  new=7.6%)
+  TLT     ▲ 2.0pp  (base=31.8%  →  new=33.8%)
+  XLE     ▼ 2.0pp  (base=5.6%  →  new=3.5%)
+  SPMO    ▲ 1.5pp  (base=14.1%  →  new=15.7%)
+  IGM     ▲ 1.5pp  (base=6.6%  →  new=8.1%)
+  GLD     ▲ 1.5pp  (base=27.8%  →  new=29.3%)
+
+D combined-clean:
+  PRF     ▲ 16.7pp  (base=0.0%  →  new=16.7%)
+  AVUV    ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  VEA     ▼ 14.6pp  (base=14.6%  →  new=0.0%)
+  SPMO    ▼ 14.1pp  (base=14.1%  →  new=0.0%)
+  EFA     ▲ 11.6pp  (base=0.0%  →  new=11.6%)
+  EEM     ▲ 8.1pp  (base=0.0%  →  new=8.1%)
+  VWO     ▼ 7.6pp  (base=7.6%  →  new=0.0%)
+  SPHQ    ▲ 6.6pp  (base=27.8%  →  new=34.3%)
+  MTUM    ▲ 6.1pp  (base=0.0%  →  new=6.1%)
+  TLT     ▲ 5.6pp  (base=31.8%  →  new=37.4%)
+  COWZ    ▼ 5.1pp  (base=5.1%  →  new=0.0%)
+  IGM     ▲ 4.0pp  (base=6.6%  →  new=10.6%)
+  XMMO    ▲ 2.5pp  (base=2.5%  →  new=5.1%)
+  XLE     ▼ 2.5pp  (base=5.6%  →  new=3.0%)
+  QQQ     ▼ 2.0pp  (base=18.2%  →  new=16.2%)
+  VBR     ▼ 1.5pp  (base=3.0%  →  new=1.5%)
+  GLD     ▲ 1.0pp  (base=27.8%  →  new=28.8%)
+
+================================================================================
+RANKED SUMMARY — Live-18y Sharpe (primary sort)
+================================================================================
+  Rank Variant                         Sharpe Δ vs base   CAGR%  MaxDD%    UPI  AnnTO%
+  ------------------------------------------------------------------------------
+  1    A3 drop-AVUV                     1.125 +   0.030    9.37  -10.53  2.254     911%
+  2    A5 drop-AVUV-ctrl                1.125 +   0.030    9.37  -10.53  2.254     911%
+  3    A2 drop-COWZ                     1.111 +   0.016    9.33  -10.53  2.291     911%
+  4    B3 AVUV->SLYV                    1.111 +   0.016    9.30  -10.53  2.349     911%
+  5    B2 COWZ->PRF                     1.107 +   0.012    9.24  -10.53  2.333     911%
+  6    C1 VEA->EFA VWO->EEM             1.102 +   0.007    9.24  -10.53  2.333     911%
+  7    FCP-15 (baseline)                1.095 +   0.000    9.18  -10.53  2.312     911%
+  8    B1 SPMO->MTUM                    1.077   -0.018    9.05  -10.53  2.307     911%
+  9    D combined-clean                 1.065   -0.030    8.89  -11.64  2.150     911%
+  10   B4 all3-swaps                    1.042   -0.053    8.71  -10.53  2.134     911%
+  11   A1 drop-SPMO                     1.036   -0.059    8.65  -10.53  2.167     917%
+  12   A4 drop-all3                     1.024   -0.071    8.49  -11.64  1.860     917%
+
+================================================================================
+CAVEATS
+================================================================================
+
+1. SPMO/COWZ in proxy panel use SPY as proxy (1995-2015 / 1995-2016).
+   This inflates hybrid-window Sharpe for FCP-15 baseline if SPY was a strong
+   signal in those eras — the proxy is a reasonable broad-market stand-in but
+   misrepresents factor-specific behavior.
+
+2. AVUV in proxy panel uses DFSVX (DFA US Small Cap Value mutual fund).
+   Better match than SPY but still proxy; correlation with live AVUV ~0.97.
+
+3. MTUM / PRF / SLYV have NO proxy chains — only live yfinance data.
+   Before their live start they simply are absent from candidate pool.
+   Hybrid window results for B1/B2/B3/B4/D partially reflect this truncated
+   pre-live period (fewer candidates available in early years).
+
+4. EFA and EEM in proxy panel share the same proxies as VEA and VWO
+   (VGTSX → VEA/EFA, VEIEX → VWO/EEM). Hybrid-window difference C1 vs
+   baseline is essentially cosmetic; meaningful only on All-live window.
+
+5. All-live window for AVUV = 2020-09 (only ~5.5y). Treat as directional
+   signal only; sampling variance dominates.
+
+6. VBR from yfinance cache (starts 2004-01-30); no proxy extension.
+
+7. HOLD_BUFFER held at 2.5z per production setting throughout.
+   No parameter re-optimisation across variants.
+
+8. DO NOT recommend production changes based solely on this output.
+   Evidence only; out-of-sample validation required before any universe change.
+

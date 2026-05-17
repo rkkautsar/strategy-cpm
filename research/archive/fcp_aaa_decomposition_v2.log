@@ -1,0 +1,57 @@
+=====================================================================================================================================================================
+FCP DECOMPOSITION v2 (corrected: 378d cov, PARTIAL fallback, exact buffer mechanic)
+Constants: TOP_K_CANDIDATES=7, CORR_LOOKBACK_DAYS=378,
+           HOLD_BUFFER=3.0, COST_BPS_SIDE=10
+=====================================================================================================================================================================
+
+=====================================================================================================================================================================
+>>> Hybrid 28.7y
+=====================================================================================================================================================================
+  FCP production (vol-target ON)                              Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%  AnnTO     0%
+  FCP production (vol-target OFF)                             Sh +1.150  CAGR +12.05%  DD -20.34%  Vol 10.36%  AnnTO     0%
+
+[My replication of FCP without vol-target -- should match prod NO-VT]
+  FCP replicated (canary + 3z buffer + 7-cand + 378d cov)     Sh +1.048  CAGR +10.66%  DD -20.34%  Vol 10.17%  AnnTO   917%
+
+[FCP component disabling]
+  FCP - canary (buffer + 7-cand + 378d cov)                   Sh +0.785  CAGR +10.11%  DD -24.41%  Vol 13.41%  AnnTO   310%
+  FCP - hold buffer (canary + 7-cand + 378d cov)              Sh +0.886  CAGR +8.65%  DD -16.00%  Vol  9.92%  AnnTO  1217%
+  FCP - canary - buffer (just pair selection on top-7)        Sh +0.840  CAGR +10.38%  DD -22.85%  Vol 12.72%  AnnTO   841%
+  FCP top-K=3 (canary + buffer)                               Sh +0.947  CAGR +11.55%  DD -22.16%  Vol 12.34%  AnnTO   924%
+  FCP top-K=5 (canary + buffer)                               Sh +1.000  CAGR +11.02%  DD -20.80%  Vol 11.06%  AnnTO   914%
+  FCP top-K=7 (canary + buffer)                               Sh +1.048  CAGR +10.66%  DD -20.34%  Vol 10.17%  AnnTO   917%
+  FCP top-K=10 (canary + buffer)                              Sh +1.028  CAGR +9.75%  DD -17.75%  Vol  9.48%  AnnTO   910%
+  FCP top-K=15 (canary + buffer)                              Sh +1.024  CAGR +8.96%  DD -14.58%  Vol  8.76%  AnnTO   924%
+
+[Cov lookback sensitivity (with full FCP machinery)]
+  FCP cov lookback 126d                                       Sh +1.002  CAGR +10.17%  DD -20.80%  Vol 10.18%  AnnTO   914%
+  FCP cov lookback 252d                                       Sh +1.038  CAGR +10.42%  DD -20.35%  Vol 10.03%  AnnTO   914%
+  FCP cov lookback 378d                                       Sh +1.048  CAGR +10.66%  DD -20.34%  Vol 10.17%  AnnTO   917%
+  FCP cov lookback 504d                                       Sh +1.000  CAGR +10.07%  DD -20.35%  Vol 10.10%  AnnTO   917%
+  FCP cov lookback 756d                                       Sh +0.972  CAGR +9.66%  DD -20.34%  Vol 10.00%  AnnTO   924%
+
+=====================================================================================================================================================================
+>>> Live-only 18y
+=====================================================================================================================================================================
+  FCP production (vol-target ON)                              Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%  AnnTO     0%
+  FCP production (vol-target OFF)                             Sh +1.124  CAGR +11.19%  DD -12.58%  Vol  9.87%  AnnTO     0%
+
+[My replication of FCP without vol-target -- should match prod NO-VT]
+  FCP replicated (canary + 3z buffer + 7-cand + 378d cov)     Sh +1.044  CAGR +10.16%  DD -15.48%  Vol  9.73%  AnnTO   906%
+
+[FCP component disabling]
+  FCP - canary (buffer + 7-cand + 378d cov)                   Sh +0.951  CAGR +12.19%  DD -24.41%  Vol 12.98%  AnnTO   294%
+  FCP - hold buffer (canary + 7-cand + 378d cov)              Sh +0.846  CAGR +8.01%  DD -16.00%  Vol  9.66%  AnnTO  1240%
+  FCP - canary - buffer (just pair selection on top-7)        Sh +0.903  CAGR +11.41%  DD -22.85%  Vol 12.89%  AnnTO   866%
+  FCP top-K=3 (canary + buffer)                               Sh +0.884  CAGR +9.73%  DD -16.00%  Vol 11.21%  AnnTO   917%
+  FCP top-K=5 (canary + buffer)                               Sh +0.987  CAGR +10.44%  DD -15.16%  Vol 10.64%  AnnTO   906%
+  FCP top-K=7 (canary + buffer)                               Sh +1.044  CAGR +10.16%  DD -15.48%  Vol  9.73%  AnnTO   906%
+  FCP top-K=10 (canary + buffer)                              Sh +1.053  CAGR +9.76%  DD -15.48%  Vol  9.26%  AnnTO   900%
+  FCP top-K=15 (canary + buffer)                              Sh +0.975  CAGR +8.39%  DD -14.58%  Vol  8.65%  AnnTO   917%
+
+[Cov lookback sensitivity (with full FCP machinery)]
+  FCP cov lookback 126d                                       Sh +1.002  CAGR +9.74%  DD -15.48%  Vol  9.76%  AnnTO   906%
+  FCP cov lookback 252d                                       Sh +1.013  CAGR +9.81%  DD -15.48%  Vol  9.70%  AnnTO   906%
+  FCP cov lookback 378d                                       Sh +1.044  CAGR +10.16%  DD -15.48%  Vol  9.73%  AnnTO   906%
+  FCP cov lookback 504d                                       Sh +1.038  CAGR +10.13%  DD -15.48%  Vol  9.76%  AnnTO   906%
+  FCP cov lookback 756d                                       Sh +0.965  CAGR +9.14%  DD -15.48%  Vol  9.53%  AnnTO   911%

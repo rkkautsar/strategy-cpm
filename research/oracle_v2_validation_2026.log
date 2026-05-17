@@ -1,0 +1,641 @@
+## EXT 32y (1994-2026)
+  FCP standalone EXT           CAGR  10.24% | Vol   9.4% | Sh 1.09 | MaxDD  -14.2% | Ulcer 4.35%
+  BULL-QQQ standalone EXT      CAGR  17.71% | Vol  19.6% | Sh 0.91 | MaxDD  -41.1% | Ulcer 10.65%
+  60/40 PROD EXT               CAGR  13.63% | Vol  11.2% | Sh 1.22 | MaxDD  -18.4% | Ulcer 4.67%
+  SPY buy-hold EXT             CAGR  10.50% | Vol  18.4% | Sh 0.57 | MaxDD  -55.2% | Ulcer 14.72%
+
+## Dot-com yearly (60/40 PROD, production module)
+  1999: SPY  +20.4% | QQQ  +98.7% | FCP   +9.9% | BULL  +98.7% | 60/40  +40.9%
+  2000: SPY   -9.7% | QQQ  -36.1% | FCP   +4.4% | BULL  -16.3% | 60/40   -2.2%
+  2001: SPY  -11.8% | QQQ  -33.3% | FCP   -4.8% | BULL  +19.9% | 60/40   +4.8%
+  2002: SPY  -21.6% | QQQ  -37.4% | FCP   +4.7% | BULL   +4.9% | 60/40   +5.0%
+  2003: SPY  +28.2% | QQQ  +49.7% | FCP  +24.9% | BULL  +44.2% | 60/40  +33.0%
+
+## Crisis attribution (LIVE 60/40 PROD)
+  Crisis                  SPY      QQQ      FCP     BULL    60/40
+  Euro 2011             -4.8%    -1.4%    10.5%     5.1%     8.8%
+  China 2015-16         -5.7%    -4.0%    -2.9%     9.8%     2.1%
+  Q4 2018              -13.0%   -17.0%    -3.4%    -7.5%    -5.0%
+  COVID 2020            -9.2%     0.1%     7.8%   -16.8%    -1.6%
+  2022 bear            -17.7%   -29.8%    -2.3%     5.0%     0.7%
+
+## FCP-BULL correlation (LIVE)
+  Overall:                    0.225
+  SPY risk-on (12-1>0, n=182):  0.246
+  SPY risk-off (12-1<0, n=39): 0.092
+  SPY bear (DD<-20%, n=17):     -0.133
+Monthly panel: 1991-10-31 -> 2026-05-31, n=416
+
+## Q1: QQQ trend-state matrix (full QQQ history)
+Window: 1996-01-31 -> 2026-04-30
+
+ 12-1  13612W  Months   Fwd mean   Fwd med    Worst   Hit%
+    +       +     250      1.46%     1.96%   -17.2%  62.0%
+    +       -      50      2.81%     2.85%   -22.9%  58.0%
+    -       +      19      2.18%     1.47%   -12.1%  63.2%
+    -       -      45     -1.16%     0.36%   -26.2%  53.3%
+
+## Q2: HYG/LQD/TIP 8-state matrix
+Window: 2008-04-30 -> 2026-04-30, n=217
+
+State notation: HYG/LQD/TIP signs
+ State  Months   QQQ fwd   XLP fwd   XLP-QQQ  QQQ Hit%
+   +++     121     1.86%     0.83%    -1.03%     66.9%
+   ++-      14     1.00%     0.32%    -0.68%     64.3%
+   +-+      14     0.40%     1.30%    +0.91%     71.4%
+   +--      16     1.95%     0.34%    -1.61%     68.8%
+   -++      10     1.95%     0.86%    -1.09%     60.0%
+   -+-       4     1.36%     1.68%    +0.32%     25.0%
+   --+       9     0.41%     2.15%    +1.73%     66.7%
+   ---      29     0.55%     0.36%    -0.19%     48.3%
+## Variant A: NO XLP switch (current code)
+  BULL_BY_STATE = {'+-+': 'XLP'}
+  BULL standalone: {'cagr': np.float64(18.269031495043244), 'vol': np.float64(17.062972857162922), 'sh': np.float64(1.0706827964843197), 'dd': np.float64(-28.559351731496495)}
+  60/40 blend:     {'cagr': np.float64(14.638119351693057), 'vol': np.float64(10.225522096264179), 'sh': np.float64(1.4315278196935284), 'dd': np.float64(-13.84919034917067)}
+
+## Variant B: WITH XLP switch in +-+ state
+  BULL_BY_STATE = {'+-+': 'XLP'}
+  BULL standalone: {'cagr': np.float64(18.269031495043244), 'vol': np.float64(17.062972857162922), 'sh': np.float64(1.0706827964843197), 'dd': np.float64(-28.559351731496495)}
+  60/40 blend:     {'cagr': np.float64(14.638119351693057), 'vol': np.float64(10.225522096264179), 'sh': np.float64(1.4315278196935284), 'dd': np.float64(-13.84919034917067)}
+
+## Variants C-F: alternatives
+  +-+ = XLV: BULL Sh 1.050 CAGR 18.03% | 60/40 Sh 1.412 CAGR 14.55%
+  +-+ = XLU: BULL Sh 1.030 CAGR 17.82% | 60/40 Sh 1.408 CAGR 14.48%
+  +-+ = SPY: BULL Sh 1.013 CAGR 17.39% | 60/40 Sh 1.383 CAGR 14.29%
+  +-+ = SHV: BULL Sh 0.970 CAGR 16.33% | 60/40 Sh 1.378 CAGR 13.88%
+
+## Correlation (60/40 PROD A vs B)
+  FCP-BULL_A (no XLP):  0.225
+  FCP-BULL_B (XLP):     0.225
+## Q3: Canary-rule ablation (LIVE 18y, BULL sleeve standalone)
+
+Rule                              CAGR    Vol    Sh   MaxDD  Ulcer
+HYG/LQD/TIP any (PROD)          17.03%  17.5%  0.97  -28.6%  5.40%
+HYG/LQD/TIP >= 2 of 3           13.60%  16.7%  0.81  -28.6%  5.90%
+HYG/LQD/TIP all                 11.55%  15.6%  0.74  -28.6%  6.07%
+HYG+TIP any (prev)              16.09%  17.3%  0.93  -28.6%  5.46%
+HYG+TIP both                    11.97%  16.0%  0.75  -28.6%  6.45%
+HYG only                        13.39%  16.4%  0.82  -28.6%  6.33%
+TIP only                        14.64%  16.9%  0.87  -28.6%  5.58%
+LQD only                        14.06%  16.6%  0.85  -28.6%  5.33%
+No macro (override only)         4.50%  11.9%  0.38  -29.4%  9.80%
+
+## Q4: Asset substitution in HYG-/LQD-/TIP+ state (LIVE 18y, BULL sleeve standalone)
+
+In HYG-/LQD-/TIP+ use             CAGR    Vol    Sh   MaxDD  Ulcer
+QQQ (no switch)                 17.03%  17.5%  0.97  -28.6%  5.40%
+XLP (PROD: --+)                 16.38%  17.2%  0.95  -28.6%  5.54%
+XLV                             16.53%  17.2%  0.96  -28.6%  5.48%
+XLU                             16.68%  17.2%  0.97  -28.6%  5.32%
+SPY                             16.84%  17.4%  0.97  -28.6%  5.39%
+SHV (cash)                      15.25%  17.1%  0.89  -28.6%  6.41%
+
+## Q5: Dot-com 1999-2003 stress (QQQ trend filter only — HYG/LQD/TIP not live)
+
+Period                 QQQ buyhold  BULL filtered
+1999                         98.7%          71.2%
+2000                        -36.1%         -29.0%
+2001                        -33.3%          19.9%
+2002                        -37.4%           0.3%
+2003                         49.7%          44.5%
+Full 1999-2003              -20.7%         111.3%
+
+Full-window perf:
+  QQQ buyhold:   CAGR -4.38%, Sh -0.10, MaxDD -83.0%
+  BULL filtered: CAGR 15.55%, Sh 0.51, MaxDD -46.5%
+
+Time allocation (BULL filtered):
+QQQ    783
+SHV    521
+Name: count, dtype: int64
+"""Test full rule: defensive basket when canary off + trend OK (replacing SHV)."""
+import sys
+sys.path.insert(0, '/Users/rkautsar/personal/scripts/strategy_fcp')
+import numpy as np
+import pandas as pd
+import bull_qqq_live as bql
+from fcp_live import load_panel, run_fcp_backtest
+from bull_qqq_live import (BULL_TICKER, CASH_TICKER, COST_BPS_PER_SIDE,
+                            _macro_gate, _qqq_trend_ok, _canary_state, _equity_override_threshold)
+
+panel = load_panel(start=pd.Timestamp("1993-01-01"))
+daily_rets = panel.ffill().pct_change()
+
+def perf(rets):
+    if len(rets) == 0: return {}
+    ann_ret = (1 + rets).prod() ** (252 / len(rets)) - 1
+    ann_vol = rets.std() * np.sqrt(252)
+    sh = ann_ret / ann_vol if ann_vol > 0 else np.nan
+    cum = (1 + rets).cumprod()
+    dd = (cum / cum.cummax() - 1).min()
+    return dict(cagr=ann_ret*100, sh=sh, dd=dd*100)
+
+def run_full(panel, start, end, defensive_when_canary_off=None, cost_bps=COST_BPS_PER_SIDE):
+    """Build sleeve. defensive_when_canary_off:
+       None = current (use SHV cash when canary off)
+       dict = use this basket when trend_ok AND canary_off AND not override
+    """
+    monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
+    sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
+    common = panel.index[(panel.index >= start) & (panel.index <= end)]
+    all_tickers = {BULL_TICKER, CASH_TICKER, "XLP", "XLV", "XLU"}
+    weights_per_day = {t: pd.Series(0.0, index=common) for t in all_tickers}
+    state_per_day = pd.Series("", index=common, dtype=object)
+    n_defensive_path = 0
+
+    for i, sig_d in enumerate(sigs):
+        mon = panel.loc[:sig_d].resample("ME").last()
+        state = _canary_state(mon, sig_d)
+        gate_open, _ = _macro_gate(mon, sig_d)
+        trend_ok, _ = _qqq_trend_ok(mon, sig_d)
+        qq = mon[BULL_TICKER].dropna()
+        override = False
+        if len(qq) >= 13:
+            mom = qq.iloc[-1] / qq.iloc[-13] - 1
+            thr = _equity_override_threshold(qq, sig_d)
+            override = pd.notna(thr) and mom > thr
+
+        if trend_ok and (gate_open or override):
+            # Bull path
+            if state == "+-+":
+                month_weights = {"XLP": 0.5, "XLV": 0.5}
+            else:
+                month_weights = {BULL_TICKER: 1.0}
+        elif trend_ok and not gate_open and not override and defensive_when_canary_off is not None:
+            # NEW: defensive path when canary off but trend still ok
+            month_weights = dict(defensive_when_canary_off)
+            n_defensive_path += 1
+        else:
+            month_weights = {CASH_TICKER: 1.0}
+
+        future = common[common > sig_d]
+        if len(future) < 2: continue
+        apply_from = future[1]
+        if i + 1 < len(sigs):
+            ns = sigs[i + 1]
+            nf = common[common > ns]
+            end_apply = nf[1] if len(nf) >= 2 else common[-1]
+        else:
+            end_apply = common[-1] + pd.Timedelta(days=1)
+        mask = (common >= apply_from) & (common < end_apply)
+        for t, w in month_weights.items():
+            weights_per_day[t].loc[mask] = w
+        label = "+".join(f"{t}:{w:.2f}" for t, w in sorted(month_weights.items()))
+        state_per_day.loc[mask] = label
+
+    port = pd.Series(0.0, index=common)
+    for t, w_s in weights_per_day.items():
+        if t in daily_rets.columns:
+            port = port + daily_rets[t].reindex(common).fillna(0.0) * w_s
+    if cost_bps > 0:
+        la = state_per_day.values
+        flips = np.where(la[1:] != la[:-1])[0] + 1
+        for f in flips:
+            port.iloc[f] -= 2.0 * cost_bps / 10000.0
+    return port, n_defensive_path
+
+for window_name, start in [("LIVE 18y", pd.Timestamp("2008-01-01")),
+                            ("EXT 32y", pd.Timestamp("1994-01-01"))]:
+    end = pd.Timestamp.today().normalize()
+    print(f"\n## {window_name}: {start.date()} -> {end.date()}")
+    fcp, _ = run_fcp_backtest(panel, start, end)
+    
+    variants = [
+        ("Current (SHV when canary off)", None),
+        ("New: XLU when canary off", {"XLU": 1.0}),
+        ("New: XLP when canary off", {"XLP": 1.0}),
+        ("New: XLP/XLU 50/50 basket", {"XLP": 0.5, "XLU": 0.5}),
+        ("New: XLP/XLV/XLU 1/3 each", {"XLP": 1/3, "XLV": 1/3, "XLU": 1/3}),
+        ("New: 60/40 XLU/SHV (hedged)", {"XLU": 0.6, "SHV": 0.4}),
+    ]
+    print(f"  {'Variant':<35} | BULL Sh  CAGR | 60/40 Sh  CAGR  MaxDD | n_def")
+    for label, alt in variants:
+        bull, n_def = run_full(panel, start, end, alt)
+        common = fcp.index.intersection(bull.index)
+        blend = 0.6 * fcp.reindex(common) + 0.4 * bull.reindex(common)
+        p_b = perf(bull.reindex(common))
+        p_bl = perf(blend)
+        print(f"  {label:<35} | {p_b['sh']:.3f}  {p_b['cagr']:.2f}% | {p_bl['sh']:.3f}  {p_bl['cagr']:.2f}%  {p_bl['dd']:.1f}% | n={n_def}")
+"""OOS test: XLU-when-canary-off rule on train/test split."""
+import sys
+sys.path.insert(0, '/Users/rkautsar/personal/scripts/strategy_fcp')
+sys.path.insert(0, '/tmp')
+import pandas as pd
+import numpy as np
+from fcp_live import load_panel, run_fcp_backtest
+
+# Import the run_full function from prior script via exec
+exec(open('/tmp/canary_off_def_test.py').read().split('for window_name')[0])
+
+panel = load_panel(start=pd.Timestamp("1993-01-01"))
+
+variants = [
+    ("Current (SHV)", None),
+    ("XLU when canary off", {"XLU": 1.0}),
+    ("XLP when canary off", {"XLP": 1.0}),
+    ("XLP/XLU 50/50", {"XLP": 0.5, "XLU": 0.5}),
+    ("XLP/XLV/XLU 1/3", {"XLP": 1/3, "XLV": 1/3, "XLU": 1/3}),
+    ("XLU/SHV 60/40", {"XLU": 0.6, "SHV": 0.4}),
+]
+
+for window, start, end in [
+    ("TRAIN 2008-2016", pd.Timestamp("2008-01-01"), pd.Timestamp("2016-12-31")),
+    ("TEST 2017-2026 (OOS)", pd.Timestamp("2017-01-01"), pd.Timestamp.today().normalize()),
+    ("EXT TRAIN 1994-2007", pd.Timestamp("1994-01-01"), pd.Timestamp("2007-12-31")),
+]:
+    print(f"\n## {window}: {start.date()} -> {end.date()}")
+    fcp, _ = run_fcp_backtest(panel, start, end)
+    print(f"  {'Variant':<25} | {'BULL Sh':>7} {'BULL CAGR':>10} | {'60/40 Sh':>8} {'60/40 CAGR':>11} | n_def")
+    for label, alt in variants:
+        bull, n_def = run_full(panel, start, end, alt)
+        common = fcp.index.intersection(bull.index)
+        blend = 0.6 * fcp.reindex(common) + 0.4 * bull.reindex(common)
+        p_b = perf(bull.reindex(common))
+        p_bl = perf(blend)
+        print(f"  {label:<25} | {p_b['sh']:>6.3f} {p_b['cagr']:>9.2f}% | {p_bl['sh']:>7.3f} {p_bl['cagr']:>10.2f}% | n={n_def}")
+"""Examine: canary off + trend OK months — should we hold defensive instead of cash?"""
+import sys
+sys.path.insert(0, '/Users/rkautsar/personal/scripts/strategy_fcp')
+import numpy as np
+import pandas as pd
+import bull_qqq_live as bql
+from fcp_live import load_panel, run_fcp_backtest
+
+panel = load_panel(start=pd.Timestamp("1993-01-01"))
+monthly = panel.resample("ME").last()
+daily_rets = panel.ffill().pct_change()
+
+# Build diagnostic table for LIVE
+start, end = pd.Timestamp("2008-01-01"), pd.Timestamp.today().normalize()
+sigs = monthly.index[(monthly.index >= start) & (monthly.index <= end)]
+records = []
+for sig_d in sigs:
+    mon = panel.loc[:sig_d].resample("ME").last()
+    state = bql._canary_state(mon, sig_d)
+    if state is None: continue
+    trend_ok, _ = bql._qqq_trend_ok(mon, sig_d)
+    gate_open, _ = bql._macro_gate(mon, sig_d)
+    qq = mon[bql.BULL_TICKER].dropna()
+    if len(qq) < 13: continue
+    mom = qq.iloc[-1] / qq.iloc[-13] - 1
+    thr = bql._equity_override_threshold(qq, sig_d)
+    override = pd.notna(thr) and mom > thr
+    def fwd(t):
+        s = monthly[t].dropna().loc[sig_d:] if t in monthly.columns else None
+        return s.iloc[1]/s.iloc[0]-1 if s is not None and len(s)>=2 else np.nan
+    records.append({"date": sig_d, "state": state,
+                    "trend_ok": trend_ok, "canary_on": gate_open, "override": override,
+                    "fwd_QQQ": fwd("QQQ"), "fwd_XLP": fwd("XLP"), "fwd_XLV": fwd("XLV"),
+                    "fwd_XLU": fwd("XLU"), "fwd_SHV": fwd("SHV"), "fwd_TLT": fwd("TLT")})
+df = pd.DataFrame(records).set_index("date").dropna(subset=["fwd_QQQ"])
+
+# Slice: canary off + trend OK + override off
+print("## Canary OFF + Trend OK + Override OFF (currently held SHV)")
+sub = df[~df["canary_on"] & df["trend_ok"] & ~df["override"]]
+print(f"n = {len(sub)}")
+print(f"\nState breakdown:")
+print(sub["state"].value_counts())
+print(f"\n  {'Asset':>8} {'Mean fwd':>10} {'Median':>9} {'Hit%':>6} {'Worst':>8}")
+for a in ["QQQ", "XLP", "XLV", "XLU", "SHV", "TLT"]:
+    c = sub[f"fwd_{a}"].dropna()
+    if len(c) > 0:
+        print(f"  {a:>8} {c.mean()*100:>+9.2f}% {c.median()*100:>+8.2f}% {(c>0).mean()*100:>5.1f}% {c.min()*100:>+7.2f}%")
+
+# Also: trend OK + override only (canary off, override on)
+print("\n## Canary OFF + Trend OK + Override ON")
+sub2 = df[~df["canary_on"] & df["trend_ok"] & df["override"]]
+print(f"n = {len(sub2)}")
+
+# Compare basket SHV vs XLP/XLV vs full BULL universe rotation
+print("\n## Proposed alt rule: when canary off + trend ok, hold XLP/XLV basket instead of SHV")
+print("Compare to current (SHV) on same months:")
+canary_off_trend_ok = df[~df["canary_on"] & df["trend_ok"] & ~df["override"]]
+basket_fwd = 0.5 * canary_off_trend_ok["fwd_XLP"] + 0.5 * canary_off_trend_ok["fwd_XLV"]
+print(f"  Current (SHV):           mean {canary_off_trend_ok['fwd_SHV'].mean()*100:+.2f}%, hit {(canary_off_trend_ok['fwd_SHV']>0).mean()*100:.1f}%")
+print(f"  Proposed (XLP/XLV 50/50): mean {basket_fwd.mean()*100:+.2f}%, hit {(basket_fwd>0).mean()*100:.1f}%, worst {basket_fwd.min()*100:+.2f}%")
+
+"""Exhaustive canary-state analysis:
+1. For each of 8 canary states (when sleeve eligible), find best asset
+2. Identify override-driven months (canary off, override on) — what should be held?
+3. Per-state Sharpe contribution analysis
+"""
+import sys
+sys.path.insert(0, '/Users/rkautsar/personal/scripts/strategy_fcp')
+import numpy as np
+import pandas as pd
+import bull_qqq_live as bql
+from fcp_live import load_panel, sig_13612W
+
+panel = load_panel(start=pd.Timestamp("1993-01-01"))
+monthly = panel.resample("ME").last()
+start, end = pd.Timestamp("2008-01-01"), pd.Timestamp.today().normalize()
+
+# Build full diagnostic table
+print("## Building per-month diagnostics (LIVE 18y)")
+monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
+sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
+
+records = []
+for sig_d in sigs:
+    mon = panel.loc[:sig_d].resample("ME").last()
+    state = bql._canary_state(mon, sig_d)
+    if state is None:
+        continue
+    gate_open, _ = bql._macro_gate(mon, sig_d)
+    trend_ok, tdiag = bql._qqq_trend_ok(mon, sig_d)
+    qq = mon[bql.BULL_TICKER].dropna()
+    if len(qq) < 13:
+        continue
+    mom12_1 = qq.iloc[-1] / qq.iloc[-13] - 1
+    thr = bql._equity_override_threshold(qq, sig_d)
+    override = pd.notna(thr) and mom12_1 > thr
+    eligible = trend_ok and (gate_open or override)
+    
+    # Forward returns for candidate assets
+    fwd = {}
+    for asset in ["QQQ", "XLP", "XLV", "XLU", "SPY", "SHV", "TLT", "GLD"]:
+        if asset in monthly.columns:
+            s = monthly[asset].dropna().loc[sig_d:]
+            fwd[asset] = s.iloc[1]/s.iloc[0] - 1 if len(s) >= 2 else np.nan
+    
+    records.append({
+        "date": sig_d, "state": state, "trend_ok": trend_ok,
+        "canary_on": gate_open, "override": override, "eligible": eligible,
+        **{f"fwd_{a}": v for a, v in fwd.items()}
+    })
+
+df = pd.DataFrame(records).set_index("date").dropna(subset=["fwd_QQQ"])
+print(f"  {len(df)} months analyzed")
+
+# ============================================================
+# Analysis 1: For each canary state when sleeve ELIGIBLE,
+# what's the mean forward return for each candidate asset?
+# ============================================================
+print(f"\n## Per-state forward returns (sleeve eligible months only)")
+print(f"  n = months where trend_ok AND (canary_on OR override)")
+print(f"\n  {'State':>6} {'n':>4} | {'QQQ':>7} {'XLP':>7} {'XLV':>7} {'XLU':>7} {'SPY':>7} | {'Best':<8} {'Best-QQQ':>9}")
+states = ["+++", "++-", "+-+", "+--", "-++", "-+-", "--+", "---"]
+for s in states:
+    sub = df[(df["state"] == s) & df["eligible"]]
+    if len(sub) == 0:
+        print(f"  {s:>6} {0:>4} | {'-':>7} {'-':>7} {'-':>7} {'-':>7} {'-':>7} | (no eligible)")
+        continue
+    means = {a: sub[f"fwd_{a}"].mean() * 100 for a in ["QQQ", "XLP", "XLV", "XLU", "SPY"]}
+    best_asset = max(means, key=means.get)
+    diff = means[best_asset] - means["QQQ"]
+    print(f"  {s:>6} {len(sub):>4} | {means['QQQ']:>+6.2f}% {means['XLP']:>+6.2f}% {means['XLV']:>+6.2f}% {means['XLU']:>+6.2f}% {means['SPY']:>+6.2f}% | {best_asset:<8} {diff:>+8.2f}%")
+
+# ============================================================
+# Analysis 2: Override-driven months (canary off, override on)
+# What should be held vs current QQQ default?
+# ============================================================
+print(f"\n## Override-driven months (canary off, override on, trend ok)")
+ovr = df[(~df["canary_on"]) & df["override"] & df["trend_ok"]]
+print(f"  n = {len(ovr)}")
+if len(ovr) > 0:
+    print(f"  State breakdown:")
+    print(ovr["state"].value_counts().to_string())
+    print(f"\n  {'Asset':>8} {'Mean fwd':>10} {'Median':>9} {'Hit%':>6}")
+    for a in ["QQQ", "XLP", "XLV", "XLU", "SPY", "SHV"]:
+        if f"fwd_{a}" in ovr.columns:
+            col = ovr[f"fwd_{a}"].dropna()
+            print(f"  {a:>8} {col.mean()*100:>+9.2f}% {col.median()*100:>+8.2f}% {(col>0).mean()*100:>5.1f}%")
+
+# ============================================================
+# Analysis 3: Sleeve-OFF months (cash regime)
+# What was QQQ doing? Did we correctly avoid losses?
+# ============================================================
+print(f"\n## Sleeve OFF months (cash regime, holding SHV)")
+off = df[~df["eligible"]]
+print(f"  n = {len(off)}")
+off_state_counts = off.groupby("state").size().sort_values(ascending=False)
+print(f"  State breakdown:")
+for s, n in off_state_counts.items():
+    sub = off[off["state"] == s]
+    qqq_mean = sub["fwd_QQQ"].mean() * 100
+    print(f"    {s}: n={n}, mean QQQ fwd {qqq_mean:+.2f}%")
+
+print(f"\n  Asset comparison (what we held = SHV, vs alternatives):")
+for a in ["QQQ", "XLP", "XLV", "XLU", "SPY", "TLT", "GLD", "SHV"]:
+    if f"fwd_{a}" in off.columns:
+        col = off[f"fwd_{a}"].dropna()
+        if len(col) > 0:
+            print(f"  {a:>8} mean {col.mean()*100:>+6.2f}%, hit% {(col>0).mean()*100:>5.1f}%")
+
+# ============================================================
+# Analysis 4: Pre-eligibility breakdown (why is sleeve off?)
+# ============================================================
+print(f"\n## Why sleeve was OFF: breakdown")
+print(f"  Total months: {len(df)}")
+print(f"  Sleeve ON (eligible): {df['eligible'].sum()} ({df['eligible'].mean()*100:.1f}%)")
+print(f"  Sleeve OFF total: {(~df['eligible']).sum()} ({(~df['eligible']).mean()*100:.1f}%)")
+print(f"    Trend off only: {(~df['trend_ok'] & (df['canary_on'] | df['override'])).sum()}")
+print(f"    Canary off & no override only: {((df['trend_ok']) & ~df['canary_on'] & ~df['override']).sum()}")
+print(f"    Both off: {(~df['trend_ok'] & ~df['canary_on'] & ~df['override']).sum()}")
+"""Test: +-+ state holds XLP/XLV regardless of trend filter.
+Compare current rule vs new mechanism-aligned rule on LIVE and EXT.
+"""
+import sys
+sys.path.insert(0, '/Users/rkautsar/personal/scripts/strategy_fcp')
+import numpy as np
+import pandas as pd
+import bull_qqq_live as bql
+from fcp_live import load_panel, run_fcp_backtest, sig_13612W
+from bull_qqq_live import (BULL_TICKER, CASH_TICKER, COST_BPS_PER_SIDE,
+                            _macro_gate, _qqq_trend_ok, _canary_state, _equity_override_threshold)
+
+panel = load_panel(start=pd.Timestamp("1993-01-01"))
+daily_rets = panel.ffill().pct_change()
+
+def perf(rets):
+    if len(rets) == 0: return {}
+    ann_ret = (1 + rets).prod() ** (252 / len(rets)) - 1
+    ann_vol = rets.std() * np.sqrt(252)
+    sh = ann_ret / ann_vol if ann_vol > 0 else np.nan
+    cum = (1 + rets).cumprod()
+    dd = (cum / cum.cummax() - 1).min()
+    return dict(cagr=ann_ret*100, sh=sh, dd=dd*100)
+
+def run_modified(panel, start, end, defensive_states_bypass_trend=False, cost_bps=COST_BPS_PER_SIDE):
+    """If defensive_states_bypass_trend: hold XLP/XLV in +-+ even when trend off."""
+    monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
+    sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
+    common = panel.index[(panel.index >= start) & (panel.index <= end)]
+    weights_per_day = {t: pd.Series(0.0, index=common) for t in [BULL_TICKER, CASH_TICKER, "XLP", "XLV"]}
+    state_per_day = pd.Series("", index=common, dtype=object)
+
+    defensive_count = 0
+    defensive_via_bypass = 0
+    for i, sig_d in enumerate(sigs):
+        mon = panel.loc[:sig_d].resample("ME").last()
+        state = _canary_state(mon, sig_d)
+        gate_open, _ = _macro_gate(mon, sig_d)
+        trend_ok, tdiag = _qqq_trend_ok(mon, sig_d)
+        qq = mon[BULL_TICKER].dropna()
+        override = False
+        if len(qq) >= 13:
+            mom = qq.iloc[-1] / qq.iloc[-13] - 1
+            thr = _equity_override_threshold(qq, sig_d)
+            override = pd.notna(thr) and mom > thr
+
+        is_defensive_state = (state == "+-+")
+        canary_eligible = gate_open or override
+
+        if defensive_states_bypass_trend and is_defensive_state and canary_eligible:
+            # Hold XLP/XLV basket regardless of trend
+            month_weights = {"XLP": 0.5, "XLV": 0.5}
+            if not trend_ok:
+                defensive_via_bypass += 1
+            defensive_count += 1
+        elif trend_ok and canary_eligible:
+            if is_defensive_state:
+                month_weights = {"XLP": 0.5, "XLV": 0.5}
+                defensive_count += 1
+            else:
+                month_weights = {BULL_TICKER: 1.0}
+        else:
+            month_weights = {CASH_TICKER: 1.0}
+
+        future = common[common > sig_d]
+        if len(future) < 2: continue
+        apply_from = future[1]
+        if i + 1 < len(sigs):
+            ns = sigs[i + 1]
+            nf = common[common > ns]
+            end_apply = nf[1] if len(nf) >= 2 else common[-1]
+        else:
+            end_apply = common[-1] + pd.Timedelta(days=1)
+        mask = (common >= apply_from) & (common < end_apply)
+        for t, w in month_weights.items():
+            weights_per_day[t].loc[mask] = w
+        label = "+".join(f"{t}:{w:.2f}" for t, w in sorted(month_weights.items()))
+        state_per_day.loc[mask] = label
+
+    port = pd.Series(0.0, index=common)
+    for t, w_s in weights_per_day.items():
+        if t in daily_rets.columns:
+            port = port + daily_rets[t].reindex(common).fillna(0.0) * w_s
+    if cost_bps > 0:
+        la = state_per_day.values
+        flips = np.where(la[1:] != la[:-1])[0] + 1
+        for f in flips:
+            port.iloc[f] -= 2.0 * cost_bps / 10000.0
+    return port, defensive_count, defensive_via_bypass
+
+for window_name, start in [("LIVE 18y", pd.Timestamp("2008-01-01")),
+                            ("EXT 32y", pd.Timestamp("1994-01-01"))]:
+    end = pd.Timestamp.today().normalize()
+    print(f"\n## {window_name}: {start.date()} -> {end.date()}")
+    fcp, _ = run_fcp_backtest(panel, start, end)
+    
+    for label, bypass in [("Current (trend gates defensive)", False),
+                          ("NEW (+-+ bypasses trend)", True)]:
+        bull, n_def, n_bypass = run_modified(panel, start, end, defensive_states_bypass_trend=bypass)
+        common = fcp.index.intersection(bull.index)
+        blend = 0.6 * fcp.reindex(common) + 0.4 * bull.reindex(common)
+        p_b = perf(bull.reindex(common))
+        p_bl = perf(blend)
+        bypass_note = f" (+{n_bypass} bypass-driven months)" if bypass else ""
+        print(f"  {label:<40} | BULL Sh {p_b['sh']:.3f} CAGR {p_b['cagr']:.2f}% | 60/40 Sh {p_bl['sh']:.3f} CAGR {p_bl['cagr']:.2f}%{bypass_note}")
+    print(f"  +-+ months total: {n_def}")
+## Building per-month diagnostics (LIVE 18y)
+  220 months analyzed
+
+## Per-state forward returns (sleeve eligible months only)
+  n = months where trend_ok AND (canary_on OR override)
+
+   State    n |     QQQ     XLP     XLV     XLU     SPY | Best      Best-QQQ
+     +++  116 |  +1.64%  +0.77%  +0.86%  +0.66%  +1.11% | QQQ         +0.00%
+     ++-   10 |  +2.27%  +0.21%  +1.14%  +1.11%  +1.52% | QQQ         +0.00%
+     +-+   19 |  +1.02%  +1.98%  +1.80%  +1.35%  +1.38% | XLP         +0.96%
+     +--   16 |  +1.85%  -0.76%  +0.03%  +0.14%  +0.90% | QQQ         +0.00%
+     -++   11 |  +1.99%  +1.52%  +1.34%  +1.54%  +1.57% | QQQ         +0.00%
+     -+-    5 |  +3.10%  +2.17%  +2.94%  -0.60%  +1.96% | QQQ         +0.00%
+     --+    5 |  +5.34%  +3.57%  +4.16%  +4.19%  +4.80% | QQQ         +0.00%
+     ---    1 |  -4.08%  -0.91%  -2.92%  +3.80%  -2.74% | XLU         +7.88%
+
+## Override-driven months (canary off, override on, trend ok)
+  n = 1
+  State breakdown:
+state
+---    1
+
+     Asset   Mean fwd    Median   Hit%
+       QQQ     -4.08%    -4.08%   0.0%
+       XLP     -0.91%    -0.91%   0.0%
+       XLV     -2.92%    -2.92%   0.0%
+       XLU     +3.80%    +3.80% 100.0%
+       SPY     -2.74%    -2.74%   0.0%
+       SHV     +0.17%    +0.17% 100.0%
+
+## Sleeve OFF months (cash regime, holding SHV)
+  n = 37
+  State breakdown:
+    ---: n=27, mean QQQ fwd -0.37%
+    -++: n=4, mean QQQ fwd +7.01%
+    --+: n=3, mean QQQ fwd -4.49%
+    +++: n=2, mean QQQ fwd -3.78%
+    +--: n=1, mean QQQ fwd +5.54%
+
+  Asset comparison (what we held = SHV, vs alternatives):
+       QQQ mean  +0.07%, hit%  51.4%
+       XLP mean  +0.40%, hit%  62.2%
+       XLV mean  +0.08%, hit%  51.4%
+       XLU mean  +0.37%, hit%  64.9%
+       SPY mean  -0.20%, hit%  51.4%
+       TLT mean  +0.83%, hit%  54.1%
+       GLD mean  +0.51%, hit%  45.9%
+       SHV mean  +0.14%, hit%  81.1%
+
+## Why sleeve was OFF: breakdown
+  Total months: 220
+  Sleeve ON (eligible): 183 (83.2%)
+  Sleeve OFF total: 37 (16.8%)
+    Trend off only: 10
+    Canary off & no override only: 18
+    Both off: 9
+
+## LIVE 18y: 2008-01-01 -> 2026-05-17
+  Variant                             | BULL Sh  CAGR | 60/40 Sh  CAGR  MaxDD | n_def
+  Current (SHV when canary off)       | 1.048  17.81% | 1.413  14.46%  -13.8% | n=0
+  New: XLU when canary off            | 1.122  20.11% | 1.460  15.38%  -13.8% | n=18
+  New: XLP when canary off            | 1.038  18.34% | 1.405  14.69%  -13.8% | n=18
+  New: XLP/XLU 50/50 basket           | 1.090  19.25% | 1.438  15.04%  -13.8% | n=18
+  New: XLP/XLV/XLU 1/3 each           | 1.070  18.90% | 1.425  14.90%  -13.8% | n=18
+  New: 60/40 XLU/SHV (hedged)         | 1.109  19.21% | 1.450  15.01%  -13.8% | n=18
+
+## EXT 32y: 1994-01-01 -> 2026-05-17
+  Variant                             | BULL Sh  CAGR | 60/40 Sh  CAGR  MaxDD | n_def
+  Current (SHV when canary off)       | 0.892  17.42% | 1.212  13.52%  -18.4% | n=0
+  New: XLU when canary off            | 0.928  18.66% | 1.237  14.03%  -19.1% | n=25
+  New: XLP when canary off            | 0.887  17.69% | 1.209  13.65%  -17.3% | n=25
+  New: XLP/XLU 50/50 basket           | 0.914  18.20% | 1.227  13.84%  -18.0% | n=25
+  New: XLP/XLV/XLU 1/3 each           | 0.897  17.85% | 1.216  13.70%  -18.2% | n=25
+  New: 60/40 XLU/SHV (hedged)         | 0.921  18.18% | 1.232  13.82%  -18.8% | n=25
+
+## TRAIN 2008-2016: 2008-01-01 -> 2016-12-31
+  Variant                   | BULL Sh  BULL CAGR | 60/40 Sh  60/40 CAGR | n_def
+  Current (SHV)             |  1.102     16.63% |   1.296      12.11% | n=0
+  XLU when canary off       |  1.240     19.54% |   1.392      13.25% | n=8
+  XLP when canary off       |  1.130     17.66% |   1.324      12.53% | n=8
+  XLP/XLU 50/50             |  1.193     18.61% |   1.361      12.89% | n=8
+  XLP/XLV/XLU 1/3           |  1.133     17.75% |   1.326      12.57% | n=8
+  XLU/SHV 60/40             |  1.199     18.39% |   1.360      12.79% | n=8
+
+## TEST 2017-2026 (OOS): 2017-01-01 -> 2026-05-17
+  Variant                   | BULL Sh  BULL CAGR | 60/40 Sh  60/40 CAGR | n_def
+  Current (SHV)             |  0.985     18.38% |   1.476      16.18% | n=0
+  XLU when canary off       |  1.012     20.04% |   1.483      16.88% | n=10
+  XLP when canary off       |  0.946     18.40% |   1.440      16.22% | n=10
+  XLP/XLU 50/50             |  0.990     19.26% |   1.468      16.55% | n=10
+  XLP/XLV/XLU 1/3           |  1.001     19.43% |   1.474      16.62% | n=10
+  XLU/SHV 60/40             |  1.018     19.42% |   1.491      16.60% | n=10
+
+## EXT TRAIN 1994-2007: 1994-01-01 -> 2007-12-31
+  Variant                   | BULL Sh  BULL CAGR | 60/40 Sh  60/40 CAGR | n_def
+  Current (SHV)             |  0.804     17.92% |   1.041      12.72% | n=0
+  XLU when canary off       |  0.790     17.82% |   1.036      12.70% | n=7
+  XLP when canary off       |  0.795     17.87% |   1.038      12.71% | n=7
+  XLP/XLU 50/50             |  0.798     17.87% |   1.040      12.71% | n=7
+  XLP/XLV/XLU 1/3           |  0.783     17.51% |   1.029      12.57% | n=7
+  XLU/SHV 60/40             |  0.798     17.86% |   1.039      12.70% | n=7

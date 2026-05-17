@@ -1,0 +1,43 @@
+=====================================================================================================================================================================
+FCP vs AAA on FCP-15 universe -- COMPONENT DECOMPOSITION
+=====================================================================================================================================================================
+
+=====================================================================================================================================================================
+>>> Hybrid 28.7y
+=====================================================================================================================================================================
+
+[FCP family on FCP-15]
+  FCP full (canary + buffer + pair, production)     Sh +1.150  CAGR +12.05%  DD -20.34%  Vol 10.36%  AnnTO     0%
+  FCP - hold buffer (canary + pair)                 Sh +0.926  CAGR +9.11%  DD -16.00%  Vol  9.94%  AnnTO  1203%
+  FCP - canary (buffer + pair)                      Sh +1.029  CAGR +9.52%  DD -23.49%  Vol  9.26%  AnnTO   181%
+  FCP - canary - buffer (just pair selection)       Sh +1.029  CAGR +9.52%  DD -23.49%  Vol  9.26%  AnnTO   181%
+
+[MVP-style (K=2 min-vol pair + 50/50 + rank buffer) on FCP-15]
+  MVP-style on FCP-15 (NO canary)                   Sh +0.775  CAGR +9.00%  DD -29.86%  Vol 12.06%  AnnTO   673%
+  MVP-style on FCP-15 + FCP canary                  Sh +0.898  CAGR +7.60%  DD -21.17%  Vol  8.56%  AnnTO  1001%
+
+[AAA family on FCP-15]
+  AAA K=7, 6mo, no canary, no buffer (baseline)     Sh +0.760  CAGR +8.88%  DD -25.98%  Vol 12.19%  AnnTO  1199%
+  AAA K=7 + FCP canary                              Sh +0.815  CAGR +7.72%  DD -19.30%  Vol  9.70%  AnnTO  1367%
+  AAA K=7 + hold buffer 1.0z                        Sh +0.656  CAGR +7.57%  DD -29.65%  Vol 12.26%  AnnTO  1015%
+  AAA K=7 + canary + hold buffer 1.0z               Sh +0.748  CAGR +7.14%  DD -24.87%  Vol  9.87%  AnnTO  1269%
+
+=====================================================================================================================================================================
+>>> Live-only 18y
+=====================================================================================================================================================================
+
+[FCP family on FCP-15]
+  FCP full (canary + buffer + pair, production)     Sh +1.124  CAGR +11.19%  DD -12.58%  Vol  9.87%  AnnTO     0%
+  FCP - hold buffer (canary + pair)                 Sh +0.855  CAGR +8.08%  DD -16.00%  Vol  9.63%  AnnTO  1211%
+  FCP - canary (buffer + pair)                      Sh +1.026  CAGR +10.02%  DD -23.49%  Vol  9.77%  AnnTO   226%
+  FCP - canary - buffer (just pair selection)       Sh +1.026  CAGR +10.02%  DD -23.49%  Vol  9.77%  AnnTO   226%
+
+[MVP-style (K=2 min-vol pair + 50/50 + rank buffer) on FCP-15]
+  MVP-style on FCP-15 (NO canary)                   Sh +0.755  CAGR +9.01%  DD -27.15%  Vol 12.46%  AnnTO   753%
+  MVP-style on FCP-15 + FCP canary                  Sh +0.895  CAGR +7.71%  DD -21.17%  Vol  8.73%  AnnTO  1013%
+
+[AAA family on FCP-15]
+  AAA K=7, 6mo, no canary, no buffer (baseline)     Sh +0.966  CAGR +11.71%  DD -19.73%  Vol 12.24%  AnnTO  1178%
+  AAA K=7 + FCP canary                              Sh +0.905  CAGR +8.53%  DD -18.55%  Vol  9.56%  AnnTO  1369%
+  AAA K=7 + hold buffer 1.0z                        Sh +0.783  CAGR +9.30%  DD -25.65%  Vol 12.33%  AnnTO  1019%
+  AAA K=7 + canary + hold buffer 1.0z               Sh +0.800  CAGR +7.47%  DD -14.77%  Vol  9.58%  AnnTO  1257%

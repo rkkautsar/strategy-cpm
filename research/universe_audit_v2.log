@@ -1,0 +1,78 @@
+Replaying FCP to capture pair holdings (live-only window)...
+
+Window: 2008-09-30 to 2026-05-14
+Total months: 213, risk-on months: 126 (59%)
+
+==================================================================================================================================
+FCP-15 UNIVERSE AUDIT (live-only 18y, post-XLV/post-AVUV)
+==================================================================================================================================
+
+Asset  Role                                             Live            Picks   %RiskOn   AvgCorr TopPartner          
+----------------------------------------------------------------------------------------------------------------------------------
+QQQ    US Large-cap Growth/Tech (NASDAQ-100)            1999-03-10         20     15.9%   +0.664 GLD(12), SPMO(5), XMHQ(2)
+IGM    US Expanded Tech Sector (broader tech)           2001-03-13          5      4.0%   +0.653 COWZ(5)             
+SPMO   US Large-cap Momentum (S&P 500 Momentum)         2015-10-09         17     13.5%   +0.666 QQQ(5), XLV(5), GLD(5)
+XLE    US Energy Sector                                 1998-12-22          1      0.8%   +0.546 XLV(1)              
+XRT    US Retail Sector                                 2006-06-22          0      0.0%   +0.585 -                   
+COWZ   US Free Cash Flow Yield (Cash Cows 100)          2016-12-19         10      7.9%   +0.695 XMHQ(5), IGM(5)     
+VBR    US Small-cap Value                               2004-01-30          2      1.6%   +0.679 SPMO(2)             
+SPHQ   US Large-cap Quality                             2005-12-09         41     32.5%   +0.691 GLD(20), TLT(11), XLV(5)
+XMMO   US Mid-cap Momentum                              2005-03-10          0      0.0%   +0.684 -                   
+XMHQ   US Mid-cap Quality                               2005-12-09         17     13.5%   +0.641 XLV(5), SPHQ(5), COWZ(5)
+XLV    US Healthcare Sector (defensive growth)          1998-12-22         39     31.0%   +0.579 TLT(19), SPHQ(5), XMHQ(5)
+VEA    International Developed Equity                   2007-07-20          2      1.6%   +0.669 GLD(1), VWO(1)      
+VWO    Emerging Markets Equity                          2005-03-04          5      4.0%   +0.623 XLV(4), VEA(1)      
+GLD    Gold (inflation hedge / equity diversifier)      2004-11-18         50     39.7%   +0.108 SPHQ(20), QQQ(12), TLT(12)
+TLT    Long US Treasury (rate / deflation hedge)        2002-07-22         43     34.1%   -0.231 XLV(19), GLD(12), SPHQ(11)
+
+==================================================================================================================================
+SORTED BY SELECTION FREQUENCY (most-picked first)
+==================================================================================================================================
+
+Asset     %RiskOn   AvgCorr  Role
+GLD         39.7%   +0.108  ################### Gold (inflation hedge / equity diversifier)
+TLT         34.1%   -0.231  ################# Long US Treasury (rate / deflation hedge)
+SPHQ        32.5%   +0.691  ################ US Large-cap Quality
+XLV         31.0%   +0.579  ############### US Healthcare Sector (defensive growth)
+QQQ         15.9%   +0.664  ####### US Large-cap Growth/Tech (NASDAQ-100)
+SPMO        13.5%   +0.666  ###### US Large-cap Momentum (S&P 500 Momentum)
+XMHQ        13.5%   +0.641  ###### US Mid-cap Quality
+COWZ         7.9%   +0.695  ### US Free Cash Flow Yield (Cash Cows 100)
+IGM          4.0%   +0.653  # US Expanded Tech Sector (broader tech)
+VWO          4.0%   +0.623  # Emerging Markets Equity
+VBR          1.6%   +0.679   US Small-cap Value
+VEA          1.6%   +0.669   International Developed Equity
+XLE          0.8%   +0.546   US Energy Sector
+XRT          0.0%   +0.585   US Retail Sector
+XMMO         0.0%   +0.684   US Mid-cap Momentum
+
+==================================================================================================================================
+TOP 15 MOST-FREQUENT PAIRS
+==================================================================================================================================
+    GLD + SPHQ   picked  20 months (15.9%)  corr=+0.089  Gold (inflation hedge / equity | US Large-cap Quality
+    TLT + XLV    picked  19 months (15.1%)  corr=-0.227  Long US Treasury (rate / defla | US Healthcare Sector (defensiv
+    GLD + QQQ    picked  12 months ( 9.5%)  corr=+0.081  Gold (inflation hedge / equity | US Large-cap Growth/Tech (NASD
+    GLD + TLT    picked  12 months ( 9.5%)  corr=+0.178  Gold (inflation hedge / equity | Long US Treasury (rate / defla
+   SPHQ + TLT    picked  11 months ( 8.7%)  corr=-0.278  US Large-cap Quality | Long US Treasury (rate / defla
+    QQQ + SPMO   picked   5 months ( 4.0%)  corr=+0.878  US Large-cap Growth/Tech (NASD | US Large-cap Momentum (S&P 500
+   SPHQ + XLV    picked   5 months ( 4.0%)  corr=+0.799  US Large-cap Quality | US Healthcare Sector (defensiv
+    XLV + XMHQ   picked   5 months ( 4.0%)  corr=+0.660  US Healthcare Sector (defensiv | US Mid-cap Quality
+   SPHQ + XMHQ   picked   5 months ( 4.0%)  corr=+0.816  US Large-cap Quality | US Mid-cap Quality
+   COWZ + XMHQ   picked   5 months ( 4.0%)  corr=+0.837  US Free Cash Flow Yield (Cash  | US Mid-cap Quality
+   SPMO + XLV    picked   5 months ( 4.0%)  corr=+0.740  US Large-cap Momentum (S&P 500 | US Healthcare Sector (defensiv
+   COWZ + IGM    picked   5 months ( 4.0%)  corr=+0.788  US Free Cash Flow Yield (Cash  | US Expanded Tech Sector (broad
+    GLD + SPMO   picked   5 months ( 4.0%)  corr=+0.109  Gold (inflation hedge / equity | US Large-cap Momentum (S&P 500
+    VWO + XLV    picked   4 months ( 3.2%)  corr=+0.625  Emerging Markets Equity | US Healthcare Sector (defensiv
+    QQQ + XMHQ   picked   2 months ( 1.6%)  corr=+0.751  US Large-cap Growth/Tech (NASD | US Mid-cap Quality
+
+==================================================================================================================================
+PAIR COMPOSITION BY CATEGORY
+==================================================================================================================================
+  E+E: 45 months (35.7%)
+  D+D: 12 months (9.5%)
+  other: 69 months (54.8%)
+  Total risk-on: 126
+
+  DEFENSIVE (canary blocked, 100% safe): 87 months (40.8%)
+
+  ASSETS NEVER PICKED: ['XRT', 'XMMO']

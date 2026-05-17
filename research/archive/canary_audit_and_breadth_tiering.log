@@ -1,0 +1,330 @@
+====================================================================================================
+FCP CANARY AUDIT & BREADTH TIERING EXPERIMENT
+Run: 2026-05-16T10:03:10
+Universe (15): ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'XLV', 'VEA', 'VWO', 'GLD', 'TLT']
+Safe pool: ['BIL', 'SHV', 'SHY', 'IEF']
+Prod canary: ['SPY', 'TIP'] (both must have 13612W > 0)
+Constants: TOP_K=7, HOLD_BUF=2.5, CORR_LB=378d, VOL_LB=63d, TV=0.1, MAX_LEV=1.0, COST=10bps
+====================================================================================================
+
+Loading panel ...
+Panel: 1998-10-01 -> 2026-05-14, 46 assets
+VAA4 canary assets available: ['SPY', 'VEA', 'EEM', 'AGG']
+====================================================================================================
+PART A: SPY+TIP CANARY STATE FORWARD PREDICTIVE POWER
+====================================================================================================
+Signal: 13612W = (12*r1 + 4*r3 + 2*r6 + r12) / 19
+States: both_pos | spy_only | tip_only | both_neg
+Forward window: 21 trading days (~1 calendar month)
+
+
+--- FULL 2001-2026 ---
+
+  State frequencies (n=297 months):
+    both_pos    :  170 months ( 57.2%)
+    spy_only    :   56 months ( 18.9%)
+    tip_only    :   48 months ( 16.2%)
+    both_neg    :   23 months (  7.7%)
+
+  Forward 21d stats by state (mean% | median% | p25% | p75% | hit%>0):
+  State         Asset            N     Mean   Median      p25      p75    Hit%
+  ---------------------------------------------------------------------------
+  both_pos      SPY            170    +1.26    +1.64    -0.34    +3.19    73.5%
+  both_pos      QQQ            170    +1.60    +2.00    -0.79    +4.47    67.1%
+  both_pos      GLD            170    +1.10    +0.87    -1.73    +3.89    57.6%
+  both_pos      TLT            170    +0.09    +0.02    -2.31    +2.50    50.6%
+  both_pos      IEF            170    +0.13    +0.15    -0.94    +1.17    53.5%
+  both_pos      FCP15_EW       170    +1.28    +1.56    -0.21    +3.16    73.5%
+  both_pos      SPY_maxDD      170    -2.94    -2.25    -4.04    -1.31     0.0%
+  ---------------------------------------------------------------------------
+  spy_only      SPY             56    +0.03    +0.50    -2.44    +2.35    58.9%
+  spy_only      QQQ             56    +0.04    +0.58    -2.50    +4.37    55.4%
+  spy_only      GLD             56    +0.80    +0.76    -1.64    +3.60    57.1%
+  spy_only      TLT             56    -0.03    +0.02    -2.06    +2.02    50.0%
+  spy_only      IEF             56    +0.04    -0.06    -0.98    +1.00    48.2%
+  spy_only      FCP15_EW        56    +0.19    +0.53    -2.05    +2.50    58.9%
+  spy_only      SPY_maxDD       56    -3.93    -3.35    -4.92    -1.72     0.0%
+  ---------------------------------------------------------------------------
+  tip_only      SPY             48    +0.35    +0.37    -3.00    +6.10    52.1%
+  tip_only      QQQ             48    +1.27    +1.28    -4.39    +7.95    60.4%
+  tip_only      GLD             48    +0.77    +0.83    -3.42    +4.91    56.2%
+  tip_only      TLT             48    -0.01    +0.11    -2.46    +2.53    52.1%
+  tip_only      IEF             48    +0.28    +0.39    -1.21    +1.70    58.3%
+  tip_only      FCP15_EW        48    +0.29    +0.28    -2.65    +5.12    54.2%
+  tip_only      SPY_maxDD       48    -6.30    -4.59    -8.03    -2.72     0.0%
+  ---------------------------------------------------------------------------
+  both_neg      SPY             23    +0.89    +1.24    -2.76    +7.77    65.2%
+  both_neg      QQQ             23    +1.41    +0.43    -4.38   +10.09    52.2%
+  both_neg      GLD             23    +1.20    +0.51    -2.45    +7.01    52.2%
+  both_neg      TLT             23    +1.99    +0.80    -1.21    +3.15    65.2%
+  both_neg      IEF             23    +1.27    +0.65    -0.49    +3.07    65.2%
+  both_neg      FCP15_EW        23    +0.70    +0.97    -1.95    +6.91    65.2%
+  both_neg      SPY_maxDD       23    -6.90    -5.20    -7.05    -2.79     0.0%
+  ---------------------------------------------------------------------------
+
+  KEY CONTRASTS (both_pos vs rest):
+    SPY         : both_pos mean=+1.26%  rest mean=+0.31%  diff=+0.96pp  (both_pos hit=74%  rest hit=57%)
+    FCP15_EW    : both_pos mean=+1.28%  rest mean=+0.32%  diff=+0.96pp  (both_pos hit=74%  rest hit=58%)
+    IEF         : both_pos mean=+0.13%  rest mean=+0.35%  diff=-0.22pp  (both_pos hit=54%  rest hit=55%)
+
+  SIGNAL SEPARATION (mean fwd SPY per state, best→worst):
+    both_pos    : fwd_SPY mean=+1.26%  (n=170)
+    both_neg    : fwd_SPY mean=+0.89%  (n=23)
+    tip_only    : fwd_SPY mean=+0.35%  (n=48)
+    spy_only    : fwd_SPY mean=+0.03%  (n=56)
+
+--- LIVE 2008-2026 ---
+
+  State frequencies (n=212 months):
+    both_pos    :  127 months ( 59.9%)
+    spy_only    :   43 months ( 20.3%)
+    tip_only    :   22 months ( 10.4%)
+    both_neg    :   20 months (  9.4%)
+
+  Forward 21d stats by state (mean% | median% | p25% | p75% | hit%>0):
+  State         Asset            N     Mean   Median      p25      p75    Hit%
+  ---------------------------------------------------------------------------
+  both_pos      SPY            127    +1.36    +1.81    -0.47    +3.52    73.2%
+  both_pos      QQQ            127    +1.71    +1.93    -0.50    +4.41    67.7%
+  both_pos      GLD            127    +0.96    +0.80    -1.79    +3.49    57.5%
+  both_pos      TLT            127    +0.06    -0.14    -2.40    +2.57    47.2%
+  both_pos      IEF            127    +0.12    +0.07    -0.88    +1.13    52.0%
+  both_pos      FCP15_EW       127    +1.25    +1.42    -0.16    +3.15    74.0%
+  both_pos      SPY_maxDD      127    -2.95    -2.16    -4.01    -1.27     0.0%
+  ---------------------------------------------------------------------------
+  spy_only      SPY             43    +0.21    +1.61    -2.46    +2.97    60.5%
+  spy_only      QQQ             43    +0.31    +0.76    -2.58    +4.52    60.5%
+  spy_only      GLD             43    +0.35    +0.17    -2.26    +3.64    51.2%
+  spy_only      TLT             43    -0.08    -0.07    -2.60    +2.21    48.8%
+  spy_only      IEF             43    +0.05    -0.09    -1.08    +1.08    46.5%
+  spy_only      FCP15_EW        43    +0.17    +0.46    -1.81    +2.79    60.5%
+  spy_only      SPY_maxDD       43    -3.98    -3.31    -4.79    -1.62     0.0%
+  ---------------------------------------------------------------------------
+  tip_only      SPY             22    +1.94    +4.73    -3.42    +6.77    63.6%
+  tip_only      QQQ             22    +3.35    +4.18    -1.31    +8.11    68.2%
+  tip_only      GLD             22    +1.07    +1.75    -0.82    +4.47    63.6%
+  tip_only      TLT             22    -0.86    -1.52    -3.67    +2.03    40.9%
+  tip_only      IEF             22    -0.28    -0.17    -1.28    +1.08    45.5%
+  tip_only      FCP15_EW        22    +1.74    +3.65    -2.87    +5.98    68.2%
+  tip_only      SPY_maxDD       22    -6.26    -2.99    -7.03    -1.72     0.0%
+  ---------------------------------------------------------------------------
+  both_neg      SPY             20    +0.73    +1.45    -3.17    +8.32    60.0%
+  both_neg      QQQ             20    +1.64    +1.68    -4.37   +11.08    50.0%
+  both_neg      GLD             20    +1.09    -0.13    -2.24    +6.97    50.0%
+  both_neg      TLT             20    +2.22    +1.86    -1.52    +3.71    60.0%
+  both_neg      IEF             20    +1.41    +0.72    -0.84    +3.24    65.0%
+  both_neg      FCP15_EW        20    +0.54    +0.96    -3.69    +7.00    65.0%
+  both_neg      SPY_maxDD       20    -7.44    -5.53    -8.14    -2.82     0.0%
+  ---------------------------------------------------------------------------
+
+  KEY CONTRASTS (both_pos vs rest):
+    SPY         : both_pos mean=+1.36%  rest mean=+0.78%  diff=+0.57pp  (both_pos hit=73%  rest hit=61%)
+    FCP15_EW    : both_pos mean=+1.25%  rest mean=+0.66%  diff=+0.58pp  (both_pos hit=74%  rest hit=64%)
+    IEF         : both_pos mean=+0.12%  rest mean=+0.28%  diff=-0.16pp  (both_pos hit=52%  rest hit=51%)
+
+  SIGNAL SEPARATION (mean fwd SPY per state, best→worst):
+    tip_only    : fwd_SPY mean=+1.94%  (n=22)
+    both_pos    : fwd_SPY mean=+1.36%  (n=127)
+    both_neg    : fwd_SPY mean=+0.73%  (n=20)
+    spy_only    : fwd_SPY mean=+0.21%  (n=43)
+
+
+====================================================================================================
+PART B: ALTERNATIVE CANARY SETS ON FCP-15 PRODUCTION ENGINE
+====================================================================================================
+Universe: ['QQQ', 'IGM', 'SPMO', 'XLE', 'XRT', 'COWZ', 'VBR', 'SPHQ', 'XMMO', 'XMHQ', 'XLV', 'VEA', 'VWO', 'GLD', 'TLT']
+Window: Live 2008-2026 (18y), TV=0.10, pair mode, cost=10bps
+
+  Running: SPY alone (13612W) ...
+    Sh=+1.074  CAGR=+10.13%  MaxDD=-22.53%  %RO=80.3%  [0.7s]
+  Running: SPY+TIP (13612W, current) ...
+    Sh=+1.204  CAGR=+9.99%  MaxDD=-10.72%  %RO=60.1%  [0.6s]
+  Running: SPY+VEA+EEM+AGG (3-of-4) ...
+    Sh=+0.972  CAGR=+8.53%  MaxDD=-18.14%  %RO=64.3%  [0.7s]
+  Running: SPY+VEA+EEM+AGG (4-of-4) ...
+    Sh=+0.821  CAGR=+6.25%  MaxDD=-16.65%  %RO=44.6%  [0.6s]
+  Running: SPY+VEA+EEM+AGG+TIP (3of5) ...
+    Sh=+1.035  CAGR=+9.35%  MaxDD=-18.07%  %RO=71.8%  [0.7s]
+  Running: SPY (6mo SMA) ...
+    Sh=+1.082  CAGR=+9.99%  MaxDD=-22.53%  %RO=76.5%  [0.7s]
+  Running: GLD+TLT (13612W, 2-of-2) ...
+    Sh=+0.381  CAGR=+2.57%  MaxDD=-19.95%  %RO=37.6%  [0.5s]
+
+  COMPARISON TABLE
+  Config                                 |   Yr |   %RO |  Sharpe |   CAGR% |  MaxDD% | Sortino |  SPY|RO | SPY|DEF |  DEF_hit
+  ---------------------------------------------------------------------------------------------------------
+  SPY alone (13612W)                     | 18.0 |  80.3% |  +1.074 |  +10.13% |  -22.53% |  +1.394 |   +1.07% |   +1.37% |     38.1%
+  SPY+TIP (13612W, current)              | 18.0 |  60.1% |  +1.204 |   +9.99% |  -10.72% |  +1.471 |   +1.36% |   +0.78% |     38.8%
+  SPY+VEA+EEM+AGG (3-of-4)               | 18.0 |  64.3% |  +0.972 |   +8.53% |  -18.14% |  +1.146 |   +1.19% |   +1.02% |     38.2%
+  SPY+VEA+EEM+AGG (4-of-4)               | 18.0 |  44.6% |  +0.821 |   +6.25% |  -16.65% |  +0.936 |   +1.14% |   +1.12% |     35.0%
+  SPY+VEA+EEM+AGG+TIP (3of5)             | 18.0 |  71.8% |  +1.035 |   +9.35% |  -18.07% |  +1.250 |   +1.33% |   +0.60% |     41.7%
+  SPY (6mo SMA)                          | 18.0 |  76.5% |  +1.082 |   +9.99% |  -22.53% |  +1.396 |   +1.27% |   +0.67% |     44.0%
+  GLD+TLT (13612W, 2-of-2)               | 18.0 |  37.6% |  +0.381 |   +2.57% |  -19.95% |  +0.411 |   +0.85% |   +1.29% |     31.1%
+
+  LEGEND:
+  SPY|RO   = avg fwd 1mo SPY return when canary fires RISK_ON  (higher = strategy picks good months)
+  SPY|DEF  = avg fwd 1mo SPY return when canary fires DEFENSIVE (lower = better crisis detection)
+  DEF_hit% = pct defensive calls where SPY actually fell next month
+  Best canary: highest Sharpe + SPY|RO high + SPY|DEF low + DEF_hit% high
+
+
+====================================================================================================
+PART C: BREADTH TIERING WITH 4-CANARY SPY+VEA+EEM+AGG
+====================================================================================================
+Canary: ['SPY', 'VEA', 'EEM', 'AGG'], all using 13612W
+Breadth = # of canaries with 13612W > 0
+
+  Tier configs:
+  BINARY-CURRENT   : SPY+TIP all-pos → pair 100% (production equiv)
+  BINARY-VAA4-MAJ  : VAA4 3-of-4 majority → pair 100%
+  TIERED-STD       : b4=single100%  b3=pair100%  b2=pair50%  b1=pair25%  b0=safe
+  TIERED-VOLVAR    : b4=single100%+TV20  b3=pair100%+TV10  b2=pair50%+TV10  b<=1=safe
+
+
+--- Window: Live-18y (2008-09-30) ---
+  Running Binary-Current (SPY+TIP, pair) ...
+    done 0.6s
+  Running Binary-VAA4-Maj (3-of-4, pair) ...
+    done 0.6s
+  Running Tiered-Standard (5-level, TV=0.10) ...
+    done 0.6s
+  Running Tiered-VolVar (b4=TV20) ...
+    done 0.6s
+
+  Breadth distribution [Live-18y]:
+    Tiered-Standard:
+      Breadth 4 (single100%  ):  95 mo (44.6%)
+      Breadth 3 (pair100%    ):  42 mo (19.7%)
+      Breadth 2 (pair50%     ):  28 mo (13.1%)
+      Breadth 1 (pair25%     ):  31 mo (14.6%)
+      Breadth 0 (safe        ):  17 mo (8.0%)
+    Tiered-VolVar:
+      Breadth 4 (single100%  ):  95 mo (44.6%)
+      Breadth 3 (pair100%    ):  42 mo (19.7%)
+      Breadth 2 (pair50%     ):  28 mo (13.1%)
+      Breadth 1 (pair25%     ):  31 mo (14.6%)
+      Breadth 0 (safe        ):  17 mo (8.0%)
+
+--- Window: Full-25y (2001-08-30) ---
+  Running Binary-Current (SPY+TIP, pair) ...
+    done 0.8s
+  Running Binary-VAA4-Maj (3-of-4, pair) ...
+    done 0.8s
+  Running Tiered-Standard (5-level, TV=0.10) ...
+    done 0.9s
+  Running Tiered-VolVar (b4=TV20) ...
+    done 0.8s
+
+  Breadth distribution [Full-25y]:
+    Tiered-Standard:
+      Breadth 4 (single100%  ): 134 mo (45.0%)
+      Breadth 3 (pair100%    ):  63 mo (21.1%)
+      Breadth 2 (pair50%     ):  35 mo (11.7%)
+      Breadth 1 (pair25%     ):  49 mo (16.4%)
+      Breadth 0 (safe        ):  17 mo (5.7%)
+    Tiered-VolVar:
+      Breadth 4 (single100%  ): 134 mo (45.0%)
+      Breadth 3 (pair100%    ):  63 mo (21.1%)
+      Breadth 2 (pair50%     ):  35 mo (11.7%)
+      Breadth 1 (pair25%     ):  49 mo (16.4%)
+      Breadth 0 (safe        ):  17 mo (5.7%)
+
+  FULL SUMMARY TABLE
+  Strategy                                           |   Yr |  Sharpe |   CAGR% |  MaxDD% | Sortino | Breadth distribution
+  -------------------------------------------------------------------------------------------------------------------
+  Binary-Current   SPY+TIP  [Live-18y]               | 18.0 |  +1.204 |   +9.99% |  -10.72% |  +1.471 | pct_ro=60.1%
+  Binary-VAA4-Maj  3-of-4   [Live-18y]               | 18.0 |  +0.972 |   +8.53% |  -18.14% |  +1.146 | pct_ro=64.3%
+  Tiered-Standard  5-level  [Live-18y]               | 18.0 |  +0.723 |   +6.93% |  -18.32% |  +0.888 | b0=8%  b1=15%  b2=13%  b3=20%  b4=45%
+  Tiered-VolVar    b4=TV20  [Live-18y]               | 18.0 |  +0.538 |   +6.16% |  -27.15% |  +0.621 | b0=8%  b1=15%  b2=13%  b3=20%  b4=45%
+  Binary-Current   SPY+TIP  [Full-25y]               | 25.4 |  +1.289 |  +10.82% |  -10.72% |  +1.591 | pct_ro=57.4%
+  Binary-VAA4-Maj  3-of-4   [Full-25y]               | 25.4 |  +1.067 |   +9.46% |  -18.14% |  +1.297 | pct_ro=66.1%
+  Tiered-Standard  5-level  [Full-25y]               | 25.4 |  +0.895 |   +8.75% |  -18.32% |  +1.133 | b0=6%  b1=16%  b2=12%  b3=21%  b4=45%
+  Tiered-VolVar    b4=TV20  [Full-25y]               | 25.4 |  +0.769 |   +9.39% |  -27.15% |  +0.927 | b0=6%  b1=16%  b2=12%  b3=21%  b4=45%
+
+  INTERPRETATION GUIDE:
+  1. Does Tiered-Standard beat Binary-Current on Sharpe? → tiering adds value
+  2. Does Tiered-VolVar beat Tiered-Standard on Sharpe without proportional DD increase?
+     → concentrated top-1 with higher TV at breadth-4 is empirically warranted
+  3. Compare SPY+TIP vs VAA4-Majority binary: better canary changes regime-on% meaningfully
+  4. MaxDD is the risk cost of concentration. If it jumps >3pp, concentration is too costly.
+
+====================================================================================================
+TOTAL ELAPSED: 0.2 minutes
+====================================================================================================
+
+====================================================================================================
+FINDINGS SUMMARY — canary_audit_and_breadth_tiering
+====================================================================================================
+
+PART A: SPY+TIP CANARY STATE FORWARD PREDICTIVE POWER
+------------------------------------------------------
+State distribution (Full 2001-2026, 297 months):
+  both_pos 57.2% | spy_only 18.9% | tip_only 16.2% | both_neg 7.7%
+
+Key result: both_pos has materially BETTER forward returns than other states.
+  SPY fwd 1mo:  both_pos +1.26%  spy_only +0.03%  tip_only +0.35%  both_neg +0.89%
+  FCP15_EW:     both_pos +1.28%  vs rest   +0.32%  =>  +0.96pp lift, hit rate 74% vs 58%
+  SPY intra-DD: both_pos -2.94%  vs tip_only -6.26%  both_neg -6.90%
+
+Interpretation:
+  - both_pos = safest AND highest-return state. Forward return lift is real.
+  - spy_only months (SPY up, TIP down) = WORST for forward returns (+0.03% mean).
+    TIP's role: filtering out bearish-bond / high-SPY months with poor risk/reward.
+  - tip_only months (DEFENSIVE in production) show +1.94% fwd SPY in live window.
+    These ARE false-defensive calls on return, but SPY_maxDD=-6.26% confirms elevated
+    intra-month risk. Canary correctly reads volatility even when end-month return is OK.
+  - both_neg: highest intra-DD (-6.90%), correctly identified as most dangerous state.
+  VERDICT: both_pos IS a distinct and superior state. But the improvement (+1.26% vs +0.89%)
+  is not dramatic enough to justify concentration — variance matters as much as mean.
+
+PART B: ALTERNATIVE CANARY SETS — RANKED BY SHARPE (Live 18y)
+---------------------------------------------------------------
+  Rank  Config                       Sharpe   CAGR%   MaxDD%    RO%
+  1.    SPY+TIP (current)            +1.204   +9.99   -10.72   60.1%  ← WINNER
+  2.    SPY 6mo SMA                  +1.082   +9.99   -22.53   76.5%
+  3.    SPY alone (13612W)           +1.074  +10.13   -22.53   80.3%
+  4.    SPY+VEA+EEM+AGG+TIP (3of5)  +1.035   +9.35   -18.07   71.8%
+  5.    SPY+VEA+EEM+AGG (3-of-4)    +0.972   +8.53   -18.14   64.3%
+  6.    SPY+VEA+EEM+AGG (4-of-4)    +0.821   +6.25   -16.65   44.6%
+  7.    GLD+TLT (2-of-2)            +0.381   +2.57   -19.95   37.6%
+
+  A. SPY+TIP is best on BOTH Sharpe AND MaxDD. Not close. No alternative beats it.
+  B. TIP is the key: SPY alone Sh=1.074, MaxDD=-22.53% → adding TIP: Sh=+0.13, MaxDD halved.
+     TIP captures bond-market stress that SPY momentum alone misses. Irreplaceable.
+  C. VAA4 canaries are WORSE: 3-of-4 Sh=0.972 (-0.232 vs SPY+TIP), MaxDD=-18.14%.
+     International/bond canaries create false defensives in US-dominated bull runs.
+  D. GLD+TLT is useless as canary (DEF_hit%=31% — defensive calls wrong 69% of the time).
+  VERDICT: Keep SPY+TIP. All tested alternatives are strictly inferior.
+
+PART C: BREADTH TIERING — VERDICT
+-----------------------------------
+  Live-18y:
+  Binary-Current (SPY+TIP)      Sh=+1.204  CAGR=+9.99%  MaxDD=-10.72%  ← BEST (by far)
+  Binary-VAA4-Maj (3-of-4)      Sh=+0.972  CAGR=+8.53%  MaxDD=-18.14%
+  Tiered-Standard (5-level)     Sh=+0.723  CAGR=+6.93%  MaxDD=-18.32%
+  Tiered-VolVar (b4=TV20)       Sh=+0.538  CAGR=+6.16%  MaxDD=-27.15%  ← WORST
+
+  Tiering hypothesis verdict: REJECTED. -0.481 Sharpe vs Binary-Current. Three penalties:
+  (a) VAA4 canary weaker than SPY+TIP (demonstrated in Part B).
+  (b) Breadth-4=top-1 concentration: eliminates pair diversification at 44.6% of months.
+      Pair's low-correlation property is core to FCP resilience. Single asset kills Sharpe.
+  (c) Breadth-1/2 partial exposure: losing money in crises without adequate protection.
+
+  "All canaries positive = safe to concentrate" is empirically FALSE:
+  Both_pos months do have better forward returns (Part A: +1.26% vs +0.35-0.89%).
+  But the improvement is not large enough to justify the idiosyncratic risk of top-1.
+  Variance of top-1 >> variance of min-vol pair. Risk-adjusted return drops sharply.
+
+  Tiered TV=0.20 on breadth-4 makes things dramatically worse: MaxDD=-27.15%.
+  Higher concentration + higher leverage = 2.5x drawdown amplification. Avoid.
+
+ACTIONABLE CONCLUSIONS:
+  1. Keep SPY+TIP canary as-is. Do not replace with VAA-style 4-asset canary.
+  2. Do not implement breadth tiering. Binary on/off is optimal for this engine.
+  3. Do not concentrate into top-1, even at full-conviction breadth-4. Pair beats single.
+  4. Do not use higher TARGET_VOL when all canaries positive. DD cost is too high.
+  5. The "full conviction = lever/concentrate" intuition is not supported by evidence.
+  6. TIP's canary contribution is empirically proven and irreplaceable. Protect this.
+  7. Paths to more CAGR: higher TV in binary structure (not concentration/tiering),
+     universe additions, or PP_BLEND reduction — not canary redesign.
+====================================================================================================

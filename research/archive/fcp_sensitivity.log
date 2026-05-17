@@ -1,0 +1,110 @@
+=====================================================================================================================================================================
+FCP COMPONENT SENSITIVITY SWEEP
+Production constants: TOP_K_CANDIDATES=7, CORR_LOOKBACK_DAYS=378,
+  HOLD_BUFFER=3.0, TARGET_VOL=0.1, VOL_LOOKBACK_DAYS=63,
+  MAX_LEVERAGE=1.0
+=====================================================================================================================================================================
+
+>>> Hybrid 28.7y
+=====================================================================================================================================================================
+
+[Production reference (vol-target ON / OFF)]
+  FCP production (vol-target ON)                    Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%
+  FCP production (vol-target OFF)                   Sh +1.150  CAGR +12.05%  DD -20.34%  Vol 10.36%
+
+[TOP_K_CANDIDATES sweep (vol-target ON)]
+  TOP_K = 3                                         Sh +1.127  CAGR +10.45%  DD -14.74%  Vol  9.19%
+  TOP_K = 5                                         Sh +1.153  CAGR +10.46%  DD -14.66%  Vol  8.98%
+  TOP_K = 7                                         Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%
+  TOP_K = 10                                        Sh +1.149  CAGR +9.47%  DD -16.30%  Vol  8.17%
+  TOP_K = 12                                        Sh +1.144  CAGR +9.19%  DD -16.19%  Vol  7.97%
+  TOP_K = 15                                        Sh +1.142  CAGR +8.91%  DD -13.49%  Vol  7.74%
+
+[HOLD_BUFFER sweep (vol-target ON)]
+  HOLD_BUFFER = 0.0z                                Sh +0.943  CAGR +8.06%  DD -14.40%  Vol  8.62%
+  HOLD_BUFFER = 1.0z                                Sh +1.057  CAGR +9.27%  DD -14.83%  Vol  8.75%
+  HOLD_BUFFER = 2.0z                                Sh +1.073  CAGR +9.32%  DD -14.83%  Vol  8.65%
+  HOLD_BUFFER = 3.0z                                Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%
+  HOLD_BUFFER = 4.0z                                Sh +1.174  CAGR +10.10%  DD -14.83%  Vol  8.50%
+  HOLD_BUFFER = 5.0z                                Sh +1.174  CAGR +10.10%  DD -14.83%  Vol  8.50%
+
+[CORR_LOOKBACK_DAYS sweep (vol-target ON)]
+  CORR_LOOKBACK = 126d                              Sh +1.132  CAGR +9.68%  DD -14.66%  Vol  8.49%
+  CORR_LOOKBACK = 189d                              Sh +1.169  CAGR +10.07%  DD -14.66%  Vol  8.52%
+  CORR_LOOKBACK = 252d                              Sh +1.185  CAGR +10.17%  DD -14.84%  Vol  8.48%
+  CORR_LOOKBACK = 378d                              Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%
+  CORR_LOOKBACK = 504d                              Sh +1.151  CAGR +9.84%  DD -14.84%  Vol  8.47%
+  CORR_LOOKBACK = 756d                              Sh +1.115  CAGR +9.48%  DD -14.83%  Vol  8.45%
+
+[TARGET_VOL sweep (vol-target ON)]
+  TARGET_VOL = 6%                                   Sh +1.183  CAGR +7.45%  DD -11.13%  Vol  6.24%
+  TARGET_VOL = 8%                                   Sh +1.198  CAGR +9.21%  DD -12.57%  Vol  7.60%
+  TARGET_VOL = 10%                                  Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%
+  TARGET_VOL = 12%                                  Sh +1.193  CAGR +11.24%  DD -17.36%  Vol  9.29%
+  TARGET_VOL = 15%                                  Sh +1.176  CAGR +11.79%  DD -19.06%  Vol  9.90%
+  TARGET_VOL = 20%                                  Sh +1.157  CAGR +11.99%  DD -20.28%  Vol 10.25%
+
+[VOL_LOOKBACK_DAYS sweep (vol-target ON)]
+  VOL_LOOKBACK = 21d                                Sh +1.232  CAGR +10.41%  DD -15.47%  Vol  8.32%
+  VOL_LOOKBACK = 42d                                Sh +1.222  CAGR +10.55%  DD -14.20%  Vol  8.50%
+  VOL_LOOKBACK = 63d                                Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%
+  VOL_LOOKBACK = 126d                               Sh +1.200  CAGR +10.65%  DD -16.47%  Vol  8.75%
+  VOL_LOOKBACK = 252d                               Sh +1.228  CAGR +11.20%  DD -15.57%  Vol  8.98%
+
+[MAX_LEVERAGE sweep (vol-target ON)]
+  MAX_LEVERAGE = 1.0x                               Sh +1.208  CAGR +10.50%  DD -14.83%  Vol  8.57%
+  MAX_LEVERAGE = 1.2x                               Sh +1.200  CAGR +11.36%  DD -15.20%  Vol  9.34%
+  MAX_LEVERAGE = 1.5x                               Sh +1.185  CAGR +12.18%  DD -17.66%  Vol 10.13%
+  MAX_LEVERAGE = 2.0x                               Sh +1.174  CAGR +12.75%  DD -18.76%  Vol 10.71%
+
+>>> Live-only 18y
+=====================================================================================================================================================================
+
+[Production reference (vol-target ON / OFF)]
+  FCP production (vol-target ON)                    Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%
+  FCP production (vol-target OFF)                   Sh +1.124  CAGR +11.19%  DD -12.58%  Vol  9.87%
+
+[TOP_K_CANDIDATES sweep (vol-target ON)]
+  TOP_K = 3                                         Sh +1.043  CAGR +9.18%  DD -10.66%  Vol  8.79%
+  TOP_K = 5                                         Sh +1.146  CAGR +9.98%  DD  -9.64%  Vol  8.63%
+  TOP_K = 7                                         Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%
+  TOP_K = 10                                        Sh +1.173  CAGR +9.44%  DD -10.41%  Vol  7.96%
+  TOP_K = 12                                        Sh +1.069  CAGR +8.38%  DD -16.19%  Vol  7.81%
+  TOP_K = 15                                        Sh +1.067  CAGR +8.18%  DD -13.49%  Vol  7.65%
+
+[HOLD_BUFFER sweep (vol-target ON)]
+  HOLD_BUFFER = 0.0z                                Sh +0.875  CAGR +7.22%  DD -14.40%  Vol  8.36%
+  HOLD_BUFFER = 1.0z                                Sh +0.974  CAGR +8.20%  DD -11.64%  Vol  8.46%
+  HOLD_BUFFER = 2.0z                                Sh +0.968  CAGR +8.07%  DD -11.64%  Vol  8.37%
+  HOLD_BUFFER = 3.0z                                Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%
+  HOLD_BUFFER = 4.0z                                Sh +1.167  CAGR +9.70%  DD  -9.38%  Vol  8.22%
+  HOLD_BUFFER = 5.0z                                Sh +1.167  CAGR +9.70%  DD  -9.38%  Vol  8.22%
+
+[CORR_LOOKBACK_DAYS sweep (vol-target ON)]
+  CORR_LOOKBACK = 126d                              Sh +1.122  CAGR +9.23%  DD  -9.38%  Vol  8.16%
+  CORR_LOOKBACK = 189d                              Sh +1.145  CAGR +9.55%  DD  -9.67%  Vol  8.26%
+  CORR_LOOKBACK = 252d                              Sh +1.149  CAGR +9.53%  DD  -9.67%  Vol  8.22%
+  CORR_LOOKBACK = 378d                              Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%
+  CORR_LOOKBACK = 504d                              Sh +1.158  CAGR +9.61%  DD  -9.38%  Vol  8.21%
+  CORR_LOOKBACK = 756d                              Sh +1.088  CAGR +8.86%  DD  -9.38%  Vol  8.10%
+
+[TARGET_VOL sweep (vol-target ON)]
+  TARGET_VOL = 6%                                   Sh +1.196  CAGR +7.29%  DD  -8.40%  Vol  6.03%
+  TARGET_VOL = 8%                                   Sh +1.213  CAGR +8.97%  DD  -9.33%  Vol  7.31%
+  TARGET_VOL = 10%                                  Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%
+  TARGET_VOL = 12%                                  Sh +1.160  CAGR +10.50%  DD  -9.72%  Vol  8.96%
+  TARGET_VOL = 15%                                  Sh +1.144  CAGR +11.07%  DD -10.74%  Vol  9.58%
+  TARGET_VOL = 20%                                  Sh +1.128  CAGR +11.19%  DD -12.04%  Vol  9.83%
+
+[VOL_LOOKBACK_DAYS sweep (vol-target ON)]
+  VOL_LOOKBACK = 21d                                Sh +1.193  CAGR +9.66%  DD  -9.33%  Vol  8.00%
+  VOL_LOOKBACK = 42d                                Sh +1.210  CAGR +10.06%  DD  -9.38%  Vol  8.21%
+  VOL_LOOKBACK = 63d                                Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%
+  VOL_LOOKBACK = 126d                               Sh +1.179  CAGR +10.00%  DD  -9.38%  Vol  8.39%
+  VOL_LOOKBACK = 252d                               Sh +1.185  CAGR +10.41%  DD  -9.48%  Vol  8.67%
+
+[MAX_LEVERAGE sweep (vol-target ON)]
+  MAX_LEVERAGE = 1.0x                               Sh +1.196  CAGR +9.98%  DD  -9.38%  Vol  8.24%
+  MAX_LEVERAGE = 1.2x                               Sh +1.211  CAGR +11.03%  DD -11.18%  Vol  8.97%
+  MAX_LEVERAGE = 1.5x                               Sh +1.203  CAGR +11.93%  DD -13.30%  Vol  9.77%
+  MAX_LEVERAGE = 2.0x                               Sh +1.169  CAGR +12.34%  DD -14.55%  Vol 10.42%
