@@ -22,16 +22,92 @@ from datetime import datetime, timezone
 
 import requests
 
-# Ensure strategy modules are importable (bundled in /var/task by container)
-sys.path.insert(0, "/var/task")
+# Ensure strategy modules are importable (bundled in /var/task by container,
+# or use repo root when running locally for dry-run).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
+for p in ("/var/task", "/var/task/strategy", _REPO_ROOT):
+    if p not in sys.path:
+        sys.path.insert(0, p)
 sys.path.insert(0, "/var/task/strategy")
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+# Local-run: also surface logger to stdout (Lambda's logger already handles
+# CloudWatch routing).
+if not logger.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+    )
 
 TG_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TG_CHAT = os.environ.get("TELEGRAM_CHAT_ID", "")
 DRY_RUN = os.environ.get("DRY_RUN", "false").lower() == "true"
+
+
+def refresh_live_data(panel, today):
+    """Fetch fresh yfinance tails for canary/signal-critical assets and
+    extend the stitched panel forward to today. Avoids stale signals from
+    bundled CSVs that were frozen at container build time."""
+    import pandas as pd
+    import yfinance as yf
+
+    # Assets where freshness is critical for the monthly signal
+    # (signals computed: 13612U, 12-1 mom, Faber 10mo SMA, 756d covariance)
+    LIVE_CRITICAL = [
+        # Canary (both sleeves)
+        "HYG", "LQD", "TIP", "GLD",
+        # BULL bull asset + substitute
+        "QQQ", "XLP",
+        # FCP universe (need fresh for momentum ranking)
+        "IGM", "XLE", "VBR", "SPHQ", "XMHQ", "XLV", "VEA", "VWO", "TLT",
+        # Cash + reference
+        "SHV", "SPY",
+    ]
+    # Pull last 3 years of data (need 756d covariance lookback + buffer)
+    pull_start = (today - pd.DateOffset(years=4)).strftime("%Y-%m-%d")
+    pull_end = (today + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+    print(f"Refreshing live data for {len(LIVE_CRITICAL)} assets from yfinance...")
+    fresh = yf.download(
+        LIVE_CRITICAL,
+        start=pull_start, end=pull_end,
+        auto_adjust=True, progress=False, threads=True,
+    )
+    if isinstance(fresh.columns, pd.MultiIndex):
+        fresh = fresh["Close"]
+    fresh = fresh.dropna(how="all")
+    print(f"  Fetched {len(fresh)} days, latest = {fresh.index[-1].date()}")
+
+    # Overlay fresh data onto stitched panel.
+    # For stitched assets (HYG_stitched), merge the live HYG tail into
+    # the stitched series past the CSV's last date.
+    if "HYG" in fresh.columns and "HYG_stitched" in panel.columns:
+        live_hyg = fresh["HYG"].dropna()
+        stitched = panel["HYG_stitched"].dropna()
+        last_stitched = stitched.index.max()
+        new_tail = live_hyg[live_hyg.index > last_stitched]
+        if len(new_tail) > 0:
+            print(f"  Extending HYG_stitched: +{len(new_tail)} days past {last_stitched.date()}")
+            panel.loc[new_tail.index, "HYG_stitched"] = new_tail.values
+
+    # For non-stitched assets, overlay live data wholesale (latest wins)
+    for asset in LIVE_CRITICAL:
+        if asset not in fresh.columns:
+            continue
+        live_series = fresh[asset].dropna()
+        if asset in panel.columns:
+            # Extend existing column with newer data
+            existing = panel[asset].dropna()
+            new_tail = live_series[live_series.index > existing.index.max()] if len(existing) else live_series
+            if len(new_tail) > 0:
+                panel.loc[new_tail.index, asset] = new_tail.values
+        else:
+            # Asset not in panel -- add it
+            panel = panel.join(live_series.rename(asset), how="outer")
+
+    return panel.sort_index()
 
 
 def compute_signal() -> str:
@@ -41,9 +117,17 @@ def compute_signal() -> str:
     import fcp_live as fcp_mod
     from fcp_live import load_panel, compute_target_weights, SAFE_POOL
 
+    # Clear yfinance disk cache to force fresh fetch (Lambda /tmp persists
+    # across warm invocations; monthly cron cold-starts but safest to clear).
+    import shutil
+    shutil.rmtree("/tmp/fcp_cache", ignore_errors=True)
+
     # Load panel up to most recent month-end
     today = pd.Timestamp.today().normalize()
     panel = load_panel(start=pd.Timestamp("1995-01-01"), end=today)
+    # CRITICAL: extend stitched CSVs (HYG_stitched etc.) and refresh live
+    # ETF tails so signal uses TODAY's data, not container build-time data.
+    panel = refresh_live_data(panel, today)
     monthly = panel.resample("ME").last()
     # Use last complete month-end as signal date
     sig_d = monthly.index[-1]
@@ -128,7 +212,12 @@ def lambda_handler(event, context):
         logger.info(f"---\n{message}\n---")
 
         if DRY_RUN:
-            return {"statusCode": 200, "body": "DRY_RUN — signal logged, not sent"}
+            print("\n" + "=" * 60)
+            print("DRY RUN -- would send the following to Telegram:")
+            print("=" * 60)
+            print(message)
+            print("=" * 60 + "\n")
+            return {"statusCode": 200, "body": "DRY_RUN — signal printed above, not sent"}
 
         result = send_telegram(message)
         logger.info(f"Telegram OK: message_id={result.get('result', {}).get('message_id')}")
