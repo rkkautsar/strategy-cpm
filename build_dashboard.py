@@ -886,13 +886,14 @@ def main():
 </head>
 <body>
 
-<h1>CPM - Factor, Canary, Pair</h1>
+<h1>CPM-BULL Strategy Dashboard</h1>
+<p class='subtitle'><strong>CPM</strong> (Canary-gated Pair Momentum) defensive engine + <strong>BULL-QQQ</strong> trend overlay.</p>
 <p class='meta'>Backtest window: {window_str} | Built: {today}</p>
 
 <div class='card'>
 <h3>Bottom line</h3>
 <p><strong>Production deployment</strong>: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve (oracle-v3 Sharpe-optimal).</p>
-<p><strong>F</strong>CP = factor universe of 11 curated ETFs, HYG+TIP any-positive canary, min-variance pair selection, vol targeting (de-risk only, no leverage), 10 bps/side cost.</p>
+<p><strong>CPM</strong> (Canary-gated Pair Momentum) = 11-asset cross-asset universe (factor + sector + international + diversifier), HYG+TIP+GLD any-positive canary, min-variance pair selection on top-K Faber SMA ranker, vol cap 10% (de-risk only, no leverage), 10 bps/side cost.</p>
 <p><strong>BULL-QQQ</strong> = QQQ (or XLP in `+-+` canary state) when composite trend (QQQ {MOMENTUM_LOOKBACK}-1 mom > 0 OR QQQ 13612W > 0) passes AND (HYG/LQD/TIP any-positive canary OR equity-strength override: QQQ 12-1 mom > top tercile of expanding history). Otherwise 100% {CASH_TICKER} cash.</p>
 <p>Live-18y backtest (post-cost): CPM standalone Sharpe <strong>1.26</strong>, CAGR <strong>12.12%</strong>, MaxDD <strong>-13.5%</strong>. BULL-QQQ standalone Sharpe <strong>~1.07</strong>, CAGR <strong>~18%</strong>, MaxDD <strong>~-29%</strong>. <strong>70/30 production blend Sharpe ~1.48, CAGR ~14.25%, MaxDD ~-12.3%, COVID DD ~-2%</strong>. Extended 32y window (incl. dot-com): Sharpe ~1.27, CAGR ~13.2%, MaxDD ~-15.2%. TEST OOS 2017-26: Sharpe 1.63, CAGR 16.85%. Bootstrap 95% CI on Sharpe is wide, so honest forward base-case expectation is <strong>0.90-1.20 Sharpe, 8-12% CAGR</strong> after in-sample selection bias and Nasdaq-era discount.</p>
 </div>
