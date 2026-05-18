@@ -2,10 +2,14 @@ name = "cpm-bull-cron"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# Cron trigger: 16:30 UTC on 1st-3rd of each month.
-# Catches the case when 1st is a weekend (workflow itself is idempotent).
+# Cron trigger: 14:30 UTC on day 1 of each month.
+# 14:30 UTC = 9:30 EST / 10:30 EDT = first 30 min after US market open.
+# Fires ONCE per month. Strategy spec: signal date = last completed month-end
+# (last business day of prior month, ~18+ hours after close so yfinance has
+# the data). Trade T+1 MOC = day 1 close (or next business day if day 1 is
+# weekend). User has 5.5 hours from email to place MOC order.
 [triggers]
-crons = ["30 16 1-3 * *"]
+crons = ["30 14 1 * *"]
 
 [vars]
 GH_OWNER = "rkkautsar"
