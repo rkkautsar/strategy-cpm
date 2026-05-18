@@ -6,6 +6,7 @@
 # Secrets (never commit!)
 *.egg-info/
 *.env
+*.log
 *.pyc
 *.pyo
 *.swp
@@ -14,10 +15,12 @@
 .idea/
 .venv/
 .vscode/
+.wrangler/
 Thumbs.db
 __pycache__/
 deploy/lambda/*.zip
 deploy/lambda/build/
 dist/
+node_modules/
 secrets.json
 venv/
