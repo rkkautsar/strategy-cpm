@@ -689,12 +689,8 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     mom_12_1 = bq_diag.get("mom_12_1") or 0
     sig_w13 = bq_diag.get("sig_13612W") or 0
     cstate = bq_diag.get("state", "---")
-    override_thr = bq_diag.get("override_threshold") or 0
     if bq_regime.startswith("BULL_"):
-        via_override = bq_regime.endswith("_via_override")
-        clean_regime = bq_regime.replace("_via_override","")
-        override_note = " [via override]" if via_override else ""
-        bq_state = f"{clean_regime} (canary {cstate}, 12-1={mom_12_1*100:+.1f}% w13={sig_w13*100:+.1f}%){override_note}"
+        bq_state = f"{bq_regime} (canary {cstate}, 12-1={mom_12_1*100:+.1f}% w13={sig_w13*100:+.1f}%)"
     else:
         bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, 12-1={mom_12_1*100:+.1f}%)"
 
@@ -716,7 +712,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 </div>
 <div>
   <h4>BULL-QQQ sleeve ({int(BULL_BLEND*100)}%)</h4>
-  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/LQD/TIP any-positive 13612W<br>Trend: QQQ 12-1 mom &gt; 0 OR QQQ 13612W &gt; 0 (composite)<br>Override: QQQ 12-1 mom &gt; 67th pct expanding (current threshold: {override_thr*100:+.1f}%)<br>Bull asset: QQQ (default); XLP in `+-+` canary state<br>Fallback: 100% {CASH_TICKER} (cash)</p>
+  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/LQD/TIP any-positive 13612W<br>Trend: QQQ 12-1 mom &gt; 0 OR QQQ 13612W &gt; 0 (composite)<br>Bull asset: QQQ (default); XLP in `+-+` canary state<br>Fallback: 100% {CASH_TICKER} (cash)</p>
   <div class='table-scroll'><table class='alloc'>{bq_html}</table></div>
 </div>
 <div>
