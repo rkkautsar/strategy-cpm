@@ -57,20 +57,39 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=cpm-bull-dashboard --commit-message="Monthly signal ${{ github.run_number }}"
 
+      - name: Resolve dashboard URL
+        id: url
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          FINAL_URL="${DEPLOY_URL:-https://cpm-bull-dashboard.pages.dev}"
+          echo "dashboard_url=$FINAL_URL" >> $GITHUB_OUTPUT
+          echo "Dashboard: $FINAL_URL"
+
       - name: Send Telegram notification
         if: env.TELEGRAM_TOKEN != ''
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          DASHBOARD_URL: ${{ steps.deploy.outputs.deployment-url }}
+          DASHBOARD_URL: ${{ steps.url.outputs.dashboard_url }}
         run: |
-          # Append dashboard URL to message
-          echo "" >> signal_message.txt
-          echo "📊 Dashboard: ${DASHBOARD_URL:-https://cpm-bull-dashboard.pages.dev}" >> signal_message.txt
+          cp signal_message.txt signal_telegram.txt
+          echo "" >> signal_telegram.txt
+          echo "📊 Dashboard: ${DASHBOARD_URL}" >> signal_telegram.txt
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
             --data-urlencode "parse_mode=Markdown" \
-            --data-urlencode "text@signal_message.txt"
+            --data-urlencode "text@signal_telegram.txt"
+
+      - name: Send Resend email notification
+        if: env.RESEND_API_KEY != ''
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_TO: ${{ secrets.RESEND_TO }}
+          RESEND_FROM: ${{ vars.RESEND_FROM }}
+          DASHBOARD_URL: ${{ steps.url.outputs.dashboard_url }}
+          SEND_DASHBOARD_ATTACHMENT: "1"
+        run: uv run python deploy/cf-pages/send_email.py
 
       - name: Upload artifacts
         if: always()

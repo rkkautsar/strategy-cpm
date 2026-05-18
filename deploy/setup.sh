@@ -106,11 +106,42 @@ echo
 
 # Telegram (optional)
 echo
-echo "[4/4] Telegram bot (OPTIONAL, press Enter to skip)"
+echo "[4/5] Telegram bot (OPTIONAL, press Enter to skip)"
 read -r -p "  TELEGRAM_TOKEN (or empty): " TG_TOKEN || true
 TG_CHAT=""
 if [[ -n "$TG_TOKEN" ]]; then
   read -r -p "  TELEGRAM_CHAT_ID: " TG_CHAT
+fi
+echo
+
+# Resend email (optional)
+echo
+echo "[5/5] Resend email (OPTIONAL, press Enter to skip)"
+if [[ -n "${RESEND_API_KEY:-}" ]]; then
+  echo "  Found RESEND_API_KEY in environment ($(echo "$RESEND_API_KEY" | sed 's/\(re_\{0,1\}.\{4\}\).*/\1.../'))"
+  read -r -p "  Use this key? [Y/n]: " USE_ENV_KEY
+  if [[ "${USE_ENV_KEY:-Y}" =~ ^[Yy]?$ ]]; then
+    RESEND_KEY="$RESEND_API_KEY"
+  else
+    read -r -s -p "  Paste RESEND_API_KEY (or empty): " RESEND_KEY || true
+    echo
+  fi
+else
+  read -r -s -p "  Paste RESEND_API_KEY (or empty): " RESEND_KEY || true
+  echo
+fi
+
+RESEND_TO=""
+RESEND_FROM=""
+if [[ -n "$RESEND_KEY" ]]; then
+  read -r -p "  Recipient email (RESEND_TO): " RESEND_TO
+  echo
+  echo "  Sender (RESEND_FROM):"
+  echo "    Default 'onboarding@resend.dev' works ONLY for sending to your verified Resend"
+  echo "    account email. To send to other addresses or use a custom from, verify a domain"
+  echo "    at https://resend.com/domains first."
+  read -r -p "  RESEND_FROM (or Enter for default): " RESEND_FROM
+  RESEND_FROM="${RESEND_FROM:-CPM-BULL <onboarding@resend.dev>}"
 fi
 echo
 
@@ -135,6 +166,13 @@ if [[ -n "$TG_TOKEN" ]]; then
   echo "$TG_TOKEN" | gh secret set TELEGRAM_TOKEN
   echo "$TG_CHAT" | gh secret set TELEGRAM_CHAT_ID
 fi
+if [[ -n "$RESEND_KEY" ]]; then
+  echo "$RESEND_KEY" | gh secret set RESEND_API_KEY
+  echo "$RESEND_TO"  | gh secret set RESEND_TO
+  # RESEND_FROM is non-secret -> store as repo variable so it shows in workflow logs
+  gh variable set RESEND_FROM --body "$RESEND_FROM" 2>/dev/null || \
+    echo "$RESEND_FROM" | gh secret set RESEND_FROM  # fallback if vars not supported
+fi
 echo
 
 # ---------- Smoke test ----------
@@ -158,5 +196,7 @@ echo
 echo "All secrets:"
 echo "  CF Pages project: cpm-bull-dashboard"
 echo "  CF Worker:        cpm-bull-cron (cron: 30 16 1-3 * *)"
-echo "  GH secrets set:   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID$([ -n "$TG_TOKEN" ] && echo ', TELEGRAM_TOKEN, TELEGRAM_CHAT_ID')"
+echo "  GH secrets set:   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID$([ -n "$TG_TOKEN" ] && echo ', TELEGRAM_TOKEN, TELEGRAM_CHAT_ID')$([ -n "$RESEND_KEY" ] && echo ', RESEND_API_KEY, RESEND_TO')"
+  GH variables set: $([ -n "$RESEND_KEY" ] && echo 'RESEND_FROM' || echo '(none)')"
+
 echo "  TRIGGER_TOKEN:    $TRIGGER_TOKEN  (save this)"

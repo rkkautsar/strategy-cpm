@@ -1,25 +1,23 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
-.venv/
-venv/
-
-# OS
-.DS_Store
-Thumbs.db
 
 # IDE
-.vscode/
-.idea/
-*.swp
-
 # Lambda build artifacts
-deploy/lambda/build/
-deploy/lambda/*.zip
-
+# OS
+# Python
 # Secrets (never commit!)
-.env
+*.egg-info/
 *.env
+*.pyc
+*.pyo
+*.swp
+.DS_Store
+.env
+.idea/
+.venv/
+.vscode/
+Thumbs.db
+__pycache__/
+deploy/lambda/*.zip
+deploy/lambda/build/
+dist/
 secrets.json
+venv/
