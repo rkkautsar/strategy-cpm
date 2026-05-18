@@ -1,0 +1,84 @@
+name: Monthly CPM-BULL signal + dashboard
+
+# Triggered by Cloudflare Workers cron (see deploy/cf-cron/).
+# CF Workers cron has NO 60-day inactivity penalty, unlike GH Actions schedule.
+# Workflow itself runs on `repository_dispatch` (fired by CF Worker) or manual.
+#
+# Why not just GH Actions cron? Because GitHub auto-disables scheduled workflows
+# after 60d of repo inactivity. Strategy only commits via itself = breaks after 2mo.
+
+on:
+  repository_dispatch:
+    types: [monthly-signal]
+  workflow_dispatch:  # allow manual trigger anytime
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Generate signal allocation
+        id: signal
+        run: |
+          uv run python cpm_live.py allocate 2>&1 | tee signal_raw.txt
+          # Extract just the allocation block for the message
+          uv run python deploy/cf-pages/format_message.py > signal_message.txt
+          cat signal_message.txt
+
+      - name: Build dashboard
+        run: |
+          uv run python build_dashboard.py
+          mkdir -p dist
+          cp cpm_dashboard.html dist/index.html
+          # Optional: add a redirect for /dashboard too
+          cp cpm_dashboard.html dist/cpm_dashboard.html
+          ls -la dist/
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=cpm-bull-dashboard --commit-message="Monthly signal ${{ github.run_number }}"
+
+      - name: Send Telegram notification
+        if: env.TELEGRAM_TOKEN != ''
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DASHBOARD_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          # Append dashboard URL to message
+          echo "" >> signal_message.txt
+          echo "📊 Dashboard: ${DASHBOARD_URL:-https://cpm-bull-dashboard.pages.dev}" >> signal_message.txt
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "parse_mode=Markdown" \
+            --data-urlencode "text@signal_message.txt"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: signal-${{ github.run_number }}
+          path: |
+            signal_raw.txt
+            signal_message.txt
+            dist/index.html
+          retention-days: 90
