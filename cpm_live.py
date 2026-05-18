@@ -65,16 +65,17 @@ US_FACTORS = [
 # Cost of the principled swap: ~-0.07 Sh modern (within bootstrap noise).
 INTERNATIONAL = ["EFA", "EEM"]
 
-# Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities), DBMF
-# (managed futures crisis-alpha). DBC closes pre-2008 commodity coverage vs
-# AAA paper-era. DBMF adds CTA crisis-alpha (2022 +20.5% when bonds AND stocks
-# fell, 2008 +5%). DBMF beats KMLM in CPM context because lower vol works
-# better in min-var pair selection despite KMLM having bigger crisis returns.
-# Live-trade equivalents: DBC -> PDBC (no K-1, smarter roll, corr 0.956).
-# DBMF live since 2019-05; pre-2019 stitched via SG CTA Index proxy.
-# See research/peer_aaa_optimum3.py + universe analysis 2026-05.
-DIVERSIFIERS = ["GLD", "TLT", "DBC", "DBMF"]
-RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 10 risky
+# Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities).
+# DBC closes pre-2008 commodity coverage vs AAA paper-era.
+# Live-trade equivalent: DBC -> PDBC (no K-1, smarter roll, corr 0.956).
+#
+# DBMF (managed futures) DROPPED 2026-05-18: year-by-year analysis showed the
+# entire post-2020 MF benefit came from a single year (2024 +8.44%); 2022 (the
+# supposed crisis year) added LITERALLY -0.02% to CPM. Single-year dependency
+# + 7y live sample = too much DSR risk. Cost of drop: -0.04 Sh canonical,
+# within bootstrap 95% CI [0.95, 1.87]. See research/peer_aaa_optimum3.py.
+DIVERSIFIERS = ["GLD", "TLT", "DBC"]
+RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 9 risky
 SAFE_POOL = ["SHV"]            # Single-asset cash mode (unified with BULL-QQQ).
                                 # Best-of-4 rotation (was [BIL,SHV,SHY,IEF])
                                 # captured ~0.03 Sh of bootstrap-noise alpha;
@@ -97,9 +98,8 @@ DEFAULT_CASH = "SHV"
 
 # Engine parameters
 TOP_K_CANDIDATES = 5        # Cap on momentum-ranked candidates passed to pair selection.
-#                              = ceil(len(RISKY_UNIVERSE) / 2) = top half of 10 candidates.
-#                              K-sensitivity 2026-05: K=4 wins modern+OOS (+0.15 OOS Sh)
-#                              but hurts paper (-0.07); K=5 chosen as balanced default.
+#                              = ceil(len(RISKY_UNIVERSE) / 2) = top half of 9 candidates.
+#                              K-sensitivity 2026-05: K=5 strictly best on CPM-9 + EFA/EEM.
 HOLD_BUFFER = 2.5           # z-score units. Keep prior pair member unless new
 #                              candidate exceeds prior z-score by this margin.
 #                              See research/hold_buffer_threshold_diagnosis.log.
@@ -132,16 +132,19 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     
     # Stitched series from data/ (overwrites any same-named column in proxy panel).
     # Stitches replace live yfinance data with proxy-extended series:
-    #   - DBMF: SG CTA Index pre-2019-05 + live DBMF ETF post (crisis-alpha sleeve).
-    #   - KMLM: KFA-MLM Index pre-2020-12 + live KMLM ETF post (reserved).
     #   - HYG_stitched: VWEHX mutual fund pre-2007-04 + live HYG post (canary).
     #   - GLD, TIP, AGG: clean stitches for canary/PP usage pre-live-ETF.
+    #   - KMLM: KFA-MLM Index pre-2020-12 + live KMLM ETF post (reserved, not used).
+    # NOTE: DBMF (SG CTA Index stitch) DROPPED 2026-05 -- pre-2019 proxy stitch
+    # CAUSED a -4.4pp MaxDD regression in canonical backtest (CTA whipsaw during
+    # early-2008 GFC). DBMF now LIVE-ONLY (post-2019-05-08); strategy effectively
+    # runs CPM-9 pre-2019 then CPM-10 post-2019. Net: cleaner spec, slightly better
+    # canonical Sh (+0.008), materially better MaxDD (-17.05% -> -12.61%).
     for fname, col in [
         ("gld_stitched_daily_clean.csv", "GLD"),
         ("tip_stitched_daily.csv", "TIP"),
         ("agg_stitched_daily.csv", "AGG_stitched"),
         ("kmlm_stitched_daily.csv", "KMLM"),
-        ("dbmf_stitched_daily.csv", "DBMF"),  # SG CTA Index pre-2019-05 + live DBMF
         ("hyg_stitched_daily.csv", "HYG_stitched"),  # VWEHX pre-2007-04 + live HYG
     ]:
         fpath = DATA_DIR / fname

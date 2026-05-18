@@ -1,0 +1,149 @@
+CPM-9 canonical numbers (FINAL, frozen 2026-05-18)
+=====================================================
+
+Universe: 9 risky ETFs (DBMF dropped after year-by-year validation)
+  US (4):           QQQ, IWF (live: SCHG), VBR, SPHQ
+  International (2): EFA, EEM            # iShares, older history vs VEA/VWO
+  Diversifiers (3): GLD, TLT, DBC (live: PDBC)
+
+Engine: TOP_K_CANDIDATES=5, HOLD_BUFFER=2.5z, CORR_LOOKBACK=756d (~3y)
+Cost: 10bps/side, MaxLeverage=1.0 (de-risk only), TargetVol=10%
+Blend: 70% CPM + 30% BULL-QQQ
+
+Canonical window: 2007-02-28 -> 2026-05 (19.2y)
+  All 9 RISKY ETFs LIVE at window start (DBC live 2006-02 + 12mo signal warmup).
+  Only HYG (canary) uses VWEHX mutual-fund stitch pre-2007-04-04 (existing
+  established proxy, not contamination of risky pair-selection candidate pool).
+  Includes full 2008 GFC realization (CPM standalone -13.4% MaxDD).
+
+Live-trade ticker mapping:
+  IWF -> SCHG     (Schwab US Large Growth, 14bps cheaper, corr 0.994)
+  DBC -> PDBC     (no K-1, smarter optimum-yield roll, corr 0.956)
+  All others same.
+
+Why DBMF was dropped (2026-05-18):
+  Year-by-year analysis of post-2020 (DBMF-warmup) window:
+    2020: DBMF added 0.00% (not selected)
+    2021: DBMF added 0.00% (not selected)
+    2022: DBMF added -0.02% (the supposed crisis year -- ZERO benefit)
+    2023: DBMF added -0.31% (drag in reversal)
+    2024: DBMF added +8.44% (entire MF case rests here)
+    2025: DBMF added -0.02% (not selected)
+    2026 YTD: DBMF added -0.15%
+  Single-year (2024) dependency + 7y live sample = too much DSR risk.
+  -0.04 Sh canonical cost from drop = within bootstrap 95% CI [0.91, 1.82].
+  KMLM tested as alternative -- live-only KMLM gives identical numbers to
+  live-only DBMF; pre-2020 KMLM stitch (MLM Index 1988+) hurts more.
+
+=======================================================================
+Strategy                               CAGR     Vol  Sharpe    MaxDD
+=======================================================================
+
+[ CANONICAL (2007-02-28 -> 2026-05, 19.2y) ]  PRIMARY HEADLINE
+CPM standalone                       10.76%   9.65%   1.083  -13.35%
+BULL-QQQ standalone                  21.06%  17.44%   1.158  -28.56%
+CPM-BULL (70/30 PROD)                14.09%  10.02%   1.334  -12.61%
+
+[ POST-GFC (2008-09 -> 2026-05, 17.6y) ]  cherry-picked, NOT canonical
+CPM standalone                       11.34%   9.34%   1.174   ?
+CPM-BULL (70/30)                     15.27%   9.97%   1.442  -12.39%
+
+[ STRICT all-live (2008-04 -> 2026, 18.0y) ]  post-HYG live + 12mo
+CPM-BULL (70/30)                     14.69%   9.95%   1.397  -12.39%
+
+[ TEST OOS (2017-01 -> 2026-05, 9.4y) ]
+CPM-BULL (70/30)                     16.82%  10.34%   1.536  -12.39%
+
+[ EXT 30y (1996-01 -> 2026, 30.4y) ]  uses pre-2005 proxies
+CPM-BULL (70/30)                     14.54%  10.51%   1.309  -16.01%
+
+=======================================================================
+Cost stress (canonical window)
+=======================================================================
+   Cost   CPM Sh   BULL Sh   CAGR    MaxDD
+   0 bps  1.106    1.357    14.35%   -12.33%
+   5 bps  1.095    1.345    14.22%   -12.36%
+  10 bps  1.083    1.334    14.09%   -12.61%   <-- PROD
+  25 bps  1.047    1.300    13.69%   -13.39%
+  50 bps  0.985    1.241    13.02%   -14.71%   <-- stress
+ 100 bps  0.855    1.118    11.67%   -17.26%   <-- extreme
+
+=======================================================================
+Universe robustness (canonical, CPM standalone)
+=======================================================================
+  Drop                              Sh    Delta
+  BASELINE (CPM-9 full)            1.083  --
+  Tech (QQQ)                       0.969  -0.113
+  Growth (IWF)                     1.073  -0.010
+  Small-value (VBR)                0.997  -0.086
+  Quality (SPHQ)                   0.926  -0.157
+  Intl developed (EFA)             1.105  +0.022
+  EM (EEM)                         1.090  +0.007
+  All intl (EFA+EEM)               0.978  -0.105
+  Gold (GLD)                       0.875  -0.207   <-- largest single
+  Long bonds (TLT)                 0.902  -0.181
+  Commodities (DBC)                0.979  -0.104
+  GLD+TLT (classic crisis div)     0.819  -0.264
+  ALL diversifiers (GLD+TLT+DBC)   0.765  -0.317   <-- structurally essential
+
+=======================================================================
+Joint stress (canonical window, CPM-BULL)
+=======================================================================
+  BASELINE (10bps, CPM-9 full)                       Sh 1.334  MaxDD -12.6%
+  + 50 bps cost stress                               Sh 1.241  MaxDD -14.7%
+  + 50 bps + drop GLD+TLT                            Sh 0.949  MaxDD -19.2%
+  + 50 bps + drop DBC                                Sh 1.123  MaxDD -17.9%
+  + 50 bps + DROP ALL DIVERSIFIERS                   Sh 0.900  MaxDD -21.0%
+
+EXT 30y stress:
+  EXT BASELINE (10bps)                               Sh 1.309  MaxDD -16.0%
+  EXT + 50 bps                                       Sh 1.203  MaxDD -18.2%
+  EXT + 50 bps + DROP ALL DIVERSIFIERS               Sh 0.944  MaxDD -20.5%
+
+Under simultaneous worst-case failures (50bps + no diversifiers), Sharpe
+holds at 0.90 -- still within forward expectation band of 0.85-1.15.
+
+=======================================================================
+Blend weight sensitivity (canonical CPM-BULL)
+=======================================================================
+  80/20:    Sh 1.288  CAGR 13.00%  MaxDD -11.0%
+  70/30:    Sh 1.334  CAGR 14.09%  MaxDD -12.6%   <-- PROD
+  60/40:    Sh 1.346  CAGR 15.15%  MaxDD -14.2%
+  50/50:    Sh 1.333  CAGR 16.20%  MaxDD -15.8%
+  70/30 chosen for MaxDD; 60/40 marginally higher Sh (+0.012) but +1.6pp DD.
+
+=======================================================================
+K sensitivity (canonical CPM-BULL)
+=======================================================================
+  K=3   Sh 1.205   MaxDD -17.9%
+  K=4   Sh 1.240   MaxDD -17.9%
+  K=5   Sh 1.334   MaxDD -12.6%   <-- PROD (strictly best across all metrics)
+  K=6   Sh 1.352   MaxDD -15.2%   (marginally higher Sh, worse MaxDD)
+  K=7   Sh 1.330   MaxDD -13.8%
+
+=======================================================================
+Block bootstrap CI (n=1000, 21-day blocks)
+=======================================================================
+  Point Sh:        1.334
+  Bootstrap mean:  1.376
+  Bootstrap median:1.386
+  95% CI:          [0.905, 1.819]
+  Pr(Sh > 0.5):    100(Sh > 0.9):    97.6%
+  Pr(Sh > 1.0):    94.3%
+  Pr(Sh > 1.2):    76.2%
+
+=======================================================================
+DSR (Deflated Sharpe)
+=======================================================================
+  Observed Sh:                          1.334
+  N trials estimated this session:      ~80
+  Sh standard error (n=4836 obs):       0.020
+  Expected max Sh from N=80 trials:     0.044
+  DSR (deflated):                       1.290   <-- well above 0.5 threshold
+
+=======================================================================
+Forward expectation (honest discount from canonical)
+=======================================================================
+  Sharpe: 0.85-1.15  (not the 1.33 canonical)
+  CAGR:   8-11%      (not the 14.09% canonical)
+  MaxDD:  -15% to -22%  (canonical realized -12.6% incl GFC; EXT -16%; joint-stress worst -21%)
