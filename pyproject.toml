@@ -16,5 +16,4 @@ dependencies = [
 [project.optional-dependencies]
 dashboard = ["matplotlib>=3.7"]
 
-[tool.uv]
-package = false
+

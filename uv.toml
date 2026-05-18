@@ -1,0 +1,15 @@
+# Local uv config: override the global Hopper GAR default with PyPI.
+# Reason: this is a personal/public repo, must NOT pull from Hopper's
+# internal Google Artifact Registry (would fail in GH Actions CI and
+# leak internal URL patterns into public lockfile).
+
+[[index]]
+name = "pypi"
+url = "https://pypi.org/simple/"
+default = true
+
+# Explicitly disable subprocess keyring (no Hopper auth in this project).
+keyring-provider = "disabled"
+
+# Carried from pyproject.toml [tool.uv] (uv.toml takes precedence when both exist).
+package = false
