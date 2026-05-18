@@ -1406,7 +1406,25 @@ Before live deployment (personal-capital context):
 
 ## Status
 
-Backtest period: 1997-08 to 2026-05 (28.7y extended, 18y live-only)
+Backtest period: 1996-01 to 2026-05 (30y extended, 19.2y canonical 2007-02 all-live)
 Author: rkautsar; CPM = Canary-gated Pair Momentum (cross-asset rotation
 with canary regime gate + min-variance pair selection)
 Live deployment: ready for ramped personal-capital pilot per oracle review
+
+## Deployment
+
+Monthly cron + dashboard hosting via Cloudflare + GitHub Actions ($0/mo):
+
+```
+CF Workers cron (durable, no 60d inactivity penalty)
+  -> triggers GH Actions via repository_dispatch
+GH Actions runner (native Python, full pip)
+  -> uv run cpm_live.py allocate
+  -> uv run build_dashboard.py
+  -> wrangler pages deploy -> https://cpm-bull-dashboard.pages.dev/
+  -> Telegram notification with signal + dashboard URL
+```
+
+One-shot setup: `bash deploy/setup.sh`
+
+Details: `deploy/cf-pages/README.md`, `deploy/cf-cron/README.md`
