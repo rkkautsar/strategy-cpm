@@ -13,56 +13,56 @@ Two-sleeve monthly TAA: **70% CPM defensive engine + 30% BULL-QQQ overlay**.
 Monthly rebalance, ETF-only, no leverage, 10 bps/side cost. Designed for
 IRA/401k/Roth only (monthly rotation = short-term gains).
 
-CPM = **canary-gated momentum + min-variance pair selection** across a
-9-asset universe (broad/factor US + intl + diversifiers). NOT marketed as
-factor rotation -- GLD/TLT/DBC structurally critical (-0.32 Sh if all
-diversifiers dropped). Managed-futures sleeve (DBMF) tested and rejected:
-year-by-year analysis showed entire benefit was a single year (2024 +8.44%)
-with zero contribution in 2022 -- too much DSR risk on a 7y live window.
-BULL-QQQ = trend-filtered Nasdaq overlay, independently gated by its own
-3-asset canary (HYG/LQD/TIP). Note the canaries differ by sleeve: CPM uses
-HYG/TIP/GLD (real-asset/tail focus), BULL uses HYG/LQD/TIP (credit/inflation
-focus). Documented in caveat 7 -- intentional, not a bug.
+CPM-BULL-NDX 60/30/10 production blend:
+  - **CPM** (60%): canary-gated momentum + min-variance pair selection across
+    a 9-asset universe (broad/factor US + intl + diversifiers).
+  - **BULL-QQQ** (30%): QQQ overlay with HYG/LQD/TIP canary + 12-1/13612U trend.
+  - **NDX** (10%): top-4 by 13612U momentum from PIT Nasdaq-100, equal-weight.
+    Gated by BULL-QQQ regime (only deploys when BULL_QQQ; cash otherwise).
 
-**Headline metrics** (canonical 2007-02-28 -> 2026-05, 19.2y, **all 9
-RISKY ETFs LIVE at start**, includes full GFC realization, 13612U HAA
-signal, 10 bps/side cost):
+NOT marketed as factor rotation -- GLD/TLT/DBC structurally critical to CPM
+(-0.32 Sh if all diversifiers dropped). DBMF managed-futures sleeve tested
+and rejected. CPM canary uses HYG/TIP/GLD (real-asset focus), BULL canary
+uses HYG/LQD/TIP (credit/inflation focus) -- intentional, see caveat 7.
+
+**Headline metrics** (canonical 2007-02 -> 2026-05, 19.2y, all 9 CPM RISKY
+ETFs LIVE at start, includes full GFC realization, 10 bps/side cost):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 70/30 CPM-BULL** | **1.33** | **14.09%** | **-12.6%** |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.43** | **17.23%** | **-15.97%** |
+| CPM-BULL 70/30 (prior PROD, no NDX) | 1.33 | 14.09% | -12.61% |
+| CPM-BULL 60/40 (more BULL, no NDX) | 1.35 | 15.15% | -14.19% |
 | CPM standalone | 1.08 | 10.76% | -13.4% |
 | BULL-QQQ standalone | 1.16 | 21.06% | -28.6% |
+| NDX sleeve standalone (top-4 mom) | 1.24 | 40.86% | -44.85% |
 | SPY buy-hold | 0.61 | 10.59% | -55.2% |
 
-All 9 RISKY ETFs live at window start (post-DBC + 12mo signal warmup).
-Only HYG canary uses VWEHX stitch pre-2007-04 (existing established
-proxy). No managed-futures sleeve -- earlier DBMF inclusion was rejected
-after year-by-year validation showed the entire benefit came from one
-year (2024).
+NDX sleeve adds +0.10 Sh over prior 70/30 PROD by capturing concentrated
+mega-cap momentum alpha. Trade: +3.14pp CAGR for +3.4pp MaxDD.
 
 **Additional windows** (no parameter changes between):
 
-| Window | CPM-BULL Sh | CAGR | MaxDD | Note |
+| Window | CPM-BULL-NDX Sh | CAGR | MaxDD | Note |
 |---|---:|---:|---:|---|
-| POST-DBC canonical (2007-02 -> 2026, 19.2y) | **1.33** | 14.09% | -12.6% | **primary headline**; all 9 RISKY ETFs live |
-| Post-GFC (2008-09 -> 2026, 17.6y) | 1.44 | 15.27% | -12.4% | cherry-picked start after GFC trough |
-| Strict all-live (2008-04 -> 2026, 18.0y) | 1.40 | 14.69% | -12.4% | post-HYG live + 12mo signal warmup |
-| TEST OOS (2017-2026, 9.4y) | **1.54** | 16.82% | -12.4% | post-2017 OOS lock |
-| EXT 30y (1996-2026) | 1.31 | 14.54% | -16.0% | uses pre-2005 proxy panel |
+| POST-DBC canonical (2007-02 -> 2026, 19.2y) | **1.43** | 17.23% | -15.97% | **primary headline** |
+| TEST OOS (2017+, 9.4y) | **1.64** | 21.10% | -15.27% | NDX edge most visible here |
+| Post-2020 (clean PIT coverage) | 1.49 | 19.43% | -15.27% | NDX survivorship clean |
+| EXT 30y (1996-2026) | 1.32 | 14.22% | -16.01% | pre-2005 CPM proxy + 2006 NDX PIT proxy |
 
 **Forward expectation** (discounted from canonical backtest):
 
 | | Forward base case |
 |---|---|
-| Sharpe | **0.90-1.20** (not the 1.38 canonical) |
-| CAGR | **8-12%** (not the 14.48% canonical) |
-| MaxDD | **-12% to -20%** (canonical realized -12.6% incl GFC, EXT realized -16.0%) |
+| Sharpe | **0.90-1.20** (not the 1.43 canonical) |
+| CAGR | **10-14%** (not the 17.23% canonical) |
+| MaxDD | **-15% to -25%** (canonical -16%, EXT -16%, NDX flash-crash risk could push to -25%) |
 
-**Top 3 caveats** (full list of 9 in Validation & Robustness section):
-1. **Severe tax drag** -- economically unattractive outside tax-advantaged accounts (IRA/401k/Roth) for most investors. Monthly rotation = short-term gains, ~2-4pp/yr drag.
-2. **CPM is cross-asset momentum + min-variance pair selection, not factor rotation.** Drop GLD/TLT/DBC = -0.32 Sh standalone. Heavily relies on cross-asset diversification; CPM canary protects against 2022-style positive stock/bond correlation regimes. GLD alone is the largest single-asset dependency (-0.21 Sh if dropped).
-3. **Structural V-shape recovery lag is permanent.** 13612U slow-by-design; bleeds ~1-2 months of alpha at violent regime turns (COVID 2020 was the tail). Asymmetric-canary fix tested, rejected.
+**Top 4 caveats** (full list of 9+ in Validation & Robustness section):
+1. **Severe tax drag** -- economically unattractive outside tax-advantaged accounts (IRA/401k/Roth). Monthly rotation = short-term gains, ~2-4pp/yr drag. NDX sleeve (individual stocks) compounds this -- best in tax-advantaged accounts.
+2. **NDX sleeve concentration + regime risk (NEW).** 4 names × 25% each = standalone MaxDD -45%. Mag-7 alpha is regime-dependent -- a 2000-2010-style tech lost decade would likely underperform vs BULL-QQQ alone (cannot be verified, pre-2006 PIT data unavailable). Survivorship bias in 2007-2017 backtest (~28% delisted tickers missing yfinance data). Post-2020 PIT coverage clean.
+3. **CPM is cross-asset momentum + min-var pair selection, not factor rotation.** Drop GLD/TLT/DBC = -0.32 Sh standalone. GLD alone is the largest single-asset dependency (-0.21 Sh if dropped).
+4. **Structural V-shape recovery lag is permanent.** 13612U slow-by-design; bleeds ~1-2 months at violent regime turns (COVID 2020 was the tail). Asymmetric-canary fix tested, rejected.
 
 **Live-trade ticker mapping** (model with backtest tickers, trade with live equivalents):
 

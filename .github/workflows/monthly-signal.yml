@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Refresh NDX constituent prices
+        # NDX panel needs to be fresh each monthly run (new mergers/IPOs etc).
+        # ~30s for ~100 active tickers.
+        run: uv run python -c "from ndx_sleeve_live import refresh_ndx_panel; refresh_ndx_panel()"
+
       - name: Generate signal allocation
         id: signal
         run: |

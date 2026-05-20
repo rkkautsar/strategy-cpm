@@ -751,12 +751,23 @@ def main():
     print("Computing BULL-QQQ sleeve ...")
     bull_qqq_rets = run_bull_qqq_backtest(panel, start, end)
 
-    # Production blend: 80% CPM + 20% BULL-QQQ
-    common = cpm.index.intersection(bull_qqq_rets.index)
+    print("Computing NDX sleeve ...")
+    from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel
+    try:
+        ndx_panel = load_ndx_panel()
+        ndx_rets, _ = run_ndx_backtest(panel, ndx_panel, start, end)
+    except FileNotFoundError:
+        print("  NDX panel data not found; skipping NDX sleeve.")
+        ndx_rets = pd.Series(0.0, index=bull_qqq_rets.index)
+
+    # Production blend: 60% CPM + 30% BULL-QQQ + 10% NDX
+    common = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
     cpm = cpm.reindex(common)
     bull_qqq_rets = bull_qqq_rets.reindex(common)
-    blended = (1 - BULL_BLEND) * cpm + BULL_BLEND * bull_qqq_rets
-    prod_label = f"CPM-BULL ({int((1-BULL_BLEND)*100)}/{int(BULL_BLEND*100)})"
+    ndx_rets = ndx_rets.reindex(common).fillna(0.0)
+    CPM_W, BULL_W, NDX_W = 0.6, 0.3, 0.1
+    blended = CPM_W * cpm + BULL_W * bull_qqq_rets + NDX_W * ndx_rets
+    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)})"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
@@ -811,19 +822,21 @@ def main():
     alloc_html = current_alloc_html(panel, sig_d)
     
     # Sleeve breakdown -- production blend variants + reference sleeves
-    common_idx = cpm.index.intersection(bull_qqq_rets.index)
+    common_idx = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
     fcp_c = cpm.loc[common_idx]; mt2_c = bull_qqq_rets.loc[common_idx]
-    blend_70_30 = 0.7 * fcp_c + 0.3 * mt2_c
-    blend_60_40 = 0.6 * fcp_c + 0.4 * mt2_c
-    blend_90_10 = 0.9 * fcp_c + 0.1 * mt2_c
+    ndx_c = ndx_rets.loc[common_idx].fillna(0.0)
+    blend_60_30_10 = 0.6 * fcp_c + 0.3 * mt2_c + 0.1 * ndx_c   # PROD
+    blend_70_30 = 0.7 * fcp_c + 0.3 * mt2_c                     # CPM-BULL only
+    blend_60_40 = 0.6 * fcp_c + 0.4 * mt2_c                     # alt
+    blend_90_10 = 0.9 * fcp_c + 0.1 * mt2_c                     # conservative
 
     sleeve_rows = [
-        {"strategy": "CPM-BULL 70/30 (PRODUCTION)",   **perf_metrics(blend_70_30)},
-        {"strategy": "CPM-BULL 80/20 (lower bull tilt)", **perf_metrics(0.8*fcp_c + 0.2*mt2_c)},
-        {"strategy": "CPM-BULL 60/40 (higher bull tilt)", **perf_metrics(blended)},
-        {"strategy": "CPM-BULL 50/50 (max bull tilt)",   **perf_metrics(0.5*fcp_c + 0.5*mt2_c)},
-        {"strategy": "CPM standalone (defensive)",     **perf_metrics(cpm)},
+        {"strategy": "CPM-BULL-NDX 60/30/10 (PRODUCTION)", **perf_metrics(blend_60_30_10)},
+        {"strategy": "CPM-BULL 70/30 (no NDX)",           **perf_metrics(blend_70_30)},
+        {"strategy": "CPM-BULL 60/40 (more bull, no NDX)",  **perf_metrics(blend_60_40)},
+        {"strategy": "CPM standalone (defensive)",        **perf_metrics(cpm)},
         {"strategy": "BULL-QQQ standalone (bull sleeve)", **perf_metrics(bull_qqq_rets)},
+        {"strategy": "NDX sleeve standalone (top-4 mom)",  **perf_metrics(ndx_c)},
     ]
 
     # ========================================================

@@ -24,3 +24,5 @@ dist/
 node_modules/
 secrets.json
 venv/
+data/ndx_constituents/
+research/ndx_sleeve/cache/

@@ -11,9 +11,16 @@ dependencies = [
     "scipy>=1.10",
     "matplotlib>=3.7",
     "requests>=2.31",
+    "lxml>=6.1.1",
+    "pyarrow>=24.0.0",
 ]
 
 [project.optional-dependencies]
 dashboard = ["matplotlib>=3.7"]
+
+[dependency-groups]
+dev = [
+    "index-constitution>=0.6.1",
+]
 
 
