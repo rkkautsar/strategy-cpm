@@ -24,7 +24,11 @@ import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
+# Proxy panel (extends history pre-ETF-live via mutual fund proxies for some assets).
+# In-repo path first (CI environments), fall back to external research artifacts dir (local dev).
+LOCAL_PROXY = ROOT / "data" / "proxy_adjusted_close_daily.csv"
 ARTIFACTS_PROXY = ROOT.parent / "artifacts" / "cpa-1997-exact-core-proxy-research" / "proxy_adjusted_close_daily.csv"
+PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 
 # ---------- Configuration ----------
 # CPM-10 universe (10 risky assets). All broad/factor, no sector cherry-picks.
@@ -125,8 +129,8 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     os.makedirs(cache_dir, exist_ok=True)
     
     # Long-history proxy panel (1995+)
-    if ARTIFACTS_PROXY.exists():
-        panel = pd.read_csv(ARTIFACTS_PROXY, parse_dates=["Date"], index_col="Date").sort_index()
+    if PROXY_PATH.exists():
+        panel = pd.read_csv(PROXY_PATH, parse_dates=["Date"], index_col="Date").sort_index()
     else:
         panel = pd.DataFrame()
     
