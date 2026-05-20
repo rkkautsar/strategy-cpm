@@ -291,6 +291,7 @@ FCP_STYLES = {
     # Tier 2: components
     "CPM standalone":       dict(color="#1a9a1a", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "BULL-QQQ sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
+    "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: 2 benchmarks (apples-to-apples + raw target)
     "Naive 70/30 PP/QQQ-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
     "QQQ buy-hold":         dict(color="#707070", lw=1.2, ls=":",  alpha=0.7,  zorder=3),
@@ -307,6 +308,7 @@ BASE_RENDER_ORDER = [
     "Faber GTAA5", "HAA-Simple",       # bottom (legacy)
     "Keller VAA G4", "HAA-Balanced",   # middle (legacy)
     "60/40 SPY/IEF", "SPY buy-hold",   # legacy benchmarks
+    "NDX sleeve",
     "QQQ buy-hold", "Naive 70/30 PP/QQQ-trend",  # core 2 benchmarks
     "BULL-QQQ sleeve", "CPM standalone",         # components
 ]
@@ -384,7 +386,7 @@ def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     x = np.arange(len(years))
     ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color="#707070")
     ax.bar(x,         yr_n.values, width, label="Naive 70/30 PP/QQQ-trend", color="#9966aa")
-    ax.bar(x + width, yr_b.values, width, label="CPM-BULL (PROD)", color="#0040d0")
+    ax.bar(x + width, yr_b.values, width, label="CPM-BULL-NDX (PROD)", color="#0040d0")
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45, fontsize=8)
     ax.set_ylabel("Annual return (%)")
@@ -415,7 +417,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
 
 
     ax.plot(fcp_dd.index, fcp_dd.values, label="CPM standalone", color="#1a9a1a", lw=1.6)
-    ax.plot(blend_dd.index, blend_dd.values, label="CPM-BULL (PROD)", color="#0040d0", lw=2.0)
+    ax.plot(blend_dd.index, blend_dd.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
     ax.plot(naive_dd.index, naive_dd.values, label="Naive 70/30 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
@@ -477,7 +479,7 @@ def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
     bench_sr = (bench.rolling(window_days).mean() * 252) / (bench.rolling(window_days).std() * np.sqrt(252))
     fcp_sr = (blended.rolling(window_days).mean() * 252) / (blended.rolling(window_days).std() * np.sqrt(252))
     ax.plot(bench_sr.index, bench_sr.values, label="Naive 70/30 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
-    ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-BULL (PROD)", color="#0040d0", lw=2.0)
+    ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
     ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
     ax.set_ylabel("Sharpe")
@@ -673,11 +675,16 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: p
 <tbody>{body}</tbody></table></div>"""
 
 
+# Production blend weights
+CPM_WEIGHT = 0.6
+BULL_WEIGHT = 0.3
+NDX_WEIGHT = 0.1
+
+
 def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     weights, pair, regime, safe = compute_target_weights(panel, sig_d)
 
-    # CPM sleeve (70%)
-    fcp_share = 1 - BULL_BLEND
+    # CPM sleeve (60%)
     fcp_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(weights.items(), key=lambda x: -x[1]))
     pair_str = f"{pair[0]} + {pair[1]}" if pair else "-"
@@ -694,29 +701,52 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     else:
         bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, 12-1={mom_12_1*100:+.1f}%)"
 
-    # Combined 70% CPM + 30% BULL-QQQ
+    # NDX sleeve (10%) -- gated by BULL-QQQ regime
+    try:
+        from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
+        ndx_panel_data = load_ndx_panel()
+        ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel_data, sig_d)
+        ndx_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
+                            for t, w in sorted(ndx_w.items(), key=lambda x: -x[1]))
+        if ndx_regime == "NDX_ACTIVE":
+            ndx_state = f"NDX_ACTIVE · top-4 by 13612U: {', '.join(ndx_diag['selected'])}"
+        else:
+            ndx_state = f"{ndx_regime} -- {ndx_diag.get('reason', '100% cash')}"
+    except (FileNotFoundError, ImportError) as e:
+        ndx_w = {CASH_TICKER: 1.0}
+        ndx_html = "<tr><td colspan='2'>(NDX panel not available)</td></tr>"
+        ndx_state = f"NDX panel data unavailable ({e})"
+
+    # Combined 60% CPM + 30% BULL-QQQ + 10% NDX
     combined = {}
     for t, w in weights.items():
-        combined[t] = combined.get(t, 0.0) + w * fcp_share
+        combined[t] = combined.get(t, 0.0) + w * CPM_WEIGHT
     for t, w in bq_w.items():
-        combined[t] = combined.get(t, 0.0) + w * BULL_BLEND
+        combined[t] = combined.get(t, 0.0) + w * BULL_WEIGHT
+    for t, w in ndx_w.items():
+        combined[t] = combined.get(t, 0.0) + w * NDX_WEIGHT
     combined_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                              for t, w in sorted(combined.items(), key=lambda x: -x[1]))
 
     return f"""
 <div class='alloc-grid'>
 <div>
-  <h4>CPM sleeve (70%)</h4>
+  <h4>CPM sleeve ({int(CPM_WEIGHT*100)}%)</h4>
   <p style='font-size:0.85rem'>Regime: <strong>{regime}</strong><br>Best safe: <strong>{safe}</strong><br>Pair: <strong>{pair_str}</strong></p>
   <div class='table-scroll'><table class='alloc'>{fcp_html}</table></div>
 </div>
 <div>
-  <h4>BULL-QQQ sleeve ({int(BULL_BLEND*100)}%)</h4>
+  <h4>BULL-QQQ sleeve ({int(BULL_WEIGHT*100)}%)</h4>
   <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/LQD/TIP any-positive 13612W<br>Trend: QQQ 12-1 mom &gt; 0 OR QQQ 13612W &gt; 0 (composite)<br>Bull asset: QQQ (default); XLP in `+-+` canary state<br>Fallback: 100% {CASH_TICKER} (cash)</p>
   <div class='table-scroll'><table class='alloc'>{bq_html}</table></div>
 </div>
 <div>
-  <h4>Combined {int(fcp_share*100)}/{int(BULL_BLEND*100)} (100% of capital)</h4>
+  <h4>NDX sleeve ({int(NDX_WEIGHT*100)}%)</h4>
+  <p style='font-size:0.85rem'>State: <strong>{ndx_state}</strong><br>Universe: PIT Nasdaq-100 constituents (via index-constitution lib)<br>Selection: top-4 by 13612U momentum, equal-weight 25% each<br>Gate: BULL-QQQ regime must be BULL_QQQ (cash otherwise)</p>
+  <div class='table-scroll'><table class='alloc'>{ndx_html}</table></div>
+</div>
+<div>
+  <h4>Combined {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} (100% of capital)</h4>
   <div class='table-scroll'><table class='alloc'>{combined_html}</table></div>
 </div>
 </div>
@@ -780,6 +810,7 @@ def main():
         prod_label: blended,
         "CPM standalone": cpm,
         "BULL-QQQ sleeve": bull_qqq_rets,
+        "NDX sleeve": ndx_rets,
         "Naive 70/30 PP/QQQ-trend": naive_pp_qt,
         "QQQ buy-hold": qqq,
     }
@@ -796,7 +827,7 @@ def main():
     # Build charts
     print("Building charts ...")
     # Core comparison: PROD + 2 components + 2 apples-to-apples benchmarks
-    CORE_CHARTS = (prod_label, "CPM standalone", "BULL-QQQ sleeve",
+    CORE_CHARTS = (prod_label, "CPM standalone", "BULL-QQQ sleeve", "NDX sleeve",
                    "Naive 70/30 PP/QQQ-trend", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                               prod_label=prod_label)
@@ -846,10 +877,15 @@ def main():
     print(f"Running EXT 32y backtest {ext_start.date()} ...")
     ext_fcp, _ = run_cpm_backtest(panel, ext_start, end)
     ext_bull = run_bull_qqq_backtest(panel, ext_start, end)
-    ext_common = ext_fcp.index.intersection(ext_bull.index)
+    try:
+        ext_ndx, _ = run_ndx_backtest(panel, ndx_panel, ext_start, end)
+    except Exception:
+        ext_ndx = pd.Series(0.0, index=ext_bull.index)
+    ext_common = ext_fcp.index.intersection(ext_bull.index).intersection(ext_ndx.index)
     ext_fcp_c = ext_fcp.reindex(ext_common)
     ext_bull_c = ext_bull.reindex(ext_common)
-    ext_blended = (1 - BULL_BLEND) * ext_fcp_c + BULL_BLEND * ext_bull_c
+    ext_ndx_c = ext_ndx.reindex(ext_common).fillna(0.0)
+    ext_blended = CPM_W * ext_fcp_c + BULL_W * ext_bull_c + NDX_W * ext_ndx_c
     ext_qqq = panel["QQQ"].ffill().pct_change().loc[ext_start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     ext_naive = naive_70_30_pp_qqq_trend(panel, ext_start, end)
 
@@ -857,6 +893,7 @@ def main():
         prod_label: ext_blended,
         "CPM standalone": ext_fcp_c,
         "BULL-QQQ sleeve": ext_bull_c,
+        "NDX sleeve": ext_ndx_c,
         "Naive 70/30 PP/QQQ-trend": ext_naive,
         "QQQ buy-hold": ext_qqq,
     }
