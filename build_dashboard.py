@@ -268,16 +268,17 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0):
     return trend_rets
 
 
-def naive_70_30_pp_qqq_trend(panel, start, end):
-    """Naive 70/30: 70% Permanent Portfolio + 30% QQQ trend-follow.
-    Apples-to-apples benchmark for CPM-BULL."""
+def naive_60_40_pp_qqq_trend(panel, start, end):
+    """Naive 60/40: 60% Permanent Portfolio + 40% QQQ trend-follow.
+    Apples-to-apples benchmark for CPM-BULL-NDX PROD (60/30/10 = 60% defensive
+    + 40% growth-leveraged)."""
     from cpm_live import run_pp_backtest
     pp = run_pp_backtest(panel, start, end)
     qt = qqq_trend_follow(panel, start, end)
     common = pp.index.intersection(qt.index)
     if len(common) == 0:
         return pd.Series(dtype=float)
-    return (0.7 * pp.reindex(common).fillna(0) + 0.3 * qt.reindex(common).fillna(0))
+    return (0.6 * pp.reindex(common).fillna(0) + 0.4 * qt.reindex(common).fillna(0))
 
 
 # ---------- Charts ----------
@@ -294,7 +295,7 @@ FCP_STYLES = {
     "BULL-QQQ sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: 2 benchmarks (apples-to-apples + raw target)
-    "Naive 70/30 PP/QQQ-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
+    "Naive 60/40 PP/QQQ-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
     "QQQ buy-hold":         dict(color="#707070", lw=1.2, ls=":",  alpha=0.7,  zorder=3),
     # Legacy styles (kept in dict for safety but not plotted by default)
     "SPY buy-hold":         dict(color="#a0a0a0", lw=1.0, ls=":",  alpha=0.65, zorder=3),
@@ -310,7 +311,7 @@ BASE_RENDER_ORDER = [
     "Keller VAA G4", "HAA-Balanced",   # middle (legacy)
     "60/40 SPY/IEF", "SPY buy-hold",   # legacy benchmarks
     "NDX sleeve",
-    "QQQ buy-hold", "Naive 70/30 PP/QQQ-trend",  # core 2 benchmarks
+    "QQQ buy-hold", "Naive 60/40 PP/QQQ-trend",  # core 2 benchmarks
     "BULL-QQQ sleeve", "CPM standalone",         # components
 ]
 
@@ -386,12 +387,12 @@ def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     width = 0.28
     x = np.arange(len(years))
     ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color="#707070")
-    ax.bar(x,         yr_n.values, width, label="Naive 70/30 PP/QQQ-trend", color="#9966aa")
+    ax.bar(x,         yr_n.values, width, label="Naive 60/40 PP/QQQ-trend", color="#9966aa")
     ax.bar(x + width, yr_b.values, width, label="CPM-BULL-NDX (PROD)", color="#0040d0")
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45, fontsize=8)
     ax.set_ylabel("Annual return (%)")
-    ax.set_title("Annual Returns: PROD vs Naive 70/30 vs QQQ buy-hold")
+    ax.set_title("Annual Returns: PROD vs Naive 60/40 vs QQQ buy-hold")
     ax.axhline(0, color="#888", lw=0.6)
     _legend_below(ax, ncol=3)
     return fig
@@ -419,7 +420,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
 
     ax.plot(fcp_dd.index, fcp_dd.values, label="CPM standalone", color="#1a9a1a", lw=1.6)
     ax.plot(blend_dd.index, blend_dd.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
-    ax.plot(naive_dd.index, naive_dd.values, label="Naive 70/30 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(naive_dd.index, naive_dd.values, label="Naive 60/40 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
@@ -435,7 +436,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
 
 def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
                           max_fcp: pd.Series = None, window_days=252):
-    """Rolling N-month annualized excess CAGR vs Naive 70/30 benchmark.
+    """Rolling N-month annualized excess CAGR vs Naive 60/40 benchmark.
     Uses geometric (1+r).rolling.prod()**(252/window) - 1 for proper compounding.
     """
     fig, ax = plt.subplots(figsize=(8, 3.6))
@@ -457,34 +458,34 @@ def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, naive: pd.Seri
     excess_blend = (blend_cagr - naive_cagr) * 100
 
     ax.plot(excess_fcp.index, excess_fcp.values,
-            label="CPM standalone vs Naive 70/30", color="#1a9a1a", lw=1.6)
+            label="CPM standalone vs Naive 60/40", color="#1a9a1a", lw=1.6)
     ax.plot(excess_blend.index, excess_blend.values,
-            label="PROD vs Naive 70/30", color="#0040d0", lw=2.0)
+            label="PROD vs Naive 60/40", color="#0040d0", lw=2.0)
     if max_fcp is not None:
         max_fcp_cagr = rolling_cagr(max_fcp.reindex(idx))
         excess_max = (max_fcp_cagr - naive_cagr) * 100
         ax.plot(excess_max.index, excess_max.values,
-                label="BULL-QQQ standalone vs Naive 70/30", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
+                label="BULL-QQQ standalone vs Naive 60/40", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Excess CAGR (pp, ann.)")
-    ax.set_title(f"Rolling {window_days//21}-Month Excess vs Naive 70/30")
+    ax.set_title(f"Rolling {window_days//21}-Month Excess vs Naive 60/40")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax, ncol=3)
     return fig
 
 def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
-    # Rolling Sharpe vs Naive 70/30 (apples-to-apples architecture)
+    # Rolling Sharpe vs Naive 60/40 (apples-to-apples architecture)
     fig, ax = plt.subplots(figsize=(8, 3.6))
     bench = naive.reindex(blended.index)
     bench_sr = (bench.rolling(window_days).mean() * 252) / (bench.rolling(window_days).std() * np.sqrt(252))
     fcp_sr = (blended.rolling(window_days).mean() * 252) / (blended.rolling(window_days).std() * np.sqrt(252))
-    ax.plot(bench_sr.index, bench_sr.values, label="Naive 70/30 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(bench_sr.index, bench_sr.values, label="Naive 60/40 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
     ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
     ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
     ax.set_ylabel("Sharpe")
-    ax.set_title(f"Rolling {window_days//21}-Month Sharpe (vs Naive 70/30)")
+    ax.set_title(f"Rolling {window_days//21}-Month Sharpe (vs Naive 60/40)")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax, ncol=2)
@@ -654,9 +655,9 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: p
                        "PROD": yr_b.values * 100,
                        "CPM": yr_f.reindex(yr_b.index).values * 100,
                        "BULL-QQQ": yr_m.reindex(yr_b.index).values * 100,
-                       "Naive 70/30": yr_n.reindex(yr_b.index).values * 100,
+                       "Naive 60/40": yr_n.reindex(yr_b.index).values * 100,
                        "QQQ": yr_q.reindex(yr_b.index).values * 100})
-    df["Excess vs Naive"] = df["PROD"] - df["Naive 70/30"]
+    df["Excess vs Naive"] = df["PROD"] - df["Naive 60/40"]
     df["Excess vs QQQ"] = df["PROD"] - df["QQQ"]
     body = ""
     for _, r in df.iterrows():
@@ -665,14 +666,14 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: p
         exn_class = "pos" if ex_n > 0 else "neg"
         exq_class = "pos" if ex_q > 0 else "neg"
         body += f"<tr><td>{int(r['Year'])}</td>"
-        for col in ["PROD", "CPM", "BULL-QQQ", "Naive 70/30", "QQQ"]:
+        for col in ["PROD", "CPM", "BULL-QQQ", "Naive 60/40", "QQQ"]:
             v = r[col]
             cls = "pos" if v > 0 else "neg"
             body += f"<td style='text-align:right' class='{cls}'>{v:+.2f}%</td>"
         body += f"<td style='text-align:right' class='{exn_class}'>{ex_n:+.2f}pp</td>"
         body += f"<td style='text-align:right' class='{exq_class}'>{ex_q:+.2f}pp</td></tr>\n"
     return f"""<div class='table-scroll'><table class='yearly'>
-<thead><tr><th>Year</th><th>PROD<br>(70/30)</th><th>CPM only</th><th>BULL-QQQ only</th><th>Naive 70/30</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
+<thead><tr><th>Year</th><th>PROD<br>(60/30/10)</th><th>CPM only</th><th>BULL-QQQ only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
 
@@ -805,14 +806,14 @@ def main():
     qqq = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     six40 = sixty_forty(panel, start, end)
     # Core 2 benchmarks for clean comparison
-    naive_pp_qt = naive_70_30_pp_qqq_trend(panel, start, end)
+    naive_pp_qt = naive_60_40_pp_qqq_trend(panel, start, end)
 
     strategies = {
         prod_label: blended,
         "CPM standalone": cpm,
         "BULL-QQQ sleeve": bull_qqq_rets,
         "NDX sleeve": ndx_rets,
-        "Naive 70/30 PP/QQQ-trend": naive_pp_qt,
+        "Naive 60/40 PP/QQQ-trend": naive_pp_qt,
         "QQQ buy-hold": qqq,
     }
     
@@ -829,15 +830,15 @@ def main():
     print("Building charts ...")
     # Core comparison: PROD + 2 components + 2 apples-to-apples benchmarks
     CORE_CHARTS = (prod_label, "CPM standalone", "BULL-QQQ sleeve", "NDX sleeve",
-                   "Naive 70/30 PP/QQQ-trend", "QQQ buy-hold")
+                   "Naive 60/40 PP/QQQ-trend", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                               prod_label=prod_label)
     fig_dd = chart_drawdown({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                             prod_label=prod_label)
-    fig_yearly = chart_yearly_bars(blended, qqq, strategies["Naive 70/30 PP/QQQ-trend"])
-    fig_rolling = chart_rolling_sharpe(blended, strategies["Naive 70/30 PP/QQQ-trend"])
-    fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 70/30 PP/QQQ-trend"], bull_qqq_rets)
-    fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 70/30 PP/QQQ-trend"], bull_qqq_rets)
+    fig_yearly = chart_yearly_bars(blended, qqq, strategies["Naive 60/40 PP/QQQ-trend"])
+    fig_rolling = chart_rolling_sharpe(blended, strategies["Naive 60/40 PP/QQQ-trend"])
+    fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
+    fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(panel, start)
     # CPM regimes sum to total months; BULL regimes also sum to total. Use CPM as denominator.
     n_signals = regime_counts["RISK_ON"] + regime_counts["DEFENSIVE"]
@@ -893,14 +894,14 @@ def main():
     ext_ndx_c = ext_ndx.reindex(ext_common).fillna(0.0)
     ext_blended = CPM_W * ext_fcp_c + BULL_W * ext_bull_c + NDX_W * ext_ndx_c
     ext_qqq = panel["QQQ"].ffill().pct_change().loc[ext_start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
-    ext_naive = naive_70_30_pp_qqq_trend(panel, ext_start, end)
+    ext_naive = naive_60_40_pp_qqq_trend(panel, ext_start, end)
 
     ext_strategies = {
         prod_label: ext_blended,
         "CPM standalone": ext_fcp_c,
         "BULL-QQQ sleeve": ext_bull_c,
         "NDX sleeve": ext_ndx_c,
-        "Naive 70/30 PP/QQQ-trend": ext_naive,
+        "Naive 60/40 PP/QQQ-trend": ext_naive,
         "QQQ buy-hold": ext_qqq,
     }
     ext_perf_rows = []
@@ -1021,7 +1022,7 @@ def main():
 {fig_to_html(fig_yearly)}
 </div>
 
-<h2>Rolling Sharpe (12-month, vs Naive 70/30 PP/QQQ-trend)</h2>
+<h2>Rolling Sharpe (12-month, vs Naive 60/40 PP/QQQ-trend)</h2>
 <div class='card'>
 {fig_to_html(fig_rolling)}
 </div>
@@ -1029,13 +1030,13 @@ def main():
 <h2>Rolling Excess Return (12-month, annualized)</h2>
 <div class='card'>
 {fig_to_html(fig_excess)}
-<p class='footnote'>Excess CAGR over Naive 70/30 PP/QQQ-trend (apples-to-apples benchmark: same 70/30 architecture with off-the-shelf components). Negative regions = strategy lagged that window vs simpler implementation of same meta-design.</p>
+<p class='footnote'>Excess CAGR over Naive 60/40 PP/QQQ-trend (apples-to-apples benchmark: same 60/40 architecture with off-the-shelf components). Negative regions = strategy lagged that window vs simpler implementation of same meta-design.</p>
 </div>
 
 <h2>Rolling 3-Month Max Drawdown</h2>
 <div class='card'>
 {fig_to_html(fig_roll_dd)}
-<p class='footnote'>Worst peak-to-trough drawdown within each rolling 63-trading-day window. Shallower (closer to 0) = better risk control over short horizons. Compares CPM standalone, CPM-BULL production blend, BULL-QQQ standalone, and Naive 70/30 PP/QQQ-trend benchmark.</p>
+<p class='footnote'>Worst peak-to-trough drawdown within each rolling 63-trading-day window. Shallower (closer to 0) = better risk control over short horizons. Compares CPM standalone, CPM-BULL-NDX production blend, BULL-QQQ standalone, and Naive 60/40 PP/QQQ-trend benchmark.</p>
 </div>
 
 <h2>Canary Regime History</h2>

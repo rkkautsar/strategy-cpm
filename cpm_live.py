@@ -112,13 +112,13 @@ TARGET_VOL = 0.10           # annualized
 VOL_LOOKBACK_DAYS = 63
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
-PP_BLEND = 0.30             # 30% buffer sleeve (default; sweep shows 0.4-0.7 CPM weight roughly tied)
 
-# Buffer sleeve: PP-IEF (Browne 1981 Permanent Portfolio with IEF in place
-# of TLT to reduce duration risk; TLT had -31% drawdown in 2022).
-# 25% each: SPY (equity) / IEF (intermediate treasuries) / GLD (gold) / SHV (cash).
-PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
-PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
+# NOTE: PP_* constants below are for BENCHMARK ONLY ("Naive 70/30 PP/QQQ-trend"
+# baseline in build_dashboard.py). PRODUCTION strategy does NOT include any PP
+# buffer — it is 60% CPM + 30% BULL-QQQ + 10% NDX (see build_dashboard.py).
+# CPM stays fully invested in its selected pair; canary handles cash routing.
+PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]   # benchmark only
+PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}  # benchmark only
 
 
 # ---------- Data loading ----------
@@ -544,8 +544,12 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
     return out.loc[(out.index >= start) & (out.index <= end)]
 
 
-def run_fcp_pp_blend(panel, start, end, blend_pct=PP_BLEND, **kwargs) -> tuple[pd.Series, pd.Series, pd.Series]:
-    """Returns (blended, cpm, pp)."""
+def run_fcp_pp_blend(panel, start, end, blend_pct=0.30, **kwargs) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """LEGACY benchmark only — NOT used in production.
+
+    PROD is 60% CPM + 30% BULL-QQQ + 10% NDX (see build_dashboard.py).
+    This function exists only for historical comparison plots.
+    """
     fcp_daily, _ = run_cpm_backtest(panel, start, end, **kwargs)
     pp_daily = run_pp_backtest(panel, start, end)
     common = fcp_daily.index.intersection(pp_daily.index)
@@ -583,7 +587,7 @@ def cmd_allocate(args):
     
     # CPM weights
     weights, pair, regime, safe = compute_target_weights(panel, sig_d)
-    print(f"\n[CPM sleeve, 70% of capital]")
+    print(f"\n[CPM sleeve — 60% of PROD]")
     print(f"  Regime: {regime}")
     print(f"  Best safe: {safe}")
     if pair:
@@ -592,21 +596,11 @@ def cmd_allocate(args):
     for t, w in sorted(weights.items(), key=lambda x: -x[1]):
         print(f"    {t:8s} {w*100:5.1f}%")
     
-    # PP weights
-    print(f"\n[Buffer sleeve, 30% of capital]")
-    for a in PP_ASSETS:
-        print(f"    {a:8s} {PP_WEIGHTS[a]*100:5.1f}%")
-    
-    # Combined (% of total portfolio)
-    print(f"\n[Combined target, 100% of capital]")
-    fcp_share = 1 - PP_BLEND
-    combined = {}
-    for t, w in weights.items():
-        combined[t] = combined.get(t, 0.0) + w * fcp_share
-    for a in PP_ASSETS:
-        combined[a] = combined.get(a, 0.0) + PP_WEIGHTS[a] * PP_BLEND
-    for t, w in sorted(combined.items(), key=lambda x: -x[1]):
-        print(f"    {t:8s} {w*100:5.1f}%")
+    # NOTE: This shows the CPM sleeve only (which is 60% of PROD).
+    # PROD = 60% CPM + 30% BULL-QQQ + 10% NDX (NO static buffer).
+    # For full PROD allocation, use deploy/cf-pages/format_message.py or the dashboard.
+    print(f"\n[CPM sleeve only — this is 60% of PROD; no PP buffer in PROD]")
+    print(f"  Full PROD allocation: see format_message.py or dashboard.")
 
 
 def cmd_backtest(args):
@@ -616,36 +610,35 @@ def cmd_backtest(args):
     panel = load_panel(start=start, end=end)
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
-    print(f"\nRunning CPM backtest from {start.date()} to {end.date()} ...")
+    print(f"\nRunning CPM-only backtest from {start.date()} to {end.date()} ...")
     print(f"Execution model: T+0 OPEN (next-day MOO after month-end signal)")
+    print(f"NOTE: This is CPM sleeve only (60% of PROD). For full PROD blend")
+    print(f"      (60% CPM + 30% BULL-QQQ + 10% NDX) use build_dashboard.py.")
     
     kwargs = dict(
         apply_vol_target=not args.no_vol_target,
         cost_bps=0 if args.no_cost else COST_BPS_PER_SIDE,
     )
     
-    blended, cpm, pp = run_fcp_pp_blend(panel, start, end, **kwargs)
+    cpm, _ = run_cpm_backtest(panel, start, end, **kwargs)
     
     print(f"\n{'Strategy':25s} {'CAGR':>8s} {'Vol':>7s} {'Sharpe':>7s} {'MaxDD':>8s}")
     print("-" * 60)
-    for label, daily in [("CPM standalone", cpm),
-                         ("Permanent Portfolio", pp),
-                         ("CPM-PP (70/30)", blended)]:
-        m = perf_metrics(daily)
-        print(f"{label:25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
-    
+    m = perf_metrics(cpm)
+    print(f"{'CPM standalone':25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
+
     # SPY benchmark
     if "SPY" in panel.columns:
         spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0)
-        common = blended.index.intersection(spy.index)
+        common = cpm.index.intersection(spy.index)
         spy_eq = spy.reindex(common)
         m = perf_metrics(spy_eq)
         print(f"{'SPY buy-hold':25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
-    
+
     if args.out:
         out_path = Path(args.out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        df = pd.DataFrame({"CPM": cpm, "PP": pp, "FCP_PP_blend": blended})
+        df = pd.DataFrame({"CPM": cpm})
         df.to_csv(f"{out_path}_daily.csv")
         print(f"\nSaved daily returns: {out_path}_daily.csv")
 

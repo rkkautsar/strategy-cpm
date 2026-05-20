@@ -2,14 +2,19 @@ name = "cpm-bull-cron"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# Cron trigger: 14:30 UTC on day 1 of each month.
-# 14:30 UTC = 9:30 EST / 10:30 EDT = first 30 min after US market open.
-# Fires ONCE per month. Strategy spec: signal date = last completed month-end
-# (last business day of prior month, ~18+ hours after close so yfinance has
-# the data). Trade T+1 MOC = day 1 close (or next business day if day 1 is
-# weekend). User has 5.5 hours from email to place MOC order.
+# Cron trigger: 02:00 UTC on day 1 of every month. Fires exactly 1x/month.
+# 02:00 UTC = 10:00 AM SGT (UTC+8) = 10:00 PM / 9:00 PM ET prev evening.
+#
+# Strategy: signal date = last biz day of prior month. Signal close at 4 PM ET
+# does not change over the weekend or overnight, so notification arriving
+# Mon-Fri 10 AM SGT on day 1 is always valid for that month's signal. User
+# (SGT) reads notification at breakfast and has the day to submit MOO orders
+# for next US market open (= 9:30 PM SGT same day in summer / 10:30 PM winter).
+#
+# Edge case: month-end on Fri (Aug 29) means signal is 2.5 days old by Mon
+# Sep 1 notification. That's fine — the signal didn't change over the weekend.
 [triggers]
-crons = ["30 14 1 * *"]
+crons = ["0 2 1 * *"]
 
 [vars]
 GH_OWNER = "rkkautsar"

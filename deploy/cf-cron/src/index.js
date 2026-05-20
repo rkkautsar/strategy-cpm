@@ -9,7 +9,10 @@
  * monthly and POSTs to GitHub API to wake up the workflow that does the
  * actual Python compute + CF Pages deploy + Telegram notification.
  *
- * The Worker itself does nothing else. It is the durable clock.
+ * Timing: cron fires 02:00 UTC on day 1 of every month (10am SGT).
+ * Signal date = last biz day of prior month; signal computed from prior
+ * month-end close (doesn't change overnight). MOO orders valid for next
+ * trading day open.
  */
 
 async function dispatchToGitHub(env, cronStr) {
