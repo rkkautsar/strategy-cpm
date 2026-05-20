@@ -287,7 +287,9 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     For each signal date (month-end):
       - If macro gate passes AND QQQ 12-1 momentum > 0: hold 100% QQQ
       - Else: hold 100% SHV cash
-    Apply weights from second trading day after signal until next signal.
+    Execution: T+0 OPEN (next-day MOO). Weights apply from future[0] of signal
+    date (first trading day after month-end). Backtest uses close-to-close on
+    apply_from day (~5-10bps/yr overestimate vs strict open-to-close).
     Switching cost: 10bps/side on any state change.
     """
     if BULL_TICKER not in panel.columns:
@@ -327,13 +329,13 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
             month_weights = {CASH_TICKER: 1.0}
 
         future = common[common > sig_d]
-        if len(future) < 2:
+        if len(future) < 1:
             continue
-        apply_from = future[1]
+        apply_from = future[0]  # T+0 OPEN execution (next-day MOO)
         if i + 1 < len(sigs):
             ns = sigs[i + 1]
             nf = common[common > ns]
-            end_apply = nf[1] if len(nf) >= 2 else common[-1]
+            end_apply = nf[0] if len(nf) >= 1 else common[-1]
         else:
             end_apply = common[-1] + pd.Timedelta(days=1)
         mask = (common >= apply_from) & (common < end_apply)

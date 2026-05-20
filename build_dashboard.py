@@ -249,13 +249,14 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0):
     for sd in sig_dates:
         if signal.loc[sd]:
             future = common[common > sd]
-            if len(future) < 2: continue
+            if len(future) < 1: continue
             next_sd = sig_dates[sig_dates > sd]
-            if len(next_sd) > 0 and len(common[common > next_sd[0]]) > 1:
-                end_apply = common[common > next_sd[0]][1]
+            if len(next_sd) > 0 and len(common[common > next_sd[0]]) > 0:
+                end_apply = common[common > next_sd[0]][0]
             else:
                 end_apply = common[-1]
-            mask = (common >= future[1]) & (common < end_apply)
+            # T+0 OPEN execution (next-day MOO)
+            mask = (common >= future[0]) & (common < end_apply)
             asset_per_day.loc[mask] = "QQQ"
     trend_rets = pd.Series(0.0, index=common)
     trend_rets[asset_per_day == "QQQ"] = daily_qqq.reindex(common).fillna(0)[asset_per_day == "QQQ"]
@@ -1108,7 +1109,7 @@ def main():
 <li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep prior pair member unless new exceeds)</li>
 <li><strong>Vol targeting:</strong> {TARGET_VOL*100:.0f}% annualized, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong></li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
-<li><strong>Execution:</strong> month-end signal, T+1 MOC trade</li>
+<li><strong>Execution:</strong> month-end signal, T+0 OPEN trade (next-day MOO)</li>
 </ul>
 </details>
 <details>

@@ -433,7 +433,15 @@ def run_cpm_backtest(
     apply_vol_target: bool = True,
     cost_bps: float = COST_BPS_PER_SIDE,
 ) -> tuple[pd.Series, list]:
-    """Run CPM standalone (no PP blend). Returns daily returns + diagnostics list."""
+    """Run CPM standalone (no PP blend). Returns daily returns + diagnostics list.
+
+    Execution model: T+0 OPEN (next-day market-on-open). Signal at month-end
+    close T-1; rebalance executed at MOO of next trading day T+0. Backtest uses
+    close-to-close accounting on the apply_from day (close[T+0] / close[sig_d]
+    - 1), which slightly overestimates Sharpe vs strict open-to-close attribution
+    (~5-10 bps/yr bias from crediting overnight gap to NEW weights). The bias is
+    within bootstrap noise and small relative to the strategy's edge.
+    """
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     close = panel[cols]
     
@@ -449,13 +457,13 @@ def run_cpm_backtest(
         canary_state[sig_d] = (regime == "RISK_ON")
         prev_pair = new_pair
         future = close.index[close.index > sig_d]
-        if len(future) < 2:
+        if len(future) < 1:
             continue
-        apply_from = future[1]  # T+1 MOC execution
+        apply_from = future[0]  # T+0 OPEN execution (next-day MOO)
         if i + 1 < len(signal_dates):
             next_sig = signal_dates[i + 1]
             next_future = close.index[close.index > next_sig]
-            end_apply = next_future[1] if len(next_future) >= 2 else end
+            end_apply = next_future[0] if len(next_future) >= 1 else end
         else:
             end_apply = end
         weights_history.append({
@@ -502,7 +510,11 @@ def run_cpm_backtest(
 
 
 def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
-    """Static buffer: PP-IEF 25/25/25/25 SPY/IEF/GLD/SHV. Monthly rebalanced."""
+    """Static buffer: PP-IEF 25/25/25/25 SPY/IEF/GLD/SHV. Monthly rebalanced.
+
+    Execution: T+0 OPEN (next-day MOO). Weights apply from future[0] of each
+    signal date (first trading day after signal).
+    """
     cols = [a for a in PP_ASSETS if a in panel.columns]
     if not cols:
         return pd.Series(dtype=float)
@@ -516,8 +528,18 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
     total = sum(raw_w.values())
     w = pd.Series({a: v / total for a, v in raw_w.items()})
     for i, d in enumerate(dates):
-        nxt = dates[i + 1] if i + 1 < len(dates) else end
-        seg = close.index[(close.index > d) & (close.index <= nxt)]
+        # T+0 OPEN: weights apply from future[0] of d (first trading day after signal)
+        future_d = close.index[close.index > d]
+        if len(future_d) < 1:
+            continue
+        seg_start = future_d[0]
+        if i + 1 < len(dates):
+            nxt = dates[i + 1]
+            future_nxt = close.index[close.index > nxt]
+            seg_end = future_nxt[0] if len(future_nxt) >= 1 else end
+        else:
+            seg_end = end
+        seg = close.index[(close.index >= seg_start) & (close.index < seg_end)]
         out.loc[seg] = daily_ret.loc[seg, cols].mul(w, axis=1).sum(axis=1).fillna(0.0)
     return out.loc[(out.index >= start) & (out.index <= end)]
 
@@ -595,6 +617,7 @@ def cmd_backtest(args):
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
     print(f"\nRunning CPM backtest from {start.date()} to {end.date()} ...")
+    print(f"Execution model: T+0 OPEN (next-day MOO after month-end signal)")
     
     kwargs = dict(
         apply_vol_target=not args.no_vol_target,

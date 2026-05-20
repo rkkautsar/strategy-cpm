@@ -138,7 +138,11 @@ def run_ndx_backtest(
     end: pd.Timestamp,
     cost_bps: float = COST_BPS_PER_SIDE,
 ) -> tuple[pd.Series, list[dict]]:
-    """Run monthly NDX sleeve backtest. Returns (daily_returns, history)."""
+    """Run monthly NDX sleeve backtest. Returns (daily_returns, history).
+
+    Execution: T+0 OPEN (next-day MOO). Weights apply from the first trading
+    day after each signal date (next_loc + 1 from signal day index).
+    """
     full_panel = cpm_panel.join(ndx_panel, how="outer", rsuffix="_dup")
     full_panel = full_panel.loc[:, ~full_panel.columns.str.endswith("_dup")]
 
