@@ -871,10 +871,15 @@ def main():
     ]
 
     # ========================================================
-    # EXTENDED 32y backtest (1994-2026, includes dot-com)
+    # EXTENDED 26y backtest (2000-2026)
+    # Includes dot-com bust 2000-2002, GFC 2008, COVID, 2022, etc.
+    # Truncated from prior 1994 start since pre-2000 had thin QQQ liquidity
+    # making BULL-QQQ + naive series visually flat/uninformative.
+    # All 4 main series have meaningful data from 2000-01. NDX sleeve joins
+    # in 2007 due to PIT data availability (index-constitution 2006-01+).
     # ========================================================
-    ext_start = pd.Timestamp("1994-01-01")
-    print(f"Running EXT 32y backtest {ext_start.date()} ...")
+    ext_start = pd.Timestamp("2000-01-01")
+    print(f"Running EXT 26y backtest {ext_start.date()} ...")
     ext_fcp, _ = run_cpm_backtest(panel, ext_start, end)
     ext_bull = run_bull_qqq_backtest(panel, ext_start, end)
     try:
@@ -1059,7 +1064,7 @@ def main():
 
 <h2>Extended Backtest (32y, 1994-2026)</h2>
 <div class='card'>
-<p class='meta'>EXT window includes dot-com bust (2000-2002) and pre-GFC period. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.). Treat as exploratory: proxy quality + pre-2008 universe coverage degrades signal vs live.</p>
+<p class='meta'>EXT 26y window (2000-2026) includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve only joins from 2007 due to PIT constituent data availability (lib `index-constitution` covers 2006-01+). Treat as exploratory: proxy quality + pre-2008 universe coverage degrades signal vs live.</p>
 {perf_table_html(ext_perf_rows)}
 </div>
 
