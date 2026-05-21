@@ -193,9 +193,17 @@ tech-led regime).
 | NDX standalone | 99.7% | 99.4% | 97.5% | 96.1% |
 | **60/30/10 PROD** | **99.99%** | **99.97%** | **99.84%** | **99.70%** |
 
-The 95% bootstrap CI lower bound (0.946) and DSR (> 99.7% even at N=1000)
-land the strategy comfortably above the forward expectation floor and well
-above the 0.5 "genuine edge" DSR threshold.
+Bootstrap and DSR results are **supportive but not proof of forward edge**.
+The bootstrap Sharpe lower bound (0.946) is roughly at the forward
+expectation floor (0.95), so the strategy is supported by the tested data
+but not comfortably above the floor. DSR depends heavily on the assumed
+effective trial count -- the true hyperparameter search space (9-asset
+universe, top-K=5, 504d EWMA cov, HOLD_BUFFER 2.0z, 15% vol cap, 63d
+realized lookback, 12-1 trend, 13612U canary, NDX K=4, 60/30/10 blend,
+etc.) is plausibly larger than N=1000 even at conservative count. These
+results reduce the probability that the historical result is pure noise,
+but they do not eliminate model-selection bias, regime risk, data-quality
+risk, or implementation drift.
 
 ### Extended backtest (~27y, 1999-03-10 → 2026-05-15)
 
@@ -204,6 +212,39 @@ spike. Pre-2006 the NDX sleeve mirrors BULL-QQQ (PIT constituent data
 unavailable); pre-2002 the BULL canary falls back to HYG-only (LQD/TIP not
 yet live). Treat pre-2007 as exploratory due to thin canary + universe
 proxies.
+
+### Complexity-layer ablation (canonical 19.3y)
+
+Each added complexity layer should justify itself versus simpler adjacent
+strategies after cost:
+
+| Strategy | Sharpe | CAGR | MaxDD | Δ Sharpe vs prior |
+|---|---:|---:|---:|---:|
+| SPY buy-hold | 0.62 | 10.85% | -55.19% | (baseline) |
+| QQQ buy-hold | 0.80 | 16.47% | -53.40% | +0.18 (beta switch) |
+| QQQ 12-1 timing only | 0.86 | 15.37% | -28.72% | +0.06 (trend filter) |
+| 60% CPM + 40% SHV (defensive) | 1.27 | 9.15% | -8.53% | +0.41 (CPM engine) |
+| 100% CPM standalone | 1.19 | 14.21% | -14.74% | (alt: CPM full size) |
+| **70/30 CPM-BULL (no NDX)** | **1.34** | **15.66%** | **-12.59%** | +0.15 (BULL adds) |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.41** | **18.35%** | **-15.43%** | +0.07 (NDX adds, at +3pp DD cost) |
+
+Each layer adds Sharpe. NDX is the smallest marginal gain (+0.07 Sh) at
+the steepest DD cost (+3pp); justified by the +2.7pp CAGR contribution.
+
+### Live-equivalent ETF drift (SCHG, PDBC since 2015)
+
+Backtest uses IWF/DBC (long history); live trade uses SCHG/PDBC (cheaper,
+no K-1). Drift over 2015+ common live window:
+
+| Variant | Sharpe | CAGR | MaxDD |
+|---|---:|---:|---:|
+| Research (IWF, DBC) 2015+ | 1.44 | 19.15% | -15.43% |
+| **Live equiv (SCHG, PDBC) 2015+** | **1.37** | **18.39%** | -15.43% |
+| Drift | **-0.07** | **-0.76pp** | tied |
+
+Swapping to live ETFs costs ~5% relative Sharpe (within bootstrap CI
+noise). Forward expectation should be discounted slightly more for actual
+live trading.
 
 ### Performance-stat conventions
 
@@ -254,28 +295,69 @@ proxies.
    alone. Pre-2006 PIT constituent data unavailable (NDX mirrors BULL in
    extended backtest).
 
-6. **Cross-asset diversifier dependency.** Drop GLD/TLT/DBC and CPM standalone
+6. **Effective Nasdaq/growth concentration.** In risk-on regimes, CPM can
+   pick QQQ or IWF/SCHG while BULL holds QQQ and NDX holds top Nasdaq-100
+   names. Realized growth-exposure distribution (canonical 19.3y):
+
+   | Stat | Total growth/Nasdaq exposure |
+   |---|---:|
+   | Mean | 44% |
+   | Median | 40% |
+   | **Max** | **70%** |
+   | Months ≥ 70% | **34.6%** (80/231) |
+
+   In 34.6% of months the portfolio runs close to 70% Nasdaq/growth (30%
+   CPM growth + 30% BULL QQQ + 10% NDX). This is not a diversified TAA model
+   in those regimes -- it's a growth/Nasdaq momentum strategy with tactical
+   defensive machinery. The min-vol pair selector prevents 100% growth
+   concentration (never picks both QQQ AND IWF as the pair simultaneously).
+
+7. **Cross-asset diversifier dependency.** Drop GLD/TLT/DBC and CPM standalone
    Sharpe drops by 0.32. GLD alone is the largest single-asset dependency
    (-0.21 Sh if dropped); TLT second (-0.18). The strategy is fundamentally
    pair-momentum, not factor rotation.
 
-7. **Structural V-shape recovery lag.** 13612U + canary signals are slow by
+8. **Structural V-shape recovery lag.** 13612U + canary signals are slow by
    design and bleed 1-2 months of alpha at violent regime turns (COVID 2020).
 
-8. **In-sample selection bias.** Forward Sharpe anchored at 0.95-1.25 (not
+9. **In-sample selection bias.** Forward Sharpe anchored at 0.95-1.25 (not
    the 1.41 backtest); MaxDD planning band widened to -18% to -30%.
 
-9. **CPM canary HYG+TIP+GLD differs from BULL canary HYG+LQD+TIP.** When CPM
-   is in cash (all three negative) but BULL has LQD+ → portfolio can hold
-   30% QQQ while 60% of capital is in SHV. Intentional; CPM uses GLD as
-   real-asset diversifier while BULL uses LQD as equity-confirmation signal.
+10. **CPM canary HYG+TIP+GLD differs from BULL canary HYG+LQD+TIP.** When CPM
+    is in cash (all three negative) but BULL has LQD+ → portfolio can hold
+    30% QQQ while 60% of capital is in SHV. Intentional; CPM uses GLD as
+    real-asset diversifier while BULL uses LQD as equity-confirmation signal.
 
-10. **Pre-2007 extended backtest is least reliable in exactly the periods
+11. **Pre-2007 extended backtest is least reliable in exactly the periods
     that matter most.** Dot-com (2000-02) and GFC (2008) are precisely when
     the defensive machinery is supposed to prove itself, but they use
     proxy-stitched data (mutual-fund proxies for some assets pre-2005;
     NDX sleeve mirrors BULL pre-2006 PIT). Treat pre-2007 results as
     directional only, not as confirmation.
+
+12. **Data sources are research-grade, not production-grade.** Live system
+    uses `yfinance` for price data and `index-constitution` for PIT NDX-100
+    membership. Both are suitable for research/personal use but neither is
+    audited institutional infrastructure. `yfinance` is not affiliated
+    with Yahoo (free tier intended for personal use); `index-constitution`
+    sources NDX-100 membership from Wikipedia (beta-status package).
+    Production deployment should snapshot all raw inputs, constituent
+    lists, missing-symbol logs, and orders for each rebalance for audit.
+    NDX sleeve specifically may have survivorship leakage (delisted tickers
+    missing from yfinance) that PIT lookups can't fully resolve.
+
+13. **Live-equivalent ETF drift.** Backtest uses IWF + DBC (long history);
+    live trade uses SCHG (large-cap growth, 4bps fee) + PDBC (no K-1
+    commodity strategy). Drift over 2015+ common live: -0.07 Sh, -0.76pp
+    CAGR (live underperforms research). Within bootstrap noise but real.
+
+14. **Cost formula:** transaction cost charged as
+    `cost = COST_BPS_PER_SIDE / 10000 * sum(abs(w_new - w_old))`,
+    where the sum already includes both legs (one sell + one buy per asset).
+    At 10bps/side, a full 100% A → 100% B switch costs **20 bps** of
+    portfolio value (10 sell + 10 buy). Each sleeve charges this
+    independently; CPM uses sleeve-level turnover, BULL/NDX use
+    state-change turnover.
 
 ## Deployment
 
