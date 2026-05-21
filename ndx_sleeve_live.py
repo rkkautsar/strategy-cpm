@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 import index_constitution as ic
 
-from cpm_live import sig_13612W
+from cpm_live import sig_13612U
 from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
 
 ROOT = Path(__file__).resolve().parent
@@ -118,7 +118,7 @@ def compute_ndx_weights(
         s = monthly[t].dropna()
         if len(s) < 13:
             continue
-        m = sig_13612W(s)
+        m = sig_13612U(s)
         if pd.notna(m) and m > 0:
             momenta[t] = m
 

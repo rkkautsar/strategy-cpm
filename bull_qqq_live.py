@@ -46,7 +46,7 @@ from cpm_live import (
     load_panel,
     run_cpm_backtest,
     perf_metrics,
-    sig_13612W,
+    sig_13612U,
 )
 
 
@@ -114,7 +114,7 @@ def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, di
     mom_12_1 = _absolute_momentum(monthly_qqq, sig_d)
     mom_ok = pd.notna(mom_12_1) and mom_12_1 > 0
     return (mom_ok, dict(
-        mom_12_1=mom_12_1, sig_13612W=float("nan"),
+        mom_12_1=mom_12_1, sig_13612U=float("nan"),
         mom_ok=mom_ok, w13_ok=False,
     ))
 
@@ -123,7 +123,7 @@ def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]
     """Macro risk-on gate: HYG/LQD/TIP "any positive" 13612U canary."""
     sigs = {}
     for asset in CANARY_ASSETS:
-        sigs[asset] = sig_13612W(monthly[asset].loc[:sig_d]) if asset in monthly.columns else float("nan")
+        sigs[asset] = sig_13612U(monthly[asset].loc[:sig_d]) if asset in monthly.columns else float("nan")
     positives = [(pd.notna(v) and v > 0) for v in sigs.values()]
     if CANARY_RULE == "all_positive":
         canary_ok = all(positives)
@@ -141,7 +141,7 @@ def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]
 def _qqq_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
     """QQQ trend filter: 12-1 absolute momentum > 0."""
     if BULL_TICKER not in monthly.columns:
-        return (False, dict(mom_12_1=float("nan"), sig_13612W=float("nan"),
+        return (False, dict(mom_12_1=float("nan"), sig_13612U=float("nan"),
                              mom_ok=False, w13_ok=False))
     return _trend_signal(monthly[BULL_TICKER], sig_d)
 
@@ -154,7 +154,7 @@ def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
     for asset in CANARY_ASSETS:
         if asset not in monthly.columns:
             return None
-        v = sig_13612W(monthly[asset].loc[:sig_d])
+        v = sig_13612U(monthly[asset].loc[:sig_d])
         if pd.isna(v):
             return None
         chars.append("+" if v > 0 else "-")
@@ -298,7 +298,7 @@ def cmd_allocate(args):
         print(f"\nTrend filter diagnostics:")
         print(f"  QQQ 12-1 mom = {diag['mom_12_1']*100:+7.2f}%  "
               f"(> 0: {'YES' if diag['mom_ok'] else 'NO'})    [slow anchor]")
-        print(f"  QQQ 13612U   = {diag['sig_13612W']*100:+7.2f}%  "   # 13612U canonical HAA
+        print(f"  QQQ 13612U   = {diag['sig_13612U']*100:+7.2f}%  "   # 13612U canonical HAA
               f"(> 0: {'YES' if diag['w13_ok'] else 'NO'})    [fast Keller-style]")
         print(f"  Trend OK (either positive): {'YES' if (diag['mom_ok'] or diag['w13_ok']) else 'NO'}")
     print()

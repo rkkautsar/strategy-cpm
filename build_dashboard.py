@@ -37,7 +37,7 @@ from cpm_live import (
     TARGET_VOL, HOLD_BUFFER, CORR_LOOKBACK_DAYS, COST_BPS_PER_SIDE,
     TOP_K_CANDIDATES,
     load_panel, run_cpm_backtest,
-    perf_metrics, compute_target_weights, sig_13612W,
+    perf_metrics, compute_target_weights, sig_13612U,
 )
 from bull_qqq_live import (
     run_bull_qqq_backtest, compute_bull_qqq_weights,
@@ -145,14 +145,14 @@ def keller_vaa_g4(panel, start, end):
     weights_map = {}
     for d in dates:
         m = monthly.loc[:d]
-        scores_off = {a: sig_13612W(m[a]) for a in offensive if a in m.columns}
+        scores_off = {a: sig_13612U(m[a]) for a in offensive if a in m.columns}
         if any(pd.isna(v) for v in scores_off.values()):
             weights_map[d] = {"SHV":1.0}; continue
         if all(v > 0 for v in scores_off.values()):
             best = max(scores_off, key=scores_off.get)
             weights_map[d] = {best:1.0}
         else:
-            sd = {a: sig_13612W(m[a]) for a in defensive if a in m.columns}
+            sd = {a: sig_13612U(m[a]) for a in defensive if a in m.columns}
             valid = {k:v for k,v in sd.items() if pd.notna(v)}
             best = max(valid, key=valid.get) if valid else "SHV"
             weights_map[d] = {best:1.0}
@@ -172,7 +172,7 @@ def keller_vaa_g4(panel, start, end):
 def _haa_safe_pick(monthly, defensive=("BIL", "IEF", "SHV")):
     avail = [s for s in defensive if s in monthly.columns]
     if not avail: return "SHV"
-    scs = {s: sig_13612W(monthly[s]) for s in avail}
+    scs = {s: sig_13612U(monthly[s]) for s in avail}
     scs = {k: v for k, v in scs.items() if pd.notna(v)}
     if not scs: return avail[0]
     return max(scs, key=scs.get)
@@ -190,10 +190,10 @@ def _haa_run(panel, start, end, top_k):
     for d in dates:
         m = monthly.loc[:d]
         if len(m) < 13: weights_map[d] = {"SHV": 1.0}; continue
-        tip_s = sig_13612W(m["TIP"]) if "TIP" in m.columns else float("nan")
+        tip_s = sig_13612U(m["TIP"]) if "TIP" in m.columns else float("nan")
         if pd.isna(tip_s) or tip_s <= 0:
             weights_map[d] = {_haa_safe_pick(m): 1.0}; continue
-        scs = {a: sig_13612W(m[a]) for a in offensive if a in m.columns and pd.notna(m[a].iloc[-1])}
+        scs = {a: sig_13612U(m[a]) for a in offensive if a in m.columns and pd.notna(m[a].iloc[-1])}
         scs = {k: v for k, v in scs.items() if pd.notna(v)}
         if not scs:
             weights_map[d] = {_haa_safe_pick(m): 1.0}; continue

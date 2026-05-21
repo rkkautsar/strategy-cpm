@@ -214,13 +214,13 @@ def faber_sma_xs(monthly: pd.DataFrame) -> pd.Series:
     return (monthly.iloc[-1] - sma) / sma
 
 
-def sig_13612W(p: pd.Series) -> float:
+def sig_13612U(p: pd.Series) -> float:
     """Canonical HAA 13612U momentum: simple average of 1/3/6/12-month returns.
     Per Keller & Keuning HAA paper (2022) and AllocateSmartly reproduction.
     Earlier version used Keller-family 13612W weighted form (12r1+4r3+2r6+r12)/19;
     oracle-v6 test showed 13612U canonical is both better-performing (+0.08 Sh
     on 70/30 blend) and matches the actual HAA paper formula.
-    Function name kept as sig_13612W for back-compat with diagnostic outputs."""
+    Canonical Keller HAA unweighted average; matches paper exactly."""
     p = p.dropna()
     if len(p) < 13:
         return np.nan
@@ -232,10 +232,8 @@ def sig_13612W(p: pd.Series) -> float:
     return (r1 + r3 + r6 + r12) / 4.0
 
 # Canonical alias: 13612U (unweighted average per actual HAA paper).
-# Prefer this name in new code; sig_13612W kept for back-compat with
 # ~150 references in research/ scripts and diagnostic outputs.
-sig_13612U = sig_13612W
-mom_canary = sig_13612W
+mom_canary = sig_13612U
 
 
 
@@ -339,7 +337,7 @@ def compute_target_weights(
     for c in canary_assets:
         if c not in monthly.columns:
             continue
-        s = sig_13612W(monthly[c])
+        s = sig_13612U(monthly[c])
         if pd.notna(s):
             canary_scores.append(s)
     if not canary_scores:
