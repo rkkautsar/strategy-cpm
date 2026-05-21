@@ -10,8 +10,18 @@
   equal-weighted 25% each, gated by the BULL-QQQ regime.
 
 Monthly rebalance, ETF + individual stocks (NDX), no leverage, 10 bps/side
-cost, T+1 OPEN execution. Designed for IRA/401k/Roth (monthly rotation =
-short-term gains; NDX stock churn compounds tax drag).
+cost, T+1 OPEN execution. Total-return prices throughout (yfinance
+`auto_adjust=True`, dividends reinvested).
+
+> ⚠️ **Strategy is NOT yet live-traded.** All validation is backtest-based.
+> Bootstrap CI and DSR are supportive but not proof of forward edge.
+>
+> ⚠️ **IRA/401k/Roth only.** Monthly rotation = short-term capital gains.
+> Federal 22-37% + state 0-13% bracket can drop after-tax CAGR from
+> 11-15% pre-tax forward expectation to **~5-9% after-tax** -- close to
+> SPY buy-hold after-tax. NDX individual-stock churn compounds the drag.
+> Run only in tax-advantaged accounts unless you've confirmed your tax
+> situation absorbs the drag.
 
 ## Headline metrics
 
@@ -208,37 +218,63 @@ proxies.
 
 1. **Tax inefficient outside tax-advantaged accounts.** Monthly rebalance =
    short-term gains. NDX sleeve (individual stocks) compounds tax drag.
-   ~2-4pp/yr drag at federal 22-37% + state 0-13%. Best in IRA / Roth / 401k.
-2. **NDX sleeve concentration + regime risk.** 4 names × 25% each =
+   At federal 37% + state 13%, after-tax CAGR drops from 11-15% pre-tax to
+   ~5-9%. Run only in IRA / Roth / 401k unless tax-advantaged space is
+   fully utilized.
+
+2. **Strategy is not yet live-traded.** All validation is backtest. Bootstrap
+   95% CI on Sharpe is [0.946, 1.796] and DSR is 99.7% at N=1000 -- supportive
+   but not proof. Future regime may differ from 2007-2026.
+
+3. **Portfolio-level vol is NOT capped.** Only CPM (60%) is vol-targeted at
+   15%. BULL (30% QQQ raw, ~18-25% vol) and NDX (10% top-4 stocks, ~30-40%
+   vol) run uncapped. Realized blend vol distribution (21-day rolling):
+
+   | Percentile | Annualized vol |
+   |---|---:|
+   | P50 | 10.3% |
+   | P95 | 21.0% |
+   | P99 | 27.8% |
+   | **Max (COVID 2020-04)** | **38.7%** |
+
+   COVID March-April 2020 showed the strategy can experience ~2.5x the CPM
+   sleeve cap in worst-case monthly vol. Plan for this in position sizing.
+
+4. **CPM efficiency degrades in positive stock/bond correlation regimes.**
+   2010-2019 (QE / negative correlation): CPM Sh 1.16, CAGR 11.85%.
+   2021-2023 (positive correlation regime): CPM Sh 0.85, CAGR 9.43%.
+   Sharpe drops ~25-30% when GLD/TLT lose their crisis-hedge property
+   (e.g., 2022 inflation/rate-hike cycle). 504d covariance window can't
+   adapt fast enough to a regime flip.
+
+5. **NDX sleeve concentration + regime risk.** 4 names × 25% each =
    standalone MaxDD -47%. Mega-cap concentration alpha is regime-dependent;
    a 2000-2010-style tech-lost-decade would likely underperform vs BULL-QQQ
-   alone. Pre-2006 PIT constituent data unavailable (NDX sleeve mirrors BULL
-   in extended backtest).
-3. **Cross-asset momentum + pair selection, not factor rotation.** Drop
-   GLD/TLT/DBC and CPM standalone Sharpe drops by 0.32. GLD alone is the
-   largest single-asset dependency (-0.21 Sh if dropped); TLT second (-0.18).
-   If stock/bond correlation stays positive for an extended period (like 2022),
-   CPM efficiency degrades.
-4. **Structural V-shape recovery lag.** 13612U + canary signals are slow by
-   design and bleed 1-2 months of alpha at violent regime turns (COVID 2020
-   is the calibration tail).
-5. **In-sample selection bias on hyperparameters and universe.** Forward
-   Sharpe anchored at 0.95-1.25 (not the 1.36 backtest); MaxDD planning band
-   widened to -18% to -30% (vs realized -15.34%). Treat DSR as supportive,
-   not as proof of forward edge.
-6. **Vol cap is sleeve-level (CPM-only), not portfolio-level.** CPM has 15%
-   vol target with `MAX_LEVERAGE=1.0`; BULL/NDX contribute raw exposure.
-7. **CPM canary HYG+TIP+GLD differs from BULL canary HYG+LQD+TIP.**
-   Intentional (see Universe details). When CPM is in cash (HYG-/TIP-/GLD-)
-   but BULL has LQD+ → portfolio can hold 30% QQQ while 60% of capital is in
-   SHV. Designed behavior, not a bug.
-8. **Strategy is not yet live-traded.** Forward expectation should anchor
-   below the backtest; bootstrap CI is wide; future regime may differ
-   materially from 2007-2026.
-9. **NDX execution = individual-stock monthly rebalance.** Operationally
-   ~5 swaps per name per year (avg hold ~7.4 months). Tighter spreads on
-   mega-caps but still requires modestly more execution diligence than
-   pure ETF strategies.
+   alone. Pre-2006 PIT constituent data unavailable (NDX mirrors BULL in
+   extended backtest).
+
+6. **Cross-asset diversifier dependency.** Drop GLD/TLT/DBC and CPM standalone
+   Sharpe drops by 0.32. GLD alone is the largest single-asset dependency
+   (-0.21 Sh if dropped); TLT second (-0.18). The strategy is fundamentally
+   pair-momentum, not factor rotation.
+
+7. **Structural V-shape recovery lag.** 13612U + canary signals are slow by
+   design and bleed 1-2 months of alpha at violent regime turns (COVID 2020).
+
+8. **In-sample selection bias.** Forward Sharpe anchored at 0.95-1.25 (not
+   the 1.36 backtest); MaxDD planning band widened to -18% to -30%.
+
+9. **CPM canary HYG+TIP+GLD differs from BULL canary HYG+LQD+TIP.** When CPM
+   is in cash (all three negative) but BULL has LQD+ → portfolio can hold
+   30% QQQ while 60% of capital is in SHV. Intentional; CPM uses GLD as
+   real-asset diversifier while BULL uses LQD as equity-confirmation signal.
+
+10. **Pre-2007 extended backtest is least reliable in exactly the periods
+    that matter most.** Dot-com (2000-02) and GFC (2008) are precisely when
+    the defensive machinery is supposed to prove itself, but they use
+    proxy-stitched data (mutual-fund proxies for some assets pre-2005;
+    NDX sleeve mirrors BULL pre-2006 PIT). Treat pre-2007 results as
+    directional only, not as confirmation.
 
 ## Deployment
 
