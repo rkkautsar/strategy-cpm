@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 import index_constitution as ic
 
-from cpm_live import load_panel, perf_metrics, sig_13612W
+from cpm_live import load_panel, perf_metrics, sig_13612U
 from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
 from ndx_sleeve_live import load_ndx_panel  # reuse NDX panel for tickers
 
@@ -118,7 +118,7 @@ def _run_universe_sleeve(start, end_, index_name, select_k, cost_bps=10):
             for t in available:
                 s = monthly[t].dropna()
                 if len(s) < 13: continue
-                m = sig_13612W(s)
+                m = sig_13612U(s)
                 if pd.notna(m) and m > 0:
                     momenta[t] = m
             top = sorted(momenta.items(), key=lambda x: -x[1])[:select_k]

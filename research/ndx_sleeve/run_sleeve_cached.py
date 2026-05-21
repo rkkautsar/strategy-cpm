@@ -21,7 +21,7 @@ import numpy as np
 import pandas as pd
 import index_constitution as ic
 
-from cpm_live import load_panel, run_cpm_backtest, perf_metrics, sig_13612W
+from cpm_live import load_panel, run_cpm_backtest, perf_metrics, sig_13612U
 from bull_qqq_live import run_bull_qqq_backtest, compute_bull_qqq_weights, CASH_TICKER
 from ndx_momentum_sleeve import load_ndx_panel
 import ndx_momentum_sleeve as nms
@@ -96,7 +96,7 @@ def _run_ndx(start, end_, top_k, select_k, downside_lb, freq) -> pd.Series:
                 s = monthly[t].dropna()
                 if len(s) < 13:
                     continue
-                m = sig_13612W(s)
+                m = sig_13612U(s)
                 if pd.notna(m) and m > 0:
                     momenta[t] = m
             top = sorted(momenta.items(), key=lambda x: -x[1])[:top_k]

@@ -149,7 +149,7 @@ def _qqq_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dic
 # ---------- Allocation ----------
 
 def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
-    """Returns canary state string '+-+' etc. based on HYG/LQD/TIP 13612W signs."""
+    """Returns canary state string '+-+' etc. based on HYG/LQD/TIP 13612U signs."""
     chars = []
     for asset in CANARY_ASSETS:
         if asset not in monthly.columns:
@@ -283,8 +283,8 @@ def cmd_allocate(args):
     print("=" * 60)
     print(f"Bull asset:  {BULL_TICKER}  (100% when macro AND trend both pass)")
     print(f"Fallback:    {CASH_TICKER}  (100% cash when either filter fails)")
-    print(f"Macro gate:  HYG/LQD/TIP any+ 13612W")
-    print(f"Trend filter: ({MOMENTUM_LOOKBACK}-1 absolute momentum > 0) OR (13612W > 0)")
+    print(f"Macro gate:  HYG/LQD/TIP any-positive 13612U")
+    print(f"Trend filter: QQQ {MOMENTUM_LOOKBACK}-1 absolute momentum > 0 (Antonacci GEM)")
     print()
 
     weights, regime, diag = compute_bull_qqq_weights(panel, sig_d)

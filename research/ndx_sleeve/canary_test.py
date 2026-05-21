@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np
 import pandas as pd
 
-from cpm_live import load_panel, perf_metrics, sig_13612W
+from cpm_live import load_panel, perf_metrics, sig_13612U
 from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER, _absolute_momentum
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
@@ -45,7 +45,7 @@ def gate_check(panel, sig_d, canary_tickers, trend_asset=None):
         monthly = panel[c].loc[:sig_d].resample("ME").last().dropna()
         if len(monthly) < 13:
             continue
-        m = sig_13612W(monthly)
+        m = sig_13612U(monthly)
         if pd.notna(m) and m > 0:
             canary_on = True
             break
@@ -58,7 +58,7 @@ def gate_check(panel, sig_d, canary_tickers, trend_asset=None):
     if len(monthly) < 13:
         return False
     mom_12_1 = _absolute_momentum(monthly, sig_d)
-    sig_w13 = sig_13612W(monthly)
+    sig_u = sig_13612U(monthly)
     return (pd.notna(mom_12_1) and mom_12_1 > 0) or (pd.notna(sig_w13) and sig_w13 > 0)
 
 

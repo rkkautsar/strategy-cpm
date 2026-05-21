@@ -217,12 +217,12 @@ def _haa_run(panel, start, end, top_k):
 
 
 def haa_simple(panel, start, end):
-    """HAA-Simple (Keller 2023): TIP canary, top-1 by 13612W from HAA-8."""
+    """HAA-Simple (Keller 2023): TIP canary, top-1 by 13612U from HAA-8."""
     return _haa_run(panel, start, end, top_k=1)
 
 
 def haa_balanced(panel, start, end):
-    """HAA-Balanced (Keller 2023): TIP canary, top-4 by 13612W from HAA-8."""
+    """HAA-Balanced (Keller 2023): TIP canary, top-4 by 13612U from HAA-8."""
     return _haa_run(panel, start, end, top_k=4)
 
 

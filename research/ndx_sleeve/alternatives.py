@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 import index_constitution as ic
 
-from cpm_live import load_panel, perf_metrics, sig_13612W
+from cpm_live import load_panel, perf_metrics, sig_13612U
 from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
 from ndx_sleeve_live import load_ndx_panel
 
@@ -31,7 +31,7 @@ CACHE_DIR.mkdir(exist_ok=True)
 # ---------- Momentum signals ----------
 
 def mom_13612U(monthly: pd.Series) -> float:
-    return sig_13612W(monthly)
+    return sig_13612U(monthly)
 
 def mom_12_1(monthly: pd.Series) -> float:
     """12-month return excluding the most recent month."""
