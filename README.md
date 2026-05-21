@@ -25,18 +25,12 @@ NOT marketed as factor rotation -- GLD/TLT/DBC structurally critical to CPM
 and rejected. CPM canary uses HYG/TIP/GLD (real-asset focus), BULL canary
 uses HYG/LQD/TIP (credit/inflation focus) -- intentional, see caveat 7.
 
-**Headline metrics** (canonical 2007-02 -> 2026-05, 19.2y, all 9 CPM RISKY
-ETFs LIVE at start, includes full GFC realization, 10 bps/side cost):
+**Headline metrics** (canonical 2007-02 -> 2026-05, 19.2y, 10 bps/side cost, upgraded robust 504d covariance + 252d vol + 12-1 QQQ trend, no curve-fitted overrides):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.43** | **17.23%** | **-15.97%** |
-| CPM-BULL 70/30 (prior PROD, no NDX) | 1.33 | 14.09% | -12.61% |
-| CPM-BULL 60/40 (more BULL, no NDX) | 1.35 | 15.15% | -14.19% |
-| CPM standalone | 1.08 | 10.76% | -13.4% |
-| BULL-QQQ standalone | 1.16 | 21.06% | -28.6% |
-| NDX sleeve standalone (top-4 mom) | 1.24 | 40.86% | -44.85% |
-| SPY buy-hold | 0.61 | 10.59% | -55.2% |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.33** | **16.00%** | **-14.72%** |
+| SPY buy-hold | 0.61 | 10.59% | -55.19% |
 
 NDX sleeve adds +0.10 Sh over prior 70/30 PROD by capturing concentrated
 mega-cap momentum alpha. Trade: +3.14pp CAGR for +3.4pp MaxDD.
@@ -117,12 +111,11 @@ cpm = {asset: weight * scale for asset, weight in cpm.items()}
 cpm[SHV] = cpm.get(SHV, 0.0) + (1.0 - sum(cpm.values()))   # cash absorbs residual
 
 # ====== BULL-QQQ sleeve (30% capital) ======
-trend_ok = mom_12_1(QQQ) > 0 OR mom_13612U(QQQ) > 0
+trend_ok = mom_12_1(QQQ) > 0                     # slow anchor (GEM standard)
 macro_on = mom_13612U(HYG) > 0 OR mom_13612U(LQD) > 0 OR mom_13612U(TIP) > 0
-late_cycle_infl = (HYG- AND LQD- AND TIP+)
 
 if trend_ok AND macro_on:
-    bull = {XLP if late_cycle_infl else QQQ: 1.0}
+    bull = {QQQ: 1.0}
 else:
     bull = {SHV: 1.0}
 
@@ -135,15 +128,15 @@ else:
 |---|---|
 | 12-1 skip-month absolute momentum (BULL trend) | GEM-inspired (Antonacci 2014); 12-month lookback with 1-month skip (`p[T-1mo]/p[T-13mo] - 1`), NOT the exact-12-month GEM formula. Uses adjusted total-return prices. |
 | 13612U canonical HAA momentum | Keller & Keuning 2022 HAA canonical; simple unweighted average of 1/3/6/12-month total returns. Internal validation run confirmed: canonical form beats weighted 13612W (+0.08 Sh) AND matches actual paper. Use total-return adjusted prices. |
-| Composite OR trend (12-1 OR 13612U) | Our extension |
+
 | TIP canary | Keller HAA 2022 |
 | HYG/LQD multi-canary | Our extension of Keller DAA (2018) |
 | Faber 10mo SMA ranker (CPM) | Faber 2007 SSRN-inspired; uses adjusted total-return prices (yfinance auto_adjust=True, dividend-reinvested). |
 | Min-variance pair selection | Optimum3/AllocateSmartly 2022-inspired; exact implementation is CPM's (504d covariance on total-return data). Beats lowest_corr (-0.22 Sh) and inv_vol (-0.08 Sh) variants; robust across 126-1260d lookback. |
-| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. NOT the strict Moskowitz/Ooi/Pedersen 2012 construction. Applied to CPM basket via 63d realized total-return vol; not portfolio-level. |
+| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. Trailing 252d standard lookback, 10% target vol. |
 | Cross-sectional selection (top-K rank) | Conceptual inspiration: Jegadeesh & Titman 1993 JoF (return-rank momentum). Actual implementation: Faber 2007 SMA score. J&T listed for transparency of mechanism family, NOT as direct citation. |
 | Hold-buffer dampener | Practitioner standard (AQR notes); applied as z-score of Faber distance |
-| **XLP in HYG-/LQD-/TIP+** | Neuberger Berman 2024 (credit-spread sector rotation), Fidelity business cycle, Hartford Funds 2025 (inflation duration) |
+
 | Multi-test haircut (DSR/PSR) | Bailey & Lopez de Prado 2012 |
 
 ## Validation & Robustness

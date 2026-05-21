@@ -86,9 +86,7 @@ CASH_TICKER = "SHV"          # short-treasury cash, zero duration risk
 # defensive ETF history (1998), (b) zero within-basket rebalancing cost,
 # (c) operational simplicity, (d) tied-best Sharpe across LIVE/TEST/EXT
 # windows. Basket alternatives tested but marginal cost > marginal benefit.
-BULL_BY_STATE = {
-    "+-+": "XLP",   # HYG-/LQD-/TIP+ state: consumer staples
-}
+BULL_BY_STATE = {}  # No state overrides (oracle-v7 robust spec: keep BULL pure QQQ trend)
 
 # Per-asset trend filter: (12-1 absolute momentum > 0) OR (13612W > 0)
 # 12-1 = Antonacci dual momentum / Moskowitz TSMOM (SLOW anchor)
@@ -156,20 +154,17 @@ def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
 
 
 def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Composite trend filter: (12-1 mom > 0) OR (13612U > 0).
+    """Trend filter: 12-1 absolute momentum > 0 (oracle-v7 robust spec).
 
     Returns (signal_on, diagnostics):
-      signal_on = True if at least one of the two trend signals is positive.
-      12-1: slow anchor (anti-whipsaw)
-      13612U: fast signal (average momentum, catches re-entry quickly)
+      signal_on = True if 12-1 absolute momentum is positive.
+      12-1: slow anchor (anti-whipsaw, GEM standard)
     """
     mom_12_1 = _absolute_momentum(monthly_qqq, sig_d)
-    sig_13612W_val = sig_13612W(monthly_qqq.loc[:sig_d])
     mom_ok = pd.notna(mom_12_1) and mom_12_1 > 0
-    w13_ok = pd.notna(sig_13612W_val) and sig_13612W_val > 0
-    return (mom_ok or w13_ok, dict(
-        mom_12_1=mom_12_1, sig_13612W=sig_13612W_val,
-        mom_ok=mom_ok, w13_ok=w13_ok,
+    return (mom_ok, dict(
+        mom_12_1=mom_12_1, sig_13612W=float("nan"),
+        mom_ok=mom_ok, w13_ok=False,
     ))
 
 

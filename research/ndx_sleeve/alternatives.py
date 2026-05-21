@@ -22,7 +22,7 @@ import index_constitution as ic
 
 from cpm_live import load_panel, perf_metrics, sig_13612W
 from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
-from ndx_momentum_sleeve import load_ndx_panel
+from ndx_sleeve_live import load_ndx_panel
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)

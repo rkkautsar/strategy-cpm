@@ -109,7 +109,7 @@ HOLD_BUFFER = 2.5           # z-score units. Keep prior pair member unless new
 #                              See research/hold_buffer_threshold_diagnosis.log.
 CORR_LOOKBACK_DAYS = 504    # ~2y (oracle-v7 robust sweep: 504d beats 756d, more adaptive, lower drawdown)
 TARGET_VOL = 0.10           # annualized
-VOL_LOOKBACK_DAYS = 63
+VOL_LOOKBACK_DAYS = 252    # ~1y (oracle-v7 robust sweep: 252d academic standard, more stable exposure, less whipsaw)
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
 
