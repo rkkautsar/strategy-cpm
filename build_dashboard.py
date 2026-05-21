@@ -541,6 +541,125 @@ def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
     _legend_below(ax, ncol=2)
     return fig
 
+def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_rets: pd.Series, start: pd.Timestamp):
+    """2x4 truth-table heatmap of CPM and BULL sleeve performance by canary state.
+
+    Rows: HYG canary bit (HYG+ top, HYG- bottom).
+    Cols: secondary canary bits (TIP/GLD for CPM, LQD/TIP for BULL).
+    Cell: Sharpe (color) + AnnRet + MaxDD + n_months.
+    """
+    end = panel.index[-1]
+
+    def compute_states(canary_assets):
+        monthly = panel.loc[:end].resample("ME").last()
+        states = {}
+        for sig_d in monthly.index:
+            if sig_d < start:
+                continue
+            bits = []
+            ok = True
+            for c in canary_assets:
+                if c not in monthly.columns:
+                    ok = False; break
+                s = sig_13612U(monthly[c].loc[:sig_d])
+                if pd.isna(s):
+                    ok = False; break
+                bits.append(bool(s > 0))
+            if ok:
+                states[sig_d] = tuple(bits)
+        return pd.Series(states).sort_index()
+
+    def attribute(daily_returns, state_ser):
+        sig_dates = state_ser.index
+        state_per_day = pd.Series(index=daily_returns.index, dtype=object)
+        for i, sig_d in enumerate(sig_dates):
+            sidx = panel.index.searchsorted(sig_d) + 2
+            eidx = panel.index.searchsorted(sig_dates[i+1]) + 1 if i+1 < len(sig_dates) else len(panel.index)
+            if sidx >= len(panel.index):
+                continue
+            window = panel.index[sidx:eidx]
+            common = daily_returns.index.intersection(window)
+            state_per_day.loc[common] = [state_ser.iloc[i]] * len(common)
+        return state_per_day
+
+    def cell_stats(d):
+        d = d.dropna()
+        if len(d) < 5:
+            return None
+        eq = (1 + d).cumprod()
+        vol = d.std(ddof=0) * np.sqrt(252)
+        ann_ret = d.mean() * 252
+        mdd = (eq / eq.cummax() - 1).min()
+        sh = ann_ret / vol if vol > 0 else float('nan')
+        return {'sh': sh, 'ann_ret': ann_ret, 'mdd': mdd}
+
+    def build_grid(daily_returns, canary_assets):
+        state_ser = compute_states(canary_assets)
+        state_per_day = attribute(daily_returns, state_ser)
+        col_order = [(True, True), (True, False), (False, True), (False, False)]
+        row_order = [True, False]
+        grid = []
+        for r in row_order:
+            row_cells = []
+            for c in col_order:
+                st = (r, c[0], c[1])
+                mask = state_per_day == st
+                n_months = int((state_ser == st).sum())
+                d = daily_returns[mask]
+                s = cell_stats(d)
+                row_cells.append({'state': st, 'n_months': n_months, 'stats': s})
+            grid.append(row_cells)
+        return grid
+
+    def plot_sub(ax, grid, canary_labels, title):
+        col_signs = [('+', '+'), ('+', '-'), ('-', '+'), ('-', '-')]
+        row_signs = ['+', '-']
+        sh_grid = np.full((2, 4), np.nan)
+        for ri, row in enumerate(grid):
+            for ci, cell in enumerate(row):
+                if cell['stats']:
+                    sh_grid[ri, ci] = cell['stats']['sh']
+        im = ax.imshow(sh_grid, cmap=plt.cm.RdYlGn, vmin=-1.5, vmax=2.5, aspect='auto')
+        for ri, row in enumerate(grid):
+            for ci, cell in enumerate(row):
+                s = cell['stats']
+                if s is None:
+                    text = f"(no data)\nn={cell['n_months']}mo"
+                    color = 'gray'
+                else:
+                    text = (f"Sh {s['sh']:+.2f}\n"
+                            f"Ret {s['ann_ret']*100:+5.1f}%/y\n"
+                            f"DD {s['mdd']*100:5.1f}%\n"
+                            f"n={cell['n_months']}mo")
+                    color = 'white' if s['sh'] < -0.3 or s['sh'] > 1.6 else 'black'
+                ax.text(ci, ri, text, ha='center', va='center', fontsize=9,
+                        color=color, fontfamily='monospace',
+                        fontweight='bold' if s and s['sh'] > 1.0 else 'normal')
+        col_labels = [f"{canary_labels[1]}{a}\n{canary_labels[2]}{b}" for a, b in col_signs]
+        ax.set_xticks(range(4))
+        ax.set_xticklabels(col_labels, fontsize=9, fontweight='bold')
+        ax.xaxis.tick_top()
+        ax.set_yticks(range(2))
+        ax.set_yticklabels([f"{canary_labels[0]}{s}" for s in row_signs], fontsize=10, fontweight='bold')
+        ax.tick_params(axis='both', which='both', length=0)
+        ax.set_title(title, fontsize=11, fontweight='bold', pad=36)
+        return im
+
+    cpm_canary = ['HYG_stitched', 'TIP', 'GLD']
+    bull_canary = ['HYG_stitched', 'LQD', 'TIP']
+    cpm_labels = ['HYG', 'TIP', 'GLD']
+    bull_labels = ['HYG', 'LQD', 'TIP']
+
+    cpm_grid = build_grid(cpm_rets, cpm_canary)
+    bull_grid = build_grid(bull_rets, bull_canary)
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 6.5), constrained_layout=True)
+    im = plot_sub(axes[0], cpm_grid, cpm_labels, 'CPM sleeve - performance by canary state')
+    plot_sub(axes[1], bull_grid, bull_labels, 'BULL-QQQ sleeve - performance by canary state')
+    fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)
+    return fig
+
+
 def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     """Run signal dates and collect (sig_d, cpm_regime, bull_regime, pair, safe).
     Plot two stacked rows: CPM canary (HYG/TIP/GLD) + BULL canary (HYG/LQD/TIP).
@@ -648,6 +767,327 @@ def picks_table_html(picks, pair_counter, n_signals):
 <div style='flex:1; min-width:280px;'><h3 style='margin-top:0;'>Asset Pick Frequency</h3>{picks_html}</div>
 <div style='flex:1; min-width:280px;'><h3 style='margin-top:0;'>Top Pair Archetypes</h3>{pairs_html}</div>
 </div>"""
+
+
+def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp):
+    """Per-asset conditional performance when held in a CPM pair.
+
+    Bars: Sharpe, AnnRet, CumRet per asset. Sorted by Sharpe.
+    """
+    from collections import defaultdict
+    end = panel.index[-1]
+    monthly = panel.resample('ME').last()
+    sig_dates = [d for d in monthly.index if d >= start]
+
+    asset_returns = defaultdict(list)
+    asset_picks = defaultdict(int)
+    prev_pair = None
+    for i, sig_d in enumerate(sig_dates):
+        weights, new_pair, regime, _ = compute_target_weights(panel, sig_d, prev_pair=prev_pair)
+        sidx = panel.index.searchsorted(sig_d) + 2
+        eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
+        if sidx >= len(panel.index):
+            prev_pair = new_pair; continue
+        window = panel.index[sidx:eidx]
+        for asset in weights.keys():
+            asset_picks[asset] += 1
+            if asset not in panel.columns:
+                continue
+            rs = []
+            for d in window:
+                dpos = panel.index.searchsorted(d)
+                if dpos == 0:
+                    continue
+                p0 = panel[asset].iloc[dpos - 1]
+                p1 = panel[asset].loc[d]
+                if pd.notna(p0) and pd.notna(p1) and p0 > 0:
+                    rs.append((d, p1/p0 - 1))
+            if rs:
+                asset_returns[asset].append(pd.Series([r for _, r in rs], index=[d for d, _ in rs]))
+        prev_pair = new_pair
+
+    rows = []
+    for a, sers in asset_returns.items():
+        full = pd.concat(sers).sort_index().dropna()
+        if len(full) < 3:
+            continue
+        eq = (1 + full).cumprod()
+        vol = full.std(ddof=0) * np.sqrt(252)
+        ann_ret = full.mean() * 252
+        sh = ann_ret / vol if vol > 0 else float('nan')
+        cum = eq.iloc[-1] - 1
+        rows.append({'asset': a, 'picks': asset_picks[a], 'sh': sh, 'ann_ret': ann_ret, 'cum': cum})
+    rows.sort(key=lambda r: -r['sh'])
+
+    assets = [r['asset'] for r in rows]
+    sharpes = [r['sh'] for r in rows]
+    ann_rets = [r['ann_ret'] * 100 for r in rows]
+    cums = [r['cum'] * 100 for r in rows]
+    picks_n = [r['picks'] for r in rows]
+
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.5), constrained_layout=True)
+    colors = ['#ec5b56' if s < 0 else '#73c373' if s > 1 else '#c4d76f' for s in sharpes]
+
+    axes[0].barh(assets, sharpes, color=colors, edgecolor='#333')
+    axes[0].axvline(0, color='black', lw=0.8)
+    axes[0].set_xlabel('Sharpe (when held)')
+    axes[0].set_title('Sharpe (when picked)')
+    axes[0].invert_yaxis()
+    for i, (s, n) in enumerate(zip(sharpes, picks_n)):
+        axes[0].text(s + (0.05 if s >= 0 else -0.05), i, f"{s:+.2f}\n(n={n})",
+                     va='center', ha='left' if s >= 0 else 'right', fontsize=8)
+
+    axes[1].barh(assets, ann_rets, color=colors, edgecolor='#333')
+    axes[1].axvline(0, color='black', lw=0.8)
+    axes[1].set_xlabel('Annualized Return % (when held)')
+    axes[1].set_title('Ann.Return (when picked)')
+    axes[1].invert_yaxis()
+    for i, v in enumerate(ann_rets):
+        axes[1].text(v + (0.5 if v >= 0 else -0.5), i, f"{v:+.1f}%",
+                     va='center', ha='left' if v >= 0 else 'right', fontsize=8)
+
+    axes[2].barh(assets, cums, color=colors, edgecolor='#333')
+    axes[2].axvline(0, color='black', lw=0.8)
+    axes[2].set_xlabel('Cumulative Return % (over all held days)')
+    axes[2].set_title('Cum.Return (when picked)')
+    axes[2].invert_yaxis()
+    for i, v in enumerate(cums):
+        axes[2].text(v + (2 if v >= 0 else -2), i, f"{v:+.1f}%",
+                     va='center', ha='left' if v >= 0 else 'right', fontsize=8)
+
+    return fig
+
+
+def chart_sleeve_contribution(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series,
+                              w_cpm: float, w_bull: float, w_ndx: float):
+    """Yearly stacked bars showing each sleeve's contribution to blend annual return."""
+    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
+    cpm_c = cpm_rets.loc[common] * w_cpm
+    bull_c = bull_rets.loc[common] * w_bull
+    ndx_c = ndx_rets.loc[common] * w_ndx
+
+    def yearly_contribution(daily):
+        # Annualized contribution: sum of daily contributions per year
+        # Approximation: sum_d (w * r_d) = w * sum_d r_d ~= w * annual_ret
+        # More accurate: re-compound annual
+        return daily.groupby(daily.index.year).sum()
+
+    cpm_y = yearly_contribution(cpm_c)
+    bull_y = yearly_contribution(bull_c)
+    ndx_y = yearly_contribution(ndx_c)
+    years = cpm_y.index
+
+    fig, ax = plt.subplots(figsize=(12, 4.5), constrained_layout=True)
+
+    # Stacked bars
+    width = 0.7
+    ax.bar(years, cpm_y * 100, width, label=f'CPM ({int(w_cpm*100)}%)', color='#2e86c1', edgecolor='#1b4f72')
+    ax.bar(years, bull_y * 100, width, bottom=cpm_y * 100, label=f'BULL-QQQ ({int(w_bull*100)}%)', color='#f39c12', edgecolor='#7e5109')
+    ax.bar(years, ndx_y * 100, width, bottom=(cpm_y + bull_y) * 100, label=f'NDX ({int(w_ndx*100)}%)', color='#c0392b', edgecolor='#641e16')
+
+    # Total line marker
+    totals = (cpm_y + bull_y + ndx_y) * 100
+    ax.plot(years, totals, color='black', marker='D', markersize=6, linestyle='', label='Blend total')
+
+    ax.axhline(0, color='black', lw=0.5)
+    ax.set_ylabel('Annual contribution to blend return (%)')
+    ax.set_title('Per-sleeve contribution to blend (yearly, daily-sum approximation)')
+    ax.set_xticks(years)
+    ax.set_xticklabels(years, rotation=45)
+    ax.grid(axis='y', alpha=0.3)
+    _legend_below(ax, ncol=4)
+    return fig
+
+
+def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series,
+                          w_cpm: float, w_bull: float, w_ndx: float, top_n: int = 10) -> str:
+    """Identify top-N drawdown periods of the blend and decompose by sleeve contribution."""
+    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
+    blend = w_cpm * cpm_rets.loc[common] + w_bull * bull_rets.loc[common] + w_ndx * ndx_rets.loc[common]
+    eq = (1 + blend).cumprod()
+    peak = eq.cummax()
+    dd = eq / peak - 1
+
+    # Identify drawdown periods: peak -> trough -> recovery (or end)
+    in_dd = False
+    periods = []
+    start_d = None
+    for date, val in dd.items():
+        if not in_dd and val < -0.001:
+            in_dd = True
+            start_d = date
+        elif in_dd and val >= -0.0001:
+            trough_d = dd.loc[start_d:date].idxmin()
+            trough_v = dd.loc[trough_d]
+            periods.append({'start': start_d, 'trough': trough_d, 'recovery': date, 'depth': trough_v})
+            in_dd = False
+    if in_dd:
+        trough_d = dd.loc[start_d:].idxmin()
+        trough_v = dd.loc[trough_d]
+        periods.append({'start': start_d, 'trough': trough_d, 'recovery': None, 'depth': trough_v})
+
+    periods.sort(key=lambda p: p['depth'])
+    top = periods[:top_n]
+
+    rows_html = ""
+    for p in top:
+        s, t, r, d = p['start'], p['trough'], p['recovery'], p['depth']
+        end_d = r if r else cpm_rets.index[-1]
+        sub_cpm = cpm_rets.loc[s:end_d].sum() * w_cpm
+        sub_bull = bull_rets.loc[s:end_d].sum() * w_bull
+        sub_ndx = ndx_rets.loc[s:end_d].sum() * w_ndx
+        # Compute the actual blend drawdown contribution per sleeve over peak-to-trough
+        ptd_cpm = cpm_rets.loc[s:t].sum() * w_cpm
+        ptd_bull = bull_rets.loc[s:t].sum() * w_bull
+        ptd_ndx = ndx_rets.loc[s:t].sum() * w_ndx
+        days_to_trough = (t - s).days
+        days_to_recover = (r - t).days if r else None
+        rec_str = f"{days_to_recover}d" if r else "<em>ongoing</em>"
+        rows_html += (f"<tr>"
+                      f"<td>{s.strftime('%Y-%m-%d')}</td>"
+                      f"<td>{t.strftime('%Y-%m-%d')}</td>"
+                      f"<td>{r.strftime('%Y-%m-%d') if r else '-'}</td>"
+                      f"<td style='text-align:right'>{d*100:+.2f}%</td>"
+                      f"<td style='text-align:right'>{days_to_trough}d</td>"
+                      f"<td style='text-align:right'>{rec_str}</td>"
+                      f"<td style='text-align:right; color:{'#c0392b' if ptd_cpm < 0 else '#27ae60'}'>{ptd_cpm*100:+.2f}%</td>"
+                      f"<td style='text-align:right; color:{'#c0392b' if ptd_bull < 0 else '#27ae60'}'>{ptd_bull*100:+.2f}%</td>"
+                      f"<td style='text-align:right; color:{'#c0392b' if ptd_ndx < 0 else '#27ae60'}'>{ptd_ndx*100:+.2f}%</td>"
+                      f"</tr>")
+
+    return f"""<table class='metric-table'><thead><tr>
+<th>Peak date</th><th>Trough date</th><th>Recovery date</th>
+<th>Depth</th><th>To trough</th><th>To recover</th>
+<th>CPM contrib (peak->trough)</th><th>BULL contrib (peak->trough)</th><th>NDX contrib (peak->trough)</th>
+</tr></thead><tbody>{rows_html}</tbody></table>"""
+
+
+def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp):
+    """Rolling 12-month % of months the CPM canary was defensive."""
+    monthly = panel.resample('ME').last()
+    sig_dates = [d for d in monthly.index if d >= start]
+    defensive_per_month = []
+    prev_pair = None
+    for sig_d in sig_dates:
+        weights, new_pair, regime, _ = compute_target_weights(panel, sig_d, prev_pair=prev_pair)
+        is_def = 1.0 if regime == "DEFENSIVE" else (0.5 if new_pair is None else 0.0)
+        defensive_per_month.append((sig_d, is_def))
+        prev_pair = new_pair
+    df_def = pd.DataFrame(defensive_per_month, columns=['date', 'def']).set_index('date')
+    rolling_def = df_def['def'].rolling(12, min_periods=6).mean() * 100
+
+    fig, ax = plt.subplots(figsize=(12, 4), constrained_layout=True)
+    ax.fill_between(rolling_def.index, 0, rolling_def.values, color='#e74c3c', alpha=0.4, label='CPM defensive %')
+    ax.plot(rolling_def.index, rolling_def.values, color='#c0392b', lw=1.5)
+    ax.axhline(rolling_def.mean(), color='black', ls='--', lw=0.8, label=f'Mean {rolling_def.mean():.1f}%')
+    ax.set_ylabel('% of last 12 months in defensive (SHV cash)')
+    ax.set_ylim(0, 100)
+    ax.set_title('CPM Rolling Defensive Activation (12-month window)')
+    ax.legend(loc='upper right')
+    ax.grid(alpha=0.3)
+    ax.xaxis.set_major_locator(mdates.YearLocator(2))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    return fig
+
+
+def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp):
+    """Gantt-style pair-pick timeline colored by realized 1mo return."""
+    monthly = panel.resample('ME').last()
+    sig_dates = [d for d in monthly.index if d >= start]
+    timeline = []
+    prev_pair = None
+    for i, sig_d in enumerate(sig_dates):
+        weights, new_pair, regime, _ = compute_target_weights(panel, sig_d, prev_pair=prev_pair)
+        sidx = panel.index.searchsorted(sig_d) + 2
+        eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
+        if sidx >= len(panel.index):
+            prev_pair = new_pair; continue
+        port_ret = 0.0
+        for a, w in weights.items():
+            if a in panel.columns:
+                p0 = panel[a].iloc[sidx - 1]
+                p1 = panel[a].iloc[eidx - 1] if eidx - 1 < len(panel.index) else None
+                if p1 is not None and pd.notna(p0) and pd.notna(p1) and p0 > 0:
+                    port_ret += w * (p1 / p0 - 1)
+        label = ' + '.join(sorted(new_pair)) if new_pair else ('DEFENSIVE' if regime == 'DEFENSIVE' else 'PARTIAL')
+        timeline.append({'date': sig_d, 'label': label, 'ret': port_ret})
+        prev_pair = new_pair
+    df_tl = pd.DataFrame(timeline)
+    label_counts = df_tl['label'].value_counts()
+    labels_sorted = label_counts.index.tolist()
+    label_to_y = {l: i for i, l in enumerate(labels_sorted)}
+    df_tl['y'] = df_tl['label'].map(label_to_y)
+
+    fig, ax = plt.subplots(figsize=(13, 7), constrained_layout=True)
+    vmin, vmax = -0.08, 0.08
+    scatter = ax.scatter(df_tl['date'], df_tl['y'], c=df_tl['ret'].clip(vmin, vmax),
+                         cmap=plt.cm.RdYlGn, vmin=vmin, vmax=vmax, s=50, marker='s',
+                         edgecolor='black', linewidth=0.3)
+    ax.set_yticks(range(len(labels_sorted)))
+    ax.set_yticklabels([f"{l} (n={label_counts[l]})" for l in labels_sorted], fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlabel('Signal date')
+    ax.set_title('CPM Pair-Pick Timeline (color = realized 1mo return of held weights)')
+    ax.xaxis.set_major_locator(mdates.YearLocator(2))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    ax.grid(alpha=0.2)
+    cbar = fig.colorbar(scatter, ax=ax)
+    cbar.set_label('1mo realized return (clipped at -8%/+8%)')
+    return fig
+
+
+def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series, window: int = 252):
+    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
+    roll_cb = cpm_rets.loc[common].rolling(window).corr(bull_rets.loc[common])
+    roll_cn = cpm_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
+    roll_bn = bull_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
+
+    fig, ax = plt.subplots(figsize=(12, 4.5), constrained_layout=True)
+    ax.plot(roll_cb.index, roll_cb, color='#2e86c1', lw=1.5, label='CPM vs BULL-QQQ')
+    ax.plot(roll_cn.index, roll_cn, color='#f39c12', lw=1.5, label='CPM vs NDX')
+    ax.plot(roll_bn.index, roll_bn, color='#c0392b', lw=1.5, label='BULL-QQQ vs NDX')
+    ax.axhline(0, color='gray', lw=0.5)
+    ax.axhline(0.5, color='gray', ls=':', lw=0.5)
+    ax.set_ylabel('1y rolling correlation')
+    ax.set_title('Rolling 252-day correlations between sleeves')
+    ax.legend(loc='lower right')
+    ax.grid(alpha=0.3)
+    ax.xaxis.set_major_locator(mdates.YearLocator(2))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+    return fig
+
+
+def chart_monthly_return_distributions(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series,
+                                         w_cpm: float, w_bull: float, w_ndx: float):
+    def monthly(daily):
+        return (1 + daily).resample('ME').apply(lambda x: x.prod() - 1)
+    m_cpm = monthly(cpm_rets).dropna() * 100
+    m_bull = monthly(bull_rets).dropna() * 100
+    m_ndx = monthly(ndx_rets).dropna() * 100
+    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
+    blend = w_cpm * cpm_rets.loc[common] + w_bull * bull_rets.loc[common] + w_ndx * ndx_rets.loc[common]
+    m_blend = monthly(blend).dropna() * 100
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 7), constrained_layout=True)
+    for ax, (name, ser, color) in zip(
+        axes.flat,
+        [(f'CPM ({int(w_cpm*100)}%)', m_cpm, '#2e86c1'),
+         (f'BULL-QQQ ({int(w_bull*100)}%)', m_bull, '#f39c12'),
+         (f'NDX ({int(w_ndx*100)}%)', m_ndx, '#c0392b'),
+         (f'Blend {int(w_cpm*100)}/{int(w_bull*100)}/{int(w_ndx*100)}', m_blend, '#27ae60')]
+    ):
+        ax.hist(ser, bins=40, color=color, alpha=0.7, edgecolor='black', linewidth=0.5)
+        ax.axvline(ser.mean(), color='black', ls='--', lw=1, label=f'Mean {ser.mean():.2f}%')
+        ax.axvline(ser.median(), color='red', ls=':', lw=1, label=f'Median {ser.median():.2f}%')
+        ax.axvline(0, color='gray', lw=0.5)
+        skew = ((ser - ser.mean()) ** 3).mean() / ser.std() ** 3
+        kurt = ((ser - ser.mean()) ** 4).mean() / ser.std() ** 4 - 3
+        ax.set_title(f'{name}: skew {skew:+.2f}, ex.kurt {kurt:+.2f}')
+        ax.set_xlabel('Monthly return (%)')
+        ax.set_ylabel('Count')
+        ax.legend(fontsize=8, loc='upper right')
+        ax.grid(alpha=0.3)
+    return fig
 
 
 def chart_correlations(strategies: dict):
@@ -894,6 +1334,14 @@ def main():
     fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
     fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(panel, start)
+    fig_canary_heatmap = chart_canary_state_heatmap(panel, cpm, bull_qqq_rets, start)
+    fig_asset_picked = chart_asset_when_picked(panel, start)
+    fig_sleeve_contrib = chart_sleeve_contribution(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W)
+    drawdowns_html = table_worst_drawdowns(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W, top_n=10)
+    fig_def_pct = chart_rolling_defensive_pct(panel, start)
+    fig_pair_timeline = chart_pair_pick_timeline(panel, start)
+    fig_sleeve_corr = chart_rolling_sleeve_correlation(cpm, bull_qqq_rets, ndx_rets)
+    fig_distributions = chart_monthly_return_distributions(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W)
     # CPM regimes sum to total months; BULL regimes also sum to total. Use CPM as denominator.
     n_signals = regime_counts["RISK_ON"] + regime_counts["DEFENSIVE"]
     picks_html = picks_table_html(picks, pair_counter, n_signals)
@@ -1119,10 +1567,64 @@ def main():
 <p class='footnote'>Mechanism summary: CPM's canary uses GLD because gold is part of its tradable diversifier set (a GLD-positive regime invites CPM to rotate INTO gold). BULL's canary uses LQD because investment-grade credit confirms broad risk-on across the credit stack -- exactly what an equity-only overlay needs before going long. HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
 </div>
 
+<h2>Canary-State Conditional Performance</h2>
+<div class='card'>
+{fig_to_html(fig_canary_heatmap)}
+<p>Each cell shows the sleeve's realized performance during months when that exact canary bit-combination was active. Sharpe colored on a -1.5/+2.5 scale (red=bad, green=good). AnnRet = annualized arithmetic return (what you'd earn if regime stayed active); DD = max drawdown of the sub-sample equity curve; n=months in state.</p>
+<p><strong>CPM key observations:</strong> Row HYG- TIP+ (any GLD) is the killer regime - Sharpe -0.73 to -0.94 across 16 months. This is the GLD+TLT liquidation-crisis cluster: credit off, inflation rising, min-vol picks GLD+TLT but both crash together (2008 GFC, 2020 COVID, 2022 inflation). Best regime is HYG+ TIP+ GLD- (Sh +2.13) - credit and inflation positive, gold quiescent. Defensive cells (HYG-, TIP-, GLD-) show high Sharpe with near-zero return - the sleeve correctly sits in SHV cash earning tiny yield at near-zero vol.</p>
+<p><strong>BULL key observations:</strong> Row HYG- (all four cells) shows extraordinarily high Sharpes (+2.25 to +2.82) - these are defensive cash periods where BULL sits in SHV. Risk-on weakness shows in HYG+ LQD- columns (Sh +0.65) - credit on but quality-credit off signals stress. Best risk-on regime is HYG+ LQD+ TIP- (Sh +2.00) - all credit positive without inflation distortion.</p>
+<p class='footnote'>Note: Cells with very high Sharpe and near-zero return are defensive states where the sleeve held SHV cash (low vol, ~RFR yield). The Sharpe metric is informative but the AnnRet shows the regime contributes little dollar return.</p>
+</div>
+
 <h2>Asset Pick Frequency & Top Pair Archetypes</h2>
 <div class='card'>
 {picks_html}
 <p class='footnote'>Counts across signal dates from {start.strftime('%Y-%m')} onward. Shows which assets the min-variance pair selection actually picks most often, and which pair archetypes dominate. Helpful to verify universe is actually being used (no zombies).</p>
+</div>
+
+<h2>Conditional Asset Performance (when picked)</h2>
+<div class='card'>
+{fig_to_html(fig_asset_picked)}
+<p>For each asset, performance during the days it was held in a CPM pair. <strong>TLT is the only asset with negative Sharpe</strong> (Sh -0.15, AnnRet -2.2%, CumRet -13.7% across 53 picks) - it gets selected by the min-vol optimizer for its low correlation to equities, but its own returns during those holding periods are net-negative. SHV (defensive cash) shows artificially high Sharpe (+3.5) because of low vol; the +10.7% cumulative contribution over 85 defensive picks reflects the risk-free yield carry.</p>
+<p><strong>Why TLT stays in the universe</strong>: 18 single-mechanism alternatives tested (drop TLT, swap TLT-&gt;IEF/AGG/EDV, etc.) - all hurt blend Sharpe and MaxDD by 0.05-0.25 / 1-8pp respectively. TLT's negative individual contribution is the price paid for the variance hedge it provides to equity pairs. The portfolio function is more valuable than the individual return.</p>
+</div>
+
+<h2>Per-Sleeve Yearly Contribution to Blend</h2>
+<div class='card'>
+{fig_to_html(fig_sleeve_contrib)}
+<p>Each year's bar shows what each sleeve contributed to the blend return (60% CPM + 30% BULL-QQQ + 10% NDX, daily-sum approximation). Diamonds mark total blend annual return. Useful for seeing which sleeve carried each year - CPM tends to dominate in defensive/stagflation regimes (2008, 2022), while BULL-QQQ and NDX dominate strong bull years (2013, 2017, 2020, 2023-24).</p>
+<p class='footnote'>Calculation note: contribution = sleeve_weight * sum(daily_returns) per year. This is a linear approximation; actual compounding effects mean the contributions sum to approximately (but not exactly) the blend annual return.</p>
+</div>
+
+<h2>Top-10 Worst Blend Drawdowns (peak-to-trough attribution)</h2>
+<div class='card'>
+{drawdowns_html}
+<p>Each row is a distinct peak-to-trough drawdown of the blend. CPM/BULL/NDX columns show each sleeve's <em>contribution</em> to blend returns over the peak-to-trough window (sleeve weight * sum of daily returns). Negative values are losses; positive values mean the sleeve hedged the drawdown.</p>
+<p class='footnote'>Drawdown periods are identified as continuous sub-windows where equity is below prior peak. Recovery date = when equity first re-touches the prior peak (or '-' if still ongoing). 'To trough' = days from peak to drawdown low; 'To recover' = days from trough back to peak.</p>
+</div>
+
+<h2>CPM Rolling Defensive % (1-year window)</h2>
+<div class='card'>
+{fig_to_html(fig_def_pct)}
+<p>Fraction of the last 12 monthly signal dates where the CPM canary forced 100% SHV cash. Spikes mark stress regimes: 2009 (post-GFC residual), 2016 (~83% - flat directionless market), 2019, 2023 (~75% - inflation/banking stress), 2025-26 (recent shock). Mean activation ~37% confirms the strategy spends about a third of its time in defensive cash. Notably the 2008 peak isn't the highest - the canary went defensive AFTER the GFC crash, not before it (limitation of trend-following signals).</p>
+</div>
+
+<h2>Pair-Pick Timeline</h2>
+<div class='card'>
+{fig_to_html(fig_pair_timeline)}
+<p>Each square = one monthly signal. Y-axis = which pair (or DEFENSIVE) was picked. Color = realized 1mo return of held weights (red = loss, green = gain, yellow ~ flat). Visualizes pair clustering by regime: GLD+TLT clustered in 2008/2010-12/2019-20 (with red months marking the bad cluster), EFA+GLD recent 2024-26, GLD+SPHQ current dominant since 2023. DEFENSIVE row shows long defensive stretches especially mid-2010s.</p>
+</div>
+
+<h2>Rolling Sleeve Correlations</h2>
+<div class='card'>
+{fig_to_html(fig_sleeve_corr)}
+<p><strong>This is the strategy's risk-adjusted edge made visible.</strong> CPM-vs-BULL and CPM-vs-NDX correlation swings from <strong>-0.5 to +0.95</strong> over time. During equity stress (2008, 2012, 2020, 2022) CPM goes <strong>negatively correlated</strong> with equities - real diversification. During calm bull markets (2014-15, 2018-19, 2024+) CPM picks growth-equity pairs and acts like another equity sleeve. BULL-vs-NDX correlation stays high (~0.7-0.9) because both are Nasdaq-driven. The time-varying CPM correlation is exactly the property that makes the 60/30/10 blend efficient.</p>
+</div>
+
+<h2>Monthly Return Distributions</h2>
+<div class='card'>
+{fig_to_html(fig_distributions)}
+<p>Distribution of monthly returns per sleeve and blend. <strong>NDX has heavy excess kurtosis (+4.31)</strong> from long-tail wins (and losses) of individual stock concentration. <strong>BULL has bimodal-ish look</strong> - tall spike at 0% from defensive cash months. <strong>Blend distribution is closest to normal</strong> (skew -0.01, ex.kurt +0.44) - sleeve diversification smooths tail risk. Median > 0% across all sleeves; mean > median for blend (positive skew benefit from compounding).</p>
 </div>
 
 <h2>Strategy Correlations</h2>
