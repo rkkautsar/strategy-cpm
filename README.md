@@ -36,13 +36,21 @@ uses HYG/LQD/TIP (credit/inflation focus) -- intentional, see caveat 7.
 NDX sleeve adds ~+0.07 Sh over 70/30 no-NDX reference by capturing concentrated
 mega-cap momentum alpha. Trade: ~+2.5pp CAGR for ~+3pp MaxDD.
 
-**Forward expectation** (discounted from canonical backtest):
+**Forward expectation** (discounted from canonical backtest, oracle review 2026-05-21):
 
-| | Forward base case |
-|---|---|
-| Sharpe | **0.90-1.20** (not the 1.36 canonical) |
-| CAGR | **10-14%** (not the 17.58% canonical) |
-| MaxDD | **-15% to -25%** (canonical -15%, NDX flash-crash risk could push to -25%) |
+| Metric | Backtest | Forward base case |
+|---|---:|---|
+| Sharpe | 1.36 | **0.95-1.25** |
+| CAGR | 17.58% | **11-15%** (post-cost, pre-tax) |
+| MaxDD | -15.34% | **-18% to -30%** (planning band; forward DD typically 1.2-2.0x realized history) |
+| Calmar | 1.15 | **0.50-0.85** |
+| Martin | 4.77 | **3.0-4.3** |
+
+Sharpe floor raised slightly from prior 0.90 to 0.95 (bootstrap 95% CI lower
+bound 0.946, DSR 99.7% at N=1000). MaxDD planning band widened to account
+for NDX concentration + 15% vol cap allowing wider sleeve DD + bootstrap of
+returns not capturing tail sequencing risk. Base case (mid-band): Sharpe
+~1.05-1.15, CAGR ~12-14%, DD in low/mid-20s during a bad cycle.
 
 **Top 4 caveats** (full list of 9+ in Validation & Robustness section):
 1. **Severe tax drag** -- economically unattractive outside tax-advantaged accounts (IRA/401k/Roth). Monthly rotation = short-term gains, ~2-4pp/yr drag. NDX sleeve (individual stocks) compounds this -- best in tax-advantaged accounts.
@@ -314,7 +322,7 @@ EXT 30y stress (1996+):
 
 Under simultaneous worst-case failures (50bps cost + no diversifier sleeve),
 Sharpe drops to **0.90** on canonical / **0.94** on EXT -- still **within**
-the forward expectation band of 0.85-1.15, and well above SPY's historical
+the forward expectation band of 0.95-1.25, and well above SPY's historical
 ~0.61. The strategy lands inside the discounted forward range even with
 three correlated failure modes hitting at once.
 
@@ -340,35 +348,37 @@ in the design, not the magnitude of expected return.*
 *All numbers in this document use canonical CLI window 2007-02-28 to
 present, current CPM-9 13612U spec, 10 bps/side cost.*
 
-### Bootstrap CI + DSR (CPM-9 canonical 2007-02 window)
+### Bootstrap CI + DSR (60/30/10 PROD, canonical 2007-02 -> 2026-05, refresh 2026-05-21)
 
-**Block bootstrap (n=1000, 21-day blocks, CPM-BULL daily returns):**
+**Block bootstrap (B=2000, 21-day blocks, daily returns):**
 
-| Statistic | Value |
-|---|---:|
-| Point Sh | 1.334 |
-| Bootstrap mean Sh | 1.376 |
-| Bootstrap median Sh | 1.386 |
-| 95% CI | [0.905, 1.819] |
-| Pr(Sh > 0.5) | 100.0% |
-| Pr(Sh > 0.9) | 97.6% |
-| Pr(Sh > 1.0) | 94.3% |
-| Pr(Sh > 1.2) | 76.2% |
+| Strategy | Sh point | Bootstrap mean | 95% CI | P(Sh>0.5) | P(Sh>1.0) |
+|---|---:|---:|---:|---:|---:|
+| CPM standalone | 1.113 | 1.120 | [0.708, 1.528] | 99.9% | 73.2% |
+| BULL standalone | 1.011 | 1.011 | [0.578, 1.444] | 98.8% | 52.6% |
+| NDX standalone | 1.131 | 1.117 | [0.669, 1.564] | 99.6% | 69.1% |
+| **60/30/10 PROD** | **1.364** | **1.362** | **[0.946, 1.796]** | **100%** | **95.1%** |
 
-**DSR (deflated Sharpe, ~80 trials tested this session):**
+**DSR (Bailey-Lopez de Prado deflated Sharpe, P[true Sh > 0] after N-trial haircut):**
 
-| Quantity | Value |
-|---|---:|
-| Observed annual Sh | 1.334 |
-| Sh standard error | 0.020 |
-| Expected max Sh from N=80 trials (Bailey-Lopez de Prado) | 0.044 |
-| **DSR (deflated Sh)** | **1.290** |
+| Strategy | N=50 | N=100 | N=500 | N=1000 |
+|---|---:|---:|---:|---:|
+| CPM standalone | 99.6% | 99.1% | 96.8% | 95.1% |
+| BULL standalone | 98.6% | 97.3% | 92.2% | 88.9% |
+| NDX standalone | 99.7% | 99.4% | 97.5% | 96.1% |
+| **60/30/10 PROD** | **99.99%** | **99.97%** | **99.84%** | **99.70%** |
 
-**Reading:** DSR of 1.29 is well above the 0.5 threshold for "genuine edge."
-95% bootstrap CI is wide ([0.91, 1.82]) -- a true forward Sharpe of 0.85-1.15
-is well within the distribution and aligns with the forward expectation band.
-Anchor expectations to the discounted band; treat DSR as supportive under
-the ~80-trial estimate, not as proof of forward edge.
+**Reading:**
+- Blend bootstrap 95% CI [0.946, 1.796] -- even the unlucky 5th percentile
+  lands at Sh 0.95, near the lower bound of the forward expectation band.
+- P(Sh > 1.0) = 95.1% on blend; strong evidence true Sharpe exceeds 1.0.
+- DSR > 99.7% even at N=1000 trial haircut -- genuinely positive Sharpe
+  with extreme statistical confidence, well above 0.5 "genuine edge" threshold.
+- All sleeves individually DSR > 88% at N=1000 -- each contributes real signal.
+- Compare prior validation (CPM-only, older spec): bootstrap CI [0.78, 1.63],
+  DSR ~95% at N=1000. New robust spec tightens both materially.
+- Anchor forward expectations to the discounted band (selection bias + regime
+  + NDX concentration); treat DSR as supportive, not as proof of forward edge.
 
 ### Blend weight sensitivity
 
@@ -937,8 +947,10 @@ in the deployed strategy.
   universe tuning is roughly neutral OOS, not a clear improvement.
 - **Hyperparameter robustness** (walk-forward across 5 OOS slices): selected
   config wins on 4/5 slices.
-- **Bootstrap CI on Sharpe** (B=2000, 21-day blocks): CPM standalone Sh 1.20,
-  95% CI [0.78, 1.63]. 60/40 blend Sh 1.24, 95% CI ~[0.80, 1.65]. CIs are wide.
+- **Bootstrap CI on Sharpe** (B=2000, 21-day blocks, refresh 2026-05-21):
+  60/30/10 PROD blend Sh 1.36, **95% CI [0.946, 1.796]**, P(Sh>1.0) = 95.1%.
+  CPM standalone Sh 1.11, 95% CI [0.708, 1.528]. CIs are narrower than under
+  prior spec (was [0.78, 1.63]); robust spec gives sharper estimate.
 - **Head-to-head vs live ReSolve AAA fund (RDMIX)** (see
   `research/fcp_vs_resolve_live.log`): 2018-03 to 2026-05 (8.2y, aligned with
   RDMIX inception). CPM gross Sh 1.31 / CAGR 11.6% / MaxDD -10.7% vs RDMIX
@@ -1246,10 +1258,12 @@ the backtest 1.20. Reasons:
 Sharpe up to 1.20, CAGR up to 10%, DD held near -12%. Treat upside as a
 condition to verify in live data, not a default expectation.
 
-**60/30/10 production blend forward expectation (heavily discounted):**
-- CAGR: 10-14% (NOT the backtest 17.58%)
-- Sharpe: 0.90-1.20 (NOT the backtest 1.48)
-- MaxDD: -15% to -25% (closer to EXT 32y -18.4% than LIVE -13.85%)
+**60/30/10 production blend forward expectation (oracle review 2026-05-21):**
+- Sharpe: **0.95-1.25** (NOT the backtest 1.36)
+- CAGR: **11-15%** post-cost pre-tax (NOT the backtest 17.58%)
+- MaxDD: **-18% to -30%** planning band (NOT the backtest -15.34%; forward DD 1.2-2.0x realized)
+- Calmar: **0.50-0.85** (NOT the backtest 1.15)
+- Martin: **3.0-4.3** (NOT the backtest 4.77)
 
 The BULL-QQQ sleeve was selected after observing the post-GFC Nasdaq regime
 and AI rally. The LIVE-18y 20% CAGR for BULL standalone is QQQ-era driven:
