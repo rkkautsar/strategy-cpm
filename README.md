@@ -29,7 +29,7 @@ uses HYG/LQD/TIP (credit/inflation focus) -- intentional, see caveat 7.
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.34** | **15.92%** | **-14.99%** |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.37** | **16.40%** | **-14.99%** |
 | SPY buy-hold | 0.61 | 10.59% | -55.19% |
 
 NDX sleeve adds +0.10 Sh over prior 70/30 PROD by capturing concentrated
@@ -101,7 +101,7 @@ else:
         cpm = {SHV: 1.0}                                     # full defensive
     # Hold-buffer (deterministic, leg-level): retain prior pair member if its
     # cross-sectional z-score (sample-std over positive candidates) is within
-    # HOLD_BUFFER = 2.5 units of the worst new pick. Stale members (faber<=0)
+    # HOLD_BUFFER = 2.0 units of the worst new pick. Stale members (faber<=0)
     # NEVER retained. Buffer DISABLED if fewer than 3 positive candidates (small
     # sample makes z-score unstable). See research/hold_buffer_threshold_diagnosis.log.
 
@@ -430,7 +430,7 @@ CPM sleeve (which has access to all SPDR sectors via its candidate pool).
 
 **Production deployment: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve.**
 
-CPM engine spec: 9 risky ETFs, `TOP_K_CANDIDATES=5`, `HOLD_BUFFER=2.5z`,
+CPM engine spec: 9 risky ETFs, `TOP_K_CANDIDATES=5`, `HOLD_BUFFER=2.0z`,
 **HYG+TIP+GLD "any positive" 13612U canary**, vol-target 10% (de-risk only,
 no leverage), 10 bps/side cost, SHV-only cash fallback. BULL-QQQ spec:
 12-1 absolute momentum AND multi-canary (HYG/LQD/TIP any-positive 13612U);
@@ -802,8 +802,8 @@ absolute momentum trend filter (Antonacci GEM).
 - **International additions (VEA, VWO)** - regime hedge for non-US-led periods.
 - **GLD as universe diversifier** - adds Sharpe across all windows.
 - **TLT in universe** - long-bond exposure for crisis pair-up with equity defensives.
-- **Hyperparameters (buffer 2.5z, corr lookback 378d)** - selected by
-  walk-forward hyperparameter testing across OOS slices.
+- **Hyperparameters (buffer 2.0z, corr lookback 504d)** - 2.0z chosen from
+  wide 2-5z plateau (sweep 2026-05); 504d covariance from sweep 2026-05.
 
 ## Decomposition: where the alpha comes from
 
@@ -815,7 +815,7 @@ in the deployed strategy.
 | SPY baseline | 0.58 |
 | Curated 11-asset universe (factor + sector + intl + diversifier) | +0.26 |
 | Min-variance pair selection (378d lookback) | +0.18 |
-| Hold buffer 2.5z | +0.04 |
+| Hold buffer 2.0z | +0.04 |
 | Best-safe rotation (BIL/SHV/SHY/IEF) | +0.03 (removed in oracle-v4, simplified to SHV-only) |
 | HYG+TIP+GLD "any+" 13612U canary | +0.18 |
 | Partial-safe fill (1 positive momentum) | +0.02 |
@@ -1124,8 +1124,8 @@ Proxy/live splice happens at each ETF's first trading day.
 
 **Anchor real-world Sharpe to 0.80-1.10 base case for CPM standalone**, not
 the backtest 1.20. Reasons:
-- `HOLD_BUFFER=2.5z` was tuned on this window (see
-  `research/hold_buffer_threshold_diagnosis.log`)
+- `HOLD_BUFFER=2.0z` chosen from wide 2-5z plateau (sweep 2026-05); see
+  `research/hold_buffer_threshold_diagnosis.log` for the original 2.5z analysis.
 - Universe was sweep-validated on full window; walk-forward shows recent
   tuning is OOS-neutral, not a clear improvement
 - Bootstrap CI 95% width spans ~0.85 Sharpe units (`[0.78, 1.63]`)
@@ -1193,7 +1193,7 @@ Key research artifacts (in `strategy_cpm/research/`):
 - `fcp_vs_resolve_live.log` - head-to-head vs live RDMIX fund
 - `fcp_regime_attribution.log` - crisis / regime attribution
 - `fcp_pp_blend_revisit.log` - blend ratio sweep
-- `hold_buffer_threshold_diagnosis.log` - buffer 2.5z vs 3.0z analysis
+- `hold_buffer_threshold_diagnosis.log` - original buffer analysis (since superseded by 2.0z sweep 2026-05)
 - `universe_audit_v2.log` - pick frequency and pair archetype audit
 - `walk_forward.py` - OOS hyperparameter validation
 - `stress_robustness.py` - bootstrap CI + crisis breakdown
@@ -1238,7 +1238,7 @@ Not validated for managed-money / fiduciary deployment.**
 
 Strategy passes most validation tests but contains in-sample contamination
 in four areas:
-1. Hyperparameters (buffer=2.5z, corr lookback=378d) selected by viewing this data
+1. Hyperparameters (buffer=2.0z, corr lookback=504d) selected by viewing this data
 2. Universe (US factor + intl + GLD + TLT) curated via drop-impact testing on same window
 3. BULL-QQQ composition (single-ticker + 2-filter selection + SHV fallback) selected from variant sweep
 4. Blend weight (any of 50-70% CPM) selected from this same window

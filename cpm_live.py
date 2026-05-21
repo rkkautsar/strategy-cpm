@@ -104,7 +104,7 @@ DEFAULT_CASH = "SHV"
 TOP_K_CANDIDATES = 5        # Cap on momentum-ranked candidates passed to pair selection.
 #                              = ceil(len(RISKY_UNIVERSE) / 2) = top half of 9 candidates.
 #                              K-sensitivity 2026-05: K=5 strictly best on CPM-9 + EFA/EEM.
-HOLD_BUFFER = 2.5           # z-score units. Keep prior pair member unless new
+HOLD_BUFFER = 2.0           # z-score units (sweep 2026-05: 2.0z best blend Sh, wide plateau 2-5z; 2.5z was specific value, 2.0z more conventional). Keep prior pair member unless new
 #                              candidate exceeds prior z-score by this margin.
 #                              See research/hold_buffer_threshold_diagnosis.log.
 CORR_LOOKBACK_DAYS = 504    # ~2y (oracle-v7 robust sweep: 504d beats 756d, more adaptive, lower drawdown)
