@@ -1,17 +1,18 @@
 # CPM-BULL
 
-**Canary-gated Pair Momentum + BULL-QQQ overlay** -- a monthly tactical asset allocation strategy: canary-gated momentum
-with min-variance pair selection (CPM), plus a trend-filtered Nasdaq
-overlay (BULL-QQQ). See [TL;DR](#summary-card) for the
-2-minute version, [Strategy spec](#strategy-spec-compact) for the
-pseudocode, [Validation & Robustness](#validation--robustness) for the
-full rigor.
+**60/30/10 CPM-BULL-NDX** -- a monthly tactical asset allocation strategy:
+canary-gated momentum with min-variance pair selection (CPM), trend-filtered
+Nasdaq-100 overlay (BULL-QQQ), plus concentrated top-K Nasdaq-100 stock
+sleeve (NDX). See [TL;DR](#summary-card) for the 2-minute version,
+[Strategy spec](#strategy-spec-compact) for the pseudocode,
+[Validation & Robustness](#validation--robustness) for the full rigor.
 
 ## Summary Card
 
-Two-sleeve monthly TAA: **70% CPM defensive engine + 30% BULL-QQQ overlay**.
-Monthly rebalance, ETF-only, no leverage, 10 bps/side cost. Designed for
-IRA/401k/Roth only (monthly rotation = short-term gains).
+Three-sleeve monthly TAA: **60/30/10 CPM-BULL-NDX**.
+Monthly rebalance, ETF + some individual stocks (NDX sleeve), no leverage,
+10 bps/side cost, T+0 OPEN execution. Designed for IRA/401k/Roth only
+(monthly rotation = short-term gains, NDX sleeve compounds tax drag).
 
 CPM-BULL-NDX 60/30/10 production blend:
   - **CPM** (60%): canary-gated momentum + min-variance pair selection across
@@ -111,18 +112,26 @@ else:
     bull = {SHV: 1.0}
 
 # ====== NDX sleeve (10% capital) ======
-ndx_universe = PIT Nasdaq-100 constituents at signal date  # via index-constitution lib (2006-01+)
-bq_regime, _ = compute_bull_qqq_weights(panel, T)          # gate from BULL-QQQ
+bq_regime, bq_weights, _ = compute_bull_qqq_weights(panel, T)  # gate from BULL-QQQ
 
 if bq_regime != "BULL_QQQ":
-    ndx = {SHV: 1.0}                          # gate off -> cash
+    ndx = {SHV: 1.0}                          # gate off -> 100% cash
 else:
-    momenta = {t: mom_13612U(t) for t in ndx_universe}
-    positive_top = [t for t, m in sorted(momenta.items(), key=-m) if m > 0][:4]
-    if len(positive_top) < 4:
-        ndx = {SHV: 1.0}                      # not enough positive candidates -> cash
+    ndx_universe = PIT Nasdaq-100 constituents at T  # via index-constitution lib (2006-01+)
+    if PIT data unavailable (pre-2006):
+        ndx = bq_weights                      # NDX_FALLBACK_BULL_QQQ: mirror BULL-QQQ
     else:
-        ndx = {t: 0.25 for t in positive_top}  # equal-weight top-4
+        momenta = {t: mom_13612U(t) for t in ndx_universe}
+        positive_top = [t for t, m in sorted(momenta.items(), key=-m) if m > 0][:4]
+        n = len(positive_top)
+        if n == 0:
+            ndx = {SHV: 1.0}                  # full defensive
+        elif n < 4:
+            # NDX_PARTIAL_n: partial fill (1/K per pick, rest SHV cash)
+            ndx = {t: 0.25 for t in positive_top}
+            ndx[SHV] = 1.0 - 0.25 * n         # e.g. 2 picks -> 50% stocks + 50% SHV
+        else:
+            ndx = {t: 0.25 for t in positive_top}  # NDX_ACTIVE: equal-weight top-4
 
 # Combined: 60% CPM + 30% BULL + 10% NDX
 # Execution: month-end signal, T+0 OPEN trade (next-day MOO), 10 bps/side
@@ -440,7 +449,7 @@ CPM sleeve (which has access to all SPDR sectors via its candidate pool).
 
 ## Bottom line (full spec)
 
-**Production deployment: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve.**
+**Production deployment: 60% CPM defensive sleeve + 30% BULL-QQQ bull sleeve + 10% NDX concentrated Nasdaq-100 stock sleeve.**
 
 CPM engine spec: 9 risky ETFs, `TOP_K_CANDIDATES=5`, `HOLD_BUFFER=2.0z`,
 **HYG+TIP+GLD "any positive" 13612U canary**, vol-target 15% (de-risk only,
@@ -484,17 +493,20 @@ Production blend cuts drawdown ~5x with substantially better risk-adjusted retur
 
 ### Production blend
 
-70/30 CPM-BULL: Sharpe 1.48, CAGR 14.25%, MaxDD -12.3% (live 18y).
-Sensitivity grid (oracle-v3): Sharpe-optimal blend across LIVE/EXT/TEST OOS,
-flat surface 60/40-80/20.
+60/30/10 CPM-BULL-NDX (canonical 19.3y): Sharpe 1.36, CAGR 17.58%,
+MaxDD -15.34%, Calmar 1.15, Martin 4.77 (post-cost, T+0 OPEN).
 
-Bootstrap CI on the live window is wide (95% CI on Sharpe is [0.86, 1.71]),
-not statistically distinguishable from CPM standalone within 95% bounds.
-Honest forward base-case Sharpe expectation: 0.80-1.10.
+Historical 2-sleeve 70/30 CPM-BULL (no NDX): Sh ~1.27, CAGR ~13.12%,
+MaxDD ~-12.06%. NDX sleeve added 2026-05 adds ~+0.07 Sh / +2.5pp CAGR
+at cost of ~+3pp wider MaxDD.
+
+Bootstrap CI on the live window is wide, not statistically distinguishable
+from CPM standalone within 95% bounds. Honest forward base-case Sharpe
+expectation: 0.90-1.20 for the blend, 0.80-1.10 for CPM standalone.
 
 ## What it does
 
-Production is a two-sleeve TAA strategy:
+Production is a three-sleeve TAA strategy:
 
 **CPM sleeve (60%)** selects two ETFs each month from a curated
 9-asset universe (US factors + international + gold + long bond + commodity), weighted
@@ -689,8 +701,18 @@ at plateau peak.
 only). When gate off (cash, or BULL-QQQ would have rotated to XLP in prior
 spec), NDX sleeve goes 100% SHV.
 
-**Fallback:** 100% SHV when gate off or fewer than 4 positive-momentum
-candidates.
+**Fallback hierarchy** (mechanism-anchored):
+- **Gate off** (BULL_QQQ regime != BULL_QQQ): 100% SHV cash.
+- **PIT NDX data unavailable** (pre-2006 in EXT backtest): mirror BULL-QQQ
+  weights (the 10% NDX weight acts as extra BULL exposure, not idle cash).
+  This applies to ~14% of EXT signal months pre-2006.
+- **0 positive momentum NDX candidates** (gate on, PIT available): 100% SHV.
+- **1-3 positive candidates** (CPM-style partial fill): take what's there at
+  1/K=25% per pick, rest in SHV cash. E.g. 2 positives -> 50% stocks + 50% SHV.
+  In 19y canonical 2007+ window this never fires (BULL gate selects healthy
+  regimes with >=4 positive NDX names); kept for forward robustness against
+  narrow-leadership tail regimes.
+- **4+ positive candidates** (normal NDX_ACTIVE): equal-weight top-4 at 25% each.
 
 **Standalone metrics (19.3y, post-cost):**
 Sharpe 1.13, CAGR 36.97%, Vol 31.56%, MaxDD -47.25%, Martin 1.92, Calmar 0.78.
@@ -799,8 +821,8 @@ competitive fair benchmark.
 | Naive 60/40 PP / QQQ-trend | 1.01 | 8.4% | -14.9% |
 | QQQ buy-hold (raw target) | 0.86 | 18.66% | -50.0% (LIVE) |
 
-The naive 70/30 PP/QQQ-trend benchmark uses identical 2-sleeve architecture
-(70% defensive + 30% QQQ-timing) but with off-the-shelf components:
+The naive 60/40 PP/QQQ-trend benchmark uses comparable 2-sleeve architecture
+(60% defensive + 40% QQQ-timing) but with off-the-shelf components:
 Permanent Portfolio (25/25/25/25 SPY/IEF/GLD/SHV) for the defensive sleeve,
 Faber 10mo SMA on QQQ for the timing sleeve. **Net design value-add: +0.49
 Sharpe / +7.0pp CAGR over a thoughtful but simpler implementation of the
@@ -1264,7 +1286,7 @@ reconsider whether HYG/TIP/GLD canary is still capturing regime correctly.
 Production code (in `strategy_cpm/`):
 - `cpm_live.py` - CPM sleeve runner (allocate + backtest CLI)
 - `bull_qqq_live.py` - BULL-QQQ sleeve runner (allocate + backtest CLI)
-- `build_dashboard.py` - dashboard generator (production 70/30 blend + variants)
+- `build_dashboard.py` - dashboard generator (production 60/30/10 blend + variants)
 - `data/` - stitched price series (GLD-clean, TIP, AGG, KMLM)
 - `research/` - archived research and validation scripts
 
