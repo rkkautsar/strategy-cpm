@@ -107,7 +107,7 @@ TOP_K_CANDIDATES = 5        # Cap on momentum-ranked candidates passed to pair s
 HOLD_BUFFER = 2.5           # z-score units. Keep prior pair member unless new
 #                              candidate exceeds prior z-score by this margin.
 #                              See research/hold_buffer_threshold_diagnosis.log.
-CORR_LOOKBACK_DAYS = 756    # ~3y (oracle-v3 sensitivity: 756d marginally beats 378d, more stable covariance)
+CORR_LOOKBACK_DAYS = 504    # ~2y (oracle-v7 robust sweep: 504d beats 756d, more adaptive, lower drawdown)
 TARGET_VOL = 0.10           # annualized
 VOL_LOOKBACK_DAYS = 63
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing

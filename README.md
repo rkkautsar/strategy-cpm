@@ -99,7 +99,7 @@ else:
     candidates = [a for a in top_K=5 by faber_score if faber_score(a) > 0]
     # Candidate-count fallback (deterministic):
     if len(candidates) >= 2:
-        pair = min_variance_pair(candidates, lookback=756d)  # ~3y covariance
+        pair = min_variance_pair(candidates, lookback=504d)  # ~2y covariance
         cpm = {pair[0]: 0.5, pair[1]: 0.5}
     elif len(candidates) == 1:
         cpm = {candidates[0]: 0.5, SHV: 0.5}                 # partial defensive
@@ -139,7 +139,7 @@ else:
 | TIP canary | Keller HAA 2022 |
 | HYG/LQD multi-canary | Our extension of Keller DAA (2018) |
 | Faber 10mo SMA ranker (CPM) | Faber 2007 SSRN-inspired; uses adjusted total-return prices (yfinance auto_adjust=True, dividend-reinvested). |
-| Min-variance pair selection | Optimum3/AllocateSmartly 2022-inspired; exact implementation is CPM's (756d covariance on total-return data). Beats lowest_corr (-0.22 Sh) and inv_vol (-0.08 Sh) variants; robust across 126-1260d lookback. |
+| Min-variance pair selection | Optimum3/AllocateSmartly 2022-inspired; exact implementation is CPM's (504d covariance on total-return data). Beats lowest_corr (-0.22 Sh) and inv_vol (-0.08 Sh) variants; robust across 126-1260d lookback. |
 | Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. NOT the strict Moskowitz/Ooi/Pedersen 2012 construction. Applied to CPM basket via 63d realized total-return vol; not portfolio-level. |
 | Cross-sectional selection (top-K rank) | Conceptual inspiration: Jegadeesh & Titman 1993 JoF (return-rank momentum). Actual implementation: Faber 2007 SMA score. J&T listed for transparency of mechanism family, NOT as direct citation. |
 | Hold-buffer dampener | Practitioner standard (AQR notes); applied as z-score of Faber distance |
@@ -178,8 +178,8 @@ All reported metrics use these conventions consistently:
 
 Deterministic handling of partial-history covariance estimation:
 
-- Pair-selection covariance lookback is 756 trading days (~3 years)
-- If fewer than 756 daily observations exist for a pair candidate,
+- Pair-selection covariance lookback is 504 trading days (~2 years)
+- If fewer than 504 daily observations exist for a pair candidate,
   the available overlapping history is used (no padding/extrapolation),
   subject to minimum 252 days (~1 year)
 - If fewer than 252 overlapping daily observations exist, the asset is
@@ -309,7 +309,7 @@ three correlated failure modes hitting at once.
 ### Pair engine + proxy-free checks
 
 **Pair engine robust to covariance lookback** (Sh range 1.48-1.55 across
-126-1260d on LIVE, no needle-fit at PROD's 756d).
+126-1260d on LIVE, no needle-fit at PROD's 504d).
 
 **Proxy-free verification**: ETF-live-period strictly post-2010/2012 shows
 **better** Sharpe (1.65/1.71) than full 2008-2026 with stitched proxies
