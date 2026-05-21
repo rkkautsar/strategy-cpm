@@ -336,15 +336,21 @@ live trading.
     directional only, not as confirmation.
 
 12. **Data sources are research-grade, not production-grade.** Live system
-    uses `yfinance` for price data and `index-constitution` for PIT NDX-100
-    membership. Both are suitable for research/personal use but neither is
-    audited institutional infrastructure. `yfinance` is not affiliated
-    with Yahoo (free tier intended for personal use); `index-constitution`
-    sources NDX-100 membership from Wikipedia (beta-status package).
-    Production deployment should snapshot all raw inputs, constituent
-    lists, missing-symbol logs, and orders for each rebalance for audit.
-    NDX sleeve specifically may have survivorship leakage (delisted tickers
-    missing from yfinance) that PIT lookups can't fully resolve.
+    uses `yfinance` (Yahoo scraper, beta-status, intended for personal use)
+    for prices and `index-constitution` (Wikipedia-sourced, beta-status)
+    for PIT NDX-100 membership. Known failure modes:
+    - `yfinance` DOM-change breakage (unannounced Yahoo schema shifts)
+    - Rate limiting / missing data on month-end for individual NDX stocks
+    - Bad split/dividend adjustments occasionally surface
+    - `index-constitution` may not resolve old ticker symbols cleanly
+    - NDX delisted-ticker survivorship leakage (PIT lookups don't fully fix)
+
+    **Production deployment should implement data validation circuit-breakers**:
+    if a required ticker has no recent price, abort the rebalance and alert
+    rather than silently exclude or use stale data. Snapshot all raw inputs,
+    constituent lists, missing-symbol logs, and final orders per rebalance
+    for audit. Consider migrating to Tiingo / Polygon / IEX Cloud for
+    institutional-grade data before scaling capital.
 
 13. **Live-equivalent ETF drift.** Backtest uses IWF + DBC (long history);
     live trade uses SCHG (large-cap growth, 4bps fee) + PDBC (no K-1
