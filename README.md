@@ -27,16 +27,16 @@ cost, T+1 OPEN execution. Total-return prices throughout (yfinance
 
 Canonical 2007-02-01 → 2026-05-15 (19.3y, post-cost):
 
-| Strategy | Sharpe | CAGR | MaxDD | Calmar | Martin |
-|---|---:|---:|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.41** | **18.35%** | **-15.43%** | **1.19** | **5.11** |
-| SPY buy-hold | 0.61 | 10.59% | -55.19% | 0.19 | 0.93 |
+| Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar | Martin |
+|---|---:|---:|---:|---:|---:|---:|
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.41** | **18.35%** | **12.51%** | **-15.43%** | **1.19** | **5.11** |
+| SPY buy-hold | 0.62 | 10.89% | 19.69% | -55.19% | 0.20 | 0.84 |
 
-| Sleeve standalone | Sharpe | CAGR | MaxDD |
-|---|---:|---:|---:|
-| CPM | 1.19 | 14.21% | -14.74% |
-| BULL-QQQ | 1.02 | 17.89% | -28.56% |
-| NDX | 1.19 | 39.32% | -48.54% |
+| Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
+|---|---:|---:|---:|---:|
+| CPM | 1.19 | 14.21% | 11.80% | -14.74% |
+| BULL-QQQ | 1.02 | 17.89% | 17.62% | -28.56% |
+| NDX | 1.19 | 39.32% | 32.19% | -48.54% |
 
 ## Forward expectation
 
@@ -218,15 +218,15 @@ proxies.
 Each added complexity layer should justify itself versus simpler adjacent
 strategies after cost:
 
-| Strategy | Sharpe | CAGR | MaxDD | Δ Sharpe vs prior |
-|---|---:|---:|---:|---:|
-| SPY buy-hold | 0.62 | 10.85% | -55.19% | (baseline) |
-| QQQ buy-hold | 0.80 | 16.47% | -53.40% | +0.18 (beta switch) |
-| QQQ 12-1 timing only | 0.86 | 15.37% | -28.72% | +0.06 (trend filter) |
-| 60% CPM + 40% SHV (defensive) | 1.27 | 9.15% | -8.53% | +0.41 (CPM engine) |
-| 100% CPM standalone | 1.19 | 14.21% | -14.74% | (alt: CPM full size) |
-| **70/30 CPM-BULL (no NDX)** | **1.34** | **15.66%** | **-12.59%** | +0.15 (BULL adds) |
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.41** | **18.35%** | **-15.43%** | +0.07 (NDX adds, at +3pp DD cost) |
+| Strategy | Sharpe | CAGR | Vol | MaxDD | Δ Sharpe vs prior |
+|---|---:|---:|---:|---:|---:|
+| SPY buy-hold | 0.62 | 10.89% | 19.69% | -55.19% | (baseline) |
+| QQQ buy-hold | 0.80 | 16.47% | 22.22% | -53.40% | +0.18 (beta switch) |
+| QQQ 12-1 timing only | 0.87 | 15.76% | 18.83% | -28.72% | +0.07 (trend filter) |
+| 60% CPM + 40% SHV (defensive) | 1.27 | 9.17% | 7.09% | -8.53% | +0.41 (CPM engine) |
+| 100% CPM standalone | 1.19 | 14.21% | 11.80% | -14.74% | (alt: CPM full size) |
+| **70/30 CPM-BULL (no NDX)** | **1.34** | **15.66%** | **11.36%** | **-12.59%** | +0.15 (BULL adds) |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.41** | **18.35%** | **12.51%** | **-15.43%** | +0.07 (NDX adds, at +3pp DD cost) |
 
 Each layer adds Sharpe. NDX is the smallest marginal gain (+0.07 Sh) at
 the steepest DD cost (+3pp); justified by the +2.7pp CAGR contribution.
@@ -236,15 +236,32 @@ the steepest DD cost (+3pp); justified by the +2.7pp CAGR contribution.
 Backtest uses IWF/DBC (long history); live trade uses SCHG/PDBC (cheaper,
 no K-1). Drift over 2015+ common live window:
 
-| Variant | Sharpe | CAGR | MaxDD |
-|---|---:|---:|---:|
-| Research (IWF, DBC) 2015+ | 1.44 | 19.15% | -15.43% |
-| **Live equiv (SCHG, PDBC) 2015+** | **1.37** | **18.39%** | -15.43% |
-| Drift | **-0.07** | **-0.76pp** | tied |
+| Variant | Sharpe | CAGR | Vol | MaxDD |
+|---|---:|---:|---:|---:|
+| Research (IWF, DBC) 2015+ | 1.44 | 19.15% | 12.75% | -15.43% |
+| **Live equiv (SCHG, PDBC) 2015+** | **1.33** | **17.87%** | 12.98% | -15.43% |
+| Drift | **-0.11** | **-1.28pp** | +0.23pp | tied |
 
-Swapping to live ETFs costs ~5% relative Sharpe (within bootstrap CI
-noise). Forward expectation should be discounted slightly more for actual
-live trading.
+Swapping to live ETFs costs ~8% relative Sharpe (still within bootstrap CI
+noise but at the upper end). Forward expectation should be discounted for
+actual live trading - the 0.95-1.25 Sharpe planning band already absorbs
+this drift.
+
+### Hold-buffer sensitivity
+
+CPM uses a 2.0z cross-sectional hold buffer to reduce pair-rotation churn
+(keep prior pair member if its z-score is within 2.0z of the worst new
+pick). Sensitivity:
+
+| Variant | CPM Sh | CPM CAGR | CPM Vol | CPM MaxDD | Blend Sh | Blend MaxDD |
+|---|---:|---:|---:|---:|---:|---:|
+| **HB=2.0z (PROD)** | **1.19** | **14.21%** | 11.80% | **-14.74%** | **1.41** | **-15.43%** |
+| HB=0 (no buffer) | 1.16 | 13.18% | 11.24% | -18.42% | 1.35 | -20.01% |
+
+Removing the buffer deepens MaxDD by 3.7pp (CPM) and 4.6pp (blend) for a
+marginal Sharpe loss. Buffer fires retain in ~38% of pair-selection months;
+it is actively reducing churn into worse-DD positions, not dead code.
+Within the validated 2-5z plateau, exact value is not sensitive.
 
 ### Performance-stat conventions
 
