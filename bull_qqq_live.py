@@ -2,35 +2,20 @@
 """
 BULL-QQQ - Regime-gated QQQ overlay with SHV cash fallback.
 
-The 30% bull sleeve in the 60/30/10 CPM-BULL-NDX production blend.
+30% sleeve in the 60/30/10 CPM-BULL-NDX production blend.
 
-Strategy (oracle-v7 robust spec, finalized 2026-05-21):
+Spec:
   Risk-on when BOTH:
-    1. Macro:    HYG OR LQD OR TIP 13612U > 0    (credit/inflation regime)
-    2. Trend:    QQQ 12-1 absolute momentum > 0   (Antonacci GEM standard)
+    1. Macro:    HYG OR LQD OR TIP 13612U > 0  (credit/inflation canary)
+    2. Trend:    QQQ 12-1 absolute momentum > 0 (Antonacci GEM)
 
-  Bull asset: 100% QQQ (no state rotation; XLP override removed)
-  Otherwise:  100% SHV (cash)
-
-Design rationale:
-  - Single-ticker bull bet on Nasdaq-100; QQQ already provides diversified
-    mega-cap tech exposure (top 100 Nasdaq names).
-  - Multi-ETF "diversified" universes (SMH/SCHG/XLK/IWM/GLD) tested and
-    rejected: same Sharpe, more complexity, marginal pick noise.
-  - SHV cash fallback chosen over CPM fallback: same Sharpe in blend,
-    better COVID protection (-5.4% vs -9.0%), zero duration risk.
-  - 12-1 absolute momentum (sole trend filter): slow anchor, anti-whipsaw
-    in sustained bears (dot-com 2000-02 survived). Prior versions added
-    13612U OR composite for fast re-entry; removed in oracle-v7 robust spec
-    as data-mined to 2009/2023 V-bottom recoveries (cost only -0.02 Sh).
-  - XLP late-cycle rotation tested and REMOVED: n=12 firings, t=0.85,
-    p=0.41, 95% CI on edge includes zero. Curve-fit, not robust forward.
-  - VIX filter tested and REMOVED: ~0.05 Sharpe cost, n=1 evidence (COVID).
+  Risk-on  -> 100% QQQ
+  Else     -> 100% SHV (ultra-short Treasury cash)
 
 Usage:
-    python bull_qqq_live.py allocate                       # show this month's target
+    python bull_qqq_live.py allocate                  # show this month's target
     python bull_qqq_live.py allocate --signal-date 2026-04-30
-    python bull_qqq_live.py backtest                       # standalone + blend backtest
+    python bull_qqq_live.py backtest                  # standalone backtest
     python bull_qqq_live.py backtest --start 2010-01-01
 """
 from __future__ import annotations
@@ -52,41 +37,19 @@ from cpm_live import (
 
 # ---------- Configuration ----------
 
-BULL_TICKER = "QQQ"          # default bull asset
-CASH_TICKER = "SHV"          # short-treasury cash, zero duration risk
+BULL_TICKER = "QQQ"
+CASH_TICKER = "SHV"
 
-# No state-conditional rotation (oracle-v7 robust spec).
-# Prior versions rotated to XLP in HYG-/LQD-/TIP+ canary state (~5% of
-# months). Removed as in-sample curve-fit: n=12 firings too small for
-# statistical significance, mechanism backed by industry research but not
-# distinguishable from noise vs the simpler pure-QQQ rule out-of-sample.
-BULL_BY_STATE = {}  # No state overrides
+MOMENTUM_LOOKBACK = 12       # months for 12-1 absolute momentum
 
-# Trend filter: 12-1 absolute momentum > 0 (Antonacci GEM standard).
-# Prior versions used composite OR (12-1 > 0 OR 13612U > 0). Removed in
-# oracle-v7 robust spec: 13612U is fast, prone to bear-rally whipsaws;
-# 12-1 looks back a full year, anti-whipsaw, more robust forward.
-MOMENTUM_LOOKBACK = 12       # months for 12-1 momentum
-
-# Macro gate: HYG/LQD/TIP "any positive" 13612U canary (Keller HAA-style)
-# 3-asset rule justified by canary state matrix analysis:
-#   - HYG-only positive state (`+--`): mean fwd QQQ +3.52% (clearly bull)
-#   - LQD-only positive state (`-+--`): mean fwd QQQ +3.10% (caught by adding LQD)
-#   - TIP-only positive state (`--+`): mean fwd QQQ +4-7% (kept by ANY rule)
-#   - All-negative state (`---`): mean fwd QQQ -0.65% (correctly de-risks)
-# Adding GLD/BND as OR is HARMFUL: lone-GLD or lone-BND positive states have
-# negative fwd QQQ returns (flight-to-safety signal).
+# Macro canary: HYG OR LQD OR TIP 13612U > 0 (Keller HAA-family).
+# State matrix evidence (canonical window): lone-positive HYG/LQD/TIP states
+# all have positive forward QQQ; all-negative state has negative fwd QQQ.
+# GLD or BND as additional OR is harmful (flight-to-safety bias).
 CANARY_ASSETS = ["HYG_stitched", "LQD", "TIP"]
-CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
+CANARY_RULE = "any_positive"
 
-# Equity-strength override REMOVED (oracle-v7 robust spec, 2026-05-21).
-# Prior spec used expanding-window 67th-pctile QQQ 12-1 momentum as a canary
-# bypass for AI-rally-despite-credit-stress regimes. Removed as in-sample
-# curve-fit: n=4 firings in LIVE, /10 in EXT was too thin to validate.
-
-# Production deployment: 70% CPM + 30% BULL-QQQ wired by build_dashboard.py.
-# Sensitivity grid (oracle-v3): 70/30 peaks Sharpe on both LIVE/EXT, flat surface 60/40-80/20.
-PROD_BULL_WEIGHT = 0.30      # for CLI backtest reporting (70/30 CPM/BULL, oracle-v3 Sharpe-optimal)
+PROD_BULL_WEIGHT = 0.30      # BULL weight in 60/30/10 PROD blend
 
 COST_BPS_PER_SIDE = 10
 
@@ -105,7 +68,7 @@ def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
 
 
 def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Trend filter: 12-1 absolute momentum > 0 (oracle-v7 robust spec).
+    """Trend filter: QQQ 12-1 absolute momentum > 0 (Antonacci GEM standard).
 
     Returns (signal_on, diagnostics):
       signal_on = True if 12-1 absolute momentum is positive.
@@ -194,7 +157,7 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     For each signal date (month-end):
       - If macro gate passes AND QQQ 12-1 momentum > 0: hold 100% QQQ
       - Else: hold 100% SHV cash
-    Execution: T+0 OPEN (next-day MOO). Weights apply from future[0] of signal
+    Execution: T+1 OPEN (next trading day MOO). Weights apply from future[0] of signal
     date (first trading day after month-end). Backtest uses close-to-close on
     apply_from day (~5-10bps/yr overestimate vs strict open-to-close).
     Switching cost: 10bps/side on any state change.
@@ -209,13 +172,7 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
 
     common = panel.index[(panel.index >= start) & (panel.index <= end)]
-    # Track per-asset weights per day (supports basket holdings).
     all_tickers = {BULL_TICKER, CASH_TICKER}
-    for spec in BULL_BY_STATE.values():
-        if isinstance(spec, dict):
-            all_tickers.update(spec.keys())
-        else:
-            all_tickers.add(spec)
     weights_per_day = {t: pd.Series(0.0, index=common) for t in all_tickers}
     state_per_day = pd.Series("", index=common, dtype=object)  # for cost calc
 
@@ -224,19 +181,14 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
         gate_open, _ = _macro_gate(mon, sig_d)
         trend_ok, tdiag = _qqq_trend_ok(mon, sig_d)
         if trend_ok and gate_open:
-            state = _canary_state(mon, sig_d)
-            spec = BULL_BY_STATE.get(state, BULL_TICKER)
-            if isinstance(spec, dict):
-                month_weights = dict(spec)
-            else:
-                month_weights = {spec: 1.0}
+            month_weights = {BULL_TICKER: 1.0}
         else:
             month_weights = {CASH_TICKER: 1.0}
 
         future = common[common > sig_d]
         if len(future) < 1:
             continue
-        apply_from = future[0]  # T+0 OPEN execution (next-day MOO)
+        apply_from = future[0]  # T+1 OPEN (next trading day MOO)
         if i + 1 < len(sigs):
             ns = sigs[i + 1]
             nf = common[common > ns]
@@ -304,11 +256,8 @@ def cmd_allocate(args):
     print()
 
     state = diag.get("state")
-    gate_natural = diag.get("gate_natural", diag.get("canary_ok", False))
     if regime.startswith("BULL_"):
-        bull_asset = diag.get("bull_asset", BULL_TICKER)
-        rotation_note = f" (canary state {state} -> {bull_asset})" if bull_asset != BULL_TICKER else ""
-        print(f"Regime: {regime} (trend pass){rotation_note}")
+        print(f"Regime: {regime} (trend pass)")
     else:
         print(f"Regime: CASH ({diag.get('reason','unknown')}; canary state {state})")
 

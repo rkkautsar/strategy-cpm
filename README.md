@@ -10,7 +10,7 @@
   equal-weighted 25% each, gated by the BULL-QQQ regime.
 
 Monthly rebalance, ETF + individual stocks (NDX), no leverage, 10 bps/side
-cost, T+0 OPEN execution. Designed for IRA/401k/Roth (monthly rotation =
+cost, T+1 OPEN execution. Designed for IRA/401k/Roth (monthly rotation =
 short-term gains; NDX stock churn compounds tax drag).
 
 ## Headline metrics

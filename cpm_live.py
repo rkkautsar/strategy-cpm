@@ -31,94 +31,52 @@ ARTIFACTS_PROXY = ROOT.parent / "artifacts" / "cpa-1997-exact-core-proxy-researc
 PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 
 # ---------- Configuration ----------
-# CPM-9 universe (9 risky assets). All broad/factor, no sector cherry-picks.
+# CPM-9 universe (9 risky ETFs): US factor + international + diversifiers.
+# Universe binding: DBC (live 2006-02-03). Canonical backtest 2007-02-28
+# (DBC live + 12mo signal warmup, 19.3y).
+# HYG canary uses VWEHX mutual fund pre-2007-04 + live HYG post.
 #
-# Live-ETF coverage:
-#   Universe binding constraint: DBC (2006-02-03) -- canonical 2007-02-28
-#   (DBC live + 12mo signal warmup, 19.3y).
-# Pre-live-ETF data is stitched proxy (panel data extends to 1995-1996 via
-# mutual-fund proxies for some assets).
-#
-# Canonical window: 2007-02-28 (post-DBC + 12mo signal warmup, 19.3y).
-#   All 9 RISKY ETFs LIVE at window start (no proxy contamination in
-#   pair-selection candidate pool). HYG canary stitched via VWEHX pre-2007-04.
-#   Includes full 2008 GFC realization.
-# OOS-lock window: 2017-01-01 (9.4y, post-spec-freeze).
-# EXT 30y: 1996-01-01 (uses pre-2005 mutual-fund proxies for some assets).
-#
-# US sub-universe: broad/factor only.
-# QQQ = Nasdaq-100 index, IWF = Russell 1000 Growth (oldest live LC growth,
-# 2000-05), SPHQ = S&P 500 Quality, VBR = small-cap value.
-# Live-trade equivalent: IWF -> SCHG (Schwab US Large Growth, 14bps cheaper,
-# corr 0.994). Earlier sector ETFs (IGM, XLE, XLV, XMHQ) dropped after
-# selection-rate + cross-window Sharpe-sum analysis 2026-05.
+# US factors (4): QQQ (Nasdaq-100), IWF (R1000 Growth -> SCHG live),
+# SPHQ (S&P 500 Quality), VBR (small-cap value).
 US_FACTORS = [
     "QQQ", "IWF", "VBR", "SPHQ",
 ]
 
 # International: regime hedge for periods when US factor leadership wanes.
-# EFA = developed ex-US (iShares, live 2001-08), EEM = emerging markets
-# (iShares, live 2003-04). Chosen over VEA/VWO (Vanguard, live 2007-07/
-# 2005-03) on principle: at >0.996 correlation they are near-substitutes,
-# so picking the +0.06 Sh winner is DSR overfitting. EFA's 6-year history
-# advantage also pushes the universe binding constraint back from VEA
-# (2007-07) to DBC (2006-02), enabling longer canonical backtest windows.
-# Cost of the principled swap: ~-0.07 Sh modern (within bootstrap noise).
+# International: EFA (developed ex-US, live 2001-08), EEM (emerging markets,
+# live 2003-04). Chosen over VEA/VWO for longer live history.
 INTERNATIONAL = ["EFA", "EEM"]
 
 # Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities).
-# DBC closes pre-2008 commodity coverage vs AAA paper-era.
 # Live-trade equivalent: DBC -> PDBC (no K-1, smarter roll, corr 0.956).
-#
-# DBMF (managed futures) DROPPED 2026-05-18: year-by-year analysis showed the
-# entire post-2020 MF benefit came from a single year (2024 +8.44%); 2022 (the
-# supposed crisis year) added LITERALLY -0.02% to CPM. Single-year dependency
-# + 7y live sample = too much DSR risk. Cost of drop: -0.04 Sh canonical.
 DIVERSIFIERS = ["GLD", "TLT", "DBC"]
 RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 9 risky
-SAFE_POOL = ["SHV"]            # Single-asset cash mode (unified with BULL-QQQ).
-                                # Best-of-4 rotation (was [BIL,SHV,SHY,IEF])
-                                # captured ~0.03 Sh of bootstrap-noise alpha;
-                                # dropped for spec simplicity + oracle-v4
-                                # "zero-duration defensive" narrative.
-# HYG_stitched = VWEHX pre-2007-04 + live HYG post (high-yield credit signal).
-# 3-asset canary: HYG (credit), TIP (inflation), GLD (real-asset/tail).
-# GLD added based on 2026 review showing -3% 2023 return when canary off forced
-# CPM into TLT-defensive pair during rate-rising regime. With GLD in canary:
-#   2023: -3.10% -> +6.23%, 2008: +2.38% -> +4.73%, 2022: -2.65% -> -1.21%
-# Bond/credit-based canary chosen because SPY momentum is already gated by
-# the universe's positive-momentum filter (adding SPY to canary is redundant).
-# Note: GLD addition is HARMFUL for BULL-QQQ canary (lone-GLD-positive states
-# have -2.29% mean fwd QQQ) but HELPFUL for CPM because CPM has multi-asset
-# universe and can pick GLD itself or vol-targeted equity pair when canary on.
-# See research/canary_rule_variants_v2.log + research/canary_state_rotation_notes.md
-CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
-CANARY_RULE = "any_positive"  # alternatives: "all_positive", "majority"
+SAFE_POOL = ["SHV"]            # ultra-short Treasury (~0.3y duration)
 
-# BULL-QQQ canary (HYG+LQD+TIP) -- different from CPM canary by design.
-# Declared here so load_panel() includes LQD even when only CPM is invoked.
+# CPM canary: HYG (credit), TIP (inflation), GLD (real-asset/tail).
+# HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post.
+CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
+CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
+
+# BULL-QQQ canary: HYG+LQD+TIP. Declared here so load_panel() pulls LQD
+# even when only CPM is invoked.
 BULL_CANARY_ASSETS = ["HYG_stitched", "LQD", "TIP"]
 DEFAULT_CASH = "SHV"
 
 # Engine parameters
-TOP_K_CANDIDATES = 5        # Cap on momentum-ranked candidates passed to pair selection.
-#                              = ceil(len(RISKY_UNIVERSE) / 2) = top half of 9 candidates.
-#                              K-sensitivity 2026-05: K=5 strictly best on CPM-9 + EFA/EEM.
-HOLD_BUFFER = 2.0           # z-score units (sweep 2026-05: 2.0z best blend Sh, wide plateau 2-5z; 2.5z was specific value, 2.0z more conventional). Keep prior pair member unless new
-#                              candidate exceeds prior z-score by this margin.
-#                              See research/hold_buffer_threshold_diagnosis.log.
-CORR_LOOKBACK_DAYS = 504    # ~2y (oracle-v7 robust sweep: 504d beats 756d, more adaptive, lower drawdown)
-TARGET_VOL = 0.15           # annualized (sweep 2026-05: 15% cap captures +1.18pp blend CAGR vs 10%, only 0.35pp DD worse; fires 16.7% of days in crisis regimes; mechanism preserved as crisis insurance)
-VOL_LOOKBACK_DAYS = 63     # ~3mo (sweep 2026-05: 63d beats 252d on CPM-standalone MaxDD by +2.4pp; blend MaxDD basically tied)
+TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
+HOLD_BUFFER = 2.0           # z-score units; retain prior pair member unless
+                            # new candidate exceeds by this margin
+CORR_LOOKBACK_DAYS = 504    # ~2y covariance lookback for min-var pair
+TARGET_VOL = 0.15           # annualized vol cap (de-risk only)
+VOL_LOOKBACK_DAYS = 63      # ~3mo realized vol
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
 
-# NOTE: PP_* constants below are for BENCHMARK ONLY ("Naive 70/30 PP/QQQ-trend"
-# baseline in build_dashboard.py). PRODUCTION strategy does NOT include any PP
-# buffer — it is 60% CPM + 30% BULL-QQQ + 10% NDX (see build_dashboard.py).
-# CPM stays fully invested in its selected pair; canary handles cash routing.
-PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]   # benchmark only
-PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}  # benchmark only
+# Benchmark-only constants for Naive 60/40 PP/QQQ-trend in build_dashboard.py.
+# PRODUCTION strategy is 60% CPM + 30% BULL-QQQ + 10% NDX (no PP buffer).
+PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
+PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
 
 
 # ---------- Data loading ----------
@@ -134,22 +92,13 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     else:
         panel = pd.DataFrame()
     
-    # Stitched series from data/ (overwrites any same-named column in proxy panel).
-    # Stitches replace live yfinance data with proxy-extended series:
-    #   - HYG_stitched: VWEHX mutual fund pre-2007-04 + live HYG post (canary).
-    #   - GLD, TIP, AGG: clean stitches for canary/PP usage pre-live-ETF.
-    #   - KMLM: KFA-MLM Index pre-2020-12 + live KMLM ETF post (reserved, not used).
-    # NOTE: DBMF (SG CTA Index stitch) DROPPED 2026-05 -- pre-2019 proxy stitch
-    # CAUSED a -4.4pp MaxDD regression in canonical backtest (CTA whipsaw during
-    # early-2008 GFC). Strategy runs CPM-9 throughout (DBMF removed 2026-05-18,
-    # single-year dependency on 2024 +8.44%; CMA crisis-year contribution -0.02%).
-    # Net: cleaner spec, fewer DSR concerns.
+    # Stitched series from data/ (overwrites same-named column in proxy panel).
+    # HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post (canary).
+    # GLD/TIP: clean stitches for canary usage pre-live-ETF.
     for fname, col in [
         ("gld_stitched_daily_clean.csv", "GLD"),
         ("tip_stitched_daily.csv", "TIP"),
-        ("agg_stitched_daily.csv", "AGG_stitched"),
-        ("kmlm_stitched_daily.csv", "KMLM"),
-        ("hyg_stitched_daily.csv", "HYG_stitched"),  # VWEHX pre-2007-04 + live HYG
+        ("hyg_stitched_daily.csv", "HYG_stitched"),
     ]:
         fpath = DATA_DIR / fname
         if fpath.exists():
@@ -216,8 +165,7 @@ def faber_sma_xs(monthly: pd.DataFrame) -> pd.Series:
 
 def sig_13612U(p: pd.Series) -> float:
     """Canonical Keller HAA 13612U momentum: simple unweighted average of
-    1/3/6/12-month total returns. Matches Keller & Keuning HAA paper (2022).
-    Beats the weighted 13612W variant by +0.08 Sh per internal test."""
+    1/3/6/12-month total returns. Matches Keller & Keuning HAA paper (2022)."""
     p = p.dropna()
     if len(p) < 13:
         return np.nan
@@ -235,38 +183,12 @@ def sig_13612U(p: pd.Series) -> float:
 
 
 
-def lowest_corr_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
-    """Return the pair with lowest 12-month correlation. Kept for reference;
-    superseded by min_vol_pair below."""
-    if len(candidates) < 2:
-        return None
-    rets = daily[candidates].iloc[-lookback:].pct_change().dropna(how="all")
-    if len(rets) < 30:
-        return None
-    corr = rets.corr()
-    best = None
-    best_val = float("inf")
-    for a, b in combinations(candidates, 2):
-        c = corr.loc[a, b]
-        if pd.notna(c) and c < best_val:
-            best_val = c
-            best = (a, b)
-    return best
-
-
 def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
     """Return the pair with lowest 50/50 portfolio variance over lookback.
 
     Uses full covariance (correlation x volatility) rather than correlation
-    only. Empirically more stable: variance estimation is robust where mean
-    estimation (Sharpe/Sortino selection) is noisy. Compared to
-    `lowest_corr_pair`, picks pairs that are both diversified AND
-    individually low-vol.
-
-    Research (strategy_mvp/RESEARCH_NOTE.md sec 10/10c):
-      - Sharpe lift over lowest_corr_pair: +0.07 (0.82 -> 0.89)
-      - Lower portfolio vol via covariance optimization
-      - Top-half momentum pre-filter retained (positive momentum required)
+    only. Picks pairs that are both diversified AND individually low-vol.
+    Variance estimation is more robust than mean (Sharpe/Sortino) selection.
     """
     if len(candidates) < 2:
         return None
@@ -434,9 +356,9 @@ def run_cpm_backtest(
 ) -> tuple[pd.Series, list]:
     """Run CPM standalone (no PP blend). Returns daily returns + diagnostics list.
 
-    Execution model: T+0 OPEN (next-day market-on-open). Signal at month-end
-    close T-1; rebalance executed at MOO of next trading day T+0. Backtest uses
-    close-to-close accounting on the apply_from day (close[T+0] / close[sig_d]
+    Execution model: signal at month-end close T (last trading day of month),
+    rebalance executed at MOO of next trading day T+1 OPEN. Backtest uses
+    close-to-close accounting on the apply_from day (close[T+1] / close[T]
     - 1), which slightly overestimates Sharpe vs strict open-to-close attribution
     (~5-10 bps/yr bias from crediting overnight gap to NEW weights). The bias is
     within bootstrap noise and small relative to the strategy's edge.
@@ -458,7 +380,7 @@ def run_cpm_backtest(
         future = close.index[close.index > sig_d]
         if len(future) < 1:
             continue
-        apply_from = future[0]  # T+0 OPEN execution (next-day MOO)
+        apply_from = future[0]  # T+1 OPEN (next trading day MOO)
         if i + 1 < len(signal_dates):
             next_sig = signal_dates[i + 1]
             next_future = close.index[close.index > next_sig]
@@ -511,7 +433,7 @@ def run_cpm_backtest(
 def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
     """Static buffer: PP-IEF 25/25/25/25 SPY/IEF/GLD/SHV. Monthly rebalanced.
 
-    Execution: T+0 OPEN (next-day MOO). Weights apply from future[0] of each
+    Execution: T+1 OPEN (next-day MOO). Weights apply from future[0] of each
     signal date (first trading day after signal).
     """
     cols = [a for a in PP_ASSETS if a in panel.columns]
@@ -527,7 +449,7 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
     total = sum(raw_w.values())
     w = pd.Series({a: v / total for a, v in raw_w.items()})
     for i, d in enumerate(dates):
-        # T+0 OPEN: weights apply from future[0] of d (first trading day after signal)
+        # T+1 OPEN: weights apply from future[0] of d (first trading day after signal)
         future_d = close.index[close.index > d]
         if len(future_d) < 1:
             continue
@@ -541,19 +463,6 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
         seg = close.index[(close.index >= seg_start) & (close.index < seg_end)]
         out.loc[seg] = daily_ret.loc[seg, cols].mul(w, axis=1).sum(axis=1).fillna(0.0)
     return out.loc[(out.index >= start) & (out.index <= end)]
-
-
-def run_fcp_pp_blend(panel, start, end, blend_pct=0.30, **kwargs) -> tuple[pd.Series, pd.Series, pd.Series]:
-    """LEGACY benchmark only — NOT used in production.
-
-    PROD is 60% CPM + 30% BULL-QQQ + 10% NDX (see build_dashboard.py).
-    This function exists only for historical comparison plots.
-    """
-    fcp_daily, _ = run_cpm_backtest(panel, start, end, **kwargs)
-    pp_daily = run_pp_backtest(panel, start, end)
-    common = fcp_daily.index.intersection(pp_daily.index)
-    blended = (1 - blend_pct) * fcp_daily.reindex(common).fillna(0.0) + blend_pct * pp_daily.reindex(common).fillna(0.0)
-    return blended, fcp_daily.reindex(common), pp_daily.reindex(common)
 
 
 # ---------- CLI commands ----------
@@ -610,7 +519,7 @@ def cmd_backtest(args):
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
     print(f"\nRunning CPM-only backtest from {start.date()} to {end.date()} ...")
-    print(f"Execution model: T+0 OPEN (next-day MOO after month-end signal)")
+    print(f"Execution model: T+1 OPEN (next-day MOO after month-end signal at T)")
     print(f"NOTE: This is CPM sleeve only (60% of PROD). For full PROD blend")
     print(f"      (60% CPM + 30% BULL-QQQ + 10% NDX) use build_dashboard.py.")
     

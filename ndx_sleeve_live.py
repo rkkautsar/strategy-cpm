@@ -1,33 +1,15 @@
-"""NDX-momentum sleeve (PROD).
+"""NDX sleeve (10% of 60/30/10 PROD blend).
 
 Spec:
-  1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006+)
-  2. Signal:   13612U momentum per name (HAA canary formula, same as CPM)
-  3. Select:   Top 4 by momentum (positive only)
-  4. Weight:   Equal-weight, 25% each
-  5. Gate:     Only allocate when BULL-QQQ regime == BULL_QQQ
-               (skip CASH regime -- equity-friendly only)
-  6. Fallback: 100% SHV cash when gate off OR <4 positive-momentum candidates
-  7. Monthly rebalance, T+0 OPEN execution (next-day MOO), 10bps/side cost
-
-Headline performance (canonical 2007-02 -> 2026, 19y):
-  Standalone:           Sh 1.24, CAGR 40.9%, MaxDD -44.9%, Vol 30.9%
-  60/30/10 CPM-BULL-NDX: Sh 1.43, CAGR 17.2%, MaxDD -16.0%
-
-Honest caveats:
-  - Pre-2017 backtest has survivorship bias (~28% of historical PIT members
-    missing yfinance price data, mostly pre-2015 delistings). Post-2020 clean.
-  - K=4 is the genuine Sharpe peak per concentration sweep (K=3..15 tested)
-    but accepts -44% standalone MaxDD as the price of momentum concentration.
-  - Mega-cap leadership is regime-dependent. A 2000-2010-style tech lost
-    decade would likely underperform vs BULL-QQQ alone -- this backtest
-    cannot verify because pre-2006 PIT data is unavailable.
-  - 60/30/10 blend gives +0.10 Sh vs CPM-BULL only at cost of +3.4pp MaxDD.
-
-Live trading note: NDX sleeve holds 4 individual stocks per month.
-Tax: monthly turnover at sleeve level can be high (4 names rotate); ordinary
-income on gains for the equity rotation -- worse than ETF strategies.
-Best in tax-advantaged account.
+  1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)
+  2. Signal:   13612U momentum per stock (canonical HAA unweighted average)
+  3. Gate:     BULL-QQQ regime must be BULL_QQQ; else 100% SHV cash.
+  4. PIT fallback: when PIT data unavailable (pre-2006), mirror BULL-QQQ
+     weights (NDX sleeve acts as extra BULL exposure).
+  5. Selection: top-K=4 by 13612U momentum, equal-weighted 25% each.
+  6. Partial fill: if fewer than K positive candidates, take what's there at
+     1/K=25% per pick, rest in SHV cash (e.g. 2 positives -> 50% stocks + 50% SHV).
+  7. Monthly rebalance, T+1 OPEN execution (next-day MOO), 10bps/side cost.
 """
 from __future__ import annotations
 import sys
@@ -152,7 +134,7 @@ def run_ndx_backtest(
 ) -> tuple[pd.Series, list[dict]]:
     """Run monthly NDX sleeve backtest. Returns (daily_returns, history).
 
-    Execution: T+0 OPEN (next-day MOO). Weights apply from the first trading
+    Execution: T+1 OPEN (next trading day MOO). Weights apply from the first trading
     day after each signal date (next_loc + 1 from signal day index).
     """
     full_panel = cpm_panel.join(ndx_panel, how="outer", rsuffix="_dup")

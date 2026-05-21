@@ -44,11 +44,11 @@ from bull_qqq_live import (
     BULL_TICKER, CASH_TICKER, MOMENTUM_LOOKBACK,
 )
 
-# Production blend weight for BULL-QQQ sleeve (CPM gets 1 - this).
-# 60/40 chosen for higher bull-tilt deployment.
-# Tradeoff vs 80/20: more equity exposure, ~+0.5pp CAGR, slightly higher DD.
-# Both 60/40 and 80/20 are well within bootstrap Sharpe CI.
-BULL_BLEND = 0.30
+# Production blend: 60% CPM + 30% BULL-QQQ + 10% NDX
+CPM_W = 0.60
+BULL_W = 0.30
+NDX_W = 0.10
+BULL_BLEND = BULL_W  # alias used by chart helpers below
 
 # matplotlib styling
 plt.rcParams.update({
@@ -266,7 +266,7 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0):
                 end_apply = common[common > next_sd[0]][0]
             else:
                 end_apply = common[-1]
-            # T+0 OPEN execution (next-day MOO)
+            # T+1 OPEN execution (next-day MOO)
             mask = (common >= future[0]) & (common < end_apply)
             asset_per_day.loc[mask] = "QQQ"
     trend_rets = pd.Series(0.0, index=common)
@@ -908,22 +908,17 @@ def main():
     sig_d = candidates[-1] if len(candidates) > 0 else today
     alloc_html = current_alloc_html(panel, sig_d)
     
-    # Sleeve breakdown -- production blend variants + reference sleeves
+    # Per-sleeve breakdown of the PROD blend
     common_idx = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
     fcp_c = cpm.loc[common_idx]; mt2_c = bull_qqq_rets.loc[common_idx]
     ndx_c = ndx_rets.loc[common_idx].fillna(0.0)
-    blend_60_30_10 = 0.6 * fcp_c + 0.3 * mt2_c + 0.1 * ndx_c   # PROD
-    blend_70_30 = 0.7 * fcp_c + 0.3 * mt2_c                     # CPM-BULL only
-    blend_60_40 = 0.6 * fcp_c + 0.4 * mt2_c                     # alt
-    blend_90_10 = 0.9 * fcp_c + 0.1 * mt2_c                     # conservative
+    blend_60_30_10 = CPM_W * fcp_c + BULL_W * mt2_c + NDX_W * ndx_c
 
     sleeve_rows = [
         {"strategy": "CPM-BULL-NDX 60/30/10 (PRODUCTION)", **perf_metrics(blend_60_30_10)},
-        {"strategy": "CPM-BULL 70/30 (no NDX)",           **perf_metrics(blend_70_30)},
-        {"strategy": "CPM-BULL 60/40 (more bull, no NDX)",  **perf_metrics(blend_60_40)},
-        {"strategy": "CPM standalone (defensive)",        **perf_metrics(cpm)},
-        {"strategy": "BULL-QQQ standalone (bull sleeve)", **perf_metrics(bull_qqq_rets)},
-        {"strategy": "NDX sleeve standalone (top-4 mom)",  **perf_metrics(ndx_c)},
+        {"strategy": "CPM standalone (60% sleeve)",        **perf_metrics(cpm)},
+        {"strategy": "BULL-QQQ standalone (30% sleeve)",   **perf_metrics(bull_qqq_rets)},
+        {"strategy": "NDX standalone (10% sleeve)",         **perf_metrics(ndx_c)},
     ]
 
     # ========================================================
@@ -1051,7 +1046,7 @@ def main():
 
 <div class='card'>
 <h3>Strategy at a glance</h3>
-<p><strong>Production blend</strong>: {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX, monthly rebalance, T+0 OPEN (next-day MOO), 10 bps/side cost.</p>
+<p><strong>Production blend</strong>: {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX, monthly rebalance, T+1 OPEN (next-day MOO), 10 bps/side cost.</p>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only, no leverage). SHV cash fallback.</li>
 <li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when QQQ {MOMENTUM_LOOKBACK}-1 absolute momentum &gt; 0 AND HYG/LQD/TIP any-positive 13612U canary fires. Otherwise 100% {CASH_TICKER}.</li>
@@ -1188,18 +1183,18 @@ def main():
 <li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% SHV; 0 positive &rarr; 100% SHV</li>
 <li><strong>Vol cap:</strong> {TARGET_VOL*100:.0f}% annualized target, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong>. Fires only in crisis regimes (~17% of days).</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
-<li><strong>Execution:</strong> month-end signal, T+0 OPEN trade (next-day MOO)</li>
+<li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
 </details>
 <details>
 <summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- bull capture with cash defense</summary>
 <ul>
-<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100, single ticker). No state-conditional rotation (oracle-v7 robust spec; XLP override removed as in-sample curve-fit).</li>
+<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
 <li><strong>Trend filter:</strong> <code>{BULL_TICKER}</code> {MOMENTUM_LOOKBACK}-1 absolute momentum &gt; 0 (Antonacci GEM standard). Removed prior 13612U OR composite as data-mined to 2009/2023 V-bottom recoveries.</li>
 <li><strong>Macro gate:</strong> HYG OR LQD OR TIP positive 13612U (any-positive, 3-asset credit/inflation canary). Adds +54% Martin Ratio over mom-only at small CAGR cost.</li>
 <li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> (short-treasury cash) when either filter fails. Zero duration risk on this sleeve.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
-<li><strong>Rejected variants:</strong> XLP late-cycle rotation (n=12 firings, t=0.85, p=0.41; in-sample curve-fit); 13612U OR composite trend (data-mined to 2009/2023 V-bottoms, dot-com whipsawed); multi-ETF universe (no alpha, more noise); IEF fallback (adds duration risk); CPM fallback (alpha duplicates with CPM sleeve); Faber 10mo SMA filter (worse dot-com survival); VIX filter (n=1 COVID evidence); 6-month / 3-month momentum (too whipsaw-prone).</li>
+
 </ul>
 </details>
 
@@ -1212,8 +1207,7 @@ def main():
 <li><strong>Gate:</strong> only allocates when BULL-QQQ regime is <code>BULL_QQQ</code> (equity-friendly); cash otherwise.</li>
 <li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> when gate off or fewer than 4 positive-momentum candidates.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
-<li><strong>Tradeoff:</strong> High beta, high vol, deep DD as standalone. Diluted by 10% blend weight; at portfolio level contributes ~+0.07 Sharpe / +1.5pp CAGR over 70/30 no-NDX reference.</li>
-<li><strong>Rejected variants (this session):</strong> min-var pair (X=5 K=2); skip-outlier (P98 K=6); low-vol K-subset; hold buffer. All marginal or negative blend impact -- top-K=4 remains Pareto winner.</li>
+<li><strong>Tradeoff:</strong> High beta, high vol, deep DD as standalone. Diluted by 10% blend weight contributes ~+0.07 Sharpe / +2.5pp CAGR at the portfolio level.</li>
 </ul>
 </details>
 </div>
@@ -1227,7 +1221,7 @@ def main():
 <li><strong>Crisis-concentrated alpha:</strong> CPM defensive sleeve delivers most of its edge in crisis years (2008, 2002, 2020, 2022). Non-crisis years lag SPY by design.</li>
 <li><strong>Lags V-shaped recoveries:</strong> 2009 full-year -10.8pp vs SPY; 2020-Q2 -27.6pp vs SPY in the snap-back. Canary slow to re-engage after deep selloffs.</li>
 <li><strong>Bullish-rally underperformance is structural:</strong> MAX_LEVERAGE=1.0 prevents vol-target from levering up in low-vol bull runs. Strategy gives up bull upside in exchange for crisis alpha as designed.</li>
-<li><strong>2020+ regime favors NDX:</strong> mega-cap concentration regime massively rewarded top-K=4 NDX selection. Forward regime may revert -- min-var alternatives tested but rejected as overfit (oracle review 2026-05-21).</li>
+<li><strong>2020+ regime favors NDX:</strong> mega-cap concentration regime massively rewarded top-K=4 NDX selection. Forward regime may revert.</li>
 <li><strong>Strategy not yet live-traded.</strong> Forward expectation should anchor below backtest. Bootstrap CI on Sharpe is wide.</li>
 </ul>
 </div>

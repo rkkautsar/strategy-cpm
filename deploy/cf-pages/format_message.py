@@ -53,7 +53,7 @@ def main() -> None:
 
     parts = []
     parts.append(f"📈 *CPM-BULL-NDX Monthly Signal*")
-    parts.append(f"Signal date: `{sig_d.date()}` · Trade T+1 MOC")
+    parts.append(f"Signal date: `{sig_d.date()}` · Trade T+1 OPEN (MOO)")
     parts.append("")
     parts.append(f"_CPM: {cpm_regime} · BULL: {bull_regime} · NDX: {ndx_regime}_")
     parts.append("")
