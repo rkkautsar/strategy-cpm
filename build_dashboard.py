@@ -928,15 +928,22 @@ def main():
     ]
 
     # ========================================================
-    # EXTENDED 26y backtest (2000-2026)
-    # Includes dot-com bust 2000-2002, GFC 2008, COVID, 2022, etc.
-    # Truncated from prior 1994 start since pre-2000 had thin QQQ liquidity
-    # making BULL-QQQ + naive series visually flat/uninformative.
-    # All 4 main series have meaningful data from 2000-01. NDX sleeve joins
-    # in 2007 due to PIT data availability (index-constitution 2006-01+).
+    # EXTENDED ~27y backtest (1999-03 -> present)
+    # QQQ actual inception: 1999-03-10. Earlier dates would require
+    # synthetic QQQ proxies for the BULL sleeve.
+    # Constraints by sleeve:
+    #   - CPM: HYG_stitched (1980+), TIP (2000-06+, nan pre-2000 -> canary
+    #     uses HYG only). GLD (2000-08+). DBC live 2006-02 (stitched pre).
+    #     VBR live 2004-01 (stitched pre). Pre-2004 universe selection is
+    #     proxy-heavy (universe-selection contamination concern).
+    #   - BULL: QQQ live 1999-03. HYG+LQD+TIP canary -- pre-2002 LQD nan,
+    #     pre-2000 TIP nan, falls back to HYG-only canary.
+    #   - NDX: PIT data 2006-01+. Pre-2006 the NDX sleeve mirrors BULL-QQQ
+    #     (i.e., extra BULL exposure) instead of sitting in cash.
+    # Includes 2000-02 dot-com bust, 2008 GFC, 2020 COVID, 2022 stress.
     # ========================================================
-    ext_start = pd.Timestamp("2000-01-01")
-    print(f"Running EXT 26y backtest {ext_start.date()} ...")
+    ext_start = pd.Timestamp("1999-03-10")
+    print(f"Running EXT backtest {ext_start.date()} ...")
     ext_fcp, _ = run_cpm_backtest(panel, ext_start, end)
     ext_bull = run_bull_qqq_backtest(panel, ext_start, end)
     try:
@@ -1135,9 +1142,9 @@ def main():
 {yearly_table_html(blended, qqq, cpm, bull_qqq_rets, naive_pp_qt)}
 </div>
 
-<h2>Extended Backtest (26y, 2000-2026)</h2>
+<h2>Extended Backtest (~27y, {ext_start.date()} -> {end.date()})</h2>
 <div class='card'>
-<p class='meta'>EXT 26y window (2000-2026) includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve only joins from 2007 due to PIT constituent data availability (lib <code>index-constitution</code> covers 2006-01+). Treat as exploratory: proxy quality + pre-2008 universe coverage degrades signal vs live.</p>
+<p class='meta'>EXT window starts at QQQ inception (1999-03-10) and includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve <strong>falls back to BULL-QQQ mirroring</strong> pre-2006 (when PIT constituent data via <code>index-constitution</code> is unavailable) -- so the 10% NDX weight acts as extra BULL exposure rather than sitting in cash. Treat pre-2007 as exploratory: proxy quality + thin canary (LQD live 2002-07, TIP live 2000-06) degrades signal vs live window.</p>
 {perf_table_html(ext_perf_rows)}
 </div>
 
@@ -1217,7 +1224,7 @@ def main():
 <ul>
 <li><strong>In-sample selection bias:</strong> hyperparameters and universe tuned on this same data window. Forward Sharpe should be anchored at 0.90-1.20 (not backtest 1.36) for the blend; CPM standalone forward base case 0.80-1.10.</li>
 <li><strong>Universe risk:</strong> {len(RISKY_UNIVERSE)}-asset CPM universe + QQQ for BULL + PIT Nasdaq-100 for NDX. Curated via ablation/robustness iteration, not best-of-N sweep, but DSR concern remains after broad parameter exploration.</li>
-<li><strong>NDX survivorship bias:</strong> PIT constituent data only goes back to 2006-01, so EXT 26y backtest joins NDX sleeve from 2007 forward. Pre-2007 PIT data unavailable -- a 2000-2010 tech-lost-decade regime would likely underperform vs the BULL-QQQ alone.</li>
+<li><strong>NDX survivorship bias + EXT fallback:</strong> PIT constituent data only goes back to 2006-01. Pre-2007 in the EXT backtest, NDX sleeve mirrors BULL-QQQ weights (so the 10% NDX weight becomes extra BULL exposure, not cash). A 2000-2010 tech-lost-decade with proper PIT NDX would likely underperform vs BULL-QQQ alone -- cannot be verified.</li>
 <li><strong>Crisis-concentrated alpha:</strong> CPM defensive sleeve delivers most of its edge in crisis years (2008, 2002, 2020, 2022). Non-crisis years lag SPY by design.</li>
 <li><strong>Lags V-shaped recoveries:</strong> 2009 full-year -10.8pp vs SPY; 2020-Q2 -27.6pp vs SPY in the snap-back. Canary slow to re-engage after deep selloffs.</li>
 <li><strong>Bullish-rally underperformance is structural:</strong> MAX_LEVERAGE=1.0 prevents vol-target from levering up in low-vol bull runs. Strategy gives up bull upside in exchange for crisis alpha as designed.</li>

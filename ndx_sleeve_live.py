@@ -98,8 +98,17 @@ def compute_ndx_weights(
         })
 
     # Step 2: PIT NDX membership at signal date
+    # PIT data (index-constitution lib) only covers 2006-01+. For earlier
+    # signal dates, fall back to mirroring BULL-QQQ weights (i.e., the NDX
+    # sleeve acts as extra BULL exposure) instead of going to cash.
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
+    if len(pit_tickers) == 0:
+        return (bq_weights, "NDX_FALLBACK_BULL_QQQ", {
+            "bull_qqq_regime": bq_regime,
+            "selected": list(bq_weights.keys()),
+            "reason": "PIT NDX data unavailable pre-2006; mirroring BULL-QQQ",
+        })
     available = [t for t in pit_tickers if t in ndx_panel.columns]
 
     # Step 3: 13612U momentum on each available member
@@ -116,11 +125,13 @@ def compute_ndx_weights(
     # Step 4: top SELECT_K by momentum, equal-weight
     sorted_by_mom = sorted(momenta.items(), key=lambda x: -x[1])
     if len(sorted_by_mom) < SELECT_K:
-        return ({CASH_TICKER: 1.0}, "INSUFFICIENT_CANDIDATES", {
+        # Fallback: not enough qualifying NDX picks, mirror BULL-QQQ instead
+        # of sitting in cash (NDX sleeve acts as extra BULL exposure).
+        return (bq_weights, "NDX_FALLBACK_BULL_QQQ", {
             "bull_qqq_regime": bq_regime,
             "n_candidates": len(sorted_by_mom),
-            "selected": [],
-            "reason": f"Only {len(sorted_by_mom)} positive-momentum candidates",
+            "selected": list(bq_weights.keys()),
+            "reason": f"Only {len(sorted_by_mom)} positive NDX candidates; mirroring BULL-QQQ",
         })
     selected = [t for t, _ in sorted_by_mom[:SELECT_K]]
     weights = {t: 1.0 / SELECT_K for t in selected}
