@@ -6,7 +6,7 @@ Spec:
   3. Select:   Top 4 by momentum (positive only)
   4. Weight:   Equal-weight, 25% each
   5. Gate:     Only allocate when BULL-QQQ regime == BULL_QQQ
-               (skip BULL_XLP and CASH regimes -- equity-friendly only)
+               (skip CASH regime -- equity-friendly only)
   6. Fallback: 100% SHV cash when gate off OR <4 positive-momentum candidates
   7. Monthly rebalance, T+1 MOC execution, 10bps/side cost
 

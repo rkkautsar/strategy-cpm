@@ -69,7 +69,7 @@ mega-cap momentum alpha. Trade: +3.14pp CAGR for +3.4pp MaxDD.
 See **Strategy spec** (next section) for full pseudocode and component
 sources. See **Validation & Robustness** (after spec) for detailed tables
 on weight sensitivity, cost stress, joint stress, universe robustness,
-bootstrap CI, DSR, XLP rule validation, and full 9 caveats.
+bootstrap CI, DSR, and full 9 caveats.
 
 ## Strategy spec (compact)
 
@@ -133,7 +133,7 @@ else:
 | HYG/LQD multi-canary | Our extension of Keller DAA (2018) |
 | Faber 10mo SMA ranker (CPM) | Faber 2007 SSRN-inspired; uses adjusted total-return prices (yfinance auto_adjust=True, dividend-reinvested). |
 | Min-variance pair selection | Optimum3/AllocateSmartly 2022-inspired; exact implementation is CPM's (504d covariance on total-return data). Beats lowest_corr (-0.22 Sh) and inv_vol (-0.08 Sh) variants; robust across 126-1260d lookback. |
-| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. Trailing 252d standard lookback, 10% target vol. |
+| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. Trailing 63d lookback, 10% target vol (chosen over 252d academic standard: +2.4pp better MaxDD on CPM standalone, blend MaxDD essentially tied; faster vol estimate de-risks sooner in crashes). |
 | Cross-sectional selection (top-K rank) | Conceptual inspiration: Jegadeesh & Titman 1993 JoF (return-rank momentum). Actual implementation: Faber 2007 SMA score. J&T listed for transparency of mechanism family, NOT as direct citation. |
 | Hold-buffer dampener | Practitioner standard (AQR notes); applied as z-score of Faber distance |
 
@@ -416,40 +416,15 @@ Flat surface 60/40 to 80/20, 70/30 peaks both windows, NOT a sharp peak
    TEST -0.04, EXT -0.02). Modern era too few V-recoveries to make the
    confirmation worth missed bull months. Single-month canary kept.
 
-### XLP late-cycle rule validation (small-sample, low-conviction)
+### XLP late-cycle rule (REMOVED, oracle-v7 robust spec)
 
-
-The HYG-/LQD-/TIP+ -> XLP substitution is the least-statistically-validated
-element of the spec. Retained on mechanistic grounds (credit-stress sector
-rotation literature, see Component sources). Honest stats:
-
-| Metric | Value (n=18 firings across EXT 32y) |
-|---|---|
-| Mean edge (XLP - QQQ) | +0.94%/month |
-| Median edge | +1.88%/month |
-| Hit% (XLP > QQQ) | 67% |
-| 95% Bootstrap CI on mean | **[-1.23%, +3.05%]** (includes zero) |
-| P(edge > 0) | 81% |
-| P(edge > 0.5%) | 66% |
-| t-statistic vs zero | 0.85, **p = 0.41** (not stat-sig) |
-
-Per-window edge (consistent direction across all 4 windows despite small n):
-
-| Window | n | Mean edge | Hit% |
-|---|---:|---:|---:|
-| LIVE 18y | 12 | +1.17% | 67% |
-| TRAIN 2008-16 | 2 | +2.89% | 100% (n=2 noise) |
-| **TEST OOS 2017+** | **10** | **+0.83%** | **60%** |
-| EXT pre-LIVE | 6 | +0.49% | 67% |
-
-**Verdict**: mechanism-backed (Neuberger Berman 2024, Fidelity, Hartford
-2025), directionally consistent across all OOS windows, but statistically
-marginal (p=0.41, CI includes zero). Retained because: (a) mechanism
-story is well-cited industry research, (b) OOS hit% is >= 60% in every
-window tested, (c) downside is bounded -- replaces QQQ with XLP only in
-the specific ~5-8% +-+ state, (d) sleeve impact is ~+0.04 Sh on 60/40
-blend (real but small). Treat as low-conviction tail-shaping, not a
-proven alpha source.
+Prior versions rotated to XLP in HYG-/LQD-/TIP+ canary state. **Removed**
+as in-sample curve-fit: state fires only ~5% of months (n=12 in LIVE),
+sample too small for statistical significance (t=0.85, p=0.41, 95% CI on
+edge includes zero). Mechanism backed by industry research but not
+distinguishable from noise out-of-sample. Bull sleeve is now pure 100% QQQ
+when risk-on; defensive sector rotation is handled entirely by the 60%
+CPM sleeve (which has access to all SPDR sectors via its candidate pool).
 
 ## Bottom line (full spec)
 
@@ -458,9 +433,8 @@ proven alpha source.
 CPM engine spec: 9 risky ETFs, `TOP_K_CANDIDATES=5`, `HOLD_BUFFER=2.5z`,
 **HYG+TIP+GLD "any positive" 13612U canary**, vol-target 10% (de-risk only,
 no leverage), 10 bps/side cost, SHV-only cash fallback. BULL-QQQ spec:
-composite trend (12-1 momentum OR 13612U > 0) AND multi-canary
-(HYG/LQD/TIP any-positive 13612U); bull asset is XLP in HYG-/LQD-/TIP+
-state, QQQ elsewhere; SHV cash when filters fail.
+12-1 absolute momentum AND multi-canary (HYG/LQD/TIP any-positive 13612U);
+bull asset is 100% QQQ when risk-on; SHV cash when filters fail.
 
 | Metric (CANONICAL 19.2y 2007-02 -> 2026-05, post-cost, all 9 RISKY live, incl GFC) | CPM only | BULL-QQQ only | **70/30 PROD** |
 |---|---:|---:|---:|
@@ -515,15 +489,10 @@ Production is a two-sleeve TAA strategy:
 50/50, with a canary risk-gate, defensive cash rotation when conditions warrant,
 and 10% volatility targeting (de-risk only, no leverage).
 
-**BULL-QQQ sleeve (30%)** holds equity when composite trend (QQQ 12-1
-momentum > 0 OR QQQ 13612U > 0) passes AND either: (a) macro canary fires
-risk-on (HYG OR LQD OR TIP 13612U > 0), OR (b) equity-strength override
-fires (QQQ 12-month return > top tercile of expanding-window historical
-distribution, Asness-style, truly OOS-calibrated).
-
-Bull asset depends on canary state: 100% XLP (consumer staples) in `+-+`
-state (HYG-, LQD-, TIP+; late-cycle inflation regime), else 100% QQQ.
-Otherwise 100% SHV cash.
+**BULL-QQQ sleeve (30%)** holds 100% QQQ when QQQ 12-1 absolute momentum
+> 0 AND macro canary fires risk-on (HYG OR LQD OR TIP 13612U > 0).
+Otherwise 100% SHV cash. No state-conditional sector rotation
+(oracle-v7 robust spec).
 
 The combined strategy is a hybrid of:
 - Antonacci 12-1 absolute momentum (BULL-QQQ per-asset filter)
@@ -599,14 +568,13 @@ Each month at month-end close (T):
 
 - **Signal computed at month-end close (T)** - frozen, no intramonth refresh.
 - **Trade at MOC of T+1** - next trading day.
-- Single tranche per month. ~13 unique ETFs total when running the 70/30 blend
-  (11 CPM risky + SHV cash + QQQ + XLP, with QQQ shared between
+- Single tranche per month. ~12 unique ETFs total when running the 70/30 blend
+  (11 CPM risky + SHV cash + QQQ, with QQQ shared between
   sleeves and SHV shared with CPM safe pool).
 
 ### BULL-QQQ sleeve (30% bull capture)
 
-**Bull universe:** `QQQ` (default Nasdaq-100) + `XLP` (consumer staples,
-used in HYG-/LQD-/TIP+ canary state for late-cycle inflation regime).
+**Bull universe:** `QQQ` only (Nasdaq-100). No state-conditional rotation.
 
 QQQ is highly liquid and diversified across index constituents but
 economically concentrated in Nasdaq-listed large-cap growth leadership.
@@ -625,31 +593,19 @@ history plus the AI rally.
      mean fwd QQQ -0.65%, lone-positive states (HYG, LQD, or TIP) all
      have positive expected returns
 
-2. **QQQ composite trend filter (any positive):**
-   - 12-1 absolute momentum > 0 (Antonacci dual momentum) -- SLOW anchor,
-     anti-whipsaw in sustained bears like dot-com
-   - OR 13612U > 0 (Keller HAA-style weighted momentum) -- FAST signal,
-     catches re-entry quickly after bears (caught 2023 AI rally in Feb
-     vs 12-1-alone waiting until June)
-   - Disjunction: long if EITHER signal positive -- slow anchors against
-     whipsaw, fast rescues re-entry timing
+2. **QQQ trend filter:**
+   - 12-1 absolute momentum > 0 (Antonacci GEM standard) -- SLOW anchor,
+     anti-whipsaw in sustained bears like dot-com.
+   - Prior versions added 13612U > 0 as OR disjunction (FAST signal for
+     re-entry). Removed in oracle-v7 robust spec: 13612U is prone to
+     bear-rally whipsaws; 12-1 alone is more robust forward and only
+     costs ~0.02 Sh on backtest.
 
-**Bull asset depends on canary state (HYG/LQD/TIP sign pattern):**
-- HYG-/LQD-/TIP+: hold **XLP** (consumer staples)
-   * Late-cycle inflation regime: real yields rising, credit weakening
-   * Defensive cash-flow sectors lead; tech (QQQ) lags due to duration sensitivity
-   * **Mechanism family validated OOS** (XLP/XLV/XLU/SPY/DVY/NOBL/SCHD all
-     beat QQQ-no-switch in TEST window 2017-2026). Specific XLP choice
-     within family is bootstrap-noise distinguishable from alternatives
-     (all within ~0.02 Sh across windows).
-   * **XLP chosen over basket** for: (a) longest defensive ETF history
-     (1998), (b) zero within-basket rebalancing cost, (c) operational
-     simplicity (1 ticker), (d) tied-best Sharpe across LIVE FULL / TEST
-     OOS / EXT 32y windows after switching costs.
-   * **Small-sample caveat: n=14 LIVE state observations (8.6%), n=21
-     EXT (5.4%). Treat as mechanism-backed regime substitution, not as
-     a statistically distinguishable XLP-specific edge vs alternatives.**
-- All other bull states: hold **QQQ** (default tech)
+**Bull asset:** 100% QQQ when both filters pass. Prior versions rotated
+to XLP in HYG-/LQD-/TIP+ canary state (~5% of months, n=12 LIVE). Removed
+as curve-fit: sample too small for significance (t=0.85, p=0.41), 95% CI
+on edge includes zero. Defensive sector exposure is now handled entirely
+by the 60% CPM sleeve.
 
 **Fallback:** 100% SHV (short-treasury cash) when either filter fails.
 SHV chosen over IEF for cleaner defense -- ultra-short Treasury (~0.3y effective duration) on this sleeve.
@@ -705,14 +661,14 @@ Document as known tail, not a spec defect.
 - Vol-targeting (10-20% target): cleaner MaxDD but minimal avg-rolling-DD
   improvement; trades 1-3pp CAGR for tail protection on max DD only.
 - Faber 10mo SMA eligibility filter: worse extended-window robustness.
-- 12-1 alone (without 13612W OR disjunction): missed 2023 AI rally (only
-  +3.8% capture vs +22.4% with composite trend).
-- IHF rotation in `+-+`: highest raw Sharpe but Ulcer collapses on outlier
-  removal (UNH-cycle concentration risk); XLP chosen for robustness.
-- `--+` -> VBR/VNQ rotation: N=18 too small for deployment, parked as
-  research; see `research/canary_state_rotation_notes.md`.
-- XLE-rotation kill switch: threshold monotonicity passes but episode test
-  fails (12 of 30 firings in 2022 alone); parked pending more episodes.
+- 13612W OR composite trend (12-1 mom > 0 OR 13612U > 0): removed in
+  oracle-v7 robust spec. Backtest peak (+0.06 Sh, captured 2023 AI rally
+  early) was data-mined; 13612U whipsaws on bear-market rallies. 12-1
+  alone is more robust forward.
+- `+-+` -> XLP rotation: removed in oracle-v7 robust spec (n=12 firings,
+  t=0.85, p=0.41, CI on edge includes zero; in-sample curve-fit).
+- IHF / `--+` -> VBR/VNQ / XLE rotations: all parked as research, never
+  deployed.
 - Top-K momentum-weighted from multi-ETF universe: concentrates on highest vol, hurts Sharpe.
 - 13612U (unweighted) eligibility filter: marginal differences.
 - Daily EMA 50/200 golden cross: essentially tied, more complex.
@@ -745,7 +701,7 @@ rules and assumptions.
 | Keller HAA-Bal | HAA-Bal | HAA | 0.93 | 9.1% | -15.5% | 13.1y |
 | ReSolve AAA (RDMIX) | live fund | live, net of 0.95% fee | 0.48 | 4.9% | -21.9% | 8.2y |
 | **CPM standalone** | CPM-9 | CPM | **1.08** | 10.76% | -13.35% | 19.2y |
-| **CPM + 30% BULL-QQQ (PROD 70/30)** | CPM-9 + QQQ | CPM+regime-bull | **1.33** | **14.09%** | **-12.61%** | 19.2y |
+| **CPM + 30% BULL-QQQ (PROD 70/30)** | CPM-9 + QQQ | CPM+trend-bull | **1.27** | **13.12%** | **-12.06%** | 19.2y |
 | **Naive 70/30 PP/QQQ-trend** | 25/25/25/25 + 10mo SMA | passive + Faber | 1.01 | 8.4% | -14.9% | 18y |
 
 **Window-aligned CPM edge vs best fair peer**: CPM on the HAA window
@@ -813,40 +769,10 @@ counterfactual + raw target) for clean apples-to-apples context.
   trend-following primitive; AQR/Faber (2007) confirm trend-filter Sharpe
   improvements vs buy-hold across global markets.
 
-### Credit-stress regime sector rotation (BULL-QQQ +-+ rule)
+### Macro canary (BULL-QQQ multi-asset stress detection)
 
-The HYG-/LQD-/TIP+ state -> XLP defensive substitution rule has
-strong mechanism backing in academic and industry literature, though
-the specific multi-canary + sector-switch combination is novel.
-
-**Direct mechanism evidence:**
-
-- **Neuberger Berman (Feb 2024)** - "The Importance of Monitoring Credit
-  Spreads In Positioning Equity Portfolios" (Hanafy/Wennett). Examined 6
-  episodes since 2000 where Baa credit spreads widened from bottom-10%
-  extremes. Finding: "cyclical sectors performed the worst -- Industrials,
-  Consumer Discretionary, Materials -- whereas defensive sectors --
-  Consumer Staples, Utilities, Healthcare -- held up the best". Directly
-  validates the credit-stress -> defensive-sector mechanism.
-
-- **Hartford Funds / Schroders (2025)** - sector performance under
-  high+rising inflation (1973-2025). Consumer staples "performed
-  comparatively better, as their cash flows tend to be concentrated in
-  the shorter term". Tech (IT): "the bulk of cash flows are expected
-  in the distant future, which may be worth far less when inflation
-  increases". Validates TIP+ (real-rate sensitivity) -> tech-underperform
-  mechanism via cash-flow-duration argument.
-
-- **Fidelity Business Cycle Update** (2016, recurring). Late-cycle phase:
-  defensives + energy lead, tech lags. Recession: "consumer staples sector
-  has a perfect track record of outperforming the broader market
-  throughout the entire recession phase". Sector-cycle rotation framework
-  matches our +-+ -> XLP regime detection.
-
-- **S&P Dow Jones (2024)** - factor index performance across macro regimes.
-  Quality factor "consistently outperformed the S&P 500 in Falling Growth"
-  regardless of inflation. Validates quality+defensive-equity tilt in
-  credit-stress regimes.
+The HYG+LQD+TIP "any positive" 13612U canary has strong mechanism backing
+in academic and industry literature.
 
 **Academic foundations (credit-spread regime detection):**
 
@@ -861,25 +787,11 @@ the specific multi-canary + sector-switch combination is novel.
 - **Keller & Keuning (2022) "Hybrid Asset Allocation"** - SSRN 4346906.
   Uses TIP as single-asset canary + 13612U canonical momentum. When TIP
   momentum negative -> defensive (IEF/BIL). This IS the core mechanism
-  we use; our extension is multi-canary (HYG+LQD+TIP "any positive") +
-  state-conditional sector switch (XLP in -/-/+).
-
-**Why the specific +-+ -> XLP rule is not in published literature:**
-
-1. Academic momentum/canary papers operate at asset-class level (equity/
-   bond/safe), not sector level
-2. Most retail-facing TAA strategies (HAA, GEM, DAA) use single-canary
-   rules, not multi-canary state interactions
-3. Industry research describes the regime tilts qualitatively (Neuberger,
-   Fidelity, Hartford) but rarely publishes ETF-specific rule books
-4. Sector-state interactions like HYG-/LQD-/TIP+ -> XLP only become
-   tractable when you discretize multi-canary signals into states --
-   that's a recent quant-friendly framing
+  we use; our extension is multi-canary (HYG+LQD+TIP "any positive").
 
 The spec is therefore a **novel combination of well-documented components**:
-TIP canary (Keller HAA) + multi-asset stress detection (DAA-style) +
-state-conditional defensive sector rotation (Neuberger Berman + Fidelity
-business-cycle framework) + TSMOM/13612U composite trend filter.
+TIP canary (Keller HAA) + multi-asset stress detection (DAA-style) + 12-1
+absolute momentum trend filter (Antonacci GEM).
 
 
 ### Bespoke / data-driven
@@ -965,26 +877,7 @@ See `research/oracle_v2_validation_2026.log` for full output.
 | **-** | **-** | **45** | **-1.16%** | **53.3%** |
 
 OR-rule justified: all three "any-positive" states have positive forward
-mean; only --/-- state is negative. Validates composite trend (12-1 OR
-13612W) over either signal alone.
-
-**Canary 8-state matrix (LIVE 18y, HYG/LQD/TIP signs, n=217):**
-
-| State | n | QQQ fwd | XLP fwd | XLP-QQQ |
-|:---:|---:|---:|---:|---:|
-| HYG+/LQD+/TIP+ | 121 | +1.86% | +0.83% | -1.03% |
-| HYG+/LQD+/TIP- | 14 | +1.00% | +0.32% | -0.68% |
-| HYG+/LQD-/TIP+ | 14 | +0.40% | +1.30% | +0.91% |
-| HYG+/LQD-/TIP- | 16 | +1.95% | +0.34% | -1.61% |
-| HYG-/LQD+/TIP+ | 10 | +1.95% | +0.86% | -1.09% |
-| HYG-/LQD+/TIP- | 4 | +1.36% | +1.68% | +0.32% |
-| HYG-/LQD-/TIP+ | 9 | +0.41% | +2.15% | +1.73% |
-| HYG-/LQD-/TIP- | 29 | +0.55% | +0.36% | -0.19% |
-
-XLP edge concentrated in two states (+/-/+ and -/-/+). Current spec only
-switches on +/-/+ (the state where canary still fires as "any-positive"
-and bull sleeve eligible); -/-/+ has stronger XLP edge but goes to cash
-regardless because canary natural-state is risk-off.
+mean; only --/-- state is negative.
 
 **Canary-rule ablation (LIVE 18y, BULL standalone):**
 
@@ -997,33 +890,11 @@ regardless because canary natural-state is risk-off.
 | HYG only | 0.82 | 13.39% | misses LQD/TIP signal |
 | TIP only | 0.87 | 14.64% | inflation-only |
 | LQD only | 0.85 | 14.06% | IG-credit-only |
-| No macro (override only) | 0.38 | 4.50% | gate matters |
 
 3-asset any-positive rule is best. LQD addition over 2-asset HYG+TIP
 adds +0.04 Sharpe in LIVE. Rule is intentionally permissive: exits only
 when ALL three credit/real-rate signals are non-positive (broad-stress
 detector, not equity-correction detector).
-
-**XLP-substitution ablation (production module with switching costs):**
-
-| Asset in HYG-/LQD-/TIP+ | LIVE FULL Sh | TRAIN Sh | **TEST OOS Sh** | EXT 32y Sh |
-|---|---:|---:|---:|---:|
-| **XLP only (PROD)** | **1.430** | 1.270 | **1.531** | **1.222** |
-| XLV only | 1.410 | **1.316** | 1.454 | 1.210 |
-| XLU only | 1.406 | 1.182 | 1.564 | 1.197 |
-| XLP/XLV 50/50 basket | 1.423 | 1.296 | 1.495 | 1.217 |
-| XLP/XLU 50/50 basket | 1.421 | 1.228 | 1.551 | 1.211 |
-| XLP/XLV/XLU 1/3 basket | 1.420 | 1.260 | 1.522 | 1.212 |
-| QQQ (no switch) | 1.352 | 1.231 | 1.418 | 1.181 |
-
-Mechanism family validated OOS (all defensive variants beat QQQ-no-switch
-on TEST). TRAIN winner (XLV @ 1.316) did NOT generalize -- ranked 4th
-on TEST -- classic single-asset overfit. XLP-only is consistently top-3
-across all windows and wins LIVE FULL / TEST OOS (tied) / EXT 32y.
-
-Broader defensive/dividend ETFs also tested (SCHD/NOBL/VIG/DGRO/USMV/SPLV/
-VYM/DVY/HDV/RSP) on common 2014+ window: all cluster within 0.02 Sh of
-XLP, no single ETF materially better. See `research/oracle_v2_validation_2026.log`.
 
 **Dot-com stress (1999-2003, 60/40 PROD via production module):**
 
@@ -1035,10 +906,9 @@ XLP, no single ETF materially better. See `research/oracle_v2_validation_2026.lo
 | 2002 | -21.6% | -37.4% | +4.7% | +4.9% | +5.0% |
 | 2003 | +28.2% | +49.7% | +24.9% | +44.2% | +33.0% |
 
-QQQ trend filter held through the most important Nasdaq stress period.
-60/40 blend negative only in 2000; positive in 2001-2003 while SPY/QQQ
-bled. Validates that the OR trend rule survives a sustained Nasdaq bear,
-not just post-GFC corrections.
+QQQ 12-1 trend filter held through the most important Nasdaq stress
+period. 60/40 blend negative only in 2000; positive in 2001-2003 while
+SPY/QQQ bled.
 
 **EXT 32y blend performance (1994-2026, includes dot-com):**
 
@@ -1163,8 +1033,8 @@ def mom_13612U(series):
     r1, r3, r6, r12 = returns over [1, 3, 6, 12] months
     return (r1 + r3 + r6 + r12) / 4
 
-# 1. Trend filter (composite OR)
-trend_ok = (mom_12_1_qqq > 0) or (mom_13612U(QQQ) > 0)
+# 1. Trend filter (12-1 absolute momentum, Antonacci GEM)
+trend_ok = mom_12_1_qqq > 0
 
 # 2. Macro canary (3-asset any-positive)
 macro_on = (
@@ -1173,26 +1043,13 @@ macro_on = (
     or mom_13612U(TIP) > 0
 )
 
-# 3. Equity-strength override (truly OOS-calibrated)
-historical_12mo_returns = [QQQ_close[t-1mo] / QQQ_close[t-13mo] - 1
-                           for t in panel_history if t < T]
-threshold_67th = percentile(historical_12mo_returns, 67)
-override_active = mom_12_1_qqq > threshold_67th
-
-# 4. Late-cycle inflation state (HYG-/LQD-/TIP+ pattern)
-late_cycle_inflation = (
-    mom_13612U(HYG) <= 0
-    and mom_13612U(LQD) <= 0
-    and mom_13612U(TIP) > 0
-)
-
-# 5. Decision
-if trend_ok and (macro_on or override_active):
-    target = "XLP" if late_cycle_inflation else "QQQ"
+# 3. Decision
+if trend_ok and macro_on:
+    target = "QQQ"
 else:
     target = "SHV"
 
-# 6. Execute at T+1 MOC, 10bps/side cost on any state change
+# 4. Execute at T+1 MOC, 10bps/side cost on any state change
 ```
 
 Spec definitions:
@@ -1207,7 +1064,7 @@ Spec definitions:
 - **Signal date**: month-end close T
 - **Trade date**: T+1 MOC (next trading day at market-on-close)
 - **Costs**: 10 bps per side (20 bps round-trip) on any state change
-  including QQQ <-> XLP <-> SHV switches
+  (QQQ <-> SHV switches)
 - **Rebalance frequency**: monthly only, no intramonth updates
 - **Canary state notation**: HYG/LQD/TIP signs in that order; e.g. -/-/+ means
   HYG- LQD- TIP+ (compact form: HYG-/LQD-/TIP+)
@@ -1294,7 +1151,7 @@ condition to verify in live data, not a default expectation.
 
 The BULL-QQQ sleeve was selected after observing the post-GFC Nasdaq regime
 and AI rally. The LIVE-18y 20% CAGR for BULL standalone is QQQ-era driven:
-BULL spends ~75% time in QQQ, ~16% in cash, ~9% in XLP, so standalone CAGR
+BULL spends ~84% time in QQQ and ~16% in cash, so standalone CAGR
 ~= QQQ-long-run-CAGR x 0.84 exposure. With QQQ long-run real return ~8-10%,
 BULL standalone forward CAGR expectation is **~7-10%, not 18-20%**. The
 risk-adjusted edge over QQQ buy-hold (+0.35 Sharpe, half the MaxDD) is the

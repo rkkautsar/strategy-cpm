@@ -5,21 +5,13 @@ BULL-QQQ - Regime-gated QQQ overlay with SHV cash fallback.
 The 20% bull sleeve that pairs with the 80% CPM-11 sleeve in production
 (70/30 or 60/40 also viable, per personal-capital preference).
 
-Strategy:
+Strategy (oracle-v7 robust spec):
   Risk-on when BOTH:
-    1. Macro:    HYG OR LQD OR TIP 13612U > 0     (credit/inflation regime)
-                 OR Override: QQQ 12-1 mom > expanding 67th-pctile threshold
-                 (Asness-style tercile, truly OOS-calibrated, bypasses canary
-                  when equity has demonstrably rallied -- handles 2023-style
-                  AI rally despite credit stress)
-    2. Trend:    QQQ 12-1 absolute momentum > 0
-                 OR QQQ 13612U > 0                (composite trend, OR)
+    1. Macro:    HYG OR LQD OR TIP 13612U > 0    (credit/inflation regime)
+    2. Trend:    QQQ 12-1 absolute momentum > 0   (Antonacci GEM standard)
 
-  Bull asset depends on canary state:
-    - If state HYG-/LQD-/TIP+:  hold XLP   (late-cycle inflation regime)
-    - Else:                      hold QQQ   (default tech)
-
-  Otherwise: hold SHV (cash)
+  Bull asset: 100% QQQ (no state rotation)
+  Otherwise:  100% SHV (cash)
 
 Design rationale:
   - Single-ticker bull bet on Nasdaq-100; QQQ already provides diversified
@@ -68,31 +60,17 @@ from cpm_live import (
 BULL_TICKER = "QQQ"          # default bull asset
 CASH_TICKER = "SHV"          # short-treasury cash, zero duration risk
 
-# Canary-state-conditional bull asset rotation.
-# Asset substitution ablation (LIVE 18y, 60/40 blend, production module):
-#   QQQ (no switch):     BULL Sh 0.97, 60/40 Sh 1.353, CAGR 14.16%
-#   XLP only (PROD):     BULL Sh 1.07, 60/40 Sh 1.430, CAGR 14.62%  <- best
-#   XLV only:            BULL Sh 1.05, 60/40 Sh 1.410, CAGR 14.53%
-#   XLU only:            BULL Sh 1.03, 60/40 Sh 1.406, CAGR 14.46%
-#   XLP/XLV 50/50:       BULL Sh 1.06, 60/40 Sh 1.423, CAGR 14.58%
-#   XLP/XLU 50/50:       BULL Sh 1.05, 60/40 Sh 1.421, CAGR 14.54%
-#   XLP/XLV/XLU 1/3:     BULL Sh 1.06, 60/40 Sh 1.420, CAGR 14.54%
-# Plus 10+ broad defensive ETFs tested (SCHD/NOBL/VIG/DGRO/USMV/SPLV/VYM/
-# DVY/HDV/RSP) on common 2014+ window: all cluster within 0.02 Sh of XLP.
-# OOS test (LIVE TEST 2017-2026, n=8 +-+ firings, unseen by selection):
-# XLP-only Sh 1.531 (best tied with XLU). TRAIN winner (XLV) didn't
-# generalize. Mechanism family validates direction OOS; specific asset
-# within family is noise. XLP chosen as single-asset for: (a) longest
-# defensive ETF history (1998), (b) zero within-basket rebalancing cost,
-# (c) operational simplicity, (d) tied-best Sharpe across LIVE/TEST/EXT
-# windows. Basket alternatives tested but marginal cost > marginal benefit.
-BULL_BY_STATE = {}  # No state overrides (oracle-v7 robust spec: keep BULL pure QQQ trend)
+# No state-conditional rotation (oracle-v7 robust spec).
+# Prior versions rotated to XLP in HYG-/LQD-/TIP+ canary state (~5% of
+# months). Removed as in-sample curve-fit: n=12 firings too small for
+# statistical significance, mechanism backed by industry research but not
+# distinguishable from noise vs the simpler pure-QQQ rule out-of-sample.
+BULL_BY_STATE = {}  # No state overrides
 
-# Per-asset trend filter: (12-1 absolute momentum > 0) OR (13612W > 0)
-# 12-1 = Antonacci dual momentum / Moskowitz TSMOM (SLOW anchor)
-# 13612U = canonical HAA average momentum (r1+r3+r6+r12)/4 (FAST)
-# Disjunction (OR) chosen over conjunction or single signal: extended blend
-# Sharpe 0.83 vs 0.74 with 12-1 alone, 2023 capture +22.4% vs +3.8%.
+# Trend filter: 12-1 absolute momentum > 0 (Antonacci GEM standard).
+# Prior versions used composite OR (12-1 > 0 OR 13612U > 0). Removed in
+# oracle-v7 robust spec: 13612U is fast, prone to bear-rally whipsaws;
+# 12-1 looks back a full year, anti-whipsaw, more robust forward.
 MOMENTUM_LOOKBACK = 12       # months for 12-1 momentum
 
 # Macro gate: HYG/LQD/TIP "any positive" 13612U canary (Keller HAA-style)
@@ -188,7 +166,7 @@ def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]
 
 
 def _qqq_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Composite QQQ trend filter: (12-1 mom > 0) OR (13612U > 0)."""
+    """QQQ trend filter: 12-1 absolute momentum > 0."""
     if BULL_TICKER not in monthly.columns:
         return (False, dict(mom_12_1=float("nan"), sig_13612W=float("nan"),
                              mom_ok=False, w13_ok=False))
@@ -230,7 +208,7 @@ def _equity_override_threshold(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> f
 def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
                               ) -> tuple[dict, str, dict]:
     """Returns (weights, regime_label, diagnostics).
-    regime: 'BULL_QQQ', 'BULL_XLP', or 'CASH'."""
+    regime: 'BULL_QQQ' or 'CASH'."""
     monthly = close_panel.loc[:sig_d].resample("ME").last()
     gate_open, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)

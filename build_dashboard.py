@@ -527,7 +527,6 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
         "RISK_ON": cpm_regimes.count("RISK_ON"),
         "DEFENSIVE": cpm_regimes.count("DEFENSIVE"),
         "BULL_QQQ": sum(1 for r in bull_regimes if r.startswith("BULL_QQQ")),
-        "BULL_XLP": sum(1 for r in bull_regimes if r.startswith("BULL_XLP")),
         "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
     }
 
@@ -555,7 +554,6 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     bull_colors = []
     for r in bull_regimes:
         if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")
-        elif r.startswith("BULL_XLP"): bull_colors.append("#a06000")
         else: bull_colors.append("#808080")
     axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
     axes[1].set_yticks([])
@@ -564,10 +562,9 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     axes[1].legend(
         handles=[
             Patch(facecolor="#00a040", label="BULL_QQQ"),
-            Patch(facecolor="#a06000", label="BULL_XLP (late-cycle)"),
             Patch(facecolor="#808080", label="CASH (SHV)"),
         ],
-        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=3, fontsize=7,
+        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
         frameon=False, handlelength=1.2, handleheight=0.7,
     )
     axes[1].xaxis.set_major_locator(mdates.YearLocator(2))
@@ -739,7 +736,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 </div>
 <div>
   <h4>BULL-QQQ sleeve ({int(BULL_WEIGHT*100)}%)</h4>
-  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/LQD/TIP any-positive 13612W<br>Trend: QQQ 12-1 mom &gt; 0 OR QQQ 13612W &gt; 0 (composite)<br>Bull asset: QQQ (default); XLP in `+-+` canary state<br>Fallback: 100% {CASH_TICKER} (cash)</p>
+  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/LQD/TIP any-positive 13612W<br>Trend: QQQ 12-1 absolute momentum &gt; 0<br>Bull asset: 100% QQQ<br>Fallback: 100% {CASH_TICKER} (cash)</p>
   <div class='table-scroll'><table class='alloc'>{bq_html}</table></div>
 </div>
 <div>
@@ -986,7 +983,7 @@ def main():
 <h3>Bottom line</h3>
 <p><strong>Production deployment</strong>: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve (oracle-v3 Sharpe-optimal).</p>
 <p><strong>CPM</strong> (Canary-gated Pair Momentum) = 11-asset cross-asset universe (factor + sector + international + diversifier), HYG+TIP+GLD any-positive canary, min-variance pair selection on top-K Faber SMA ranker, vol cap 10% (de-risk only, no leverage), 10 bps/side cost.</p>
-<p><strong>BULL-QQQ</strong> = QQQ (or XLP in `+-+` canary state) when composite trend (QQQ {MOMENTUM_LOOKBACK}-1 mom > 0 OR QQQ 13612W > 0) passes AND (HYG/LQD/TIP any-positive canary OR equity-strength override: QQQ 12-1 mom > top tercile of expanding history). Otherwise 100% {CASH_TICKER} cash.</p>
+<p><strong>BULL-QQQ</strong> = 100% QQQ when trend (QQQ {MOMENTUM_LOOKBACK}-1 absolute momentum > 0) passes AND macro canary (HYG/LQD/TIP any-positive 13612U) passes. Otherwise 100% {CASH_TICKER} cash.</p>
 <p>Live-18y backtest (post-cost): CPM standalone Sharpe <strong>1.26</strong>, CAGR <strong>12.12%</strong>, MaxDD <strong>-13.5%</strong>. BULL-QQQ standalone Sharpe <strong>~1.07</strong>, CAGR <strong>~18%</strong>, MaxDD <strong>~-29%</strong>. <strong>70/30 production blend Sharpe ~1.48, CAGR ~14.25%, MaxDD ~-12.3%, COVID DD ~-2%</strong>. Extended 32y window (incl. dot-com): Sharpe ~1.27, CAGR ~13.2%, MaxDD ~-15.2%. TEST OOS 2017-26: Sharpe 1.63, CAGR 16.85%. Bootstrap 95% CI on Sharpe is wide, so honest forward base-case expectation is <strong>0.90-1.20 Sharpe, 8-12% CAGR</strong> after in-sample selection bias and Nasdaq-era discount.</p>
 </div>
 
@@ -1043,7 +1040,7 @@ def main():
 <div class='card'>
 {fig_to_html(fig_canary)}
 <p><strong>CPM canary (HYG/TIP/GLD any-positive 13612U):</strong> Risk-on <strong>{regime_pct_ron:.1f}%</strong> ({regime_counts['RISK_ON']}/{n_signals}) -- pair selection runs. Defensive <strong>{regime_pct_def:.1f}%</strong> ({regime_counts['DEFENSIVE']}/{n_signals}) -- 100% SHV cash, fires only when HYG (credit) AND TIP (inflation) AND GLD (real-asset) are simultaneously negative. <em>Why GLD belongs here:</em> CPM is a cross-asset engine that holds gold as a tradable diversifier -- the canary should activate on the same real-asset / inflation / dollar-weakness regimes that make GLD or TLT the right pair. A GLD-positive month often is exactly the kind of risk-off-but-not-cash month where CPM should still rotate into defensive diversifiers rather than retreat to cash.</p>
-<p><strong>BULL canary (HYG/LQD/TIP any-positive 13612U + QQQ trend):</strong> QQQ on <strong>{regime_counts['BULL_QQQ']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_QQQ']}/{n_signals}), XLP late-cycle <strong>{regime_counts['BULL_XLP']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_XLP']}/{n_signals}, HYG-/LQD-/TIP+ state only), cash <strong>{regime_counts['BULL_CASH']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_CASH']}/{n_signals}). <em>Why LQD belongs here (not GLD):</em> BULL-QQQ is a single-asset Nasdaq overlay -- the canary should require evidence that equity risk-taking is healthy, which means credit markets bidding (HYG high-yield + LQD investment-grade) and real rates supportive (TIP). Gold-bid regimes are often equity-hostile flights to safety; a long-QQQ position should NOT be unlocked by GLD strength alone.</p>
+<p><strong>BULL canary (HYG/LQD/TIP any-positive 13612U + QQQ trend):</strong> QQQ on <strong>{regime_counts['BULL_QQQ']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_QQQ']}/{n_signals}), cash <strong>{regime_counts['BULL_CASH']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_CASH']}/{n_signals}). <em>Why LQD belongs here (not GLD):</em> BULL-QQQ is a single-asset Nasdaq overlay -- the canary should require evidence that equity risk-taking is healthy, which means credit markets bidding (HYG high-yield + LQD investment-grade) and real rates supportive (TIP). Gold-bid regimes are often equity-hostile flights to safety; a long-QQQ position should NOT be unlocked by GLD strength alone.</p>
 <p class='footnote'>Mechanism summary: CPM's canary uses GLD because gold is part of its tradable diversifier set (a GLD-positive regime invites CPM to rotate INTO gold). BULL's canary uses LQD because investment-grade credit confirms broad risk-on across the credit stack -- exactly what an equity-only overlay needs before going long. HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
 </div>
 
