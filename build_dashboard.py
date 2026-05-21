@@ -85,17 +85,21 @@ def fmt_num(v, decimals=2, signed=False):
     return f"{sign}{v:.{decimals}f}"
 
 def fig_to_html(fig, alt="chart"):
-    """Save matplotlib figure as inline SVG (vector, crisp at any resolution)."""
+    """Save matplotlib figure as inline SVG (vector, crisp at any resolution).
+    Strips XML/DOCTYPE/width/height so CSS can scale responsively via viewBox."""
+    import re
     buf = io.StringIO()
     fig.savefig(buf, format="svg", bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
     svg = buf.getvalue()
-    # Strip XML declaration to allow inline embedding
     if svg.startswith("<?xml"):
         svg = svg[svg.find("?>") + 2:].lstrip()
-    # Strip DOCTYPE if present
     if svg.startswith("<!DOCTYPE"):
         svg = svg[svg.find(">") + 1:].lstrip()
+    # Strip explicit width="..." and height="..." from <svg> tag so CSS
+    # `width:100%` + the existing viewBox attribute drive responsive scaling.
+    svg = re.sub(r'(<svg[^>]*?)\s+width="[^"]*"', r'\1', svg, count=1)
+    svg = re.sub(r'(<svg[^>]*?)\s+height="[^"]*"', r'\1', svg, count=1)
     return f'<div class="chart" role="img" aria-label="{alt}">{svg}</div>'
 
 
@@ -1016,6 +1020,8 @@ def main():
   .footnote {{ font-size:0.78rem; color:var(--muted); margin-top:0.6rem; }}
   details summary {{ cursor:pointer; font-weight:600; padding:5px 0; }}
   img.chart {{ display:block; width:100%; height:auto; max-width:100%; }}
+  div.chart {{ width:100%; max-width:100%; overflow-x:auto; }}
+  div.chart svg {{ display:block; width:100%; height:auto; max-width:100%; }}
   /* Tablet+ */
   @media (min-width: 720px) {{
     body {{ padding:14px; font-size:14px; }}
