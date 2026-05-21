@@ -29,14 +29,14 @@ Canonical 2007-02-01 → 2026-05-15 (19.3y, post-cost):
 
 | Strategy | Sharpe | CAGR | MaxDD | Calmar | Martin |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.36** | **17.58%** | **-15.34%** | **1.15** | **4.77** |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.41** | **18.35%** | **-15.43%** | **1.19** | **5.11** |
 | SPY buy-hold | 0.61 | 10.59% | -55.19% | 0.19 | 0.93 |
 
 | Sleeve standalone | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| CPM | 1.11 | 13.28% | -13.95% |
-| BULL-QQQ | 1.01 | 17.89% | -28.56% |
-| NDX | 1.13 | 36.80% | -47.23% |
+| CPM | 1.19 | 14.21% | -14.74% |
+| BULL-QQQ | 1.02 | 17.89% | -28.56% |
+| NDX | 1.19 | 39.32% | -48.54% |
 
 ## Forward expectation
 
@@ -45,11 +45,11 @@ NDX concentration + tail sequencing risk not captured by return bootstrap):
 
 | Metric | Backtest | Forward base case |
 |---|---:|---|
-| Sharpe | 1.36 | **0.95-1.25** |
-| CAGR | 17.58% | **11-15%** (post-cost, pre-tax) |
-| MaxDD | -15.34% | **-18% to -30%** (planning band) |
-| Calmar | 1.15 | **0.50-0.85** |
-| Martin | 4.77 | **3.0-4.3** |
+| Sharpe | 1.41 | **0.95-1.25** |
+| CAGR | 18.35% | **11-15%** (post-cost, pre-tax) |
+| MaxDD | -15.43% | **-18% to -30%** (planning band) |
+| Calmar | 1.19 | **0.50-0.85** |
+| Martin | 5.11 | **3.0-4.3** |
 
 Base case (mid-band): Sharpe 1.05-1.15, CAGR 12-14%, DD low/mid-20s in a
 bad cycle. After-tax drop in taxable accounts: ~5-9% CAGR (vs 11-15% pre-tax).
@@ -83,7 +83,7 @@ if not canary_on:
 else:
     candidates = top_5 by faber_score, dropping faber_score <= 0
     if len(candidates) >= 2:
-        pair = min_variance_pair(candidates, lookback=504d)  # ~2y covariance
+        pair = min_variance_pair(candidates, halflife=504d)  # EWMA cov, ~2y half-life
         cpm = {pair[0]: 0.5, pair[1]: 0.5}
     elif len(candidates) == 1:
         cpm = {candidates[0]: 0.5, SHV: 0.5}          # partial-safe fill
@@ -129,7 +129,7 @@ portfolio = 0.60 * cpm + 0.30 * bull + 0.10 * ndx
 | 12-1 absolute momentum (BULL trend) | Antonacci 2014 dual momentum / Moskowitz et al 2012 TSMOM (`p[T-1mo]/p[T-13mo] - 1`) |
 | 13612U momentum (canaries + NDX selection) | Keller & Keuning 2022 HAA canonical; unweighted average of 1/3/6/12-month total returns |
 | Faber SMA10m ranker (CPM) | Faber 2007 SSRN "A Quantitative Approach to TAA"; price vs trailing 10mo SMA |
-| Min-variance pair selection | Markowitz mean-variance optimization; here applied as min equal-weight portfolio variance over 504d covariance |
+| Min-variance pair selection | Markowitz mean-variance optimization; min equal-weight portfolio variance using EWMA covariance with 504d half-life (RiskMetrics-family estimator, JPM 1996) |
 | Hold buffer dampener | Practitioner standard (AQR turnover-aware momentum notes) |
 | Vol cap (de-risk only) | Moskowitz/Ooi/Pedersen 2012 TSMOM vol scaling; capped at 1.0 (no leverage) |
 | Canary regime gates | Keller HAA-family multi-asset breadth canaries (HYG, LQD, TIP, GLD as credit/inflation/real-asset stress proxies) |
@@ -244,8 +244,9 @@ proxies.
    2010-2019 (QE / negative correlation): CPM Sh 1.16, CAGR 11.85%.
    2021-2023 (positive correlation regime): CPM Sh 0.85, CAGR 9.43%.
    Sharpe drops ~25-30% when GLD/TLT lose their crisis-hedge property
-   (e.g., 2022 inflation/rate-hike cycle). 504d covariance window can't
-   adapt fast enough to a regime flip.
+   (e.g., 2022 inflation/rate-hike cycle). EWMA covariance helps modestly
+   (~+0.08 Sh in 2021-23 isolated stress) but can't fully offset the regime
+   shift.
 
 5. **NDX sleeve concentration + regime risk.** 4 names × 25% each =
    standalone MaxDD -47%. Mega-cap concentration alpha is regime-dependent;
@@ -262,7 +263,7 @@ proxies.
    design and bleed 1-2 months of alpha at violent regime turns (COVID 2020).
 
 8. **In-sample selection bias.** Forward Sharpe anchored at 0.95-1.25 (not
-   the 1.36 backtest); MaxDD planning band widened to -18% to -30%.
+   the 1.41 backtest); MaxDD planning band widened to -18% to -30%.
 
 9. **CPM canary HYG+TIP+GLD differs from BULL canary HYG+LQD+TIP.** When CPM
    is in cash (all three negative) but BULL has LQD+ → portfolio can hold

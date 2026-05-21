@@ -67,7 +67,7 @@ DEFAULT_CASH = "SHV"
 TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
 HOLD_BUFFER = 2.0           # z-score units; retain prior pair member unless
                             # new candidate exceeds by this margin
-CORR_LOOKBACK_DAYS = 504    # ~2y covariance lookback for min-var pair
+CORR_LOOKBACK_DAYS = 504    # EWMA covariance half-life for min-var pair (~2y)
 TARGET_VOL = 0.15           # annualized vol cap (de-risk only)
 VOL_LOOKBACK_DAYS = 63      # ~3mo realized vol
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
@@ -184,22 +184,38 @@ def sig_13612U(p: pd.Series) -> float:
 
 
 def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
-    """Return the pair with lowest 50/50 portfolio variance over lookback.
+    """Return the pair with lowest 50/50 portfolio variance.
 
-    Uses full covariance (correlation x volatility) rather than correlation
-    only. Picks pairs that are both diversified AND individually low-vol.
-    Variance estimation is more robust than mean (Sharpe/Sortino) selection.
+    Uses EWMA covariance with half-life = `lookback` trading days (e.g. 504d
+    => half-life ~2y; same long-term anchor as a 504d simple window but with
+    exponential decay that smoothly incorporates more history).
+
+    RiskMetrics-family estimator (J.P. Morgan 1996); standard in AQR /
+    Bridgewater / Ledoit-Wolf practitioner literature. For our small CPM
+    universe (pair selection from top-K=5), HL=504d gives the best Sharpe
+    while avoiding the over-reactive noise of fast EWMA (HL=30-63d) that
+    hurts when applied to small portfolios.
     """
     if len(candidates) < 2:
         return None
-    rets = daily[candidates].iloc[-lookback:].pct_change().dropna(how="all")
-    if len(rets) < 30:
+    rets = daily[candidates].pct_change().dropna(how="all")
+    if len(rets) < lookback:
         return None
-    cov = rets.cov()
+    # EWMA cov with min_periods=lookback to require enough history to anchor decay.
+    cov_ew = rets.ewm(halflife=lookback, min_periods=lookback).cov()
+    if isinstance(cov_ew.index, pd.MultiIndex):
+        cov = cov_ew.iloc[-len(candidates):].droplevel(0)
+    else:
+        cov = cov_ew
+    if cov.isna().any().any():
+        return None
     best = None
     best_var = float("inf")
     for a, b in combinations(candidates, 2):
-        v = 0.25 * cov.loc[a, a] + 0.25 * cov.loc[b, b] + 0.5 * cov.loc[a, b]
+        try:
+            v = 0.25 * cov.loc[a, a] + 0.25 * cov.loc[b, b] + 0.5 * cov.loc[a, b]
+        except KeyError:
+            continue
         if pd.notna(v) and v < best_var:
             best_var = v
             best = (a, b)
