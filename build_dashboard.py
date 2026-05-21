@@ -30,10 +30,12 @@ import matplotlib.dates as mdates
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+import cpm_live as cpm_module
 from cpm_live import (
     RISKY_UNIVERSE, SAFE_POOL,
     CANARY_ASSETS, DEFAULT_CASH,
     TARGET_VOL, HOLD_BUFFER, CORR_LOOKBACK_DAYS, COST_BPS_PER_SIDE,
+    TOP_K_CANDIDATES,
     load_panel, run_cpm_backtest,
     perf_metrics, compute_target_weights, sig_13612W,
 )
@@ -83,13 +85,18 @@ def fmt_num(v, decimals=2, signed=False):
     return f"{sign}{v:.{decimals}f}"
 
 def fig_to_html(fig, alt="chart"):
-    """Save matplotlib figure as base64 PNG embedded in <img>."""
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight", pad_inches=0.15)
+    """Save matplotlib figure as inline SVG (vector, crisp at any resolution)."""
+    buf = io.StringIO()
+    fig.savefig(buf, format="svg", bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
-    buf.seek(0)
-    b64 = base64.b64encode(buf.read()).decode("ascii")
-    return f'<img class="chart" alt="{alt}" src="data:image/png;base64,{b64}"/>'
+    svg = buf.getvalue()
+    # Strip XML declaration to allow inline embedding
+    if svg.startswith("<?xml"):
+        svg = svg[svg.find("?>") + 2:].lstrip()
+    # Strip DOCTYPE if present
+    if svg.startswith("<!DOCTYPE"):
+        svg = svg[svg.find(">") + 1:].lstrip()
+    return f'<div class="chart" role="img" aria-label="{alt}">{svg}</div>'
 
 
 # ---------- Peer benchmarks ----------
@@ -378,6 +385,45 @@ def chart_drawdown(strategies: dict, prod_label: str | None = None):
     _legend_below(ax, ncol=3, prod_label=prod_label)
     return fig
 
+def chart_monthly_heatmap(daily: pd.Series, title: str = "Monthly Returns"):
+    """Heatmap of monthly returns: year x month grid."""
+    monthly = ((1 + daily).resample("ME").prod() - 1) * 100
+    # Build year x month matrix
+    df = monthly.to_frame("ret")
+    df["year"] = df.index.year
+    df["month"] = df.index.month
+    grid = df.pivot(index="year", columns="month", values="ret")
+    # Add year total column
+    yearly = ((1 + daily).resample("YE").prod() - 1) * 100
+    yearly.index = yearly.index.year
+    grid["YTD"] = yearly
+
+    fig, ax = plt.subplots(figsize=(8, max(3.5, 0.32 * len(grid))))
+    vmax = max(abs(grid.values[~pd.isna(grid.values)].max()),
+               abs(grid.values[~pd.isna(grid.values)].min())) if grid.notna().any().any() else 10
+    vmax = min(vmax, 20)  # cap colors at +/-20%
+    im = ax.imshow(grid.values, cmap="RdYlGn", aspect="auto", vmin=-vmax, vmax=vmax)
+    month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "YTD"]
+    ax.set_xticks(range(len(month_labels)))
+    ax.set_xticklabels(month_labels, fontsize=8)
+    ax.set_yticks(range(len(grid.index)))
+    ax.set_yticklabels(grid.index, fontsize=7)
+    ax.set_title(title)
+    # Annotate cells
+    for i in range(len(grid.index)):
+        for j in range(len(grid.columns)):
+            val = grid.values[i, j]
+            if pd.notna(val):
+                color = "white" if abs(val) > vmax * 0.6 else "black"
+                ax.text(j, i, f"{val:+.1f}", ha="center", va="center",
+                        fontsize=6, color=color)
+    # Vertical separator between Dec and YTD
+    ax.axvline(11.5, color="black", lw=1.2)
+    fig.colorbar(im, ax=ax, label="Return (%)", shrink=0.7)
+    return fig
+
+
 def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     yr_b = ((1 + blended).resample("YE").prod() - 1) * 100
     yr_q = ((1 + qqq.reindex(blended.index)).resample("YE").prod() - 1) * 100
@@ -425,7 +471,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
         ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="BULL-QQQ standalone",
-                color="#009933", lw=1.6, ls="-", alpha=0.85)
+                color="#ff8800", lw=1.6, ls="-", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Worst DD in window (%)")
     ax.set_title(f"Rolling {window_days//21}-Month Max Drawdown")
@@ -626,19 +672,26 @@ def chart_correlations(strategies: dict):
 # ---------- Tables ----------
 
 def perf_table_html(rows: list[dict]) -> str:
-    """rows: list of {strategy, cagr, vol, sharpe, max_drawdown, ...}"""
+    """rows: list of {strategy, cagr, vol, sharpe, max_drawdown, ulcer, calmar, martin, ...}"""
     df = pd.DataFrame(rows)
-    df = df[["strategy", "cagr", "vol", "sharpe", "max_drawdown"]]
-    df.columns = ["Strategy", "CAGR", "Vol", "Sharpe", "MaxDD"]
+    cols = ["strategy", "cagr", "vol", "sharpe", "max_drawdown", "ulcer", "calmar", "martin"]
+    cols = [c for c in cols if c in df.columns]
+    df = df[cols]
+    rename = {"strategy": "Strategy", "cagr": "CAGR", "vol": "Vol", "sharpe": "Sharpe",
+              "max_drawdown": "MaxDD", "ulcer": "Ulcer", "calmar": "Calmar", "martin": "Martin"}
+    df.columns = [rename[c] for c in cols]
     body = ""
+    pct_cols = {"CAGR", "Vol", "MaxDD", "Ulcer"}
     for _, r in df.iterrows():
         body += f"<tr><td>{r['Strategy']}</td>"
-        body += f"<td style='text-align:right'>{fmt_pct(r['CAGR'])}</td>"
-        body += f"<td style='text-align:right'>{fmt_pct(r['Vol'])}</td>"
-        body += f"<td style='text-align:right'>{fmt_num(r['Sharpe'])}</td>"
-        body += f"<td style='text-align:right'>{fmt_pct(r['MaxDD'])}</td></tr>\n"
+        for c in df.columns[1:]:
+            val = r[c]
+            cell = fmt_pct(val) if c in pct_cols else fmt_num(val)
+            body += f"<td style='text-align:right'>{cell}</td>"
+        body += "</tr>\n"
+    header = "".join(f"<th>{c}</th>" for c in df.columns)
     return f"""<div class='table-scroll'><table class='perf'>
-<thead><tr><th>Strategy</th><th>CAGR</th><th>Vol</th><th>Sharpe</th><th>MaxDD</th></tr></thead>
+<thead><tr>{header}</tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
 
@@ -833,6 +886,7 @@ def main():
     fig_dd = chart_drawdown({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                             prod_label=prod_label)
     fig_yearly = chart_yearly_bars(blended, qqq, strategies["Naive 60/40 PP/QQQ-trend"])
+    fig_monthly_heatmap = chart_monthly_heatmap(blended, title="PROD 60/30/10 Monthly Returns Heatmap")
     fig_rolling = chart_rolling_sharpe(blended, strategies["Naive 60/40 PP/QQQ-trend"])
     fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
     fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
@@ -920,6 +974,10 @@ def main():
     print("Composing HTML ...")
     today = dt.date.today().isoformat()
     window_str = f"{start.date()} to {end.date()}"
+    yrs_full = (end - start).days / 365.25
+    prod_metrics = perf_metrics(blended)
+    bull_metrics = perf_metrics(bull_qqq_rets)
+    ndx_metrics = perf_metrics(ndx_rets) if ndx_rets is not None and not ndx_rets.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -975,16 +1033,20 @@ def main():
 </head>
 <body>
 
-<h1>CPM-BULL Strategy Dashboard</h1>
-<p class='subtitle'><strong>CPM</strong> (canary-gated momentum + min-variance pair selection) + <strong>BULL-QQQ</strong> trend overlay.</p>
+<h1>CPM-BULL-NDX Strategy Dashboard</h1>
+<p class='subtitle'><strong>{int(CPM_W*100)}% CPM</strong> (canary-gated momentum + min-vol pair) + <strong>{int(BULL_W*100)}% BULL-QQQ</strong> (trend overlay) + <strong>{int(NDX_W*100)}% NDX</strong> (top-K Nasdaq-100 concentration).</p>
 <p class='meta'>Backtest window: {window_str} | Built: {today}</p>
 
 <div class='card'>
-<h3>Bottom line</h3>
-<p><strong>Production deployment</strong>: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve (oracle-v3 Sharpe-optimal).</p>
-<p><strong>CPM</strong> (Canary-gated Pair Momentum) = 11-asset cross-asset universe (factor + sector + international + diversifier), HYG+TIP+GLD any-positive canary, min-variance pair selection on top-K Faber SMA ranker, vol cap 10% (de-risk only, no leverage), 10 bps/side cost.</p>
-<p><strong>BULL-QQQ</strong> = 100% QQQ when trend (QQQ {MOMENTUM_LOOKBACK}-1 absolute momentum > 0) passes AND macro canary (HYG/LQD/TIP any-positive 13612U) passes. Otherwise 100% {CASH_TICKER} cash.</p>
-<p>Live-18y backtest (post-cost): CPM standalone Sharpe <strong>1.26</strong>, CAGR <strong>12.12%</strong>, MaxDD <strong>-13.5%</strong>. BULL-QQQ standalone Sharpe <strong>~1.07</strong>, CAGR <strong>~18%</strong>, MaxDD <strong>~-29%</strong>. <strong>70/30 production blend Sharpe ~1.48, CAGR ~14.25%, MaxDD ~-12.3%, COVID DD ~-2%</strong>. Extended 32y window (incl. dot-com): Sharpe ~1.27, CAGR ~13.2%, MaxDD ~-15.2%. TEST OOS 2017-26: Sharpe 1.63, CAGR 16.85%. Bootstrap 95% CI on Sharpe is wide, so honest forward base-case expectation is <strong>0.90-1.20 Sharpe, 8-12% CAGR</strong> after in-sample selection bias and Nasdaq-era discount.</p>
+<h3>Strategy at a glance</h3>
+<p><strong>Production blend</strong>: {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX, monthly rebalance, T+0 OPEN (next-day MOO), 10 bps/side cost.</p>
+<ul>
+<li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only, no leverage). SHV cash fallback.</li>
+<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when QQQ {MOMENTUM_LOOKBACK}-1 absolute momentum &gt; 0 AND HYG/LQD/TIP any-positive 13612U canary fires. Otherwise 100% {CASH_TICKER}.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-4 PIT Nasdaq-100 by 13612U momentum, equal-weight 25%, gated by BULL_QQQ regime. SHV when off.</li>
+</ul>
+<p><strong>Headline ({yrs_full:.1f}y, post-cost):</strong> 60/30/10 blend Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong>, CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>, Calmar <strong>{prod_metrics['calmar']:.2f}</strong>, Martin <strong>{prod_metrics['martin']:.2f}</strong>.</p>
+<p class='footnote'>Bootstrap 95% CI is wide; honest forward base-case 0.90-1.20 Sharpe / 10-14% CAGR after in-sample selection bias discount.</p>
 </div>
 
 <h2>This Month's Allocation</h2>
@@ -1017,6 +1079,12 @@ def main():
 <h2>Year-by-Year</h2>
 <div class='card'>
 {fig_to_html(fig_yearly)}
+</div>
+
+<h2>Monthly Returns Heatmap</h2>
+<div class='card'>
+{fig_to_html(fig_monthly_heatmap)}
+<p class='footnote'>Monthly returns of the PROD 60/30/10 blend. YTD column shows full-year compounded return. Red = down, green = up; color scale capped at +/-20%.</p>
 </div>
 
 <h2>Rolling Sharpe (12-month, vs Naive 60/40 PP/QQQ-trend)</h2>
@@ -1061,9 +1129,9 @@ def main():
 {yearly_table_html(blended, qqq, cpm, bull_qqq_rets, naive_pp_qt)}
 </div>
 
-<h2>Extended Backtest (32y, 1994-2026)</h2>
+<h2>Extended Backtest (26y, 2000-2026)</h2>
 <div class='card'>
-<p class='meta'>EXT 26y window (2000-2026) includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve only joins from 2007 due to PIT constituent data availability (lib `index-constitution` covers 2006-01+). Treat as exploratory: proxy quality + pre-2008 universe coverage degrades signal vs live.</p>
+<p class='meta'>EXT 26y window (2000-2026) includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve only joins from 2007 due to PIT constituent data availability (lib <code>index-constitution</code> covers 2006-01+). Treat as exploratory: proxy quality + pre-2008 universe coverage degrades signal vs live.</p>
 {perf_table_html(ext_perf_rows)}
 </div>
 
@@ -1095,31 +1163,45 @@ def main():
 <h2>Strategy Spec</h2>
 <div class='card'>
 <details open>
-<summary>CPM Sleeve (70%)</summary>
+<summary>CPM Sleeve ({int(CPM_W*100)}%)</summary>
 <ul>
-<li><strong>Universe (9):</strong> 4 US broad/factor (QQQ, IWF, VBR, SPHQ) + EFA (iShares developed, live 2001-08), EEM (iShares EM, live 2003-04) + GLD, TLT, DBC (diversifiers). Live-trade equivalents: IWF&rarr;SCHG (corr 0.994, 14bps cheaper), DBC&rarr;PDBC (no K-1). EFA/EEM chosen over VEA/VWO on principle (correlation &gt;0.99, picking the +0.05 Sh winner is DSR overfitting; EFA has 6y more live history). DBMF (managed futures) tested and rejected -- year-by-year analysis showed entire benefit came from a single year (2024) with zero contribution in 2022. <strong>Canonical window: 2007-02-28 (19.2y, post-DBC + 12mo signal warmup, all 9 RISKY ETFs LIVE at start, includes full 2008 GFC realization)</strong> -- only HYG canary uses VWEHX stitch pre-2007-04 (existing established proxy); prior 2008-09 cherry-picked post-GFC-trough start.
+<li><strong>Universe ({len(RISKY_UNIVERSE)}):</strong> US factor + international + diversifier. Live-trade equivalents: IWF&rarr;SCHG (corr 0.994, 14bps cheaper), DBC&rarr;PDBC (no K-1).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
-<li><strong>Safe pool:</strong> {', '.join(SAFE_POOL)} (best-of by Faber 10m SMA distance)</li>
-<li><strong>Canary:</strong> HYG + TIP, ANY positive Keller 13612W &gt; 0 -&gt; risk-on; both negative -&gt; 100% best safe. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>
+<li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (ultra-short Treasury cash, ~0.3y duration)</li>
+<li><strong>Canary:</strong> {' + '.join(CANARY_ASSETS)} -- ANY positive 13612U momentum -&gt; risk-on; all negative -&gt; 100% SHV. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>
 <li><strong>Ranker:</strong> Faber 10-month SMA distance: <code>(price - SMA10) / SMA10</code></li>
-<li><strong>Selection:</strong> top half by ranker, drop negative momentum</li>
-<li><strong>Pair:</strong> minimum-variance pair (50/50 portfolio variance) among positive-momentum candidates ({CORR_LOOKBACK_DAYS}d lookback)</li>
-<li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep prior pair member unless new exceeds)</li>
-<li><strong>Vol targeting:</strong> {TARGET_VOL*100:.0f}% annualized, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong></li>
+<li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by ranker (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop negative momentum</li>
+<li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d covariance lookback, ~{CORR_LOOKBACK_DAYS/252:.1f}y)</li>
+<li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep prior pair member unless new candidate exceeds by this margin in cross-sectional z-score)</li>
+<li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% SHV; 0 positive &rarr; 100% SHV</li>
+<li><strong>Vol cap:</strong> {TARGET_VOL*100:.0f}% annualized target, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong>. Fires only in crisis regimes (~17% of days).</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution:</strong> month-end signal, T+0 OPEN trade (next-day MOO)</li>
 </ul>
 </details>
 <details>
-<summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) - bull capture with cash defense</summary>
+<summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- bull capture with cash defense</summary>
 <ul>
-<li><strong>Bull asset:</strong> <code>{BULL_TICKER}</code> (single ticker -- Nasdaq-100, already diversified across mega-cap tech). Multi-ETF "diversified" universes (SMH/SCHG/XLK/IWM/GLD) tested and rejected: same Sharpe, more complexity, no alpha.</li>
-<li><strong>Per-asset filter:</strong> {BULL_TICKER} {MOMENTUM_LOOKBACK}-1 absolute momentum &gt; 0 (Antonacci dual momentum / Moskowitz TSMOM). Chosen over Faber 10mo SMA because dot-com survival is materially better -- 12-1 stays negative throughout sustained bears, avoiding whipsaws.</li>
-<li><strong>Macro gate:</strong> HYG OR TIP positive 13612W (catches credit/inflation stress, e.g. 2022). Adds +54% Martin Ratio over mom-only at small CAGR cost.</li>
-<li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> (short-treasury cash) when either filter fails. No duration risk on this sleeve.</li>
-<li><strong>Standalone (live-18y):</strong> Sharpe 0.92, CAGR 15.3%, MaxDD -28.6%, Ulcer 5.05%, Martin 2.96.</li>
-<li><strong>Why this composition:</strong> canary catches credit/inflation stress (2022); 12-1 momentum catches sustained equity bears (dot-com 2000-02). Together they handle 2 of 3 bear-market types. Single-ticker QQQ chosen over multi-ETF "diversified" universes because empirical tests showed same Sharpe with more complexity.</li>
-<li><strong>Variants tested and rejected:</strong> Multi-ETF universe (no Sharpe benefit, more rotation noise); IEF fallback (+0.02 Sharpe but adds duration risk); CPM fallback (+0.85pp CAGR but worse Martin Ratio on extended); Faber 10mo SMA filter (worse dot-com survival); VIX filter (~0.05 Sharpe cost across both windows, n=1 COVID evidence); vol-targeting (cleaner MaxDD but minimal avg-rolling-DD improvement, trades CAGR for tail protection); Keller 13612W filter (Sh 0.76 worst on QQQ timing); EMA50/200 monthly (math error - 4yr/17yr filter, useless); top-K momentum-weighted (concentrates on highest vol, hurts Sharpe).</li>
+<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100, single ticker). No state-conditional rotation (oracle-v7 robust spec; XLP override removed as in-sample curve-fit).</li>
+<li><strong>Trend filter:</strong> <code>{BULL_TICKER}</code> {MOMENTUM_LOOKBACK}-1 absolute momentum &gt; 0 (Antonacci GEM standard). Removed prior 13612U OR composite as data-mined to 2009/2023 V-bottom recoveries.</li>
+<li><strong>Macro gate:</strong> HYG OR LQD OR TIP positive 13612U (any-positive, 3-asset credit/inflation canary). Adds +54% Martin Ratio over mom-only at small CAGR cost.</li>
+<li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> (short-treasury cash) when either filter fails. Zero duration risk on this sleeve.</li>
+<li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
+<li><strong>Rejected variants:</strong> XLP late-cycle rotation (n=12 firings, t=0.85, p=0.41; in-sample curve-fit); 13612U OR composite trend (data-mined to 2009/2023 V-bottoms, dot-com whipsawed); multi-ETF universe (no alpha, more noise); IEF fallback (adds duration risk); CPM fallback (alpha duplicates with CPM sleeve); Faber 10mo SMA filter (worse dot-com survival); VIX filter (n=1 COVID evidence); 6-month / 3-month momentum (too whipsaw-prone).</li>
+</ul>
+</details>
+
+<details>
+<summary>NDX Sleeve ({int(NDX_W*100)}%) -- concentrated Nasdaq-100 momentum</summary>
+<ul>
+<li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
+<li><strong>Signal:</strong> 13612U momentum per stock (same formula as CPM canary, canonical HAA unweighted).</li>
+<li><strong>Selection:</strong> top 4 by momentum (positive only), equal-weighted 25% each.</li>
+<li><strong>Gate:</strong> only allocates when BULL-QQQ regime is <code>BULL_QQQ</code> (equity-friendly); cash otherwise.</li>
+<li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> when gate off or fewer than 4 positive-momentum candidates.</li>
+<li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
+<li><strong>Tradeoff:</strong> High beta, high vol, deep DD as standalone. Diluted by 10% blend weight; at portfolio level contributes ~+0.07 Sharpe / +1.5pp CAGR over 70/30 no-NDX reference.</li>
+<li><strong>Rejected variants (this session):</strong> min-var pair (X=5 K=2); skip-outlier (P98 K=6); low-vol K-subset; hold buffer. All marginal or negative blend impact -- top-K=4 remains Pareto winner.</li>
 </ul>
 </details>
 </div>
@@ -1127,14 +1209,14 @@ def main():
 <h2>Honest Caveats</h2>
 <div class='card'>
 <ul>
-<li><strong>In-sample selection bias:</strong> hyperparameters and universe tuned on this same data window.</li>
-<li><strong>Universe risk:</strong> 7-name US equity sub-universe is bespoke / human-curated. All ETFs live since 2005 or earlier; no SPY-proxy contamination in post-2008 backtest.</li>
-<li><strong>Pre-2019 proxies:</strong> SPHQ uses SPY proxy pre-2005, DBMF uses SG CTA Index pre-2019 (affects EXT 30y window only; MODERN 17.6y window has all ETFs live except DBMF which uses CTA stitch).</li>
-<li><strong>Crisis-concentrated alpha:</strong> top 4 single years (2008 +45.8pp, 2002 +32.8pp, 2020 +17.6pp, 2022 +17.2pp) contribute +128pp of total +25pp arithmetic excess vs SPY. Non-crisis years generally lag SPY.</li>
-<li><strong>Lags V-shaped recoveries</strong> (verified): 2009 full-year -10.8pp vs SPY; 2020-Q2 -27.6pp vs SPY in the snap-back. Canary slow to re-engage after deep selloffs.</li>
-<li><strong>Bullish-rally underperformance is structural:</strong> MAX_LEVERAGE=1.0 prevents the vol-target from levering up in low-vol bull runs. Strategy gives up bull upside in exchange for crisis alpha as designed.</li>
-<li><strong>Bootstrap CI for Sharpe (live-only 18y):</strong> CPM standalone Sharpe 1.29, 95% CI [0.78, 1.63] (pre-canary-upgrade CI bounds; will narrow once new HYG canary has more data). Wide CIs imply ~0.21 std-error on forward estimate. Anchor forward base case at 0.80-1.10 for CPM standalone.</li>
-<li><strong>Strategy not yet live-traded.</strong> Forward expectation should anchor below backtest.</li>
+<li><strong>In-sample selection bias:</strong> hyperparameters and universe tuned on this same data window. Forward Sharpe should be anchored at 0.90-1.20 (not backtest 1.36) for the blend; CPM standalone forward base case 0.80-1.10.</li>
+<li><strong>Universe risk:</strong> {len(RISKY_UNIVERSE)}-asset CPM universe + QQQ for BULL + PIT Nasdaq-100 for NDX. Curated via ablation/robustness iteration, not best-of-N sweep, but DSR concern remains after broad parameter exploration.</li>
+<li><strong>NDX survivorship bias:</strong> PIT constituent data only goes back to 2006-01, so EXT 26y backtest joins NDX sleeve from 2007 forward. Pre-2007 PIT data unavailable -- a 2000-2010 tech-lost-decade regime would likely underperform vs the BULL-QQQ alone.</li>
+<li><strong>Crisis-concentrated alpha:</strong> CPM defensive sleeve delivers most of its edge in crisis years (2008, 2002, 2020, 2022). Non-crisis years lag SPY by design.</li>
+<li><strong>Lags V-shaped recoveries:</strong> 2009 full-year -10.8pp vs SPY; 2020-Q2 -27.6pp vs SPY in the snap-back. Canary slow to re-engage after deep selloffs.</li>
+<li><strong>Bullish-rally underperformance is structural:</strong> MAX_LEVERAGE=1.0 prevents vol-target from levering up in low-vol bull runs. Strategy gives up bull upside in exchange for crisis alpha as designed.</li>
+<li><strong>2020+ regime favors NDX:</strong> mega-cap concentration regime massively rewarded top-K=4 NDX selection. Forward regime may revert -- min-var alternatives tested but rejected as overfit (oracle review 2026-05-21).</li>
+<li><strong>Strategy not yet live-traded.</strong> Forward expectation should anchor below backtest. Bootstrap CI on Sharpe is wide.</li>
 </ul>
 </div>
 

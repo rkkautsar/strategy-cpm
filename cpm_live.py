@@ -31,21 +31,18 @@ ARTIFACTS_PROXY = ROOT.parent / "artifacts" / "cpa-1997-exact-core-proxy-researc
 PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 
 # ---------- Configuration ----------
-# CPM-10 universe (10 risky assets). All broad/factor, no sector cherry-picks.
+# CPM-9 universe (9 risky assets). All broad/factor, no sector cherry-picks.
 #
-# Live-ETF coverage (post EFA/EEM swap):
-#   Strict no-stitch binding: DBMF (2019-05-08) -- 6.9y window only.
-#   Stitch-DBMF-as-live binding: VBR (2004-01-30) -- 21.5y window since.
-# Pre-live-ETF data is stitched proxy (DBMF uses SG CTA Index pre-2019;
-# panel data extends to 1995-1996 via mutual-fund proxies for some assets).
+# Live-ETF coverage:
+#   Universe binding constraint: DBC (2006-02-03) -- canonical 2007-02-28
+#   (DBC live + 12mo signal warmup, 19.3y).
+# Pre-live-ETF data is stitched proxy (panel data extends to 1995-1996 via
+# mutual-fund proxies for some assets).
 #
-# Canonical window: 2007-02-28 (post-DBC + 12mo signal warmup, 19.2y).
-#   All 10 RISKY ETFs LIVE at window start (no proxy contamination in
-#   pair-selection candidate pool). Existing canonical stitches retained:
-#   HYG via VWEHX (canary, pre-2007-04), DBMF via SG CTA Index (pre-2019-05).
-#   Includes full 2008 GFC realization (CPM standalone -15.3% MaxDD).
-#   Prior 2008-09-30 cherry-picked post-GFC start; prior 2005-09-30 had
-#   5 proxies (SPHQ/DBC/SHV/HYG/DBMF) -- both replaced by 2007-02-28.
+# Canonical window: 2007-02-28 (post-DBC + 12mo signal warmup, 19.3y).
+#   All 9 RISKY ETFs LIVE at window start (no proxy contamination in
+#   pair-selection candidate pool). HYG canary stitched via VWEHX pre-2007-04.
+#   Includes full 2008 GFC realization.
 # OOS-lock window: 2017-01-01 (9.4y, post-spec-freeze).
 # EXT 30y: 1996-01-01 (uses pre-2005 mutual-fund proxies for some assets).
 #
@@ -76,8 +73,7 @@ INTERNATIONAL = ["EFA", "EEM"]
 # DBMF (managed futures) DROPPED 2026-05-18: year-by-year analysis showed the
 # entire post-2020 MF benefit came from a single year (2024 +8.44%); 2022 (the
 # supposed crisis year) added LITERALLY -0.02% to CPM. Single-year dependency
-# + 7y live sample = too much DSR risk. Cost of drop: -0.04 Sh canonical,
-# within bootstrap 95% CI [0.95, 1.87]. See research/peer_aaa_optimum3.py.
+# + 7y live sample = too much DSR risk. Cost of drop: -0.04 Sh canonical.
 DIVERSIFIERS = ["GLD", "TLT", "DBC"]
 RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 9 risky
 SAFE_POOL = ["SHV"]            # Single-asset cash mode (unified with BULL-QQQ).
@@ -98,6 +94,10 @@ SAFE_POOL = ["SHV"]            # Single-asset cash mode (unified with BULL-QQQ).
 # See research/canary_rule_variants_v2.log + research/canary_state_rotation_notes.md
 CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
 CANARY_RULE = "any_positive"  # alternatives: "all_positive", "majority"
+
+# BULL-QQQ canary (HYG+LQD+TIP) -- different from CPM canary by design.
+# Declared here so load_panel() includes LQD even when only CPM is invoked.
+BULL_CANARY_ASSETS = ["HYG_stitched", "LQD", "TIP"]
 DEFAULT_CASH = "SHV"
 
 # Engine parameters
@@ -141,9 +141,9 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     #   - KMLM: KFA-MLM Index pre-2020-12 + live KMLM ETF post (reserved, not used).
     # NOTE: DBMF (SG CTA Index stitch) DROPPED 2026-05 -- pre-2019 proxy stitch
     # CAUSED a -4.4pp MaxDD regression in canonical backtest (CTA whipsaw during
-    # early-2008 GFC). DBMF now LIVE-ONLY (post-2019-05-08); strategy effectively
-    # runs CPM-9 pre-2019 then CPM-10 post-2019. Net: cleaner spec, slightly better
-    # canonical Sh (+0.008), materially better MaxDD (-17.05% -> -12.61%).
+    # early-2008 GFC). Strategy runs CPM-9 throughout (DBMF removed 2026-05-18,
+    # single-year dependency on 2024 +8.44%; CMA crisis-year contribution -0.02%).
+    # Net: cleaner spec, fewer DSR concerns.
     for fname, col in [
         ("gld_stitched_daily_clean.csv", "GLD"),
         ("tip_stitched_daily.csv", "TIP"),
@@ -164,7 +164,8 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
                 panel = panel.join(s, how="outer").sort_index()
     
     # Live yfinance pulls for ETFs not in proxy panel
-    needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + PP_ASSETS + [DEFAULT_CASH])
+    needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS
+                  + BULL_CANARY_ASSETS + PP_ASSETS + [DEFAULT_CASH])
     missing = sorted(needed - set(panel.columns))
     
     pull_start = (start - pd.DateOffset(years=2)) if start else pd.Timestamp("1995-01-01")
@@ -421,9 +422,14 @@ def perf_metrics(daily: pd.Series) -> dict:
     vol = daily.std(ddof=0) * np.sqrt(252)
     sharpe = (daily.mean() * 252) / vol if vol > 0 else float("nan")
     rm = eq.cummax()
-    mdd = (eq / rm - 1).min()
+    dd_series = eq / rm - 1
+    mdd = dd_series.min()
+    ulcer = float(np.sqrt(np.mean(dd_series ** 2)))
+    calmar = cagr / abs(mdd) if mdd != 0 and not pd.isna(mdd) else float("nan")
+    martin = cagr / ulcer if ulcer > 0 else float("nan")
     return {"total_return": eq.iloc[-1] / eq.iloc[0] - 1,
-            "cagr": cagr, "vol": vol, "sharpe": sharpe, "max_drawdown": mdd}
+            "cagr": cagr, "vol": vol, "sharpe": sharpe, "max_drawdown": mdd,
+            "ulcer": ulcer, "calmar": calmar, "martin": martin}
 
 
 def run_cpm_backtest(

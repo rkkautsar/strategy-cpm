@@ -8,7 +8,7 @@ Spec:
   5. Gate:     Only allocate when BULL-QQQ regime == BULL_QQQ
                (skip CASH regime -- equity-friendly only)
   6. Fallback: 100% SHV cash when gate off OR <4 positive-momentum candidates
-  7. Monthly rebalance, T+1 MOC execution, 10bps/side cost
+  7. Monthly rebalance, T+0 OPEN execution (next-day MOO), 10bps/side cost
 
 Headline performance (canonical 2007-02 -> 2026, 19y):
   Standalone:           Sh 1.24, CAGR 40.9%, MaxDD -44.9%, Vol 30.9%
@@ -146,8 +146,11 @@ def run_ndx_backtest(
     full_panel = cpm_panel.join(ndx_panel, how="outer", rsuffix="_dup")
     full_panel = full_panel.loc[:, ~full_panel.columns.str.endswith("_dup")]
 
-    sig_dates = full_panel.resample("ME").last().index
-    sig_dates = sig_dates[(sig_dates >= start) & (sig_dates <= end)]
+    # Use ACTUAL last trading day per calendar month (not calendar month-end
+    # timestamps) for correct alignment with CPM/BULL signal dates.
+    monthly_idx = pd.DataFrame({"x": 1}, index=full_panel.index).groupby(
+        pd.Grouper(freq="ME")).tail(1).index
+    sig_dates = monthly_idx[(monthly_idx >= start) & (monthly_idx <= end)]
 
     daily_rets = pd.Series(0.0, index=full_panel.loc[start:end].index)
     weights_for_date = {}
@@ -170,7 +173,9 @@ def run_ndx_backtest(
             if cur_w != new_w:
                 tovr = sum(abs(cur_w.get(a, 0) - new_w.get(a, 0))
                            for a in set(cur_w) | set(new_w))
-                daily_rets.loc[ts] -= tovr * cost_bps / 10000 / 2
+                # turnover already counts both sell and buy legs (one positive
+                # delta per affected asset); apply 10bps/side via single division.
+                daily_rets.loc[ts] -= tovr * cost_bps / 10000.0
             cur_w = new_w
             cur_w_idx += 1
         prev_loc = full_panel.index.get_loc(ts)

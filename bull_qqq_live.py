@@ -2,35 +2,30 @@
 """
 BULL-QQQ - Regime-gated QQQ overlay with SHV cash fallback.
 
-The 20% bull sleeve that pairs with the 80% CPM-11 sleeve in production
-(70/30 or 60/40 also viable, per personal-capital preference).
+The 30% bull sleeve in the 60/30/10 CPM-BULL-NDX production blend.
 
-Strategy (oracle-v7 robust spec):
+Strategy (oracle-v7 robust spec, finalized 2026-05-21):
   Risk-on when BOTH:
     1. Macro:    HYG OR LQD OR TIP 13612U > 0    (credit/inflation regime)
     2. Trend:    QQQ 12-1 absolute momentum > 0   (Antonacci GEM standard)
 
-  Bull asset: 100% QQQ (no state rotation)
+  Bull asset: 100% QQQ (no state rotation; XLP override removed)
   Otherwise:  100% SHV (cash)
 
 Design rationale:
   - Single-ticker bull bet on Nasdaq-100; QQQ already provides diversified
-    mega-cap tech exposure (top 100 Nasdaq names)
+    mega-cap tech exposure (top 100 Nasdaq names).
   - Multi-ETF "diversified" universes (SMH/SCHG/XLK/IWM/GLD) tested and
-    rejected: same Sharpe, more complexity, marginal pick noise
+    rejected: same Sharpe, more complexity, marginal pick noise.
   - SHV cash fallback chosen over CPM fallback: same Sharpe in blend,
-    better COVID protection (-5.4% vs -9.0%), zero duration risk
-  - Two-filter design: canary + (12-1 mom OR 13612U)
-      * Canary catches credit/inflation stress (2022)
-      * 12-1 momentum is the SLOW anchor (anti-whipsaw in sustained bears
-        like dot-com)
-      * 13612U (canonical HAA average momentum) is the FAST signal
-        (re-enters quickly after bears -- caught 2023 AI rally in Feb
-        vs 12-1-alone waiting until June)
-      * OR-combination: long if EITHER signal positive. Slow signal anchors
-        against whipsaw; fast signal rescues re-entry timing.
-      * VIX filter tested and REMOVED: gave ~0.05 Sharpe cost across both
-        windows; specifically COVID flash-crash insurance with n=1 evidence.
+    better COVID protection (-5.4% vs -9.0%), zero duration risk.
+  - 12-1 absolute momentum (sole trend filter): slow anchor, anti-whipsaw
+    in sustained bears (dot-com 2000-02 survived). Prior versions added
+    13612U OR composite for fast re-entry; removed in oracle-v7 robust spec
+    as data-mined to 2009/2023 V-bottom recoveries (cost only -0.02 Sh).
+  - XLP late-cycle rotation tested and REMOVED: n=12 firings, t=0.85,
+    p=0.41, 95% CI on edge includes zero. Curve-fit, not robust forward.
+  - VIX filter tested and REMOVED: ~0.05 Sharpe cost, n=1 evidence (COVID).
 
 Usage:
     python bull_qqq_live.py allocate                       # show this month's target
@@ -84,32 +79,10 @@ MOMENTUM_LOOKBACK = 12       # months for 12-1 momentum
 CANARY_ASSETS = ["HYG_stitched", "LQD", "TIP"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
-# Equity-strength override: when QQQ has rallied strongly over past 12 months,
-# bypass macro canary even if credit/inflation has briefly stressed.
-# Handles 2023-style decoupling: AI rally despite Treasury/credit stress.
-#
-# Threshold is expanding-window 67th percentile (top tercile) of historical
-# QQQ 12-month rolling returns. Truly out-of-sample calibration: each signal
-# date uses only data observed before that date.
-#
-# Why 67th (top tercile):
-#   - External anchor: Asness/Moskowitz/Pedersen "Value & Momentum Everywhere"
-#     uses tertile sorts as standard factor-portfolio cutoffs
-#   - Empirical plateau [50-65%] all work; 60th was peak but only +0.02-0.05
-#     Sharpe better than 67th (within bootstrap noise)
-#   - 67th = top tercile = "above-normal regime" -- defensible without data-mining
-#   - Oracle reviewed and chose 67th over 60th: cleaner external prior, less
-#     data-mining smell, Sharpe edge for 60th not significant
-#
-# Validation:
-#   - Selective: 4 fires in 18y LIVE / 10 fires in 32y EXT
-#   - Strict Sharpe improvement on every window (+0.04 to +0.06)
-#   - Zero DD increase (trend filter still required, catches actual crises)
-#   - Plausible: equity-trend dominance over credit signals when proven
-EQUITY_OVERRIDE_PERCENTILE = 67.0      # top tercile of historical QQQ 12-1
-EQUITY_OVERRIDE_MIN_HISTORY = 24       # min historical observations needed
-# Legacy fixed threshold (kept for reference; not used by default).
-EQUITY_OVERRIDE_THRESHOLD = 0.20
+# Equity-strength override REMOVED (oracle-v7 robust spec, 2026-05-21).
+# Prior spec used expanding-window 67th-pctile QQQ 12-1 momentum as a canary
+# bypass for AI-rally-despite-credit-stress regimes. Removed as in-sample
+# curve-fit: n=4 firings in LIVE, /10 in EXT was too thin to validate.
 
 # Production deployment: 70% CPM + 30% BULL-QQQ wired by build_dashboard.py.
 # Sensitivity grid (oracle-v3): 70/30 peaks Sharpe on both LIVE/EXT, flat surface 60/40-80/20.
@@ -188,23 +161,6 @@ def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
     return "".join(chars)
 
 
-def _equity_override_threshold(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> float:
-    """Compute expanding-window percentile threshold for equity override.
-    Returns the percentile value of historical QQQ 12-month rolling returns
-    computed from data available up to (but not including) the signal date.
-    Truly out-of-sample: never uses future data.
-    """
-    qq = monthly_qqq.loc[:sig_d].dropna()
-    if len(qq) < EQUITY_OVERRIDE_MIN_HISTORY + 13:
-        return float("nan")
-    # Historical 12-1 returns, EXCLUDING the current observation
-    hist = [qq.iloc[i] / qq.iloc[i - 12] - 1 for i in range(13, len(qq) - 1)]
-    if len(hist) < EQUITY_OVERRIDE_MIN_HISTORY:
-        return float("nan")
-    import numpy as _np
-    return float(_np.percentile(hist, EQUITY_OVERRIDE_PERCENTILE))
-
-
 def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
                               ) -> tuple[dict, str, dict]:
     """Returns (weights, regime_label, diagnostics).
@@ -213,42 +169,20 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
     gate_open, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)
     trend_ok, tdiag = _qqq_trend_ok(monthly, sig_d)
-    # Equity-strength override REMOVED in oracle-v4 cleanup:
-    # fired only 10/403 months over 32y, neutral on LIVE (-0.013 Sh),
-    # marginal EXT help (+0.01 Sh). Removed for spec simplicity and to
-    # reduce data-mining surface (pre-2005 threshold was unstable).
-    # Threshold still computed for diagnostic only.
-    mom_12_1 = tdiag.get("mom_12_1", float("nan"))
-    override_threshold = _equity_override_threshold(monthly[BULL_TICKER], sig_d) \
-        if BULL_TICKER in monthly.columns else float("nan")
-    override_active = False  # disabled
-    tdiag["override_threshold"] = override_threshold
-    effective_gate_open = gate_open
     if not trend_ok:
         return ({CASH_TICKER: 1.0}, "CASH",
-                {**mdiag, **tdiag, "state": state, "override": override_active,
-                 "reason": "qqq_trend_off (both 12-1 and 13612W <= 0)"})
-    if not effective_gate_open:
+                {**mdiag, **tdiag, "state": state,
+                 "reason": "qqq_trend_off (12-1 mom <= 0)"})
+    if not gate_open:
         return ({CASH_TICKER: 1.0}, "CASH",
-                {**mdiag, **tdiag, "state": state, "override": override_active,
-                 "reason": "macro_gate_off (and override inactive)"})
-    # Bull state: rotate by canary state
-    # BULL_BY_STATE value may be either a single ticker string (single-asset)
-    # or a dict {ticker: weight} (basket).
-    bull_spec = BULL_BY_STATE.get(state, BULL_TICKER)
-    if isinstance(bull_spec, dict):
-        weights = dict(bull_spec)
-        bull_label = "+".join(sorted(weights.keys()))
-    else:
-        weights = {bull_spec: 1.0}
-        bull_label = bull_spec
-    regime_label = f"BULL_{bull_label}"
-    if not gate_open and override_active:
-        regime_label += "_via_override"
+                {**mdiag, **tdiag, "state": state,
+                 "reason": "macro_gate_off (all of HYG/LQD/TIP <= 0)"})
+    # Bull state: 100% QQQ (no state rotation in current spec).
+    weights = {BULL_TICKER: 1.0}
+    regime_label = f"BULL_{BULL_TICKER}"
     return (weights, regime_label,
-            {**mdiag, **tdiag, "state": state, "bull_asset": bull_label,
-             "bull_weights": weights,
-             "override": override_active, "gate_natural": gate_open})
+            {**mdiag, **tdiag, "state": state, "bull_asset": BULL_TICKER,
+             "bull_weights": weights, "gate_natural": gate_open})
 
 
 # ---------- Backtest ----------
@@ -289,8 +223,6 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
         mon = panel.loc[:sig_d].resample("ME").last()
         gate_open, _ = _macro_gate(mon, sig_d)
         trend_ok, tdiag = _qqq_trend_ok(mon, sig_d)
-        mom_12_1 = tdiag.get("mom_12_1", float("nan"))
-        # override removed in oracle-v4 cleanup (was: bypass canary on QQQ 12-1 > 67th pct)
         if trend_ok and gate_open:
             state = _canary_state(mon, sig_d)
             spec = BULL_BY_STATE.get(state, BULL_TICKER)
@@ -372,17 +304,11 @@ def cmd_allocate(args):
     print()
 
     state = diag.get("state")
-    override = diag.get("override", False)
     gate_natural = diag.get("gate_natural", diag.get("canary_ok", False))
     if regime.startswith("BULL_"):
         bull_asset = diag.get("bull_asset", BULL_TICKER)
         rotation_note = f" (canary state {state} -> {bull_asset})" if bull_asset != BULL_TICKER else ""
-        override_note = ""
-        if override and not gate_natural:
-            thr = diag.get("override_threshold", float("nan"))
-            override_note = (f" [via equity-strength override: QQQ 12-1 mom={diag['mom_12_1']*100:+.1f}% > "
-                              f"{EQUITY_OVERRIDE_PERCENTILE:.0f}th pct ({thr*100:+.1f}%)]")
-        print(f"Regime: {regime} (trend pass){rotation_note}{override_note}")
+        print(f"Regime: {regime} (trend pass){rotation_note}")
     else:
         print(f"Regime: CASH ({diag.get('reason','unknown')}; canary state {state})")
 
@@ -411,12 +337,13 @@ def cmd_backtest(args):
     w_b = PROD_BULL_WEIGHT
     w_f = 1 - w_b
     blend = w_f * fcp_rets.loc[common] + w_b * bull_qqq.loc[common]
-    prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL-QQQ (PROD)"
+    prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL-QQQ (2-sleeve historical)"
+    print("Note: actual PROD is 60/30/10 CPM-BULL-NDX (see build_dashboard.py); this CLI prints 2-sleeve comparison.")
 
     strategies = [
         (prod_label, blend),
         ("BULL-QQQ standalone", bull_qqq),
-        ("CPM-11 standalone", fcp_rets),
+        ("CPM-9 standalone", fcp_rets),
         ("QQQ buy-hold", qqq),
         ("SPY buy-hold", spy),
     ]
