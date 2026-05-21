@@ -36,7 +36,7 @@ PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 # (DBC live + 12mo signal warmup, 19.3y).
 # HYG canary uses VWEHX mutual fund pre-2007-04 + live HYG post.
 #
-# US factors (4): QQQ (Nasdaq-100), IWF (R1000 Growth -> SCHG live),
+# US factors (4): QQQ (Nasdaq-100), IWF (Russell 1000 Growth),
 # SPHQ (S&P 500 Quality), VBR (small-cap value).
 US_FACTORS = [
     "QQQ", "IWF", "VBR", "SPHQ",
@@ -48,7 +48,6 @@ US_FACTORS = [
 INTERNATIONAL = ["EFA", "EEM"]
 
 # Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities).
-# Live-trade equivalent: DBC -> PDBC (no K-1, smarter roll, corr 0.956).
 DIVERSIFIERS = ["GLD", "TLT", "DBC"]
 RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 9 risky
 SAFE_POOL = ["SHV"]            # ultra-short Treasury (~0.3y duration)

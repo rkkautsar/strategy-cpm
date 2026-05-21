@@ -1172,7 +1172,7 @@ def main():
 <details open>
 <summary>CPM Sleeve ({int(CPM_W*100)}%)</summary>
 <ul>
-<li><strong>Universe ({len(RISKY_UNIVERSE)}):</strong> US factor + international + diversifier. Live-trade equivalents: IWF&rarr;SCHG (corr 0.994, 14bps cheaper), DBC&rarr;PDBC (no K-1).
+<li><strong>Universe ({len(RISKY_UNIVERSE)}):</strong> US factor + international + diversifier.
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (ultra-short Treasury cash, ~0.3y duration)</li>
 <li><strong>Canary:</strong> {' + '.join(CANARY_ASSETS)} -- ANY positive 13612U momentum -&gt; risk-on; all negative -&gt; 100% SHV. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>

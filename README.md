@@ -54,16 +54,6 @@ NDX concentration + tail sequencing risk not captured by return bootstrap):
 Base case (mid-band): Sharpe 1.05-1.15, CAGR 12-14%, DD low/mid-20s in a
 bad cycle. After-tax drop in taxable accounts: ~5-9% CAGR (vs 11-15% pre-tax).
 
-## Live-trade ticker mapping
-
-Backtest uses long-history tickers; trade with live equivalents.
-
-| Spec | Backtest ticker | Live ticker | Why |
-|---|---|---|---|
-| Large-cap growth | IWF | **SCHG** | 14bps cheaper, 0.994 daily correlation |
-| Commodity basket | DBC | **PDBC** | no K-1 tax form, smarter optimum-yield roll, 0.956 corr |
-| All others | (same ticker) | (same ticker) | already optimal |
-
 ## Strategy spec
 
 ```python
@@ -141,11 +131,11 @@ portfolio = 0.60 * cpm + 0.30 * bull + 0.10 * ndx
 
 **CPM RISKY (9 assets, all live since 2006-02 = DBC inception):**
 
-- US factors (4): `QQQ` (Nasdaq-100), `IWF` (Russell 1000 Growth → SCHG live),
+- US factors (4): `QQQ` (Nasdaq-100), `IWF` (Russell 1000 Growth),
   `VBR` (small-cap value), `SPHQ` (S&P 500 Quality).
 - International (2): `EFA` (developed ex-US, live 2001-08), `EEM`
   (emerging markets, live 2003-04).
-- Diversifiers (3): `GLD` (gold), `TLT` (long bonds), `DBC` (commodities → PDBC live).
+- Diversifiers (3): `GLD` (gold), `TLT` (long bonds), `DBC` (commodities).
 
 **CPM safe / cash:** `SHV` (ultra-short Treasury, ~0.3y effective duration).
 
@@ -231,22 +221,6 @@ strategies after cost:
 Each layer adds Sharpe. NDX is the smallest marginal gain (+0.07 Sh) at
 the steepest DD cost (+3pp); justified by the +2.7pp CAGR contribution.
 
-### Live-equivalent ETF drift (SCHG, PDBC since 2015)
-
-Backtest uses IWF/DBC (long history); live trade uses SCHG/PDBC (cheaper,
-no K-1). Drift over 2015+ common live window:
-
-| Variant | Sharpe | CAGR | Vol | MaxDD |
-|---|---:|---:|---:|---:|
-| Research (IWF, DBC) 2015+ | 1.44 | 19.15% | 12.75% | -15.43% |
-| **Live equiv (SCHG, PDBC) 2015+** | **1.33** | **17.87%** | 12.98% | -15.43% |
-| Drift | **-0.11** | **-1.28pp** | +0.23pp | tied |
-
-Swapping to live ETFs costs ~8% relative Sharpe (still within bootstrap CI
-noise but at the upper end). Forward expectation should be discounted for
-actual live trading - the 0.95-1.25 Sharpe planning band already absorbs
-this drift.
-
 ### Hold-buffer sensitivity
 
 CPM uses a 2.0z cross-sectional hold buffer to reduce pair-rotation churn
@@ -313,7 +287,7 @@ Within the validated 2-5z plateau, exact value is not sensitive.
    extended backtest).
 
 6. **Effective Nasdaq/growth concentration.** In risk-on regimes, CPM can
-   pick QQQ or IWF/SCHG while BULL holds QQQ and NDX holds top Nasdaq-100
+   pick QQQ or IWF while BULL holds QQQ and NDX holds top Nasdaq-100
    names. Realized growth-exposure distribution (canonical 19.3y):
 
    | Stat | Total growth/Nasdaq exposure |
@@ -369,12 +343,7 @@ Within the validated 2-5z plateau, exact value is not sensitive.
     for audit. Consider migrating to Tiingo / Polygon / IEX Cloud for
     institutional-grade data before scaling capital.
 
-13. **Live-equivalent ETF drift.** Backtest uses IWF + DBC (long history);
-    live trade uses SCHG (large-cap growth, 4bps fee) + PDBC (no K-1
-    commodity strategy). Drift over 2015+ common live: -0.07 Sh, -0.76pp
-    CAGR (live underperforms research). Within bootstrap noise but real.
-
-14. **Cost formula:** transaction cost charged as
+13. **Cost formula:** transaction cost charged as
     `cost = COST_BPS_PER_SIDE / 10000 * sum(abs(w_new - w_old))`,
     where the sum already includes both legs (one sell + one buy per asset).
     At 10bps/side, a full 100% A → 100% B switch costs **20 bps** of
