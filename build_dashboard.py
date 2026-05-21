@@ -750,12 +750,11 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
     mom_12_1 = bq_diag.get("mom_12_1") or 0
-    sig_w13 = bq_diag.get("sig_13612W") or 0
     cstate = bq_diag.get("state", "---")
     if bq_regime.startswith("BULL_"):
-        bq_state = f"{bq_regime} (canary {cstate}, 12-1={mom_12_1*100:+.1f}% w13={sig_w13*100:+.1f}%)"
+        bq_state = f"{bq_regime} (canary {cstate}, QQQ 12-1={mom_12_1*100:+.1f}%)"
     else:
-        bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, 12-1={mom_12_1*100:+.1f}%)"
+        bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, QQQ 12-1={mom_12_1*100:+.1f}%)"
 
     # NDX sleeve (10%) -- gated by BULL-QQQ regime
     try:
@@ -793,7 +792,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 </div>
 <div>
   <h4>BULL-QQQ sleeve ({int(BULL_WEIGHT*100)}%)</h4>
-  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/LQD/TIP any-positive 13612W<br>Trend: QQQ 12-1 absolute momentum &gt; 0<br>Bull asset: 100% QQQ<br>Fallback: 100% {CASH_TICKER} (cash)</p>
+  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/LQD/TIP any-positive 13612U<br>Trend: QQQ 12-1 absolute momentum &gt; 0 (Antonacci GEM, sole filter)<br>Bull asset: 100% QQQ<br>Fallback: 100% {CASH_TICKER} (cash)</p>
   <div class='table-scroll'><table class='alloc'>{bq_html}</table></div>
 </div>
 <div>
