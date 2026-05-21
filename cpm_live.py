@@ -108,7 +108,7 @@ HOLD_BUFFER = 2.0           # z-score units (sweep 2026-05: 2.0z best blend Sh, 
 #                              candidate exceeds prior z-score by this margin.
 #                              See research/hold_buffer_threshold_diagnosis.log.
 CORR_LOOKBACK_DAYS = 504    # ~2y (oracle-v7 robust sweep: 504d beats 756d, more adaptive, lower drawdown)
-TARGET_VOL = 0.10           # annualized
+TARGET_VOL = 0.15           # annualized (sweep 2026-05: 15% cap captures +1.18pp blend CAGR vs 10%, only 0.35pp DD worse; fires 16.7% of days in crisis regimes; mechanism preserved as crisis insurance)
 VOL_LOOKBACK_DAYS = 63     # ~3mo (sweep 2026-05: 63d beats 252d on CPM-standalone MaxDD by +2.4pp; blend MaxDD basically tied)
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10

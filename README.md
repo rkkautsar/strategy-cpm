@@ -29,7 +29,7 @@ uses HYG/LQD/TIP (credit/inflation focus) -- intentional, see caveat 7.
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.37** | **16.40%** | **-14.99%** |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.36** | **17.58%** | **-15.34%** |
 | SPY buy-hold | 0.61 | 10.59% | -55.19% |
 
 NDX sleeve adds +0.10 Sh over prior 70/30 PROD by capturing concentrated
@@ -133,7 +133,7 @@ else:
 | HYG/LQD multi-canary | Our extension of Keller DAA (2018) |
 | Faber 10mo SMA ranker (CPM) | Faber 2007 SSRN-inspired; uses adjusted total-return prices (yfinance auto_adjust=True, dividend-reinvested). |
 | Min-variance pair selection | Optimum3/AllocateSmartly 2022-inspired; exact implementation is CPM's (504d covariance on total-return data). Beats lowest_corr (-0.22 Sh) and inv_vol (-0.08 Sh) variants; robust across 126-1260d lookback. |
-| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. Trailing 63d lookback, 10% target vol (chosen over 252d academic standard: +2.4pp better MaxDD on CPM standalone, blend MaxDD essentially tied; faster vol estimate de-risks sooner in crashes). |
+| Vol cap (de-risk only, sleeve-level) | TSMOM/risk-parity-inspired de-risking; no leverage. Trailing 63d lookback, 15% target vol (chosen 2026-05 over 10%: +1.18pp blend CAGR for only 0.35pp wider DD; fires 16.7% of days, only in real crisis regimes; mechanism preserved as crisis insurance). |
 | Cross-sectional selection (top-K rank) | Conceptual inspiration: Jegadeesh & Titman 1993 JoF (return-rank momentum). Actual implementation: Faber 2007 SMA score. J&T listed for transparency of mechanism family, NOT as direct citation. |
 | Hold-buffer dampener | Practitioner standard (AQR notes); applied as z-score of Faber distance |
 
@@ -389,7 +389,7 @@ Flat surface 60/40 to 80/20, 70/30 peaks both windows, NOT a sharp peak
    + state 0-13%. Use only in IRA / 401k / Roth / tax-deferred. In a
    taxable account, after-tax CAGR drops to ~4-7% (vs 8-12% forward
    pre-tax expectation) -- not worth the operational complexity.
-6. **Vol-target is sleeve-level, not portfolio-level**: CPM has 10% vol
+6. **Vol-target is sleeve-level, not portfolio-level**: CPM has 15% vol
    target (de-risk only, scale capped at 1.0, no leverage), BULL has none. Realized vol
    computed on 63-day daily total-return std of the proposed current CPM
    basket. Combined portfolio is NOT explicitly vol-targeted -- BULL
@@ -431,7 +431,7 @@ CPM sleeve (which has access to all SPDR sectors via its candidate pool).
 **Production deployment: 70% CPM defensive sleeve + 30% BULL-QQQ bull sleeve.**
 
 CPM engine spec: 9 risky ETFs, `TOP_K_CANDIDATES=5`, `HOLD_BUFFER=2.0z`,
-**HYG+TIP+GLD "any positive" 13612U canary**, vol-target 10% (de-risk only,
+**HYG+TIP+GLD "any positive" 13612U canary**, vol-target 15% (de-risk only,
 no leverage), 10 bps/side cost, SHV-only cash fallback. BULL-QQQ spec:
 12-1 absolute momentum AND multi-canary (HYG/LQD/TIP any-positive 13612U);
 bull asset is 100% QQQ when risk-on; SHV cash when filters fail.
@@ -560,9 +560,11 @@ Each month at month-end close (T):
 6. **Partial-safe fill** - if only 1 positive momentum, allocate 50% to that
    asset + 50% best safe. If 0 positive, 100% best safe.
 7. **Pair weighting** - 50/50 between the two selected names.
-8. **Vol targeting overlay** - scale daily returns to 10% annualized vol using
+8. **Vol targeting overlay** - scale daily returns to 15% annualized vol using
    63-day realized vol, **MAX_LEVERAGE = 1.0 (no borrowing)**, shifted 1 day
    to avoid look-ahead. De-risks only - never leverages above 100% gross.
+   Fires ~17% of days (only in real crisis regimes); chosen over 10% target
+   for +1.18pp blend CAGR at only 0.35pp wider blend MaxDD.
 
 ### Execution
 
@@ -819,7 +821,7 @@ in the deployed strategy.
 | Best-safe rotation (BIL/SHV/SHY/IEF) | +0.03 (removed in oracle-v4, simplified to SHV-only) |
 | HYG+TIP+GLD "any+" 13612U canary | +0.18 |
 | Partial-safe fill (1 positive momentum) | +0.02 |
-| Vol targeting overlay (10% annual, no leverage) | +0.02 |
+| Vol targeting overlay (15% annual, no leverage) | +0.02 |
 | Frozen-EOM signal + T+1 MOC execution | -0.01 |
 | 10bps cost drag | -0.06 |
 | **Total CPM standalone** | **1.20** |
@@ -1015,7 +1017,7 @@ At T (last trading day of month, after close):
 4. If canary off: target = 100% best safe
 5. If canary on: run pair selection
 6. Apply hold-buffer comparison vs prior month
-7. Apply vol target sizing (63d realized vol, 10% annual target, max 1.0x - de-risk only, no leverage)
+7. Apply vol target sizing (63d realized vol, 15% annual target, max 1.0x - de-risk only, no leverage)
 8. Generate trade list = (target weights x portfolio NAV) - (current positions)
 9. Place MOC orders for trade list at T+1
 

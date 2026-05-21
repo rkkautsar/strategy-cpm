@@ -996,7 +996,7 @@ def main():
 <h2>Performance Summary</h2>
 <div class='card'>
 {perf_table_html(perf_rows)}
-<p class='footnote'>Post-cost (10 bps/side), with vol targeting (10% annualized).</p>
+<p class='footnote'>Post-cost (10 bps/side), with vol targeting ({TARGET_VOL*100:.0f}% annualized).</p>
 </div>
 
 <h2>Sleeve Breakdown</h2>
