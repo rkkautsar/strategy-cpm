@@ -122,23 +122,24 @@ def compute_ndx_weights(
         if pd.notna(m) and m > 0:
             momenta[t] = m
 
-    # Step 4: top SELECT_K by momentum, equal-weight
+    # Step 4: top SELECT_K by momentum, equal-weight 1/SELECT_K each.
+    # Partial fill if < SELECT_K positive candidates (CPM-style):
+    # take what's there at 1/SELECT_K each, rest in SHV cash.
     sorted_by_mom = sorted(momenta.items(), key=lambda x: -x[1])
-    if len(sorted_by_mom) < SELECT_K:
-        # Fallback: not enough qualifying NDX picks, mirror BULL-QQQ instead
-        # of sitting in cash (NDX sleeve acts as extra BULL exposure).
-        return (bq_weights, "NDX_FALLBACK_BULL_QQQ", {
-            "bull_qqq_regime": bq_regime,
-            "n_candidates": len(sorted_by_mom),
-            "selected": list(bq_weights.keys()),
-            "reason": f"Only {len(sorted_by_mom)} positive NDX candidates; mirroring BULL-QQQ",
-        })
-    selected = [t for t, _ in sorted_by_mom[:SELECT_K]]
-    weights = {t: 1.0 / SELECT_K for t in selected}
-    return (weights, "NDX_ACTIVE", {
+    n_pick = min(len(sorted_by_mom), SELECT_K)
+    selected = [t for t, _ in sorted_by_mom[:n_pick]]
+    per_slot = 1.0 / SELECT_K
+    weights = {t: per_slot for t in selected}
+    cash_share = 1.0 - n_pick * per_slot
+    if cash_share > 1e-9:
+        weights[CASH_TICKER] = cash_share
+    regime = "NDX_ACTIVE" if n_pick == SELECT_K else f"NDX_PARTIAL_{n_pick}"
+    return (weights, regime, {
         "bull_qqq_regime": bq_regime,
+        "n_candidates": len(sorted_by_mom),
         "selected": selected,
         "momenta": {t: momenta[t] for t in selected},
+        "cash_share": cash_share,
     })
 
 
