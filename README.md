@@ -29,7 +29,7 @@ uses HYG/LQD/TIP (credit/inflation focus) -- intentional, see caveat 7.
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.33** | **16.00%** | **-14.72%** |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.34** | **15.92%** | **-14.99%** |
 | SPY buy-hold | 0.61 | 10.59% | -55.19% |
 
 NDX sleeve adds +0.10 Sh over prior 70/30 PROD by capturing concentrated
