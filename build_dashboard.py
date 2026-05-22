@@ -292,6 +292,50 @@ def naive_60_40_pp_qqq_trend(panel, start, end):
     return (0.6 * pp.reindex(common).fillna(0) + 0.4 * qt.reindex(common).fillna(0))
 
 
+def cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp | None = None) -> list[dict]:
+    """Production-equivalent monthly CPM signal path for dashboard diagnostics.
+
+    Mirrors run_cpm_backtest breadth-majority hold-buffer reset so charts/tables
+    do not drift from the live strategy path.
+    """
+    cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
+    close = panel[cols]
+    monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
+    mask = monthly_idx.index >= start
+    if end is not None:
+        mask &= monthly_idx.index <= end
+    sig_dates = monthly_idx.index[mask].tolist()
+
+    records = []
+    prev_pair = None
+    prev_breadth_is_majority = None
+    for sig_d in sig_dates:
+        monthly = close.loc[:sig_d].resample("ME").last()
+        n_pos = cpm_module.canary_positive_count(monthly, CANARY_ASSETS)
+        breadth_is_majority = None if n_pos is None else (n_pos >= 2)
+        if (
+            prev_pair is not None
+            and breadth_is_majority is not None
+            and prev_breadth_is_majority is not None
+            and breadth_is_majority != prev_breadth_is_majority
+        ):
+            prev_pair = None
+
+        weights, new_pair, regime, safe = compute_target_weights(close, sig_d, prev_pair=prev_pair)
+        records.append({
+            "sig_d": sig_d,
+            "weights": weights,
+            "pair": new_pair,
+            "regime": regime,
+            "safe": safe,
+            "canary_positive_count": n_pos,
+            "breadth_is_majority": breadth_is_majority,
+        })
+        prev_pair = new_pair
+        prev_breadth_is_majority = breadth_is_majority
+    return records
+
+
 # ---------- Charts ----------
 
 # Visual hierarchy (3 tiers):
@@ -665,18 +709,19 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     Plot two stacked rows: CPM canary (HYG/TIP/GLD) + BULL canary (HYG/LQD/TIP).
     Returns (fig, regime_counts dict, picks Counter, pair_counter Counter)."""
     from collections import Counter
-    monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
-    sigs = monthly_idx.index[(monthly_idx.index >= start)].tolist()
+    records = cpm_signal_records(panel, start)
 
     cpm_per_date = []
     bull_per_date = []
     picks = Counter()
     pair_counter = Counter()
-    prev_pair = None
-    for sd in sigs:
-        weights, pair, regime, safe = compute_target_weights(panel, sd, prev_pair=prev_pair)
+    for rec in records:
+        sd = rec["sig_d"]
+        weights = rec["weights"]
+        pair = rec["pair"]
+        regime = rec["regime"]
+        safe = rec["safe"]
         cpm_per_date.append((sd, regime, pair, safe))
-        prev_pair = pair
         for asset, w in weights.items():
             if w > 0:
                 picks[asset] += 1
@@ -776,18 +821,18 @@ def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp):
     """
     from collections import defaultdict
     end = panel.index[-1]
-    monthly = panel.resample('ME').last()
-    sig_dates = [d for d in monthly.index if d >= start]
+    records = cpm_signal_records(panel, start)
+    sig_dates = [r["sig_d"] for r in records]
 
     asset_returns = defaultdict(list)
     asset_picks = defaultdict(int)
-    prev_pair = None
-    for i, sig_d in enumerate(sig_dates):
-        weights, new_pair, regime, _ = compute_target_weights(panel, sig_d, prev_pair=prev_pair)
+    for i, rec in enumerate(records):
+        sig_d = rec["sig_d"]
+        weights = rec["weights"]
         sidx = panel.index.searchsorted(sig_d) + 2
         eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
         if sidx >= len(panel.index):
-            prev_pair = new_pair; continue
+            continue
         window = panel.index[sidx:eidx]
         for asset in weights.keys():
             asset_picks[asset] += 1
@@ -804,7 +849,6 @@ def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp):
                     rs.append((d, p1/p0 - 1))
             if rs:
                 asset_returns[asset].append(pd.Series([r for _, r in rs], index=[d for d, _ in rs]))
-        prev_pair = new_pair
 
     rows = []
     for a, sers in asset_returns.items():
@@ -989,15 +1033,11 @@ def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: p
 
 def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp):
     """Rolling 12-month % of months the CPM canary was defensive."""
-    monthly = panel.resample('ME').last()
-    sig_dates = [d for d in monthly.index if d >= start]
+    records = cpm_signal_records(panel, start)
     defensive_per_month = []
-    prev_pair = None
-    for sig_d in sig_dates:
-        weights, new_pair, regime, _ = compute_target_weights(panel, sig_d, prev_pair=prev_pair)
-        is_def = 1.0 if regime == "DEFENSIVE" else (0.5 if new_pair is None else 0.0)
-        defensive_per_month.append((sig_d, is_def))
-        prev_pair = new_pair
+    for rec in records:
+        is_def = 1.0 if rec["regime"] == "DEFENSIVE" else (0.5 if rec["pair"] is None else 0.0)
+        defensive_per_month.append((rec["sig_d"], is_def))
     df_def = pd.DataFrame(defensive_per_month, columns=['date', 'def']).set_index('date')
     rolling_def = df_def['def'].rolling(12, min_periods=6).mean() * 100
 
@@ -1017,16 +1057,18 @@ def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp):
 
 def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp):
     """Gantt-style pair-pick timeline colored by realized 1mo return."""
-    monthly = panel.resample('ME').last()
-    sig_dates = [d for d in monthly.index if d >= start]
+    records = cpm_signal_records(panel, start)
+    sig_dates = [r["sig_d"] for r in records]
     timeline = []
-    prev_pair = None
-    for i, sig_d in enumerate(sig_dates):
-        weights, new_pair, regime, _ = compute_target_weights(panel, sig_d, prev_pair=prev_pair)
+    for i, rec in enumerate(records):
+        sig_d = rec["sig_d"]
+        weights = rec["weights"]
+        new_pair = rec["pair"]
+        regime = rec["regime"]
         sidx = panel.index.searchsorted(sig_d) + 2
         eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
         if sidx >= len(panel.index):
-            prev_pair = new_pair; continue
+            continue
         port_ret = 0.0
         for a, w in weights.items():
             if a in panel.columns:
@@ -1036,7 +1078,6 @@ def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp):
                     port_ret += w * (p1 / p0 - 1)
         label = ' + '.join(sorted(new_pair)) if new_pair else ('DEFENSIVE' if regime == 'DEFENSIVE' else 'PARTIAL')
         timeline.append({'date': sig_d, 'label': label, 'ret': port_ret})
-        prev_pair = new_pair
     df_tl = pd.DataFrame(timeline)
     label_counts = df_tl['label'].value_counts()
     labels_sorted = label_counts.index.tolist()
@@ -1203,7 +1244,12 @@ NDX_WEIGHT = 0.1
 
 
 def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
-    weights, pair, regime, safe = compute_target_weights(panel, sig_d)
+    records = cpm_signal_records(panel, pd.Timestamp("1900-01-01"), sig_d)
+    rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
+    weights = rec["weights"]
+    pair = rec["pair"]
+    regime = rec["regime"]
+    safe = rec["safe"]
 
     # CPM sleeve (60%)
     fcp_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
