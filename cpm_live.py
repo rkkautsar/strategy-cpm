@@ -179,9 +179,9 @@ def sig_13612U(p: pd.Series) -> float:
 def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> int | None:
     """Number of canary assets with positive 13612U momentum.
 
-    Used to reset hold-buffer memory when canary breadth crosses majority
-    (>=2 of HYG/TIP/GLD positive), so stale pair memory does not bridge a
-    narrow-risk-on vs broad-risk-on regime change.
+    Used by canary_risk_state to map breadth into a 3-level regime state
+    (OFF/WEAK/ON). Hold-buffer memory is reset across any regime transition
+    so stale pair memory does not bridge a regime change.
     """
     canary_assets = canary_assets or CANARY_ASSETS
     scores = []
@@ -194,6 +194,37 @@ def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> 
     if not scores:
         return None
     return sum(1 for score in scores if score > 0)
+
+
+# Invariant: canary_risk_state's OFF/WEAK/ON cutoffs assume exactly 3
+# canary assets. If CANARY_ASSETS is resized, update the mapping logic.
+assert len(CANARY_ASSETS) == 3, (
+    "canary_risk_state assumes 3 canaries; update mapping if CANARY_ASSETS changes"
+)
+
+
+def canary_risk_state(n_pos: int | None) -> str | None:
+    """Map canary positive count -> 3-level risk state.
+
+    OFF  (n_pos == 0)  : no canary positive, defensive-only regime
+    WEAK (n_pos == 1)  : one positive, narrow risk-on
+    ON   (n_pos >= 2)  : majority positive, broad risk-on
+
+    Hold-buffer memory is invalidated on any transition between these
+    states. Generalizes the prior 2-level majority cross trigger so the
+    reset fires on OFF<->WEAK and WEAK<->ON transitions as well, in case
+    future regimes traverse those boundaries (current backtest data
+    rarely does, so behavior is identical to majority cross in-sample).
+
+    Note: cutoffs hardcode `len(CANARY_ASSETS) == 3`. Asserted at import.
+    """
+    if n_pos is None:
+        return None
+    if n_pos == 0:
+        return "OFF"
+    if n_pos == 1:
+        return "WEAK"
+    return "ON"
 
 
 def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
@@ -401,24 +432,24 @@ def run_cpm_backtest(
     weights_history = []
     canary_state = {}
     prev_pair = None
-    prev_breadth_is_majority = None
-    
+    prev_risk_state = None
+
     for i, sig_d in enumerate(signal_dates):
         monthly = close.loc[:sig_d].resample("ME").last()
         n_pos = canary_positive_count(monthly, CANARY_ASSETS)
-        breadth_is_majority = None if n_pos is None else (n_pos >= 2)
+        risk_state = canary_risk_state(n_pos)
         if (
             prev_pair is not None
-            and breadth_is_majority is not None
-            and prev_breadth_is_majority is not None
-            and breadth_is_majority != prev_breadth_is_majority
+            and risk_state is not None
+            and prev_risk_state is not None
+            and risk_state != prev_risk_state
         ):
             prev_pair = None
-        
+
         w, new_pair, regime, safe = compute_target_weights(close, sig_d, prev_pair)
         canary_state[sig_d] = (regime == "RISK_ON")
         prev_pair = new_pair
-        prev_breadth_is_majority = breadth_is_majority
+        prev_risk_state = risk_state
         future = close.index[close.index > sig_d]
         if len(future) < 1:
             continue

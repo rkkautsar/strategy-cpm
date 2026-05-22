@@ -308,16 +308,16 @@ def cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timesta
 
     records = []
     prev_pair = None
-    prev_breadth_is_majority = None
+    prev_risk_state = None
     for sig_d in sig_dates:
         monthly = close.loc[:sig_d].resample("ME").last()
         n_pos = cpm_module.canary_positive_count(monthly, CANARY_ASSETS)
-        breadth_is_majority = None if n_pos is None else (n_pos >= 2)
+        risk_state = cpm_module.canary_risk_state(n_pos)
         if (
             prev_pair is not None
-            and breadth_is_majority is not None
-            and prev_breadth_is_majority is not None
-            and breadth_is_majority != prev_breadth_is_majority
+            and risk_state is not None
+            and prev_risk_state is not None
+            and risk_state != prev_risk_state
         ):
             prev_pair = None
 
@@ -329,10 +329,10 @@ def cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timesta
             "regime": regime,
             "safe": safe,
             "canary_positive_count": n_pos,
-            "breadth_is_majority": breadth_is_majority,
+            "risk_state": risk_state,
         })
         prev_pair = new_pair
-        prev_breadth_is_majority = breadth_is_majority
+        prev_risk_state = risk_state
     return records
 
 
