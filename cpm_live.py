@@ -67,7 +67,7 @@ TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
 HOLD_BUFFER = 2.0           # z-score units; retain prior pair member unless
                             # new candidate exceeds by this margin
 CORR_LOOKBACK_DAYS = 504    # EWMA covariance half-life for min-var pair (~2y)
-TARGET_VOL = 0.15           # annualized vol cap (de-risk only)
+TARGET_VOL = 0.12           # annualized vol cap (de-risk only)
 VOL_LOOKBACK_DAYS = 63      # ~3mo realized vol
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
@@ -176,10 +176,24 @@ def sig_13612U(p: pd.Series) -> float:
     return (r1 + r3 + r6 + r12) / 4.0
 
 
+def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> int | None:
+    """Number of canary assets with positive 13612U momentum.
 
-
-
-
+    Used to reset hold-buffer memory when canary breadth crosses majority
+    (>=2 of HYG/TIP/GLD positive), so stale pair memory does not bridge a
+    narrow-risk-on vs broad-risk-on regime change.
+    """
+    canary_assets = canary_assets or CANARY_ASSETS
+    scores = []
+    for asset in canary_assets:
+        if asset not in monthly.columns:
+            continue
+        score = sig_13612U(monthly[asset])
+        if pd.notna(score):
+            scores.append(score)
+    if not scores:
+        return None
+    return sum(1 for score in scores if score > 0)
 
 
 def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
@@ -387,11 +401,24 @@ def run_cpm_backtest(
     weights_history = []
     canary_state = {}
     prev_pair = None
+    prev_breadth_is_majority = None
     
     for i, sig_d in enumerate(signal_dates):
+        monthly = close.loc[:sig_d].resample("ME").last()
+        n_pos = canary_positive_count(monthly, CANARY_ASSETS)
+        breadth_is_majority = None if n_pos is None else (n_pos >= 2)
+        if (
+            prev_pair is not None
+            and breadth_is_majority is not None
+            and prev_breadth_is_majority is not None
+            and breadth_is_majority != prev_breadth_is_majority
+        ):
+            prev_pair = None
+        
         w, new_pair, regime, safe = compute_target_weights(close, sig_d, prev_pair)
         canary_state[sig_d] = (regime == "RISK_ON")
         prev_pair = new_pair
+        prev_breadth_is_majority = breadth_is_majority
         future = close.index[close.index > sig_d]
         if len(future) < 1:
             continue
