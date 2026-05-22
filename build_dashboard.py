@@ -855,7 +855,32 @@ def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp):
         axes[2].text(v + (2 if v >= 0 else -2), i, f"{v:+.1f}%",
                      va='center', ha='left' if v >= 0 else 'right', fontsize=8)
 
-    return fig
+    return fig, rows
+
+
+def asset_when_picked_note_html(rows):
+    """Render current conditional-pick interpretation without hardcoded stale metrics."""
+    if not rows:
+        return "<p>For each asset, performance is measured only during days it was held in a CPM pair. No conditional rows were available.</p>"
+
+    def fmt_pct(v):
+        return f"{v * 100:+.1f}%"
+
+    neg = [r for r in rows if r['sh'] < 0]
+    neg_sorted = sorted(neg, key=lambda r: r['sh'])
+    neg_txt = ", ".join(
+        f"{r['asset']} (Sh {r['sh']:+.2f}, AnnRet {fmt_pct(r['ann_ret'])}, CumRet {fmt_pct(r['cum'])}, n={r['picks']})"
+        for r in neg_sorted
+    ) or "none"
+    low = min(rows, key=lambda r: r['sh'])
+    only_negative_txt = (
+        f" Currently, {neg_sorted[0]['asset']} is the only negative conditional-Sharpe asset."
+        if len(neg_sorted) == 1 else ""
+    )
+    return f"""
+<p>For each asset, performance is measured only during days it was held in a CPM pair. <strong>Current negative conditional Sharpe assets:</strong> {neg_txt}. Lowest conditional Sharpe is <strong>{low['asset']}</strong> (Sh {low['sh']:+.2f}).{only_negative_txt} SHV defensive cash can show high Sharpe because of very low volatility, so read it with AnnRet/CumRet.</p>
+<p><strong>Interpretation:</strong> this chart is descriptive pick attribution, not a standalone asset-veto rule. TLT can show negative standalone when-picked returns while still serving a positive portfolio role through low/negative correlation and drawdown control.</p>
+"""
 
 
 def chart_sleeve_contribution(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series,
@@ -1335,7 +1360,7 @@ def main():
     fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(panel, start)
     fig_canary_heatmap = chart_canary_state_heatmap(panel, cpm, bull_qqq_rets, start)
-    fig_asset_picked = chart_asset_when_picked(panel, start)
+    fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start)
     fig_sleeve_contrib = chart_sleeve_contribution(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W)
     drawdowns_html = table_worst_drawdowns(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W, top_n=10)
     fig_def_pct = chart_rolling_defensive_pct(panel, start)
@@ -1585,8 +1610,7 @@ def main():
 <h2>Conditional Asset Performance (when picked)</h2>
 <div class='card'>
 {fig_to_html(fig_asset_picked)}
-<p>For each asset, performance during the days it was held in a CPM pair. <strong>TLT is the only asset with negative Sharpe</strong> (Sh -0.15, AnnRet -2.2%, CumRet -13.7% across 53 picks) - it gets selected by the min-vol optimizer for its low correlation to equities, but its own returns during those holding periods are net-negative. SHV (defensive cash) shows artificially high Sharpe (+3.5) because of low vol; the +10.7% cumulative contribution over 85 defensive picks reflects the risk-free yield carry.</p>
-<p><strong>Why TLT stays in the universe</strong>: 18 single-mechanism alternatives tested (drop TLT, swap TLT-&gt;IEF/AGG/EDV, etc.) - all hurt blend Sharpe and MaxDD by 0.05-0.25 / 1-8pp respectively. TLT's negative individual contribution is the price paid for the variance hedge it provides to equity pairs. The portfolio function is more valuable than the individual return.</p>
+{asset_when_picked_note_html(asset_picked_rows)}
 </div>
 
 <h2>Per-Sleeve Yearly Contribution to Blend</h2>
