@@ -5,17 +5,19 @@ BULL-QQQ - Regime-gated QQQ overlay with SHV cash fallback.
 30% sleeve in the 60/30/10 CPM-BULL-NDX production blend.
 
 Spec:
-  Risk-on when ALL THREE:
-    1. Macro:     HYG OR TIP 13612U > 0  (credit/inflation canary)
-    2. Composite: >= 2 of 4 binary pillars positive
-         - trend:  SPY > 200d MA           (broad-market Faber trend)
-         - credit: HYG > 200d MA           (credit-market trend)
-         - curve:  IEF 63d ret > TLT 63d ret (yield-curve steepening)
-         - vol:    SPY 63d vol < 252d avg  (low-vol regime)
-    3. Asset:     <BULL_TICKER> 12-1 absolute momentum > 0
-                  (direct asset circuit breaker - catches dotcom-style
-                  crashes where macro signals stay confused but the
-                  risky asset itself is falling)
+  Risk-on when ALL THREE gates pass (each using 'any positive' rule):
+    1. Canary:    HYG OR TIP 13612U > 0     (Keller HAA-style credit/inflation)
+    2. Macro:     curve OR vol pillar > 0   (2 orthogonal macro indicators)
+         - curve:  IEF 63d ret > TLT 63d ret  (yield-curve steepening)
+         - vol:    SPY 63d vol < 252d avg     (low-vol regime)
+    3. Asset mom: <BULL_TICKER> 12-1 absolute momentum > 0
+                  (Antonacci dual momentum on the risky asset)
+
+  All three layers use Keller-canonical 'any positive' rule.
+  Pillars are limited to factors not already covered by canary (credit)
+  or asset_mom (price/trend), so curve+vol are the only two orthogonal
+  macro signals worth adding. Trend (SPY 200d MA) was dropped as redundant
+  with asset_mom; credit (HYG 200d MA) was dropped as redundant with canary.
 
   Risk-on  -> 100% QQQ
   Else     -> 100% SHV (ultra-short Treasury cash)
@@ -60,18 +62,15 @@ CANARY_ASSETS = ["HYG_stitched", "TIP"]
 CANARY_RULE = "any_positive"
 
 # Binary composite gate: 4 yes/no pillars, threshold count.
-# Each pillar has natural midpoint (no tuned sigmoid params). Windows are
-# Faber/conventional (200d MA, 63d return, 252d vol). At >=2 of 4 the gate
-# stays permissive (~95% time in market) but flips to cash on simultaneous
-# multi-factor degradation. Sensitivity sweep monotonic (2/3/4 -> 1.17/1.04/0.68).
-COMPOSITE_TREND_ASSET = "SPY"     # SPY > QQQ for trend pillar (broad > narrow)
-COMPOSITE_VOL_ASSET   = "SPY"     # interchangeable with QQQ (within noise)
-COMPOSITE_CREDIT_ASSET = "HYG_stitched"
-COMPOSITE_TREND_WINDOW = 200      # days for trend MA (Faber 10m standard)
+# Two truly orthogonal macro indicators -- the only pillars not redundant with
+# the canary (credit) or asset_mom (price/trend). Pair ablation across 6
+# (window x asset) combos showed curve+vol OR strictly dominates 4-pillar
+# 2-of-4 on avg Sharpe and DD. Both use natural midpoint cutoffs and
+# Keller-style 'any positive' rule (no tuned threshold).
+COMPOSITE_VOL_ASSET = "SPY"       # interchangeable with QQQ within noise
 COMPOSITE_CURVE_WINDOW = 63       # days for IEF-TLT return spread (3m)
 COMPOSITE_VOL_SHORT = 63          # days for short vol estimate (3m)
 COMPOSITE_VOL_LONG  = 252         # days for long vol comparison (1y)
-COMPOSITE_MIN_COUNT = 2           # >=2 of 4 pillars positive for risk-on
 
 PROD_BULL_WEIGHT = 0.30      # BULL weight in 60/30/10 PROD blend
 
@@ -135,34 +134,22 @@ def _qqq_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dic
 
 
 def _binary_pillars(close_panel: pd.DataFrame, sig_d: pd.Timestamp) -> dict:
-    """Evaluate the 4 binary pillars at sig_d. Returns dict {name: 0|1, ...}
-    with only the pillars whose inputs are available. Missing pillars are
-    omitted (not counted as negative)."""
+    """Evaluate the 2 binary macro pillars at sig_d.
+    Returns dict {name: 0|1, ...} with only pillars whose inputs are available.
+    Missing pillars are omitted (not counted as negative)."""
     sub = close_panel.loc[:sig_d].ffill()
     if len(sub) < COMPOSITE_VOL_LONG:
         return {}
     pillars = {}
 
-    # 1. trend: configured asset > 200d MA (Faber)
-    if COMPOSITE_TREND_ASSET in sub.columns:
-        s = sub[COMPOSITE_TREND_ASSET].dropna().tail(COMPOSITE_TREND_WINDOW)
-        if len(s) >= COMPOSITE_TREND_WINDOW:
-            pillars["trend"] = 1 if s.iloc[-1] > s.mean() else 0
-
-    # 2. credit: HYG > 200d MA (mirror trend on credit)
-    if COMPOSITE_CREDIT_ASSET in sub.columns:
-        h = sub[COMPOSITE_CREDIT_ASSET].dropna().tail(COMPOSITE_TREND_WINDOW)
-        if len(h) >= COMPOSITE_TREND_WINDOW:
-            pillars["credit"] = 1 if h.iloc[-1] > h.mean() else 0
-
-    # 3. curve: IEF 63d ret > TLT 63d ret (yield-curve steepening signal)
+    # curve: IEF 63d ret > TLT 63d ret (yield-curve steepening signal)
     if "TLT" in sub.columns and "IEF" in sub.columns:
         ief_r = sub["IEF"].pct_change().tail(COMPOSITE_CURVE_WINDOW).sum()
         tlt_r = sub["TLT"].pct_change().tail(COMPOSITE_CURVE_WINDOW).sum()
         if pd.notna(ief_r) and pd.notna(tlt_r):
             pillars["curve"] = 1 if ief_r > tlt_r else 0
 
-    # 4. vol: configured asset 63d vol < 252d avg vol
+    # vol: SPY 63d vol < 252d avg of 63d rolling vol
     if COMPOSITE_VOL_ASSET in sub.columns:
         rets = sub[COMPOSITE_VOL_ASSET].pct_change().dropna()
         if len(rets) >= COMPOSITE_VOL_LONG:
@@ -178,16 +165,14 @@ def _binary_pillars(close_panel: pd.DataFrame, sig_d: pd.Timestamp) -> dict:
 
 def _composite_gate(close_panel: pd.DataFrame, sig_d: pd.Timestamp
                      ) -> tuple[bool, dict]:
-    """Binary 4-pillar composite gate. Returns (gate_open, diag).
-    Open when >= COMPOSITE_MIN_COUNT pillars positive AND all 4 evaluable.
-    If fewer than 4 pillars evaluable (data missing), gate closes."""
+    """Binary 2-pillar composite gate using 'any positive' (Keller-canonical) rule.
+    Returns (gate_open, diag). Open when >= 1 pillar positive AND both evaluable.
+    If fewer than 2 pillars evaluable (data missing), gate closes."""
     pillars = _binary_pillars(close_panel, sig_d)
     n_pos = sum(pillars.values()) if pillars else 0
     n_eval = len(pillars)
-    gate_open = (n_eval >= 4) and (n_pos >= COMPOSITE_MIN_COUNT)
+    gate_open = (n_eval >= 2) and (n_pos >= 1)
     diag = dict(
-        pillar_trend=pillars.get("trend"),
-        pillar_credit=pillars.get("credit"),
         pillar_curve=pillars.get("curve"),
         pillar_vol=pillars.get("vol"),
         composite_n_pos=n_pos,
@@ -229,7 +214,7 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
     if not composite_ok:
         return ({CASH_TICKER: 1.0}, "CASH",
                 {**all_diag,
-                 "reason": f"composite_off (only {cdiag['composite_n_pos']}/4 pillars positive, need {COMPOSITE_MIN_COUNT})"})
+                 "reason": f"composite_off ({cdiag['composite_n_pos']}/2 pillars positive, need any 1)"})
     if not asset_mom_ok:
         return ({CASH_TICKER: 1.0}, "CASH",
                 {**all_diag,
@@ -332,8 +317,8 @@ def cmd_allocate(args):
     print(f"Bull asset:  {BULL_TICKER}  (100% when macro AND trend both pass)")
     print(f"Fallback:    {CASH_TICKER}  (100% cash when either filter fails)")
     print(f"Macro gate:  HYG/TIP any-positive 13612U")
-    print(f"Composite:   >= {COMPOSITE_MIN_COUNT} of 4 binary pillars positive")
-    print(f"             (SPY trend, HYG trend, IEF-TLT curve, SPY low-vol)")
+    print(f"Composite:   any 1 of 2 macro pillars positive")
+    print(f"             (IEF-TLT curve, SPY low-vol)")
     print(f"Asset mom:   {BULL_TICKER} 12-1 absolute momentum > 0 (circuit breaker)")
     print()
 
@@ -350,12 +335,10 @@ def cmd_allocate(args):
             print(f"  {name:8s} = N/A")
         else:
             print(f"  {name:8s} = {'+' if val == 1 else '-'}")
-    _show_pillar("trend",  diag.get("pillar_trend"))
-    _show_pillar("credit", diag.get("pillar_credit"))
     _show_pillar("curve",  diag.get("pillar_curve"))
     _show_pillar("vol",    diag.get("pillar_vol"))
-    print(f"  Composite: {diag.get('composite_n_pos',0)}/4 positive  "
-          f"(>= {COMPOSITE_MIN_COUNT} needed: {'YES' if diag.get('composite_ok') else 'NO'})")
+    print(f"  Composite: {diag.get('composite_n_pos',0)}/2 positive  "
+          f"(any 1 needed: {'YES' if diag.get('composite_ok') else 'NO'})")
     if pd.notna(diag.get('mom_12_1', float('nan'))):
         print(f"\nAsset mom diagnostics:")
         print(f"  {BULL_TICKER} 12-1 mom = {diag['mom_12_1']*100:+7.2f}%  "

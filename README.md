@@ -4,10 +4,11 @@
 
 - **CPM (60%)** — canary-gated momentum + min-variance pair selection on a
   9-asset ETF universe (US factors + international + diversifiers).
-- **BULL-QQQ (30%)** — 100% QQQ when ALL THREE gates pass: HYG/TIP
-  any-positive 13612U canary, binary 4-pillar composite (>=2 of 4: SPY
-  trend, HYG trend, IEF-TLT curve, SPY low-vol), and QQQ 12-1 absolute
-  momentum > 0 (Antonacci asset circuit breaker). SHV cash otherwise.
+- **BULL-QQQ (30%)** — 100% QQQ when ALL THREE gates pass (each using
+  Keller-canonical "any positive" rule): (1) HYG OR TIP 13612U > 0
+  (canary), (2) curve OR vol macro pillar (curve = IEF 63d ret > TLT 63d
+  ret; vol = SPY 63d vol < 252d avg), (3) QQQ 12-1 absolute momentum > 0
+  (Antonacci dual momentum). SHV cash otherwise.
 - **NDX (10%)** — top-4 PIT Nasdaq-100 stocks by 13612U momentum,
   equal-weighted 25% each, gated by the BULL-QQQ regime.
 
@@ -31,21 +32,21 @@ Canonical 2007-02-01 → 2026-05-15 (19.3y, post-cost):
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar | Martin |
 |---|---:|---:|---:|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.48** | **16.96%** | **11.03%** | **-12.62%** | **1.34** | **5.00** |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.58** | **17.24%** | **10.46%** | **-11.33%** | **1.52** | **5.78** |
 | SPY buy-hold | 0.62 | 10.89% | 19.69% | -55.19% | 0.20 | 0.84 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM | 1.33 | 14.54% | 10.61% | -10.59% |
-| BULL-QQQ | 1.05 | 15.04% | 14.37% | -16.73% |
-| NDX | 1.14 | 33.07% | 28.86% | -35.92% |
+| BULL-QQQ | 1.11 | 15.08% | 13.45% | -13.56% |
+| NDX | 1.27 | 36.45% | 27.48% | -35.92% |
 
 Extended Backtest 1999-03-10 → 2026-05-23 (27.2y, includes dotcom):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX (EXT)** | **1.31** | **15.12%** | **-14.44%** |
-| Bull-QQQ standalone (EXT) | 0.92 | 14.58% | -26.80% |
+| **PROD 60/30/10 CPM-BULL-NDX (EXT)** | **1.35** | **14.77%** | **-12.80%** |
+| Bull-QQQ standalone (EXT) | 0.89 | 13.22% | -26.83% |
 
 ## Forward expectation
 
@@ -54,11 +55,11 @@ NDX concentration + tail sequencing risk not captured by return bootstrap):
 
 | Metric | Backtest | Forward base case |
 |---|---:|---|
-| Sharpe | 1.48 | **1.00-1.30** |
-| CAGR | 16.96% | **10-14%** (post-cost, pre-tax) |
-| MaxDD | -12.62% | **-15% to -25%** (planning band) |
-| Calmar | 1.34 | **0.55-0.90** |
-| Martin | 5.00 | **3.0-4.3** |
+| Sharpe | 1.58 | **1.05-1.35** |
+| CAGR | 17.24% | **10-14%** (post-cost, pre-tax) |
+| MaxDD | -11.33% | **-15% to -25%** (planning band) |
+| Calmar | 1.52 | **0.55-0.90** |
+| Martin | 5.78 | **3.0-4.5** |
 
 Base case (mid-band): Sharpe 1.05-1.15, CAGR 12-14%, DD low/mid-20s in a
 bad cycle. After-tax drop in taxable accounts: ~5-9% CAGR (vs 11-15% pre-tax).
@@ -99,21 +100,19 @@ cpm   = {a: w * scale for a, w in cpm.items()}
 cpm[SHV] += 1.0 - sum(cpm.values())                   # cash absorbs residual
 
 # ====== BULL-QQQ sleeve (30%) ======
-# Gate 1: Macro canary (HYG+TIP any-positive 13612U).
-#   LQD removed -- IG corp bonds rally on rate cuts during equity crashes,
-#   making "any positive" falsely permissive (dotcom). See handout Section 4.5.
+# Three independent gates, each using Keller-canonical 'any positive' rule.
+
+# Gate 1: Macro canary (HYG+TIP, any positive)
 canary_on = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0
 
-# Gate 2: Binary 4-pillar composite (>= 2 of 4 positive).
-#   All natural-midpoint cutoffs, no tuned thresholds.
-p_trend  = SPY[T] > SMA_200d(SPY)                              # Faber trend
-p_credit = HYG[T] > SMA_200d(HYG)                              # credit trend
-p_curve  = sum(IEF[T-63d:T] returns) > sum(TLT[T-63d:T] ret)   # curve steepening
-p_vol    = realized_vol_63d(SPY) < avg(rolling_63d_vol over 252d, SPY)
-composite_on = sum([p_trend, p_credit, p_curve, p_vol]) >= 2
+# Gate 2: Macro composite (curve+vol, any positive)
+#   Pair ablation showed these are the only two structurally orthogonal
+#   macro pillars not already covered by canary or asset_mom.
+p_curve = sum(IEF[T-63d:T] returns) > sum(TLT[T-63d:T] ret)    # curve steepening
+p_vol   = realized_vol_63d(SPY) < avg(rolling_63d_vol over 252d, SPY)
+composite_on = p_curve OR p_vol
 
-# Gate 3: Asset momentum circuit breaker (Antonacci 12-1 on the risky asset).
-#   Direct observation; catches dotcom-style crashes where macro is misleading.
+# Gate 3: Asset momentum (Antonacci dual momentum on the risky asset)
 asset_mom_on = mom_12_1(QQQ) > 0
 
 bull = {QQQ: 1.0} if (canary_on AND composite_on AND asset_mom_on) else {SHV: 1.0}

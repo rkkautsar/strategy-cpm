@@ -41,7 +41,7 @@ from cpm_live import (
 )
 from bull_qqq_live import (
     run_bull_qqq_backtest, compute_bull_qqq_weights,
-    BULL_TICKER, CASH_TICKER, COMPOSITE_MIN_COUNT,
+    BULL_TICKER, CASH_TICKER,
 )
 
 # Production blend: 60% CPM + 30% BULL-QQQ + 10% NDX
@@ -764,7 +764,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
         frameon=False, handlelength=1.2, handleheight=0.7,
     )
 
-    # Row 2: BULL-QQQ canary (HYG/TIP any-positive + 4-pillar composite + asset mom)
+    # Row 2: BULL-QQQ canary (HYG/TIP any-positive + curve/vol OR + asset mom)
     bull_colors = []
     for r in bull_regimes:
         if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")
@@ -772,7 +772,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
     axes[1].set_yticks([])
     axes[1].set_ylim(0, 1)
-    axes[1].set_title("BULL canary (HYG / LQD / TIP any-positive 13612U + binary 4-pillar composite >= 2)", fontsize=9)
+    axes[1].set_title("BULL canary (HYG/TIP any-positive 13612U)", fontsize=9)
     axes[1].legend(
         handles=[
             Patch(facecolor="#00a040", label="BULL_QQQ"),
@@ -1267,8 +1267,6 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
         if val is None: return f"{name}=?"
         return f"{name}={'+' if val else '-'}"
     pillar_str = " ".join([
-        _pillar_str("trend",  bq_diag.get("pillar_trend")),
-        _pillar_str("credit", bq_diag.get("pillar_credit")),
         _pillar_str("curve",  bq_diag.get("pillar_curve")),
         _pillar_str("vol",    bq_diag.get("pillar_vol")),
     ])
@@ -1314,7 +1312,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 </div>
 <div>
   <h4>BULL-QQQ sleeve ({int(BULL_WEIGHT*100)}%)</h4>
-  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG/TIP any-positive 13612U<br>Composite: &gt;= 2 of 4 binary pillars (SPY trend, HYG trend, IEF-TLT curve, SPY low-vol)<br>Asset mom: QQQ 12-1 absolute momentum &gt; 0 (Antonacci GEM circuit breaker)<br>Bull asset: 100% QQQ<br>Fallback: 100% {CASH_TICKER} (cash)</p>
+  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG OR TIP 13612U &gt; 0 (any-positive)<br>Composite: curve OR vol macro pillar &gt; 0 (any-positive)<br>Asset mom: QQQ 12-1 absolute momentum &gt; 0 (Antonacci dual momentum)<br>Bull asset: 100% QQQ<br>Fallback: 100% {CASH_TICKER} (cash)</p>
   <div class='table-scroll'><table class='alloc'>{bq_html}</table></div>
 </div>
 <div>
@@ -1579,7 +1577,7 @@ def main():
 <p><strong>Production blend</strong>: {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX, monthly rebalance, T+1 OPEN (next-day MOO), 10 bps/side cost.</p>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z with reset when canary breadth crosses majority (>=2 positive), vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only, no leverage). SHV cash fallback.</li>
-<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when ALL THREE gates pass: (1) HYG/TIP any-positive 13612U canary, (2) binary composite (&gt;= {COMPOSITE_MIN_COUNT} of 4 pillars: SPY trend, HYG trend, IEF-TLT curve, SPY low-vol), (3) QQQ 12-1 absolute momentum &gt; 0 (Antonacci asset circuit breaker). Otherwise 100% {CASH_TICKER}.</li>
+<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when ALL THREE gates pass (each using Keller-canonical &quot;any positive&quot; rule): (1) HYG OR TIP 13612U &gt; 0 (canary), (2) curve OR vol macro pillar (curve = IEF 63d ret &gt; TLT 63d ret; vol = SPY 63d vol &lt; 252d avg), (3) QQQ 12-1 absolute momentum &gt; 0 (Antonacci dual momentum). Otherwise 100% {CASH_TICKER}.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-4 PIT Nasdaq-100 by 13612U momentum, equal-weight 25%, gated by BULL_QQQ regime. SHV when off.</li>
 </ul>
 <p><strong>Headline ({yrs_full:.1f}y, post-cost):</strong> 60/30/10 blend Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong>, CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>, Calmar <strong>{prod_metrics['calmar']:.2f}</strong>, Martin <strong>{prod_metrics['martin']:.2f}</strong>.</p>
@@ -1645,7 +1643,7 @@ def main():
 <div class='card'>
 {fig_to_html(fig_canary)}
 <p><strong>CPM canary (HYG/TIP/GLD any-positive 13612U):</strong> Risk-on <strong>{regime_pct_ron:.1f}%</strong> ({regime_counts['RISK_ON']}/{n_signals}) -- pair selection runs. Defensive <strong>{regime_pct_def:.1f}%</strong> ({regime_counts['DEFENSIVE']}/{n_signals}) -- 100% SHV cash, fires only when HYG (credit) AND TIP (inflation) AND GLD (real-asset) are simultaneously negative. <em>Why GLD belongs here:</em> CPM is a cross-asset engine that holds gold as a tradable diversifier -- the canary should activate on the same real-asset / inflation / dollar-weakness regimes that make GLD or TLT the right pair. A GLD-positive month often is exactly the kind of risk-off-but-not-cash month where CPM should still rotate into defensive diversifiers rather than retreat to cash.</p>
-<p><strong>BULL gate (3-layer):</strong> QQQ on <strong>{regime_counts['BULL_QQQ']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_QQQ']}/{n_signals}), cash <strong>{regime_counts['BULL_CASH']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_CASH']}/{n_signals}). Gates: (1) HYG/TIP any-positive 13612U canary, (2) binary composite >=2 of 4 pillars, (3) QQQ 12-1 absolute momentum > 0 (Antonacci asset circuit breaker). <em>Why HYG+TIP (not GLD or LQD):</em> Gold is a flight-to-safety asset, not a risk-on confirmation; LQD (IG corp bonds) rallies on rate cuts during equity crashes (duration effect), falsely keeping the canary risk-on. HYG (high-yield credit stress) + TIP (inflation breakeven) are the only two assets whose positive states genuinely indicate equity risk-on.</p>
+<p><strong>BULL gate (3-layer, all &quot;any positive&quot;):</strong> QQQ on <strong>{regime_counts['BULL_QQQ']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_QQQ']}/{n_signals}), cash <strong>{regime_counts['BULL_CASH']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_CASH']}/{n_signals}). All three gates use Keller-canonical &quot;any positive&quot; rule: (1) HYG OR TIP 13612U > 0 (credit/inflation canary), (2) curve OR vol macro pillar (yield-curve steepening OR low-vol regime), (3) QQQ 12-1 absolute momentum > 0 (Antonacci dual momentum). <em>Why HYG+TIP (not GLD or LQD):</em> Gold is flight-to-safety; LQD (IG corp) rallies on rate cuts during equity crashes (duration). HYG (HY credit stress) + TIP (inflation breakeven) are the cleanest signals. <em>Why curve+vol:</em> pair ablation across 6 (window x asset) configs showed these are the only two structurally orthogonal macro pillars not already covered by canary or asset_mom.</p>
 <p class='footnote'>Mechanism summary: CPM's canary uses GLD because gold is part of its tradable diversifier set (a GLD-positive regime invites CPM to rotate INTO gold). BULL's canary uses LQD because investment-grade credit confirms broad risk-on across the credit stack -- exactly what an equity-only overlay needs before going long. HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
 </div>
 
@@ -1768,12 +1766,12 @@ def main():
 </ul>
 </details>
 <details open>
-<summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- bull capture with cash defense (binary 4-pillar composite gate)</summary>
+<summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate, all Keller-canonical &quot;any positive&quot;</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
-<li><strong>Macro gate:</strong> HYG OR TIP positive 13612U (any-positive, 2-asset credit/inflation canary). LQD removed because IG corporate bonds rally on rate cuts during equity crashes (duration effect), falsely keeping the canary risk-on.</li>
-<li><strong>Asset momentum (circuit breaker):</strong> <code>{BULL_TICKER}</code> 12-1 absolute momentum &gt; 0 (Antonacci GEM standard). Direct observation of the risky asset itself -- catches dotcom-style crashes where macro signals stay confused but the risky asset is falling.</li>
-<li><strong>Composite gate:</strong> &gt;= {COMPOSITE_MIN_COUNT} of 4 binary pillars positive: (1) SPY &gt; 200d MA (Faber trend), (2) HYG &gt; 200d MA (credit trend), (3) IEF 63d return &gt; TLT 63d return (yield-curve steepening), (4) SPY 63d vol &lt; 252d avg vol (low-vol regime). All pillars have natural midpoint cutoffs (no tuned thresholds).</li>
+<li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0 (Keller HAA-style, 2-asset credit/inflation canary). LQD was tested and rejected: IG corporate bonds rally on rate cuts during equity crashes (duration effect), falsely keeping the canary risk-on in dotcom-style regimes.</li>
+<li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime. Both pillars use natural midpoint cutoffs. Pair ablation showed curve+vol are the only two structurally orthogonal macro signals worth keeping; trend (SPY 200d MA) and credit (HYG 200d MA) pillars were dropped as redundant with asset_mom and canary respectively.</li>
+<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-1 absolute momentum &gt; 0 (Antonacci GEM standard). Direct observation of the risky asset itself.</li>
 <li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> (short-treasury cash) when either filter fails. Zero duration risk on this sleeve.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 
