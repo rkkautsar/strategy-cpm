@@ -950,6 +950,51 @@ consistent with this design intent (Section 3.2 per-regime table).
     HYG appears in the canary and SPY appears in both the composite and
     is highly correlated with the risky assets.
 
+11. **Tax efficiency: strategy is structurally an IRA/Roth design.** The
+    monthly-rebalanced gate flips ~1.8 times/year, realizing
+    essentially all equity gains as short-term capital gains (STCG) in
+    a US taxable account. At a 30% effective STCG rate, pre-tax CAGR of
+    11.19% becomes roughly 7.5-8.0% after tax; SPY buy-hold (taxed at
+    long-term rates only when sold) achieves roughly 10.5% effective
+    after-tax CAGR. **In taxable accounts, Bull-SPY's CAGR advantage
+    disappears; the strategy is most appropriate for tax-advantaged
+    accounts (IRA, Roth, 401k, HSA) where realized-gains drag is zero.**
+    Drawdown and vol benefits (MaxDD -12.6% vs -51.5%; vol halved)
+    remain in taxable accounts, but pre-tax Sharpe overstates the
+    after-tax risk-adjusted return advantage for taxable deployment.
+    All numbers reported in this memo are pre-tax.
+
+12. **DSR N depends on the prior parameter mining.** The DSR check
+    (Section 4.10) assumes N independent specification trials. The
+    canary uses Keller's 13612U (a heavily-mined optimal momentum form),
+    asset_mom uses the 12-1 skip-month convention (heavily-mined TSMOM
+    parameter), and the curve/vol pillars use 63d/252d windows that are
+    similarly conventional. If "effectively previously-mined" parameter
+    choices are counted toward the trial budget, the true effective N
+    likely exceeds 50. This would soften (not flip) the PSR conclusion;
+    Bull-SPY remains PSR > 99% at N=50 and the qualitative significance
+    survives much larger N.
+
+13. **Cash-fallback yield depends on the rate regime.** When the gate
+    flips to cash, the strategy earns the short-end Treasury yield via
+    SHV. The 1996-2026 window contains both high-yield environments
+    (1990s, 2023+) and zero-interest-rate periods (2009-2015,
+    2020-2021). In a prolonged ZIRP + sideways-equity regime, time-in-
+    cash would be a pure zero-return drag rather than yield-bearing
+    defense. The headline pre-tax Sharpe averages over both rate
+    regimes; forward-looking results in a sustained ZIRP environment
+    would likely be weaker than the sample average.
+
+14. **Endogenous vol whipsaw in sustained chop.** The vol pillar tests
+    63d realized vol against a 252d rolling average. In sustained high-
+    but-stable volatility regimes, the 252d average eventually rises
+    to meet the 63d realized vol, and the pillar can flip risk-on
+    purely because vol has stabilized at an elevated level. This is
+    not a hypothetical: the 2010-2019 disinflation Sharpe of 1.01 vs
+    SPY buy-hold 0.93 is only a modest premium, suggesting some
+    whipsaw cost is real in calm sustained bulls. The canary and
+    asset_mom gates partially filter this.
+
 ### 6.11 Data lineage
 
 | Target | Live ETF | Live start | Documented pre-live / warm-up source                  | Proxy data start | Used for         | Notes                                            |
