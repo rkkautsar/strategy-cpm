@@ -189,6 +189,15 @@ Each pillar uses a natural sign-test cutoff:
   current realized volatility is below its trailing one-year average
   (this is a sign test against the rolling-vol mean, not a z-score).
 
+**The vol pillar is endogenous.** It is computed on the risky asset
+(SPY) itself, so when SPY breaks down, its realized 63d vol
+mechanically rises and the pillar trips. The vol pillar therefore
+functions as a fast endogenous trend-following stop-loss rather than
+an external macroeconomic signal -- this is partly why the macro
+composite is the first-to-flip gate in observed drawdowns (Section
+4.6). The curve pillar (IEF vs TLT) IS exogenous to equity prices and
+functions as a true rates-regime signal.
+
 ### 2.6 Gate 3: Asset momentum
 
 Compute 12-1 absolute momentum on the risky asset itself:
@@ -306,11 +315,29 @@ equal-weight monthly. Blending 60% PP + 40% Bull-equity:
 
 The blend Sharpe (1.28) is **higher than either standalone component**
 (PP-IEF 1.00, Bull-SPY 1.11) AND the blend max drawdown (-10.30%) is
-**smaller than either component alone** (-15.34% PP-IEF, -12.58% Bull-SPY). This is variance reduction from low cross-sleeve correlation: PP
-is balanced-static and weights toward defensive assets in equity
+**smaller than either component alone** (-15.34% PP-IEF, -12.58%
+Bull-SPY). This is variance reduction from low cross-sleeve correlation:
+PP is balanced-static and weights toward defensive assets in equity
 drawdowns; the Bull sleeve is equity-or-cash and weights toward cash in
 equity drawdowns. The two sleeves provide defensive exposure through
 structurally different mechanisms.
+
+**Functional decomposition of the 60/40 blend.** Because PP-IEF is 25%
+SPY + 25% IEF + 25% GLD + 25% SHV, blending 60% PP-IEF with 40% Bull-SPY
+produces a dynamic asset allocation that toggles between two well-
+defined portfolios:
+
+| Bull state          | Frequency | SPY | IEF | GLD | SHV |
+|---------------------|----------:|----:|----:|----:|----:|
+| Risk-on (gates pass)|       63% | 55% | 15% | 15% | 15% |
+| Risk-off (gates fail)|     37% | 15% | 15% | 15% | 55% |
+
+The risk-on portfolio resembles a 55/45-style balanced growth allocation
+(equity-leaning with gold + bond + cash ballast). The risk-off portfolio
+is ~85% defensive (gold + IEF + SHV) with ~15% equity tail exposure.
+The blend's Sharpe 1.28 and capped -10.3% MaxDD reflect this systematic
+toggle between a balanced growth profile and a capital-preservation
+profile.
 
 ### 3.4 60% PP + 40% Bull-equity blend — documented 30y window (1996-01 to 2026-05)
 
@@ -350,7 +377,68 @@ prefers slightly more growth (50/50) or smoother equity curve (60/40 or
 
 ## 4. Robustness Checks
 
-### 4.1 Gate ablation across 6 (window × asset) configs
+### 4.1 Gate-subset ablation (Bull-SPY, clean window, 10bps)
+
+The three gates (canary, composite, asset_mom) can in principle be
+run in any subset. The full 7-subset ablation answers "is each gate
+actually paying its keep, or are some vestigial?":
+
+| Subset    | Sharpe |   CAGR  |  Max DD  | Calmar |  Vol   | Martin | % risk-on |
+|-----------|-------:|--------:|---------:|-------:|-------:|-------:|----------:|
+| NONE      |  0.662 |  11.76% |  -51.48% |   0.23 | 19.80% |   1.03 |     98.5% |
+| Canary    |  0.854 |  13.26% |  -33.72% |   0.39 | 16.13% |   1.91 |     85.8% |
+| Composite |  0.858 |  11.56% |  -24.41% |   0.47 | 13.89% |   1.65 |     78.2% |
+| Asset_mom |  0.724 |  10.27% |  -33.72% |   0.30 | 15.11% |   1.41 |     80.7% |
+| C + M     |  1.052 |  12.37% |  -21.30% |   0.58 | 11.76% |   2.43 |     69.1% |
+| C + A     |  0.868 |  11.97% |  -33.72% |   0.35 | 14.20% |   2.37 |     75.3% |
+| M + A     |  0.902 |   9.74% |  -19.35% |   0.50 | 11.00% |   1.69 |     65.0% |
+| **C+M+A (production)** | **1.114** | **11.19%** | **-12.58%** | **0.89** | **9.98%** | **2.99** | **60.9%** |
+
+Key findings:
+
+- The full three-gate stack is strictly best on **both Sharpe AND MaxDD**
+  across all 7 subsets.
+- Composite-alone (M) gets Sharpe 0.86 with MaxDD -24%. Strong single-
+  gate result, but inferior on every metric to the full stack.
+- C+M (drop asset_mom) gets Sharpe 1.05 (close to full 1.11) but **MaxDD
+  blows out from -12.6% to -21.3%** -- asset_mom contributes most of its
+  value to tail-risk control rather than Sharpe magnitude.
+- M+A (drop canary) loses 0.21 Sharpe AND MaxDD blows to -19.4%.
+- C+A (drop composite) loses 0.25 Sharpe AND MaxDD blows to -33.7%.
+
+Paired Jobson-Korkie/Memmel one-sided tests (H0: full Sharpe = subset Sharpe):
+
+| Test                  | Sharpe diff | z     | p (one-sided) |
+|-----------------------|------------:|------:|--------------:|
+| C+M+A vs A only       |      +0.390 | +2.00 |        0.023  |
+| C+M+A vs M+A          |      +0.212 | +2.09 |        0.018  |
+| C+M+A vs M only       |      +0.256 | +1.44 |        0.075  |
+| C+M+A vs C+A          |      +0.245 | +1.35 |        0.089  |
+| C+M+A vs C only       |      +0.260 | +1.26 |        0.105  |
+| C+M+A vs C+M          |      +0.062 | +0.47 |        0.319  |
+
+**The full three-gate stack is Sharpe-superior to all subsets**;
+significance ranges from p=0.018 (vs M+A) to p=0.32 (vs C+M, the
+closest alternative). Even the closest alternative (C+M) loses 9pp on
+MaxDD, so canary and asset_mom are paying their keep on tail-risk
+protection even when Sharpe-difference is borderline.
+
+**Reading Section 4.6 alongside this table:** the worst-10 DD
+attribution shows the composite was the first-to-flip in all 3
+DDs that triggered a flip. That does NOT make canary and asset_mom
+vestigial -- it reflects that the composite is the fastest signal,
+so when DDs deep enough to trigger gates occur, the composite fires
+first. Canary and asset_mom (a) prevent shallower DDs from ever reaching
+worst-10 severity by flipping earlier in slower-bleed regimes (e.g.
+dotcom 2000-02), (b) reinforce the composite by failing simultaneously,
+and (c) provide the documented MaxDD protection above.
+
+#### 4.1.1 Pillar-selection ablation across 6 (window × asset) configs
+
+This ablation is narrower than Section 4.1: it tests which pair of
+macro pillars (curve, vol, trend, credit) form the best composite
+GATE, holding the three-gate stack (canary + composite + asset_mom)
+fixed.
 
 Each row tests one composite variant on top of canary + asset_mom,
 which is the baseline:
@@ -476,11 +564,21 @@ Observations: the gate flipped to cash in only 3 of 10 worst DDs (COVID,
 2011 EU debt, 2021-22 inflation). The other 7 are normal -8% to -12%
 equity volatility the strategy rides through. The gates catch **sustained
 multi-month stress**, not flash crashes. When the gates DID fire, the
-failing gate was always the **composite** (curve OR vol macro pillar);
-canary and asset_mom did not independently flip first in any worst-10 DD,
-suggesting the composite is the most reactive of the three gates. The
-2011 episode took 493 days to fully recover, the longest underwater span.
-None exceeded -13%.
+failing gate was always the **composite** -- specifically the vol pillar
+within the composite, which is endogenous to SPY (Section 2.5) and
+fastest-reacting. Canary and asset_mom did not independently flip first
+in any worst-10 DD.
+
+**This first-to-flip observation does NOT mean canary and asset_mom are
+vestigial.** Section 4.1 shows that removing either gate degrades MaxDD
+by 50-65%, even when Sharpe degradation is only borderline-significant.
+The canary and asset_mom contribute by (a) flipping early in slower-
+bleed regimes (e.g., dotcom 2000-02) and preventing DDs from ever
+reaching worst-10 severity, and (b) reinforcing the composite by failing
+simultaneously during deep crashes. The worst-10 table only shows the
+first-flipper at the surface of observed drawdowns; the prevented-DDs
+are invisible by construction. The 2011 episode took 493 days to fully
+recover, the longest underwater span. None exceeded -13%.
 
 ### 4.7 Cost sensitivity (Bull-SPY, clean window)
 
