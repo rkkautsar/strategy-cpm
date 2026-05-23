@@ -49,11 +49,13 @@ correlation.
 
 
 
-Results below are in-sample historical backtests, not out-of-sample. Several design
-choices (canary asset selection, pillar selection, ablation results) were
-evaluated on the same historical sample. The clean-window numbers
-reported should be treated as historically robust on this sample, not as
-forward-looking guarantees.
+All reported results are in-sample historical backtests. Several design
+choices were evaluated on the same historical sample, so the results
+should be treated as specification-tested evidence, not out-of-sample
+validation. The clean 2008+ live-ETF window is the primary evidence;
+the 1996+ documented-stitch window is secondary stress-test evidence.
+Section 4.10 reports a Deflated Sharpe Ratio check that addresses
+multiple-testing concerns.
 
 Secondary supporting evidence: a 30-year backtest from 1996-01 to 2026-05
 using documented stitches for all non-live data (HYG/TIP/SHV/IEF/TLT
@@ -67,8 +69,8 @@ clean 2008+ live-ETF window remains the primary evidence.
 
 ## 1. Motivation
 
-A standard long-equity strategy on SPY delivers Sharpe 0.6-0.8 with
-50-83% peak-to-trough drawdowns. Single-asset trend filters (Faber 10m)
+A standard long-equity strategy on SPY delivers Sharpe roughly 0.6-0.8
+with 50-55% peak-to-trough drawdowns in the tested windows. Single-asset trend filters (Faber 10m)
 reduce drawdown to ~25-30% but also cost significant CAGR by being out of
 the market during shallow corrections.
 
@@ -110,7 +112,7 @@ Backtest returns are credited from T+1 close-to-close, a small
 approximation vs strict open-fill: the overnight gap from signal close
 to next open is attributed to the new weight rather than the old.
 Section 4.9 reports a strict open-fill comparison; the measured impact
-is within noise (~2-9 bps Sharpe).
+is negligible (-0.002 Sharpe).
 
 All backtests use 10 bps/side trading cost. Live ETF and mutual-fund
 data are total-return adjusted via yfinance `auto_adjust=True`. Index
@@ -209,8 +211,8 @@ gate.
 **The vol pillar is endogenous.** It is computed on the risky asset
 (SPY) itself, so when SPY breaks down, its realized 63d vol
 mechanically rises and the pillar trips. The vol pillar therefore
-functions as a fast endogenous trend-following stop-loss rather than
-an external macroeconomic signal -- this is partly why the macro
+functions as a fast endogenous risk-off filter rather than an external
+macroeconomic signal -- this is partly why the macro
 composite is the first-to-flip gate in observed drawdowns (Section
 4.6). The curve pillar (IEF vs TLT) IS exogenous to equity prices and
 functions as a true rates-regime signal.
@@ -281,11 +283,11 @@ rule.
 
 ### 3.1 Standalone performance — clean window (2008-04 to 2026-05, 18.1y)
 
-| Strategy                  |  Sharpe |   CAGR   |   Max DD | Calmar | Martin | Ulcer |
-|---------------------------|--------:|---------:|---------:|-------:|-------:|------:|
-| SPY buy-hold              |    0.66 |   11.78% |  -51.48% |   0.23 |   1.03 | 11.4% |
-| **Bull-SPY**              |    1.11 |   11.19% |  -12.58% |   0.89 |   2.99 |  3.7% |
-| PP-IEF standalone         |    1.00 |    6.96% |  -15.34% |   0.45 |   2.22 |  3.1% |
+| Strategy                  |  Sharpe |   CAGR   |    Vol   |   Max DD | Calmar | Martin | Ulcer |
+|---------------------------|--------:|---------:|---------:|---------:|-------:|-------:|------:|
+| SPY buy-hold              |    0.66 |   11.78% |   19.81% |  -51.48% |   0.23 |   1.03 | 11.4% |
+| **Bull-SPY**              |    1.11 |   11.19% |    9.98% |  -12.58% |   0.89 |   2.99 |  3.7% |
+| PP-IEF standalone         |    1.00 |    6.96% |    6.98% |  -15.34% |   0.45 |   2.22 |  3.1% |
 
 Per-regime Sharpe (clean window). GFC label is **partial** since clean
 window starts 2008-04-30, missing the pre-crisis peak and early decline
@@ -405,18 +407,17 @@ at month-end are unaffected.
 | 70% PP + 30% Bull-SPY       |   1.20 |    8.04% |  -10.66% |
 
 Rounded Sharpe is essentially tied between 60/40 and 70/30 (both 1.20).
-60/40 has higher CAGR and slightly shallower max drawdown in the shown
-table, making it the cleaner default compromise. The 50/50 variant has
-the highest CAGR (8.65%) but slightly deeper drawdown (-11.93%).
-Results are close enough that the choice depends on whether the user
-prefers slightly more growth (50/50) or smoother equity curve (60/40 or
-70/30).
+The 60/40 split has higher CAGR (8.35% vs 8.04%) and slightly shallower
+max drawdown (-10.46% vs -10.66%) in the shown table, making it the
+cleaner default compromise. The 50/50 variant offers the highest CAGR
+(8.65%) with deeper drawdown (-11.93%).
 
 ## 4. Robustness Checks
 
 ### 4.1 Gate-subset ablation (Bull-SPY, clean window, 10bps)
 
-Performance of all 7 non-trivial gate subsets:
+Performance of the SPY buy-hold baseline plus all 7 non-empty gate
+subsets (C = canary, M = regime composite, A = asset momentum):
 
 | Subset    | Sharpe |   CAGR  |  Max DD  | Calmar |  Vol   | Martin | % risk-on |
 |-----------|-------:|--------:|---------:|-------:|-------:|-------:|----------:|
@@ -545,7 +546,12 @@ Key observations:
   windows (+0.06 CLEAN, +0.03 30Y). MaxDD ties Rule A in CLEAN
   (-12.58%) and improves in 30Y (-16.64% vs -19.35%). The Sharpe gain
   is not statistically significant (Jobson-Korkie/Memmel p=0.25 on
-  CLEAN), consistent with specification-search noise.
+  CLEAN), consistent with specification-search noise. Rule G is a
+  legitimate challenger and worth tracking, but Rule A is the primary
+  specification: it is the pre-existing three-layer design, its Sharpe
+  is statistically indistinguishable from Rule G, and switching to a
+  late-discovered variant on small point-estimate differences is itself
+  a form of in-sample overfit.
 
 
 
@@ -571,7 +577,7 @@ framings appear later:
 Drawdown improvements (~75% reduction vs buy-hold) are mechanically
 larger relative effects, less subject to noise discount than Sharpe.
 
-### 4.3 Pillar firing rates (22.8y proxy-assisted window)
+### 4.3 Pillar firing rates (auxiliary 22.8y documented/proxy-assisted window)
 
 For context, individual pillar firing rates:
 
@@ -619,7 +625,7 @@ For the clean window (n=217 monthly signals), the trend pillar
 |-------------|--------:|---------:|-----------:|---------:|------:|
 | vs SPY 12-1 mom | 158 (73%) | 24 (11%) | 13 (6%)  | 22 (10%) | 84%   |
 
-The trend pillar agreed with the asset-momentum gate ~83% of the time,
+The trend pillar agreed with the asset-momentum gate 84% of the time,
 confirming the redundancy claim in Section 2.8.
 
 ### 4.6 Worst 10 drawdowns and gate attribution (Bull-SPY, clean window)
@@ -647,8 +653,8 @@ fastest-reacting. Canary and asset_mom did not independently flip first
 in any worst-10 DD.
 
 The first-to-flip observation does not imply canary and asset_mom are
-redundant. Section 4.1 shows that removing either gate degrades MaxDD
-by 50-65%. The other two gates contribute by flipping early in slower-
+redundant. Section 4.1 shows that removing canary or asset_mom worsens
+MaxDD by roughly 50-70%; removing the composite is worse still. The other two gates contribute by flipping early in slower-
 bleed regimes (preventing DDs from reaching worst-10 severity) and by
 reinforcing the composite when all three fail simultaneously. The
 worst-10 table only shows the first-flipper at the surface of observed
@@ -676,11 +682,9 @@ debits cost from the daily return on rebalance days.
 
 **Cost band interpretation:**
 
-- **0-5 bps/side**: low-cost ETFs at zero-commission retail brokers
-  (Vanguard, Fidelity, Schwab, IBKR Lite) with tight spreads. Realistic
-  for the listed ETFs. These are highly liquid ETFs, but realized cost
-  still depends on current spreads, order size, market conditions, and
-  execution method.
+- **0-5 bps/side**: low-friction execution in highly liquid ETFs.
+  Realized cost still depends on current spreads, order size, market
+  conditions, and execution method.
 - **10-25 bps/side**: realistic if any execution slippage occurs at scale
   or if rebalancing uses market orders during volatile periods. This is
   the sensitivity band most users should plan around.
@@ -732,9 +736,9 @@ performance by hiding overnight gap risk:
 | Bull-SPY  | Strict open-fill     |  1.134 | 11.41%  | -12.41% |   -0.002 |
 
 The delta is **within noise** (-0.002 Sharpe, ~17 bps DD). The monthly
-rebalance produces only ~33 weight flips x 2 = ~66 overnight gaps over
-18y with mostly random signs, so the convention choice does not
-materially affect results.
+rebalance produces only ~33 state-transition overnight gaps over 18y
+with mostly random signs, so the convention choice does not materially
+affect results.
 
 Absolute Sharpe values in this table (1.136) come from a separate
 strict-fill comparator with slightly different startup edge handling
@@ -809,6 +813,10 @@ window (T=4540 daily, 10 bps/side cost):
 | Comparison                | Sh(Bull) | Sh(BH) | Diff   | rho   | z     | p (one-sided) | Verdict           |
 |---------------------------|---------:|-------:|-------:|------:|------:|--------------:|-------------------|
 | Bull-SPY vs SPY buy-hold  |    1.114 |  0.660 | +0.453 | 0.498 | +1.92 |        0.0276 | significant @ 5%  |
+
+The Sh(Bull), Sh(BH), and Diff columns above report annualized Sharpe
+for readability. The z-statistic is computed using daily Sharpe values
+(annualized divided by sqrt(252)) per the formula above.
 
 **Bull-SPY's Sharpe is statistically significantly higher than SPY
 buy-hold's Sharpe at the 5% level (one-sided).**
@@ -900,7 +908,7 @@ consistent with this design intent (Section 3.2 per-regime table).
    approximation). Section 4.9 reports a strict open-fill backtest as
    validation: the strict convention puts the overnight gap from
    signal close to next open on the OLD weight. Measured impact is
-   negligible (~2-9 bps Sharpe, ~20 bps DD), within noise for this
+   negligible (-0.002 Sharpe, ~20 bps DD), within noise for this
    monthly-rebalanced strategy. The close-to-close approximation is
    adequate.
 
