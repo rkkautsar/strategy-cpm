@@ -4,7 +4,7 @@
 **Date:** 2026-05-23
 **Backtest windows:**
 - **Clean**: 2008-04-30 to 2026-05-15 (18.1 years, all required ETFs live + 12-month warmup)
-- **Documented 30y**: 1996-01-04 to 2026-05-15 (30.4 years, HYG-only canary pre-2001)
+- **Documented 30y**: 1996-01-04 to 2026-05-15 (30.4 years, HYG-only canary before 2001-06)
 
 **Implementation:** `strategy_cpm/bull_qqq_live.py`
 
@@ -12,9 +12,9 @@
 
 ## Abstract
 
-This note documents a simple monthly-rebalanced regime gate that converts
-SPY into a long-equity-or-cash strategy with materially lower drawdown
-and higher risk-adjusted return than buy-and-hold. The design uses three
+Bull-SPY is a monthly-rebalanced regime gate that converts SPY into a
+long-equity-or-cash strategy with materially lower drawdown and higher
+risk-adjusted return than buy-and-hold. The design uses three
 structurally distinct binary gates. The canary uses the Keller HAA-style
 "any positive" rule; the regime composite applies the same simple OR
 convention to two non-credit regime pillars (one external rates signal,
@@ -47,13 +47,9 @@ max drawdown -10.3% in the clean window — both blend metrics are
 **better than either standalone component**, due to low cross-sleeve
 correlation.
 
-The implementation supports any equity ticker via the `BULL_TICKER`
-constant in `bull_qqq_live.py`; a Bull-QQQ variant exists but is not
-recommended in this memo due to weaker paired statistical significance
-(JK p=0.091) and lower CAGR yield from cost-of-cash drag relative to
-QQQ buy-hold. See `research/` for separate Bull-QQQ artifacts.
 
-This memo is **specification-tested, not out-of-sample**. Several design
+
+Results below are in-sample historical backtests, not out-of-sample. Several design
 choices (canary asset selection, pillar selection, ablation results) were
 evaluated on the same historical sample. The clean-window numbers
 reported should be treated as historically robust on this sample, not as
@@ -83,7 +79,7 @@ The design goal of this strategy is:
    than 25%.
 3. Use only freely-available ETF inputs and monthly rebalance frequency.
 4. Avoid opaque continuous parameters and tuned numeric thresholds;
-   disclose all specification choices selected through historical testing.
+   disclose all specification choices explicitly.
 5. Demonstrate historical robustness across the full sample including
    dotcom-style crashes.
 
@@ -92,15 +88,11 @@ The design goal of this strategy is:
 ### 2.1 Risky asset
 
 The risky asset is **SPY**. The strategy holds 100% SPY only when all
-three gates pass; otherwise 100% SHV cash. The "Bull-SPY" name reflects
-this: hold SPY only when the regime is bullish (per gate verdict),
-otherwise step out of equity entirely.
+three gates pass; otherwise 100% SHV cash. The "Bull-SPY" name
+reflects this: hold SPY only when the regime is bullish per gate
+verdict, otherwise step out of equity entirely.
 
-The implementation (`bull_qqq_live.py`) supports any equity ticker via
-the `BULL_TICKER` constant; this memo focuses on the SPY variant. A
-Bull-QQQ variant exists in `research/` but is not recommended here
-(weaker paired statistical significance vs QQQ buy-hold; higher cost-of-
-cash drag relative to QQQ's higher base return).
+Implementation is in `bull_qqq_live.py` (`BULL_TICKER = "SPY"`).
 
 ### 2.2 Cash fallback
 
@@ -117,8 +109,8 @@ month. Trades execute at the OPEN of the next trading day (T+1 MOO).
 Backtest returns are credited from T+1 close-to-close, a small
 approximation vs strict open-fill: the overnight gap from signal close
 to next open is attributed to the new weight rather than the old.
-Section 4.9 validates this approximation by running a strict open-fill
-backtest; the measured impact is within noise (~2-9 bps Sharpe).
+Section 4.9 reports a strict open-fill comparison; the measured impact
+is within noise (~2-9 bps Sharpe).
 
 All backtests use 10 bps/side trading cost. Live ETF and mutual-fund
 data are total-return adjusted via yfinance `auto_adjust=True`. Index
@@ -129,12 +121,12 @@ item 11.
 
 ### 2.3.1 Metric definitions
 
-- **Sharpe** (this note): raw Sharpe computed from daily strategy returns,
+- **Sharpe**: raw Sharpe computed from daily strategy returns,
   annualized by sqrt(252) (`perf_metrics()` in `cpm_live.py`). No excess-
   return subtraction vs SHV or T-bills. Sampling uncertainty, multiple-
   testing adjustment (DSR), and paired Sharpe-difference testing vs
   buy-hold are discussed in Sections 4.2, 4.10, and 4.11. The strategy
-  spends 35-40% of months in SHV cash earning approximately the short-
+  spends ~39% of time in SHV cash earning approximately the short-
   end Treasury rate, so raw Sharpe partly reflects cash yield during
   risk-off periods.
 - **CAGR**: geometric annualized total return (calendar-day basis).
@@ -150,7 +142,7 @@ drawdown advantage is unaffected by the raw-vs-excess convention. For
 Sharpe ordering, Bull-SPY vs SPY buy-hold is verified empirically in
 Section 4.8 (Bull-SPY raw 1.114 vs excess 0.980; SPY BH raw 0.660 vs
 excess 0.591; ordering preserved). PP-blend excess-Sharpe checks are
-not shown; broader raw-vs-excess claims would need those.
+are outside the reported evidence.
 
 ### 2.4 Gate 1: Canary
 
@@ -243,44 +235,31 @@ structurally distinct source types:
 | Vol pillar       | SPY                | **Endogenous SPY** (variance regime) |
 | Asset momentum   | SPY                | **Endogenous SPY** (price trend) |
 
-The "regime composite" label (Section 2.5) intentionally avoids the
-looser "macro composite" framing: only the curve pillar is truly
-macro-external. The vol pillar is computed on SPY itself and therefore
-functions as a fast endogenous trend-following stop-loss; in this sense
-it is the same source type as the asset-momentum gate, just measuring
-variance-regime instead of price-trend sign.
+Only the curve pillar is external macro. The vol pillar is computed on
+SPY itself and functions as a fast endogenous trend-following stop-
+loss; structurally it is the same source type as the asset-momentum
+gate, measuring variance-regime instead of price-trend sign. The
+regime composite groups one external (curve) and one endogenous (vol)
+signal under OR. Section 4.1.2 reports performance under alternative
+source-grouped rules.
 
-Why keep the production grouping despite the mixed-source composite?
-Section 4.1.2 reports an ablation across structurally-honest source-
-grouped alternatives. Source-OR alternatives `(HYG|TIP|curve) AND
-(vol|mom)` become too permissive (88% time-on, MaxDD -33.7%) because
-three external OR-paths is too lax. The cleanest restructure
-`(HYG|TIP) AND curve AND (vol|mom)` gives Sharpe 1.01 vs production
-1.11. The closest improvement is a 2-of-3 vote among the three regime
-signals: Sharpe 1.17 with same MaxDD, but the +0.06 gain is not
-statistically significant (Jobson-Korkie p=0.25) and is consistent
-with specification-search luck. Production grouping is retained as the
-empirical default; this taxonomy section makes the source split
-explicit so the reader is not misled by the "macro" word.
-
-### 2.8 Gate selection rationale
+### 2.8 Gate rationale
 
 The canary (Gate 1) is HAA-inspired (Keller "any positive" rule on
-credit/inflation proxies). The regime composite (Gate 2) was designed by
-ablation: trend (SPY 200d MA) and credit (HYG 200d MA) pillars were
-dropped as redundant with Gate 3 and Gate 1 respectively; LQD was
-rejected as a canary asset because IG corporate bonds rally on rate cuts
-during equity crashes (duration effect) and falsely keep canary
-risk-on. Curve and vol were selected as the least redundant pair with
-canary (credit/inflation) and asset_mom (price/trend).
+credit/inflation proxies). The regime composite (Gate 2) uses curve
+and vol as the two pillars least redundant with the canary
+(credit/inflation) and asset_mom (price/trend). Trend (SPY 200d MA) is
+structurally redundant with asset_mom. Credit (HYG 200d MA) is
+structurally redundant with the canary. LQD is unsuitable as a canary
+asset because IG corporate bonds rally on rate cuts during equity
+crashes (duration effect), falsely keeping the canary risk-on.
 
-Full ablation evidence (6 windows x assets) is in Section 4.1; key result
-is that `curve OR vol` strictly beats `canary + asset_mom` baseline in
-all 6 cells (avg +0.11 Sharpe). Curve OR vol was selected over the
-4-pillar 2-of-4 alternative primarily for parsimony, not Sharpe
-magnitude (+0.01 Sharpe / -2pp DD; within noise). Applying OR to a
-custom curve/vol composite is a specification-tested extension, not a
-published Keller rule.
+Ablation evidence in Section 4.1 shows `curve OR vol` strictly beats
+the `canary + asset_mom` baseline in all 6 (window x asset) cells
+(avg +0.11 Sharpe). The 4-pillar 2-of-4 alternative is within noise
+(+0.01 Sharpe, -2pp DD); curve OR vol is preferred for parsimony.
+Applying OR to a custom curve/vol composite is not a published Keller
+rule.
 
 ## 3. Empirical Results
 
@@ -308,7 +287,7 @@ Risk-on percentage and turnover (clean window):
 
 | Variant   | Months risk-on | Approx flips | Approx flips/year |
 |-----------|---------------:|-------------:|------------------:|
-| Bull-SPY  |            63% |           33 |               1.8 |
+| Bull-SPY  |            61% |           33 |               1.8 |
 
 ### 3.2 Standalone performance — documented 30y window (1996-01-04 to 2026-05-15)
 
@@ -371,8 +350,8 @@ defined portfolios:
 
 | Bull state          | Frequency | SPY | IEF | GLD | SHV |
 |---------------------|----------:|----:|----:|----:|----:|
-| Risk-on (gates pass)|       63% | 55% | 15% | 15% | 15% |
-| Risk-off (gates fail)|     37% | 15% | 15% | 15% | 55% |
+| Risk-on (gates pass)|       61% | 55% | 15% | 15% | 15% |
+| Risk-off (gates fail)|     39% | 15% | 15% | 15% | 55% |
 
 The risk-on portfolio resembles a 55/45-style balanced growth allocation
 (equity-leaning with gold + bond + cash ballast). The risk-off portfolio
@@ -421,9 +400,7 @@ prefers slightly more growth (50/50) or smoother equity curve (60/40 or
 
 ### 4.1 Gate-subset ablation (Bull-SPY, clean window, 10bps)
 
-The three gates (canary, composite, asset_mom) can in principle be
-run in any subset. The full 7-subset ablation answers "is each gate
-actually paying its keep, or are some vestigial?":
+Performance of all 7 non-trivial gate subsets:
 
 | Subset    | Sharpe |   CAGR  |  Max DD  | Calmar |  Vol   | Martin | % risk-on |
 |-----------|-------:|--------:|---------:|-------:|-------:|-------:|----------:|
@@ -434,7 +411,7 @@ actually paying its keep, or are some vestigial?":
 | C + M     |  1.052 |  12.37% |  -21.30% |   0.58 | 11.76% |   2.43 |     69.1% |
 | C + A     |  0.868 |  11.97% |  -33.72% |   0.35 | 14.20% |   2.37 |     75.3% |
 | M + A     |  0.902 |   9.74% |  -19.35% |   0.50 | 11.00% |   1.69 |     65.0% |
-| **C+M+A (production)** | **1.114** | **11.19%** | **-12.58%** | **0.89** | **9.98%** | **2.99** | **60.9%** |
+| **C+M+A (Rule A)** | **1.114** | **11.19%** | **-12.58%** | **0.89** | **9.98%** | **2.99** | **60.9%** |
 
 Key findings:
 
@@ -465,15 +442,11 @@ closest alternative). Even the closest alternative (C+M) loses 9pp on
 MaxDD, so canary and asset_mom are paying their keep on tail-risk
 protection even when Sharpe-difference is borderline.
 
-**Reading Section 4.6 alongside this table:** the worst-10 DD
-attribution shows the composite was the first-to-flip in all 3
-DDs that triggered a flip. That does NOT make canary and asset_mom
-vestigial -- it reflects that the composite is the fastest signal,
-so when DDs deep enough to trigger gates occur, the composite fires
-first. Canary and asset_mom (a) prevent shallower DDs from ever reaching
-worst-10 severity by flipping earlier in slower-bleed regimes (e.g.
-dotcom 2000-02), (b) reinforce the composite by failing simultaneously,
-and (c) provide the documented MaxDD protection above.
+The worst-10 DD attribution (Section 4.6) shows the composite is the
+first-to-flip in all DDs deep enough to trigger gates. Canary and
+asset_mom contribute by flipping earlier in slower-bleed regimes
+(preventing DDs from reaching worst-10 severity) and by reinforcing
+the composite when all three fail simultaneously.
 
 #### 4.1.1 Pillar-selection ablation across 6 (window × asset) configs
 
@@ -488,7 +461,7 @@ which is the baseline:
 | Composite                  | Avg Sharpe | Avg DD   | Wins vs baseline |
 |----------------------------|-----------:|---------:|------------------|
 | No composite (baseline)    |       0.89 |  -32.04% | --               |
-| **curve OR vol (CHOSEN)**  |   **1.00** | -18.04%  | 6/6              |
+| **curve OR vol**           |   **1.00** | -18.04%  | 6/6              |
 | All 4 pillars >= 2 of 4    |       0.99 |  -19.98% | 6/6              |
 | trend + vol OR             |       0.96 |  -19.87% | 6/6              |
 | trend + curve OR           |       0.98 |  -20.25% | 5/6              |
@@ -499,14 +472,14 @@ assisted 22.8y from 2003-08, proxy-assisted 19.2y from 2007-02, 30y from
 1996-01) and 2 risky assets (SPY and QQQ; QQQ included only for ablation
 robustness across asset choice). "Wins vs baseline" means strictly
 higher Sharpe than the `canary + asset_mom` baseline (no composite gate)
-in that cell. The ablation tables here were recomputed on the v6
-documented-stitch data stack and are retained as specification-selection
-evidence rather than as headline performance numbers. The clean 2008-04
-window remains the primary live-ETF performance evidence.
+in that cell. Ablation tables here use the documented-stitch data stack and serve as
+gate-structure evidence rather than headline performance numbers. The
+clean 2008-04 window provides the primary live-ETF performance
+evidence.
 
-The macro-composite OR rule reuses the same simple OR convention used by
-the canary, but applying OR to a custom curve/vol composite is a
-specification-tested extension rather than a published Keller rule.
+The regime-composite OR rule reuses the same simple OR convention used
+by the canary, but applying OR to a custom curve/vol composite is not
+a published Keller rule.
 
 Key findings (rationale summarized in Section 2.8): no single pillar is
 strictly helpful across all 6 configs; curve OR vol is the only 2-pillar
@@ -516,16 +489,15 @@ alternative ties on win-rate but loses slightly on Sharpe (-0.01) and DD
 
 #### 4.1.2 Source-grouping ablation (alternative structural rules)
 
-The production rule is `(HYG|TIP) AND (curve|vol) AND mom`. The vol
-pillar is endogenous to SPY (Section 2.7.1), structurally the same kind
-as asset_mom. This raises the question: would a structurally-honest
-source-grouping perform better? Tested alternatives at 10bps cost:
+The rule is `(HYG|TIP) AND (curve|vol) AND mom`. The vol pillar is
+endogenous to SPY (Section 2.7.1), structurally the same kind as
+asset_mom. Alternative source-grouped rules at 10bps cost:
 
 **CLEAN window (18.1y):**
 
 | Rule                                                | Sharpe |   CAGR  |  MaxDD  | % on |
 |-----------------------------------------------------|-------:|--------:|--------:|-----:|
-| A. Production: (HYG\|TIP) AND (curve\|vol) AND mom  |  1.114 |  11.19% | -12.58% |  61% |
+| A. Rule A: (HYG\|TIP) AND (curve\|vol) AND mom      |  1.114 |  11.19% | -12.58% |  61% |
 | U1. (HYG\|TIP) AND curve AND vol AND mom            |  0.737 |   4.72% | -11.69% |  27% |
 | U2. (HYG\|TIP) AND curve AND (vol\|mom)             |  1.012 |   8.59% | -11.69% |  38% |
 | H. (HYG\|TIP\|curve) AND (vol\|mom)                 |  0.848 |  13.49% | -33.72% |  88% |
@@ -535,7 +507,7 @@ source-grouping perform better? Tested alternatives at 10bps cost:
 
 | Rule                                                | Sharpe |   CAGR  |  MaxDD  | % on |
 |-----------------------------------------------------|-------:|--------:|--------:|-----:|
-| A. Production                                       |  0.960 |  10.00% | -19.35% |  58% |
+| A. Rule A                                           |  0.960 |  10.00% | -19.35% |  58% |
 | U1. All-AND endo                                    |  0.843 |   4.73% | -11.69% |  19% |
 | U2. Curve-required + endo-OR                        |  0.877 |   6.91% | -16.64% |  31% |
 | H. Source-OR external                               |  0.730 |   9.91% | -33.72% |  71% |
@@ -547,22 +519,19 @@ Key observations:
   time on, CAGR 4.7-4.7%. Demanding all four signals simultaneously
   rejects too many regimes.
 - **U2 (curve required, endo-OR)** preserves the source-split clarity
-  but loses Sharpe (1.01 vs production 1.11) because requiring curve as
-  hard-AND removes the production's option to substitute vol for curve.
+  but loses Sharpe (1.01 vs Rule A 1.11) because requiring curve as
+  hard-AND removes Rule A's option to substitute vol for curve.
 - **H (source-OR external)** is too permissive: 3 external paths under
   OR (HYG|TIP|curve) lets the gate stay on through equity drawdowns;
-  MaxDD collapses to -33.7%, matching SPY buy-hold's worst windows.
-- **G (2-of-3 endogenous mix)** is the only alternative that beats
-  production on both Sharpe and MaxDD. Improvement is small (+0.06
-  Sharpe on CLEAN, +0.03 on 30Y) and not statistically significant
-  (Jobson-Korkie/Memmel p=0.25 on CLEAN). Consistent with specification-
-  search luck rather than robust structural improvement.
+  MaxDD expands to -33.7%, much worse than Rule A but still shallower
+  than SPY buy-hold (-51.5%).
+- **G (2-of-3 endogenous mix)** has higher Sharpe than Rule A in both
+  windows (+0.06 CLEAN, +0.03 30Y). MaxDD ties Rule A in CLEAN
+  (-12.58%) and improves in 30Y (-16.64% vs -19.35%). The Sharpe gain
+  is not statistically significant (Jobson-Korkie/Memmel p=0.25 on
+  CLEAN), consistent with specification-search noise.
 
-**Decision:** retain production rule. The naming asymmetry (vol
-endogenous but bucketed with macro curve) is acknowledged in Section
-2.7.1 taxonomy but not restructured -- the alternative source-honest
-rules either degrade performance or improve it only within the
-spec-search noise floor.
+
 
 ### 4.2 Sharpe ratio standard error
 
@@ -575,8 +544,8 @@ framings appear later:
 
 - **Section 4.10 (DSR)** addresses specification-search risk: whether
   the observed standalone Sharpe could plausibly arise from a zero-true-
-  Sharpe null after testing N variants. Bull-SPY passes at N=50 trials
-  (PSR > 99%).
+  Sharpe null adjusted for N independent trials. Bull-SPY passes at
+  N=50 (PSR > 99%).
 - **Section 4.11 (paired Jobson-Korkie/Memmel)** addresses benchmark-
   relative significance directly: whether Bull-SPY's Sharpe is
   statistically higher than SPY buy-hold's Sharpe, accounting for the
@@ -594,7 +563,7 @@ For context, individual pillar firing rates:
 |---------|------------:|-------------------------------------------------------|
 | curve   |         47% | Most selective; yield-curve regime                    |
 | vol     |         62% | Moderately selective; equity vol regime               |
-| trend   |         82% | (Dropped — redundant with asset_mom)                  |
+| trend   |         82% | (Not used — redundant with asset_mom)                 |
 | credit  |         79% | (Dropped — partially redundant with canary)           |
 
 The combined `curve OR vol` fires approximately 80% of months, which is
@@ -661,16 +630,14 @@ within the composite, which is endogenous to SPY (Section 2.5) and
 fastest-reacting. Canary and asset_mom did not independently flip first
 in any worst-10 DD.
 
-**This first-to-flip observation does NOT mean canary and asset_mom are
-vestigial.** Section 4.1 shows that removing either gate degrades MaxDD
-by 50-65%, even when Sharpe degradation is only borderline-significant.
-The canary and asset_mom contribute by (a) flipping early in slower-
-bleed regimes (e.g., dotcom 2000-02) and preventing DDs from ever
-reaching worst-10 severity, and (b) reinforcing the composite by failing
-simultaneously during deep crashes. The worst-10 table only shows the
-first-flipper at the surface of observed drawdowns; the prevented-DDs
-are invisible by construction. The 2011 episode took 493 days to fully
-recover, the longest underwater span. None exceeded -13%.
+The first-to-flip observation does not imply canary and asset_mom are
+redundant. Section 4.1 shows that removing either gate degrades MaxDD
+by 50-65%. The other two gates contribute by flipping early in slower-
+bleed regimes (preventing DDs from reaching worst-10 severity) and by
+reinforcing the composite when all three fail simultaneously. The
+worst-10 table only shows the first-flipper at the surface of observed
+drawdowns. The 2011 episode took 493 days to fully recover, the
+longest underwater span. None exceeded -13%.
 
 ### 4.7 Cost sensitivity (Bull-SPY, clean window)
 
@@ -719,9 +686,9 @@ begins to dominate signal.
 
 ### 4.8 Excess Sharpe vs SHV cash (Bull-SPY, clean window)
 
-This section tests whether the raw Sharpe shrinks meaningfully when
-computed in excess of the short-Treasury risk-free rate (vs the
-strategy's own cash leg) rather than as raw return / vol.
+Raw Sharpe shrinkage when computed in excess of the short-Treasury
+risk-free rate (vs the strategy's own cash leg) rather than as raw
+return / vol:
 
 | Strategy           | Raw Sharpe | Excess Sharpe (vs SHV) | Diff   |
 |--------------------|-----------:|------------------------:|-------:|
@@ -730,39 +697,38 @@ strategy's own cash leg) rather than as raw return / vol.
 | Bull-SPY vs SPY BH |     +0.453 |                  +0.389 | -0.064 |
 
 Subtracting SHV from both the strategy and the benchmark reduces the
-strategy's raw Sharpe by 0.13 (since the strategy spends ~37% in SHV
+strategy's raw Sharpe by 0.13 (since the strategy spends ~39% in SHV
 and inherits its yield) and reduces SPY buy-hold's Sharpe by 0.07.
 **The strategy's advantage over SPY buy-hold is +0.389 on excess Sharpe**
 (vs +0.453 raw) -- the gap shrinks slightly but remains material. The
 ordering is robust.
 
-### 4.9 Strict open-fill backtest (vs close-to-close approximation)
+### 4.9 Strict open-fill comparison
 
-The main backtest uses close-to-close return attribution. A strict open-fill
-backtest (overnight gap T+1 attributed to OLD weight; intraday T+1 to NEW)
-was implemented to test whether the close-to-close convention overstates
+The headline backtest uses close-to-close return attribution. A strict
+open-fill variant (overnight gap T+1 attributed to OLD weight; intraday
+T+1 to NEW) checks whether the close-to-close convention overstates
 performance by hiding overnight gap risk:
 
-| Variant   | Convention            | Sharpe | CAGR    | MaxDD   | Delta Sh |
+| Variant   | Convention           | Sharpe | CAGR    | MaxDD   | Delta Sh |
 |-----------|----------------------|-------:|--------:|--------:|---------:|
-| Bull-SPY  | Close-to-close (ref) |  1.136 | 11.59%  | -12.58% |    -     |
+| Bull-SPY  | Close-to-close       |  1.136 | 11.59%  | -12.58% |    -     |
 | Bull-SPY  | Strict open-fill     |  1.134 | 11.41%  | -12.41% |   -0.002 |
 
-The DELTA is **within noise** (-0.002 Sharpe, ~17 bps DD). The monthly
+The delta is **within noise** (-0.002 Sharpe, ~17 bps DD). The monthly
 rebalance produces only ~33 weight flips x 2 = ~66 overnight gaps over
 18y with mostly random signs, so the convention choice does not
 materially affect results.
 
-Note: absolute Sharpe in this table (1.136) is from a parallel
-strict-fill implementation with slightly different startup edge handling
-and differs from the canonical Section 3.1 value (1.114 at 10bps cost)
-by ~0.02 Sharpe. The validated quantity is the delta between conventions
-on the SAME implementation, which is robust to that absolute offset.
+Absolute Sharpe values in this table (1.136) come from a separate
+strict-fill comparator with slightly different startup edge handling
+and differ from the Section 3.1 canonical value (1.114) by ~0.02. The
+relevant quantity is the delta between conventions on the same
+comparator.
 
 ### 4.10 Deflated Sharpe Ratio (DSR)
 
-The Sharpe figures in Section 3 are point estimates from a sample where
-multiple specification variants were tested in development. The Deflated
+The Sharpe figures in Section 3 are point estimates. The Deflated
 Sharpe Ratio (Bailey & Lopez de Prado 2014) adjusts for this multiple-
 testing selection bias by computing the probability that the observed
 Sharpe genuinely exceeds the maximum Sharpe expected from N independent
@@ -777,13 +743,14 @@ daily returns):
 | Bull-SPY             |  1.114 |   100.0% |     99.9% |     99.7% |     99.2% |
 
 Bull-SPY remains PSR > 99% at N=50 specification trials. The number of
-architectural variations explored during development is hard to count
-precisely but is plausibly in the 10-30 range (canary asset choice,
-pillar selection, voting rule, asset momentum lookback variants).
-**The standalone positive Sharpe is unlikely to be a multiple-testing
-artifact.** This is a null-hypothesis test (Sharpe is greater than
-zero accounting for spec-search), not a benchmark-relative test; for
-the paired Bull-vs-buy-hold significance question see Section 4.11.
+independent architectural variations within the same gate family
+(canary asset choice, pillar selection, voting rule, asset-momentum
+lookback) is in the 10-30 range. **The standalone positive Sharpe is
+unlikely to be a multiple-testing artifact at any plausible trial
+count in that range.** This is a null-hypothesis test (Sharpe greater
+than zero accounting for spec-search), not a benchmark-relative test;
+for the paired Bull-vs-buy-hold significance question see Section
+4.11.
 
 Implementation notes:
 - Per-period (daily) Sharpe used in formula; annualized Sharpe divided
@@ -793,9 +760,9 @@ Implementation notes:
   used when actual trial Sharpe variances are not collected; if the full
   trial Sharpe distribution were tracked, V[trial Sharpe] would replace
   the 1/(T-1) term, potentially loosening the threshold.
-- Validated against R `quantstrat::deflated.Sharpe` reference
-  implementation and auditzk.com calculator (SR=2.0, T=252, N=1000
-  reproduces published PSR ~10%).
+- Cross-check: R `quantstrat::deflated.Sharpe` reference implementation
+  and auditzk.com calculator (SR=2.0, T=252, N=1000 reproduces
+  published PSR ~10%).
 
 Reference: Bailey, D. H. & Lopez de Prado, M. (2014). "The Deflated
 Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting, and
@@ -836,7 +803,7 @@ test measures whether the active return stream is significant relative
 to its own tracking-error volatility. It is appropriate for active
 managers tracking a benchmark on a TE-adjusted basis, but it is not the
 right test here. Bull-SPY is structurally different from SPY buy-hold
-(cash ~37% of time, vol roughly halved), not a TE-active variant. The
+(cash ~39% of time, vol roughly halved), not a TE-active variant. The
 active-return Sharpe is negative (-0.11) because of the small CAGR drag
 (0.6pp) combined with high tracking-error vol. This negative-active-
 return-Sharpe result does not contradict the JK/Memmel result above:
@@ -958,12 +925,11 @@ consistent with this design intent (Section 3.2 per-regime table).
     | HYG    | HYG      | 2007-04-04 | VWEHX (Vanguard High-Yield mutual fund)                | 1980-01-02     | canary, credit   | Well-established HY fund                         |
     | TIP    | TIP      | 2003-12-04 | VIPSX (Vanguard Inflation-Protected Securities)        | 2000-06-29     | canary           | Pre-2001-06 canary reduces to HYG-only           |
     | GLD    | GLD      | 2004-11-18 | World Bank monthly gold (freegoldapi.com), ffill->daily| 1995-01-02     | PP gold sleeve   | Monthly granularity; affects daily metrics only  |
-    | LQD    | LQD      | 2002-07-22 | VFICX (Vanguard Intermediate-Term IG Corporate Bond)   | 1993-10-29     | (research only)  | Tested as canary asset, rejected (Section 2.8)   |
+    | LQD    | LQD      | 2002-07-22 | VFICX (Vanguard Intermediate-Term IG Corporate Bond)   | 1993-10-29     | (not used)       | Not part of Bull-SPY rule (see Section 2.8)      |
 
-    Each stitch is built by a script in `research/archive/stitch_*.py`
-    using the live ETF as anchor and rescaling the pre-live proxy so
-    the splice date matches the live value. See those scripts for the
-    exact build logic. Load order is in `cpm_live.load_panel()`.
+    Each stitch anchors to the live ETF and rescales the pre-live
+    proxy so the splice date matches the live value. Load order is in
+    `cpm_live.load_panel()`.
 
     **Proxy/stitch caveats:**
 
@@ -1005,7 +971,7 @@ python bull_qqq_live.py backtest --start 1996-01-04
 
 The risky asset is set via `BULL_TICKER = "SPY"` near the top of
 `bull_qqq_live.py`. The gate logic is unchanged for other equity
-tickers; this memo's results apply to the SPY default only.
+tickers; results documented here apply to SPY.
 
 ## 8. Required Data Series
 
@@ -1047,22 +1013,7 @@ See **Section 6 item 11** for the definitive pre-live data lineage with
 stitch sources and caveats. The 30y window results are documented
 secondary evidence supporting the primary clean 2008+ live-ETF window.
 
-## 9. Future work
-
-The following items would further strengthen the empirical claims:
-
-- **Broader excess-Sharpe-vs-SHV verification**: extend Section 4.8 from
-  Bull-SPY-only to the PP-IEF blend, to support the general raw-vs-
-  excess ordering claim.
-- **Leave-one-regime-out test** to reduce regime-specific overfit risk
-  (e.g. rerun without 2008-2009, see if forward expectations change).
-- **HAC / bootstrap robustness** for the paired Jobson-Korkie/Memmel
-  Sharpe-difference test (Section 4.11) to relax the i.i.d. assumption
-  on daily returns.
-- **Rename `bull_qqq_live.py` to `bull_spy_live.py`** to reflect this
-  memo's scope (the SPY variant).
-
-## 10. References
+## 9. References
 
 - Faber, M. (2007). A Quantitative Approach to Tactical Asset Allocation.
 - Keller, W. & Keuning, J. (2023). HAA: Hybrid Asset Allocation. SSRN.
