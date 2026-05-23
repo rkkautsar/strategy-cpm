@@ -41,7 +41,7 @@ from cpm_live import (
 )
 from bull_qqq_live import (
     run_bull_qqq_backtest, compute_bull_qqq_weights,
-    BULL_TICKER, CASH_TICKER, MOMENTUM_LOOKBACK,
+    BULL_TICKER, CASH_TICKER, COMPOSITE_MIN_COUNT,
 )
 
 # Production blend: 60% CPM + 30% BULL-QQQ + 10% NDX
@@ -1568,7 +1568,7 @@ def main():
 <p><strong>Production blend</strong>: {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX, monthly rebalance, T+1 OPEN (next-day MOO), 10 bps/side cost.</p>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z with reset when canary breadth crosses majority (>=2 positive), vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only, no leverage). SHV cash fallback.</li>
-<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when QQQ {MOMENTUM_LOOKBACK}-1 absolute momentum &gt; 0 AND HYG/LQD/TIP any-positive 13612U canary fires. Otherwise 100% {CASH_TICKER}.</li>
+<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when HYG/LQD/TIP any-positive 13612U canary AND binary composite (&gt;= {COMPOSITE_MIN_COUNT} of 4 pillars: SPY trend, HYG trend, IEF-TLT curve, SPY low-vol) both pass. Otherwise 100% {CASH_TICKER}.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-4 PIT Nasdaq-100 by 13612U momentum, equal-weight 25%, gated by BULL_QQQ regime. SHV when off.</li>
 </ul>
 <p><strong>Headline ({yrs_full:.1f}y, post-cost):</strong> 60/30/10 blend Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong>, CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>, Calmar <strong>{prod_metrics['calmar']:.2f}</strong>, Martin <strong>{prod_metrics['martin']:.2f}</strong>.</p>
@@ -1762,8 +1762,8 @@ def main():
 <summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- bull capture with cash defense</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
-<li><strong>Trend filter:</strong> <code>{BULL_TICKER}</code> {MOMENTUM_LOOKBACK}-1 absolute momentum &gt; 0 (Antonacci GEM standard). Removed prior 13612U OR composite as data-mined to 2009/2023 V-bottom recoveries.</li>
-<li><strong>Macro gate:</strong> HYG OR LQD OR TIP positive 13612U (any-positive, 3-asset credit/inflation canary). Adds +54% Martin Ratio over mom-only at small CAGR cost.</li>
+<li><strong>Macro gate:</strong> HYG OR LQD OR TIP positive 13612U (any-positive, 3-asset credit/inflation canary).</li>
+<li><strong>Composite gate:</strong> &gt;= {COMPOSITE_MIN_COUNT} of 4 binary pillars positive: (1) SPY &gt; 200d MA (Faber trend), (2) HYG &gt; 200d MA (credit trend), (3) IEF 63d return &gt; TLT 63d return (yield-curve steepening), (4) SPY 63d vol &lt; 252d avg vol (low-vol regime). All pillars have natural midpoint cutoffs (no tuned thresholds).</li>
 <li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> (short-treasury cash) when either filter fails. Zero duration risk on this sleeve.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 
