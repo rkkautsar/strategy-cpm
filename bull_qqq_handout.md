@@ -550,24 +550,60 @@ Observations: the worst DD (-12.58%) was the COVID crash 2020-02 to 2020-09
 period. None of the worst 10 DDs exceeded -13%. The 2011 episode took 493
 days to fully recover, the longest underwater span in the sample.
 
-### 4.7 Cost sensitivity (Bull-SPY, clean window)
+### 4.7 Cost sensitivity (clean window, all variants)
 
-| Trading cost (bps/side) | Sharpe | CAGR    | MaxDD    |
-|-------------------------|-------:|--------:|---------:|
-| 5                       |  1.155 | 11.79%  | -12.49%  |
-| 10 (baseline)           |  1.136 | 11.59%  | -12.58%  |
-| 25                      |  1.079 | 10.96%  | -12.84%  |
-| 50                      |  0.981 |  9.93%  | -13.28%  |
-| 100                     |  0.779 |  7.88%  | -15.20%  |
+Cost is applied as bps/side on the traded notional each rebalance, charged
+on both sides of any state flip (sell + buy = 2 x bps). The implementation
+debits cost from the daily return on rebalance days.
 
-The strategy is robust to realistic retail trading costs. Modern retail
-brokers often charge zero explicit commission via low-cost ETFs;
-effective cost still depends on bid-ask spread, market impact, order
-timing, and ETF liquidity, so the 5-50 bps/side range is a sensitivity
-band rather than a precise estimate of realized cost. Even at 50 bps/side,
-Sharpe remains above 0.98. At 100 bps/side (commissioned trading with
-spread), the strategy still beats SPY buy-hold on DD but Sharpe drops
-to 0.78.
+**Bull-SPY standalone:**
+
+| bps/side       | Sharpe | CAGR    | MaxDD    | Calmar |
+|----------------|-------:|--------:|---------:|-------:|
+| 0 (frictionless)| 1.150 | 11.58%  | -12.44%  |   0.93 |
+| 5              |  1.132 | 11.38%  | -12.49%  |   0.91 |
+| 10 (baseline)  |  1.114 | 11.19%  | -12.58%  |   0.89 |
+| 20             |  1.077 | 10.79%  | -12.76%  |   0.85 |
+| 25             |  1.059 | 10.59%  | -12.84%  |   0.82 |
+| 50             |  0.964 |  9.61%  | -13.28%  |   0.72 |
+| 100            |  0.769 |  7.66%  | -15.20%  |   0.50 |
+| 200            |  0.388 |  3.80%  | -31.01%  |   0.12 |
+
+**Bull-QQQ standalone:**
+
+| bps/side       | Sharpe | CAGR    | MaxDD    | Calmar |
+|----------------|-------:|--------:|---------:|-------:|
+| 0 (frictionless)| 1.130 | 15.34%  | -13.56%  |   1.13 |
+| 5              |  1.117 | 15.14%  | -13.56%  |   1.12 |
+| 10 (baseline)  |  1.104 | 14.94%  | -13.56%  |   1.10 |
+| 20             |  1.078 | 14.55%  | -13.56%  |   1.07 |
+| 25             |  1.065 | 14.35%  | -13.72%  |   1.05 |
+| 50             |  0.998 | 13.37%  | -14.58%  |   0.92 |
+| 100            |  0.859 | 11.41%  | -16.28%  |   0.70 |
+| 200            |  0.578 |  7.53%  | -24.95%  |   0.30 |
+
+**Cost band interpretation:**
+
+- **0-5 bps/side**: low-cost ETFs at zero-commission retail brokers
+  (Vanguard, Fidelity, Schwab, IBKR Lite) with tight spreads. Realistic
+  for SPY/QQQ/SHV/HYG/TIP/IEF/TLT which all have ~1c-2c spreads on
+  10-100M+ daily volume.
+- **10-25 bps/side**: realistic if any execution slippage occurs at scale
+  or if rebalancing uses market orders during volatile periods. This is
+  the sensitivity band most users should plan around.
+- **50 bps/side**: commissioned trading or thinly-traded ETF universe.
+  Bull-SPY Sharpe still 0.96 / Bull-QQQ 1.00, both well above SPY/QQQ
+  buy-hold (0.66 / 0.82).
+- **100 bps/side**: legacy commissioned brokerage with non-trivial
+  spread. Bull-SPY Sharpe 0.77, Bull-QQQ 0.86.
+- **200 bps/side**: pathological case. Sharpe collapses (0.39 / 0.58)
+  and MaxDD blows out because compound cost outpaces returns. Not
+  realistic for retail ETF universe; included as stress test.
+
+The gated strategy switches state ~3-5 times per year on average
+(~6-10 sided trades). At 20 bps/side, total annual cost drag is roughly
+1.2-2.0% of NAV. Sharpe is roughly linear in cost up to ~50 bps and
+degrades non-linearly above 100 bps as cost begins to dominate signal.
 
 ### 4.8 Excess Sharpe vs SHV (Bull-SPY, clean window)
 
@@ -653,14 +689,11 @@ daily returns):
 | QQQ buy-hold         |  0.822 |    98.9% |     97.1% |     94.5% |     88.6% |
 | Bull-SPY             |  1.136 |   100.0% |     99.9% |     99.8% |     99.4% |
 | Bull-QQQ             |  1.104 |   100.0% |     99.9% |     99.7% |     99.1% |
-| CPM standalone       |  1.284 |   100.0% |    100.0% |    100.0% |     99.9% |
-| NDX sleeve           |  1.262 |   100.0% |    100.0% |    100.0% |     99.9% |
-| PROD blend 60/30/10  |  1.529 |   100.0% |    100.0% |    100.0% |    100.0% |
 
-PROD blend remains PSR > 99% even at N=1000 hypothetical trials. Bull-SPY
-remains PSR > 99% at N=50 trials. **The Sharpe edge is statistically
-significant after DSR adjustment for realistic specification-test counts**
-(architectural variations explored during development were ~5-19).
+Bull-SPY and Bull-QQQ both remain PSR > 99% at N=50 specification trials
+and PSR > 99.7% at N=19 (the count of architectural variations actually
+explored during development). **The Sharpe edge is statistically
+significant after DSR adjustment for realistic specification-test counts.**
 
 Implementation notes:
 - Per-period (daily) Sharpe used in formula; annualized Sharpe divided
