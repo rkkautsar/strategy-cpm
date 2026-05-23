@@ -179,15 +179,32 @@ taxonomy below):
 **Gate passes** if at least one pillar is positive ("any-positive" rule).
 
 Each pillar uses a natural sign-test cutoff:
-- `IEF 63d return > TLT 63d return` is the sign of the curve-shape spread.
-  IEF outperforming TLT indicates long-duration Treasuries are
-  underperforming intermediate Treasuries. Historically this often
-  aligns with fewer deflationary/recession-scare dynamics, but it can
-  also occur during inflationary rate selloffs; the canary and asset-
-  momentum gates are intended to filter the inflationary cases.
+- `IEF 63d return > TLT 63d return` is the sign of the curve-shape
+  spread. Because bond price moves are approximately `-duration x
+  delta_yield`, the return spread captures duration-weighted yield-
+  change dynamics: it is a directional measure of how the curve is
+  REACTING, not a level test of curve inversion. IEF outperforming TLT
+  indicates long-duration Treasuries are underperforming intermediate
+  (long rates rising faster, no flight-to-quality bid), historically
+  aligned with fewer deflationary/recession-scare dynamics. It can
+  also occur during inflationary rate selloffs where equities sell off
+  too; the canary and asset-momentum gates filter those cases.
 - `63d vol < 252d avg vol` is a mean-centered volatility regime test:
   current realized volatility is below its trailing one-year average
   (this is a sign test against the rolling-vol mean, not a z-score).
+
+**Why OR between curve and vol (rather than AND):** the two pillars
+are different regime signals (rates vs price-variance) that can
+decouple in normal periods. A 3-month bond-market reaction may flip
+risk-off briefly while equity vol stays calm, or vice versa. OR
+follows the same Keller-style "any positive" convention as the canary:
+at least one regime indicator positive => composite open. Requiring
+both simultaneously (AND) collapses time-in-equity (Section 4.1.2
+U1: 27% on, CAGR 4.7%). The OR rule means risk-off requires
+confluence of curve stress AND vol stress, a high-conviction macro
+signal. Multi-source agreement is enforced at the BETWEEN-gate level
+(canary AND composite AND asset_mom must all pass), not within each
+gate.
 
 **The vol pillar is endogenous.** It is computed on the risky asset
 (SPY) itself, so when SPY breaks down, its realized 63d vol
