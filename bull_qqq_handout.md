@@ -288,7 +288,7 @@ rule.
 | Strategy                  |  Sharpe |   CAGR   |    Vol   |   Max DD | Calmar | Martin | Ulcer |
 |---------------------------|--------:|---------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold              |    0.66 |   11.78% |   19.81% |  -51.48% |   0.23 |   1.03 | 11.4% |
-| **Bull-SPY**              |    1.11 |   11.19% |    9.98% |  -12.58% |   0.89 |   2.99 |  3.7% |
+| **Bull-SPY**              |    1.11 [†]  |   11.19% |    9.98% |  -12.58% |   0.89 |   2.99 |  3.7% |
 | PP-IEF standalone         |    1.00 |    6.96% |    6.98% |  -15.34% |   0.45 |   2.22 |  3.1% |
 
 Per-regime Sharpe (clean window). GFC label is **partial** since clean
@@ -302,6 +302,12 @@ window starts 2008-04-30, missing the pre-crisis peak and early decline
 | COVID (2020)                 |   0.67 |    +0.91 |
 | InflRt (2021-2023)           |   0.63 |    +1.29 |
 | Post (2024+)                 |   1.33 |    +1.68 |
+
+[†] Canonical clean-window Bull-SPY Sharpe is **1.114** at 10 bps/side
+cost (production `bull_qqq_live.py` implementation). The 1.136 value
+appearing in Section 4.9 is from a separate strict-fill comparator with
+slightly different startup edge handling; the ~0.02 offset is
+consistent across runs and does not affect any other comparison.
 
 Risk-on percentage and turnover (clean window):
 
@@ -463,6 +469,15 @@ a much deeper max drawdown (-21.30% vs -12.58%), so canary and asset_mom
 are paying their keep on tail-risk protection even when the Sharpe-
 difference is borderline.
 
+**Caveat on Sharpe comparison across gate subsets.** The JK/Memmel test
+assumes both return streams are computed over the same period, which is
+satisfied here. However the subsets differ materially in time-in-equity
+(NONE = 98.5% on, C+M+A = 60.9% on), so "Sharpe difference" mixes two
+things: (i) the regime-selection edge of the gating, and (ii) a
+mechanical Sharpe lift from holding less equity (lower vol denominator).
+The MaxDD column is the more interpretation-stable metric for
+cross-subset comparison.
+
 The worst-10 DD attribution (Section 4.6) shows the composite is the
 first-to-flip in all DDs deep enough to trigger gates. Canary and
 asset_mom contribute by flipping earlier in slower-bleed regimes
@@ -476,27 +491,40 @@ regime pillars (curve, vol, trend, credit) form the best composite
 GATE, holding the three-gate stack (canary + composite + asset_mom)
 fixed.
 
-Each row tests one composite variant on top of canary + asset_mom,
-which is the baseline:
+Per-cell Sharpe across all 6 (window x asset) configs, on top of canary
++ asset_mom (baseline = canary + asset_mom only, no composite gate):
 
-| Composite                  | Avg Sharpe | Avg DD   | Wins vs baseline |
-|----------------------------|-----------:|---------:|------------------|
-| No composite (baseline)    |       0.89 |  -32.04% | --               |
-| **curve OR vol**           |   **1.00** | -18.04%  | 6/6              |
-| All 4 pillars >= 2 of 4    |       0.99 |  -19.98% | 6/6              |
-| trend + vol OR             |       0.96 |  -19.87% | 6/6              |
-| trend + curve OR           |       0.98 |  -20.25% | 5/6              |
-| Each single pillar         |   0.76-0.93|  varied  | 0-4/6            |
+| Window            | Asset | baseline | curve | vol  | curve\|vol | 4p 2-of-4 | 4p 1-of-4 |
+|-------------------|-------|---------:|------:|-----:|-----------:|----------:|----------:|
+| 22.8y from 2003-08| SPY   |    0.845 | 0.873 | 0.858|     1.011  |     0.990 |     0.831 |
+| 22.8y from 2003-08| QQQ   |    0.901 | 0.728 | 0.746|     0.917  |     0.912 |     0.851 |
+| 19.2y from 2007-02| SPY   |    0.814 | 0.928 | 0.942|     1.088  |     0.983 |     0.797 |
+| 19.2y from 2007-02| QQQ   |    0.984 | 0.839 | 0.946|     1.109  |     1.045 |     0.928 |
+| 30y   from 1996-01| SPY   |    0.901 | 0.874 | 0.790|     0.960  |     0.975 |     0.891 |
+| 30y   from 1996-01| QQQ   |    0.980 | 0.772 | 0.713|     0.906  |     0.963 |     0.946 |
 
-The 6 configs are the cartesian product of 3 backtest windows (proxy-
-assisted 22.8y from 2003-08, proxy-assisted 19.2y from 2007-02, 30y from
-1996-01) and 2 risky assets (SPY and QQQ; QQQ included only for ablation
-robustness across asset choice). "Wins vs baseline" means strictly
-higher Sharpe than the `canary + asset_mom` baseline (no composite gate)
-in that cell. Ablation tables here use the documented-stitch data stack and serve as
-gate-structure evidence rather than headline performance numbers. The
-clean 2008-04 window provides the primary live-ETF performance
-evidence.
+Aggregates:
+
+| Composite        | Avg Sh | Avg MaxDD | Wins vs baseline |
+|------------------|-------:|----------:|-----------------:|
+| baseline         |  0.904 |   -32.02% | --               |
+| curve only       |  0.836 |   -15.87% | 2/6              |
+| vol only         |  0.833 |   -19.85% | 2/6              |
+| **curve OR vol** | **0.999** | -18.62% | **5/6**         |
+| 4-pillar 2-of-4  |  0.978 |   -20.02% | 5/6              |
+| 4-pillar 1-of-4  |  0.874 |   -32.02% | 0/6              |
+
+The 4 candidate pillars are: curve (IEF 63d ret > TLT 63d ret), vol (SPY
+63d vol < 252d avg vol), trend (SPY > 200d MA), credit (HYG > 200d MA).
+The 6 configs are the cartesian product of 3 windows (proxy-assisted
+22.8y from 2003-08, proxy-assisted 19.2y from 2007-02, documented 30y
+from 1996-01) and 2 risky assets (SPY and QQQ; QQQ included only for
+ablation robustness across asset choice). "Wins vs baseline" means
+strictly higher Sharpe than the canary + asset_mom baseline (no
+composite gate) in that cell. Ablation tables here use the documented-
+stitch data stack and serve as gate-structure evidence rather than
+headline performance numbers. The clean 2008-04 window provides the
+primary live-ETF performance evidence.
 
 The regime-composite OR rule reuses the same simple OR convention used
 by the canary, but applying OR to a custom curve/vol composite is not
@@ -666,6 +694,31 @@ worst-10 table only shows the first-flipper at the surface of observed
 drawdowns. The 2011 episode took 493 days to fully recover, the
 longest underwater span. None exceeded -13%.
 
+#### 4.6.1 Worst 10 drawdowns (Bull-SPY, documented 30y window)
+
+For reference on the longer documented-stitch window:
+
+| Rank | Start      | Trough     | End        | Depth   | Days |
+|-----:|------------|------------|------------|--------:|-----:|
+|    1 | 1998-07-16 | 1998-09-02 | 1999-12-30 | -19.35% |  532 |
+|    2 | 2020-02-21 | 2020-03-02 | 2020-08-27 | -12.58% |  188 |
+|    3 | 2000-09-06 | 2000-10-12 | 2001-04-03 | -12.49% |  209 |
+|    4 | 2010-04-27 | 2010-05-26 | 2010-12-31 | -12.02% |  248 |
+|    5 | 1997-03-11 | 1997-04-11 | 1997-05-01 | -10.04% |   51 |
+|    6 | 2025-02-21 | 2025-03-13 | 2025-06-11 | -10.04% |  110 |
+|    7 | 2023-08-02 | 2023-10-27 | 2023-11-21 |  -9.97% |  111 |
+|    8 | 2005-03-09 | 2005-10-13 | 2006-05-04 |  -9.92% |  421 |
+|    9 | 2018-10-04 | 2018-10-29 | 2019-07-23 |  -9.72% |  292 |
+|   10 | 2020-09-01 | 2020-09-23 | 2020-10-09 |  -9.44% |   38 |
+
+The 30y worst DD is **1998-07 to 1998-09 (-19.35%, 532 days to
+recover)** -- the Russian/LTCM crisis. This is the only DD in the 30y
+sample that exceeds -13%, and the only period where the gated strategy
+materially underperforms the clean window. The 1998 episode predates
+the full HYG+TIP canary (HYG-only canary before 2001-06; see Section 2)
+and was a credit-led crisis with a sudden equity-vol spike; the
+reduced-canary regime contributed to the larger DD.
+
 ### 4.7 Cost sensitivity (Bull-SPY, clean window)
 
 Cost is applied as bps/side on the traded notional each rebalance, charged
@@ -747,9 +800,9 @@ affect results.
 
 Absolute Sharpe values in this table (1.136) come from a separate
 strict-fill comparator with slightly different startup edge handling
-and differ from the Section 3.1 canonical value (1.114) by ~0.02. The
-relevant quantity is the delta between conventions on the same
-comparator.
+and differ from the Section 3.1 canonical value (1.114; see footnote)
+by ~0.02. The relevant quantity is the delta between conventions on
+the same comparator.
 
 ### 4.10 Deflated Sharpe Ratio (DSR)
 
@@ -772,9 +825,16 @@ independent specification trials. Real tested variants within the same
 gate family (canary asset choice, pillar selection, voting rule, asset-
 momentum lookback) are likely correlated, so this DSR result should be
 interpreted as a robustness check rather than a precise multiple-
-testing adjustment. **The standalone positive Sharpe is unlikely to
-be a multiple-testing artifact for any independent trial count in the
-10-50 range.** This is a null-hypothesis test (Sharpe greater
+testing adjustment. **Additional caveat:** the parameter forms used
+here (Keller's 13612U multi-horizon momentum, the 12-1 skip-month TSMOM
+convention, 63d/252d vol windows) are themselves drawn from published
+literature where they were selected on similar historical samples.
+If prior-literature parameter mining is counted toward effective N,
+the true trial count carries forward additional data-mining risk that
+this DSR check does not address. **The standalone positive Sharpe is
+unlikely to be a multiple-testing artifact for any independent trial
+count in the 10-50 range, but the literature-derived parameter
+baseline is not free.** This is a null-hypothesis test (Sharpe greater
 than zero accounting for spec-search), not a benchmark-relative test;
 for the paired Bull-vs-buy-hold significance question see Section
 4.11.
