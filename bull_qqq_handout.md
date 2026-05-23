@@ -1,8 +1,6 @@
 # A Three-Layer Regime Gate for Long-Equity-or-Cash Strategies
 
 **Author:** Rakha Kanz Kautsar
-**Version:** 6.0
-**Changelog:** see end of document.
 **Date:** 2026-05-23
 **Backtest windows:**
 - **Clean**: 2008-04-30 to 2026-05-15 (18.1 years, all required ETFs live + 12-month warmup)
@@ -753,13 +751,12 @@ outperformance persists.
    World Bank monthly (forward-filled to daily; only affects PP gold
    sleeve at daily granularity).
 
-10. **Statistical independence overstated in earlier framings.** The
-    gates observe structurally different signals (credit, macro, price),
-    but HYG appears in the canary and SPY appears in both the composite
-    and is highly correlated with the risky assets. The gates are
-    diversified but not statistically independent.
+10. **Gates are diversified but not statistically independent.** They
+    observe structurally different signals (credit, macro, price), but
+    HYG appears in the canary and SPY appears in both the composite and
+    is highly correlated with the risky assets.
 
-11. **Data lineage (definitive table, v6.0).**
+11. **Data lineage.**
 
     | Target | Live ETF | Live start | Documented pre-live / warm-up source                  | Pre-live start | Used for         | Notes                                            |
     |--------|----------|------------|--------------------------------------------------------|----------------|------------------|--------------------------------------------------|
@@ -776,9 +773,7 @@ outperformance persists.
     Each stitch is built by a script in `research/archive/stitch_*.py`
     using the live ETF as anchor and rescaling the pre-live proxy so
     the splice date matches the live value. See those scripts for the
-    exact build logic. Load order is in `cpm_live.load_panel()` and
-    these stitches take precedence over the legacy
-    `proxy_adjusted_close_daily.csv` file.
+    exact build logic. Load order is in `cpm_live.load_panel()`.
 
     **Proxy/stitch caveats:**
 
@@ -822,10 +817,6 @@ python bull_qqq_live.py backtest --start 1996-01-04
 To switch the risky asset from QQQ to SPY, change `BULL_TICKER = "QQQ"`
 to `BULL_TICKER = "SPY"` near the top of `bull_qqq_live.py`. The gate
 logic is unchanged.
-
-(The file is named `bull_qqq_live.py` for legacy reasons; renaming to
-`bull_equity_live.py` and exposing the risky asset as a CLI argument is
-on the future-work list.)
 
 ## 8. Required Data Series
 
@@ -882,8 +873,9 @@ The following items would further strengthen the empirical claims:
 - **Paired Sharpe-difference test** vs buy-hold benchmarks (Jobson-Korkie
   / Memmel adjustment for correlation between return streams), to
   complement the unpaired SE estimate in Section 4.2.
-- **Rename `bull_qqq_live.py` to `bull_equity_live.py`** and expose
-  risky asset as CLI argument.
+- **Rename `bull_qqq_live.py` to `bull_equity_live.py`** and expose risky
+  asset as CLI argument (file naming reflects original Bull-QQQ focus;
+  Bull-SPY is now the recommended default).
 
 ## 10. References
 
@@ -897,14 +889,4 @@ The following items would further strengthen the empirical claims:
   Correcting for Selection Bias, Backtest Overfitting, and Non-Normality.
   *Journal of Portfolio Management* 40(5), 94-107.
 
-## 11. Changelog
 
-- **v6.0**: DSR added (PSR > 99% at N=50 trials, passes); strict
-  open-fill validated (within noise); merged worst-10 DD + gate
-  attribution; 30y window standalone + blend tables added; data lineage
-  consolidated (Section 6 item 11 as single source); cost sensitivity
-  extended to 0/20/200 bps; v4.x/v5.x stale language purged.
-- **v5.0**: documented-stitches upgrade (replaced opaque proxy file for
-  SHV/IEF/TLT with VFISX/VFITX/VUSTX; replaced synthetic QQQ pre-1999
-  with NDX index; extended GLD to 1995 via World Bank monthly).
-- **v4.x and earlier**: see git history.
