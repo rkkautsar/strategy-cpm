@@ -28,41 +28,68 @@ cost, T+1 OPEN execution. Total-return prices throughout (yfinance
 
 ## Headline metrics
 
-Canonical 2007-02-01 → 2026-05-15 (19.3y, post-cost):
+Clean live-ETF window 2008-04-30 → 2026-05-15 (18.1y, post-cost 10 bps/side):
 
-| Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar | Martin |
-|---|---:|---:|---:|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.58** | **17.24%** | **10.46%** | **-11.33%** | **1.52** | **5.78** |
-| SPY buy-hold | 0.62 | 10.89% | 19.69% | -55.19% | 0.20 | 0.84 |
+| Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
+|---|---:|---:|---:|---:|---:|
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.53** | **16.71%** | **10.48%** | **-11.33%** | **1.48** |
+| SPY buy-hold | 0.66 | 11.78% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM | 1.33 | 14.54% | 10.61% | -10.59% |
-| BULL-QQQ | 1.11 | 15.08% | 13.45% | -13.56% |
-| NDX | 1.27 | 36.45% | 27.48% | -35.92% |
+| CPM | 1.28 | 13.75% | 10.48% | -11.30% |
+| BULL-QQQ | 1.10 | 14.94% | 13.46% | -13.56% |
+| NDX | 1.26 | 36.44% | 27.70% | -35.92% |
 
-Extended Backtest 1999-03-10 → 2026-05-23 (27.2y, includes dotcom):
+Documented 30y window 1996-01-04 → 2026-05-15 (uses Vanguard mutual fund
+stitches for non-live ETFs; HYG-only canary before 2001-06):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX (EXT)** | **1.35** | **14.77%** | **-12.80%** |
-| Bull-QQQ standalone (EXT) | 0.89 | 13.22% | -26.83% |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.29** | **14.61%** | **-16.72%** |
+| Bull-QQQ standalone | 0.91 | 14.13% | -26.83% |
+| CPM standalone | 1.08 | 11.86% | -15.57% |
+| SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
 ## Forward expectation
 
-Discounted from canonical backtest (selection bias + regime dependency +
-NDX concentration + tail sequencing risk not captured by return bootstrap):
+Discounted from clean-window backtest (selection bias + regime dependency +
+NDX backtest biases + tail sequencing risk not captured by return bootstrap):
 
-| Metric | Backtest | Forward base case |
+| Metric | Backtest (CLEAN 18.1y) | Forward base case |
 |---|---:|---|
-| Sharpe | 1.58 | **1.05-1.35** |
-| CAGR | 17.24% | **10-14%** (post-cost, pre-tax) |
+| Sharpe | 1.53 | **1.00-1.30** |
+| CAGR | 16.71% | **10-14%** (post-cost, pre-tax) |
 | MaxDD | -11.33% | **-15% to -25%** (planning band) |
-| Calmar | 1.52 | **0.55-0.90** |
-| Martin | 5.78 | **3.0-4.5** |
+| Calmar | 1.48 | **0.55-0.90** |
 
-Base case (mid-band): Sharpe 1.05-1.15, CAGR 12-14%, DD low/mid-20s in a
+Base case (mid-band): Sharpe 1.00-1.20, CAGR 12-14%, DD low/mid-20s in a
 bad cycle. After-tax drop in taxable accounts: ~5-9% CAGR (vs 11-15% pre-tax).
+
+## NDX sleeve caveats
+
+The NDX 10% sleeve has documented backtest biases that materially overstate
+its standalone numbers (Sharpe 1.26 / CAGR 36% in CLEAN). At 10% blend weight
+the bias impact on PROD is bounded but disclosed for transparency:
+
+- **Yearly PIT membership**: `index_constitution` library snapshots NDX-100
+  constituents at year boundaries, so mid-year additions (e.g., TSLA on
+  2020-07-21) appear as members from Jan 1 of that year onward. Small
+  look-ahead bias on additions.
+- **Missing delisted-ticker data**: 24% of historical NDX-100 members have
+  no usable price data in the panel (yfinance silently drops delisted
+  acquired-out names like CELG, ATVI, BRCM, YHOO). Selection pool tilts
+  toward survivors.
+- **NaN-in-holding bug**: when a held NDX ticker delists mid-period, the
+  backtest silently zero-contributes that day instead of realizing the
+  bankruptcy loss or acquisition cash. Missed losses inflate returns.
+- **Pre-2006 fallback**: PIT data starts 2006-01; the sleeve mirrors
+  Bull-QQQ weights before then, so 1996-2005 NDX is not a real selection.
+
+**Stress test**: discounting NDX returns by 30% (aggressive bias
+allowance) reduces 30Y PROD CAGR from 14.61% to 13.71% (still above 60/40
+CPM/Bull-QQQ baseline at 13.10%) and Sharpe from 1.29 to 1.27 (still above
+CPM standalone). The 10% NDX weight bounds bias impact.
 
 ## Strategy spec
 
@@ -188,7 +215,7 @@ tech-led regime).
 
 ## Validation
 
-### Bootstrap CI (block bootstrap, B=2000, 21-day blocks, canonical 19.3y)
+### Bootstrap CI (block bootstrap, B=2000, 21-day blocks, prior canonical 19.3y window)
 
 | Strategy | Sharpe | Bootstrap mean | 95% CI | P(Sh > 1.0) |
 |---|---:|---:|---:|---:|
@@ -218,15 +245,18 @@ results reduce the probability that the historical result is pure noise,
 but they do not eliminate model-selection bias, regime risk, data-quality
 risk, or implementation drift.
 
-### Extended backtest (~27y, 1999-03-10 → 2026-05-15)
+### Documented 30y window (1996-01-04 → 2026-05-15)
 
 Includes dot-com bust (2000-02), GFC (2008), COVID (2020), 2022 inflation
 spike. Pre-2006 the NDX sleeve mirrors BULL-QQQ (PIT constituent data
-unavailable); pre-2000 the BULL canary uses VIPSX-stitched TIP and
-stitched HYG (VWEHX). Asset momentum circuit breaker (Antonacci 12-1)
-is the primary defense in macro-confusion regimes like dotcom.
+unavailable); pre-2001-06 the BULL canary reduces to HYG-only (VIPSX/TIP
+12-month warm-up not complete); SHV/IEF/TLT pre-live use
+VFISX/VFITX/VUSTX Vanguard mutual fund stitches; GLD pre-2004-11 uses
+World Bank monthly gold forward-filled to daily. Asset momentum circuit
+breaker (Antonacci 12-1) is the primary defense in macro-confusion
+regimes like dotcom.
 
-### Complexity-layer ablation (canonical 19.3y)
+### Complexity-layer ablation (prior canonical 19.3y window)
 
 Each added complexity layer should justify itself versus simpler adjacent
 strategies after cost:
@@ -311,7 +341,7 @@ Within the validated 2-5z plateau, exact value is not sensitive.
 
 6. **Effective Nasdaq/growth concentration.** In risk-on regimes, CPM can
    pick QQQ or IWF while BULL holds QQQ and NDX holds top Nasdaq-100
-   names. Realized growth-exposure distribution (canonical 19.3y):
+   names. Realized growth-exposure distribution (prior canonical 19.3y window):
 
    | Stat | Total growth/Nasdaq exposure |
    |---|---:|
@@ -412,7 +442,7 @@ uv run bull_qqq_live.py allocate
 uv run ndx_sleeve_live.py
 
 # Run a backtest
-uv run cpm_live.py backtest --start 2007-02-01
+uv run cpm_live.py backtest --start 2008-04-30
 
 # Rebuild dashboard
 uv run build_dashboard.py
