@@ -91,10 +91,24 @@ def compute_ndx_weights(
             "selected": list(bq_weights.keys()),
             "reason": "PIT NDX data unavailable pre-2006; mirroring BULL-QQQ",
         })
-    available = [t for t in pit_tickers if t in ndx_panel.columns]
+    # Filter to PIT-listed tickers with usable price at signal date.
+    # A ticker that delisted before sig_d may still appear in yearly PIT
+    # membership; selecting it would trigger the holding-period haircut bug.
+    monthly = ndx_panel.loc[:sig_d].resample("ME").last()
+    available = []
+    for t in pit_tickers:
+        if t not in ndx_panel.columns:
+            continue
+        # Require non-NaN price at the actual signal date (not just history)
+        if sig_d in ndx_panel.index and pd.isna(ndx_panel.loc[sig_d, t]):
+            continue
+        # Or fall back to last available within 30 days of sig_d (data gap tolerance)
+        recent = ndx_panel[t].loc[sig_d - pd.Timedelta(days=30):sig_d].dropna()
+        if recent.empty:
+            continue
+        available.append(t)
 
     # Step 3: 13612U momentum on each available member
-    monthly = ndx_panel.loc[:sig_d].resample("ME").last()
     momenta = {}
     for t in available:
         s = monthly[t].dropna()
@@ -176,14 +190,38 @@ def run_ndx_backtest(
         if prev_loc == 0:
             continue
         prev_d = full_panel.index[prev_loc - 1]
+        # Detect market-closed day (all tickers NaN today) vs real delisting.
+        # Holidays produce NaN for every asset; real delistings produce NaN
+        # only for the delisted ticker while others trade.
+        market_open = full_panel.loc[ts].notna().sum() > full_panel.loc[ts].isna().sum()
         port_r = 0.0
-        for asset, w in cur_w.items():
+        delisted_w = 0.0
+        for asset, w in list(cur_w.items()):
             if asset not in full_panel.columns:
+                delisted_w += w
+                del cur_w[asset]
                 continue
             today = full_panel.loc[ts, asset]
             yest = full_panel.loc[prev_d, asset]
             if pd.notna(today) and pd.notna(yest) and yest > 0:
                 port_r += w * (today / yest - 1)
+            elif market_open and pd.notna(yest) and yest > 0 and pd.isna(today):
+                # Real delisting detected mid-holding-period (acquisition,
+                # merger, or bankruptcy). Without delisting-event metadata we
+                # cannot know the terminal payoff. Apply conservative
+                # liquidation: one-time -10% haircut on the delisting day
+                # (rough blended estimate across NDX historical delistings)
+                # then convert to SHV cash for the remainder of the period.
+                port_r += w * (-0.10)
+                delisted_w += w
+                del cur_w[asset]
+        if delisted_w > 0:
+            cur_w[CASH_TICKER] = cur_w.get(CASH_TICKER, 0.0) + delisted_w
+            if CASH_TICKER in full_panel.columns:
+                t_cash = full_panel.loc[ts, CASH_TICKER]
+                y_cash = full_panel.loc[prev_d, CASH_TICKER]
+                if pd.notna(t_cash) and pd.notna(y_cash) and y_cash > 0:
+                    port_r += delisted_w * (t_cash / y_cash - 1)
         daily_rets.loc[ts] += port_r
 
     return daily_rets, history
