@@ -141,8 +141,7 @@ change the magnitude of the Sharpe advantage vs SPY buy-hold. The
 drawdown advantage is unaffected by the raw-vs-excess convention. For
 Sharpe ordering, Bull-SPY vs SPY buy-hold is verified empirically in
 Section 4.8 (Bull-SPY raw 1.114 vs excess 0.980; SPY BH raw 0.660 vs
-excess 0.591; ordering preserved). PP-blend excess-Sharpe checks are
-are outside the reported evidence.
+excess 0.591; ordering preserved). PP-blend excess-Sharpe is outside the reported evidence.
 
 ### 2.4 Gate 1: Canary
 
@@ -543,7 +542,7 @@ This is the standalone marginal SE. Two more rigorous statistical
 framings appear later:
 
 - **Section 4.10 (DSR)** addresses specification-search risk: whether
-  the observed standalone Sharpe could plausibly arise from a zero-true-
+  the observed standalone Sharpe could arise from a zero-true-
   Sharpe null adjusted for N independent trials. Bull-SPY passes at
   N=50 (PSR > 99%).
 - **Section 4.11 (paired Jobson-Korkie/Memmel)** addresses benchmark-
@@ -564,7 +563,7 @@ For context, individual pillar firing rates:
 | curve   |         47% | Most selective; yield-curve regime                    |
 | vol     |         62% | Moderately selective; equity vol regime               |
 | trend   |         82% | (Not used — redundant with asset_mom)                 |
-| credit  |         79% | (Dropped — partially redundant with canary)           |
+| credit  |         79% | (Not used — partially redundant with canary)          |
 
 The combined `curve OR vol` fires approximately 80% of months, which is
 selective enough to materially filter risk-off regimes without being so
@@ -746,8 +745,8 @@ Bull-SPY remains PSR > 99% at N=50 specification trials. The number of
 independent architectural variations within the same gate family
 (canary asset choice, pillar selection, voting rule, asset-momentum
 lookback) is in the 10-30 range. **The standalone positive Sharpe is
-unlikely to be a multiple-testing artifact at any plausible trial
-count in that range.** This is a null-hypothesis test (Sharpe greater
+unlikely to be a multiple-testing artifact for any independent trial
+count in the 10-30 range.** This is a null-hypothesis test (Sharpe greater
 than zero accounting for spec-search), not a benchmark-relative test;
 for the paired Bull-vs-buy-hold significance question see Section
 4.11.
@@ -843,7 +842,7 @@ consistent with this design intent (Section 3.2 per-regime table).
 
 ## 6. Limitations and caveats
 
-1. **Specification-tested, not out-of-sample.** Canary asset selection,
+1. **In-sample historical backtests.** Canary asset selection,
    pillar selection (curve+vol), and ablation choice (1-of-2 OR) were all
    evaluated on the same historical sample. The numbers reported should
    be treated as historically robust on this sample, not as forward-
@@ -1004,7 +1003,7 @@ canary reduces to HYG-only.
 | Component             | Clean window first signal | 30y window first signal | Notes                                                                  |
 |-----------------------|---------------------------|-------------------------|------------------------------------------------------------------------|
 | Canary HYG 13612U     | 2008-04-30                | 1996-01-31              | Clean: live HYG. 30y: VWEHX stitch from 1980                           |
-| Canary TIP 13612U     | 2008-04-30                | 2001-06-30              | VIPSX live 2000-06; pre-2001 canary reduces to HYG-only                |
+| Canary TIP 13612U     | 2008-04-30                | 2001-06-30              | VIPSX live 2000-06; canary before 2001-06 reduces to HYG-only          |
 | Curve pillar (IEF/TLT)| 2008-04-30                | 1996-01-31              | Clean: live IEF/TLT. 30y: VFITX/VUSTX stitches pre-2002                |
 | Vol pillar (SPY)      | 2008-04-30                | 1996-01-31              | 252d lookback on SPY (live since 1993)                                 |
 | Asset mom (SPY)       | 2008-04-30                | 1996-01-31              | 13mo lookback on SPY (live since 1993)                                 |
