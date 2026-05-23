@@ -1,4 +1,4 @@
-# A Three-Layer Regime Gate for Long-Equity-or-Cash Strategies
+# Bull-SPY: A Three-Layer Regime Gate for Long-Equity-or-Cash on SPY
 
 **Author:** Rakha Kanz Kautsar
 **Date:** 2026-05-23
@@ -12,12 +12,12 @@
 
 ## Abstract
 
-This note documents a simple monthly-rebalanced regime gate that converts a
-broad US equity benchmark (SPY or QQQ) into a long-equity-or-cash strategy
-with materially lower drawdown and comparable or higher risk-adjusted return
-than buy-and-hold. The design uses three structurally distinct binary gates. The canary uses
-the Keller HAA-style "any positive" rule; the macro composite applies the
-same simple OR convention to two non-credit macro pillars:
+This note documents a simple monthly-rebalanced regime gate that converts
+SPY into a long-equity-or-cash strategy with materially lower drawdown
+and higher risk-adjusted return than buy-and-hold. The design uses three
+structurally distinct binary gates. The canary uses the Keller HAA-style
+"any positive" rule; the macro composite applies the same simple OR
+convention to two non-credit macro pillars:
 
 1. **Canary gate:** HYG OR TIP 13612U momentum > 0 (Keller HAA convention,
    2-asset credit + inflation signal).
@@ -31,25 +31,25 @@ same simple OR convention to two non-credit macro pillars:
 All three gates must pass for risk-on (100% in risky asset). Any gate
 failure flips to 100% SHV cash.
 
-The strategy is implemented in two variants. **Bull-SPY** is the recommended
-default for broader market exposure and lower tail risk. **Bull-QQQ** is a
-higher-beta variant for investors with explicit tech conviction.
+Over the clean window (18.1y, 10 bps/side cost), Bull-SPY delivers
+Sharpe 1.11 (vs SPY buy-hold 0.66) and max drawdown -12.6% (vs -51.5%).
+CAGR is slightly lower than buy-hold (11.2% vs 11.8%) but vol is roughly
+halved (10.0% vs 19.8%), giving the higher risk-adjusted return. Paired
+Jobson-Korkie/Memmel Sharpe-difference test: Bull-SPY's Sharpe advantage
+over SPY buy-hold is statistically significant at the 5% level (p=0.028
+one-sided). The standalone DSR null check (Section 4.10) also passes
+(PSR > 99% at N=50 specification trials).
 
-Over the clean window (18.1y, 10 bps/side cost), Bull-SPY delivers Sharpe
-1.11 (vs SPY buy-hold 0.66) and max drawdown -12.6% (vs -51.5%). Bull-QQQ
-delivers Sharpe 1.10 (vs QQQ buy-hold 0.82) with max drawdown -13.6% (vs
--49.4%). CAGR is slightly lower than buy-hold (Bull-SPY 11.2% vs SPY
-11.8%; Bull-QQQ 14.9% vs QQQ 17.2%) but vol is roughly halved, giving
-the higher risk-adjusted return. Paired Jobson-Korkie/Memmel Sharpe-
-difference test: Bull-SPY's Sharpe advantage over SPY buy-hold is
-statistically significant at the 5% level (p=0.028 one-sided);
-Bull-QQQ's advantage over QQQ buy-hold is marginal (p=0.091). The
-standalone DSR null check (Section 4.10) passes for both.
+A 60% Permanent Portfolio + 40% Bull-SPY blend produces Sharpe 1.28 with
+max drawdown -10.3% in the clean window — both blend metrics are
+**better than either standalone component**, due to low cross-sleeve
+correlation.
 
-A 60% Permanent Portfolio + 40% Bull-equity blend produces Sharpe ~1.28-1.29
-with max drawdown -10.3% to -12.3% in the clean window — both blend
-metrics are **better than either standalone component**, due to low
-cross-sleeve correlation.
+The implementation supports any equity ticker via the `BULL_TICKER`
+constant in `bull_qqq_live.py`; a Bull-QQQ variant exists but is not
+recommended in this memo due to weaker paired statistical significance
+(JK p=0.091) and lower CAGR yield from cost-of-cash drag relative to
+QQQ buy-hold. See `research/` for separate Bull-QQQ artifacts.
 
 This memo is **specification-tested, not out-of-sample**. Several design
 choices (canary asset selection, pillar selection, ablation results) were
@@ -59,8 +59,8 @@ forward-looking guarantees.
 
 Secondary supporting evidence: a 30-year backtest from 1996-01 to 2026-05
 using documented stitches for all non-live data (HYG/TIP/SHV/IEF/TLT
-from Vanguard mutual funds; GLD from World Bank monthly; QQQ pre-1999
-from NDX index). Standalone Bull-SPY Sharpe 0.96, blended 60/40 PP-IEF +
+from Vanguard mutual funds; GLD from World Bank monthly). Standalone
+Bull-SPY Sharpe 0.96, blended 60/40 PP-IEF +
 Bull-SPY Sharpe 1.20 over the 30y window including the dotcom bust, GFC,
 COVID, and the 2022-2023 inflation regime. The full HYG+TIP canary is
 not available before 2001-06 (TIP/VIPSX warm-up); the canary reduces to
@@ -69,7 +69,7 @@ clean 2008+ live-ETF window remains the primary evidence.
 
 ## 1. Motivation
 
-A standard long-equity strategy on SPY or QQQ delivers Sharpe 0.5-0.8 with
+A standard long-equity strategy on SPY delivers Sharpe 0.6-0.8 with
 50-83% peak-to-trough drawdowns. Single-asset trend filters (Faber 10m)
 reduce drawdown to ~25-30% but also cost significant CAGR by being out of
 the market during shallow corrections.
@@ -93,7 +93,6 @@ The strategy is implemented in two variants by choice of risky asset:
 
 - **Bull-SPY** (recommended default): 100% SPY when gates pass. Broad-market
   exposure, less sector concentration, gate signals coherent with allocation.
-- **Bull-QQQ**: 100% QQQ when gates pass. Higher-beta variant.
 
 The two variants use **identical** gate logic.
 
@@ -117,26 +116,21 @@ backtest; the measured impact is within noise (~2-9 bps Sharpe).
 
 All backtests use 10 bps/side trading cost. Live ETF and mutual-fund
 data are total-return adjusted via yfinance `auto_adjust=True`. Index
-and commodity proxy series are NOT necessarily total-return: NDX (QQQ
-pre-1999 warm-up) is price-return; World Bank monthly gold (GLD
-pre-2000-08) is a spot commodity price series. Proxy construction and
-total-return treatment are documented in Section 6 item 11.
+and commodity proxy series are NOT necessarily total-return: World Bank
+monthly gold (GLD pre-2004-11) is a spot commodity price series. Proxy
+construction and total-return treatment are documented in Section 6
+item 11.
 
 ### 2.3.1 Metric definitions
 
 - **Sharpe** (this note): raw Sharpe computed from daily strategy returns,
   annualized by sqrt(252) (`perf_metrics()` in `cpm_live.py`). No excess-
-  return subtraction vs SHV or T-bills. The Sharpe SE in Section 4.2 is
-  a rough monthly-aggregated approximation -- it uses N monthly
-  observations because the standard parametric Sharpe-SE formula is
-  typically stated for monthly samples. A daily-return Sharpe-SE
-  calculation would produce a different mechanical estimate, but the
-  effective uncertainty is dominated by autocorrelation, fat tails, and
-  specification search; the monthly approximation is used as a
-  conservative communication device. The directional conclusion
-  (effective SE around 0.36-0.48) is robust to that choice. The strategy spends 35-40% of months in SHV
-  cash earning approximately the short-end Treasury rate, so raw Sharpe
-  partly reflects cash yield during risk-off periods.
+  return subtraction vs SHV or T-bills. Sampling uncertainty, multiple-
+  testing adjustment (DSR), and paired Sharpe-difference testing vs
+  buy-hold are discussed in Sections 4.2, 4.10, and 4.11. The strategy
+  spends 35-40% of months in SHV cash earning approximately the short-
+  end Treasury rate, so raw Sharpe partly reflects cash yield during
+  risk-off periods.
 - **CAGR**: geometric annualized total return (calendar-day basis).
 - **Max Drawdown, Ulcer**: computed from the daily equity curve.
 - **Calmar**: CAGR / |Max DD|.
@@ -145,14 +139,12 @@ total-return treatment are documented in Section 6 item 11.
 
 Raw-vs-excess caveat: because the strategy spends substantial time in
 SHV, subtracting the SHV return for an excess-Sharpe variant could
-change the magnitude of the Sharpe advantage vs SPY/QQQ buy-hold. The
-relative ordering is expected to hold (the strategy still beats buy-hold
-on DD). For Bull-SPY vs SPY buy-hold, the ordering is verified
-empirically in Section 4.8 (Bull-SPY raw 1.114 vs excess 1.004; SPY BH
-raw 0.660 vs excess 0.592). Bull-QQQ and PP-blend excess-Sharpe checks
-are not shown; broader raw-vs-excess claims would need those. SPY/QQQ buy-hold
-does not include a separate cash allocation, while the gated strategy
-earns SHV returns during risk-off periods.
+change the magnitude of the Sharpe advantage vs SPY buy-hold. The
+drawdown advantage is unaffected by the raw-vs-excess convention. For
+Sharpe ordering, Bull-SPY vs SPY buy-hold is verified empirically in
+Section 4.8 (Bull-SPY raw 1.114 vs excess 0.980; SPY BH raw 0.660 vs
+excess 0.591; ordering preserved). PP-blend excess-Sharpe checks are
+not shown; broader raw-vs-excess claims would need those.
 
 ### 2.4 Gate 1: Canary
 
@@ -214,7 +206,7 @@ in the most recent month.
 ### 2.7 Allocation rule
 
 ```
-If Gate-1 AND Gate-2 AND Gate-3 all pass: 100% in risky asset (SPY or QQQ)
+If Gate-1 AND Gate-2 AND Gate-3 all pass: 100% SPY
 Else:                                      100% in SHV cash
 ```
 
@@ -246,66 +238,60 @@ published Keller rule.
 | Strategy                  |  Sharpe |   CAGR   |   Max DD | Calmar | Martin | Ulcer |
 |---------------------------|--------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold              |    0.66 |   11.78% |  -51.48% |   0.23 |   1.03 | 11.4% |
-| QQQ buy-hold              |    0.82 |   17.17% |  -49.37% |   0.35 |   1.45 | 11.9% |
 | **Bull-SPY**              |    1.11 |   11.19% |  -12.58% |   0.89 |   2.99 |  3.7% |
-| **Bull-QQQ**              |    1.10 |   14.94% |  -13.56% |   1.10 |   2.93 |  5.1% |
 | PP-IEF standalone         |    1.00 |    6.96% |  -15.34% |   0.45 |   2.22 |  3.1% |
 
 Per-regime Sharpe (clean window). GFC label is **partial** since clean
 window starts 2008-04-30, missing the pre-crisis peak and early decline
 (Oct 2007 to Apr 2008).
 
-| Regime                       | SPY BH | QQQ BH | Bull-SPY | Bull-QQQ |
-|------------------------------|-------:|-------:|---------:|---------:|
-| GFC partial (2008-04 to 2009)|  -0.11 |   0.12 |    +1.34 |    +0.70 |
-| Disinfl (2010-2019)          |   0.93 |   1.04 |    +1.01 |    +1.12 |
-| COVID (2020)                 |   0.67 |   1.29 |    +0.91 |    +1.16 |
-| InflRt (2021-2023)           |   0.63 |   0.52 |    +1.29 |    +1.12 |
-| Post (2024+)                 |   1.33 |   1.26 |    +1.68 |    +1.43 |
+| Regime                       | SPY BH | Bull-SPY |
+|------------------------------|-------:|---------:|
+| GFC partial (2008-04 to 2009)|  -0.11 |    +1.34 |
+| Disinfl (2010-2019)          |   0.93 |    +1.01 |
+| COVID (2020)                 |   0.67 |    +0.91 |
+| InflRt (2021-2023)           |   0.63 |    +1.29 |
+| Post (2024+)                 |   1.33 |    +1.68 |
 
 Risk-on percentage and turnover (clean window):
 
 | Variant   | Months risk-on | Approx flips | Approx flips/year |
 |-----------|---------------:|-------------:|------------------:|
 | Bull-SPY  |            63% |           33 |               1.8 |
-| Bull-QQQ  |            64% |           37 |               2.0 |
 
 ### 3.2 Standalone performance — documented 30y window (1996-01-04 to 2026-05-15)
 
 All data sources documented in Section 6 item 11. Canary reduces to HYG-only
-before 2001-06 (TIP/VIPSX 12-month warm-up not complete). QQQ pre-1999
-uses NDX index proxy. SHV/IEF/TLT pre-live use Vanguard mutual fund
-stitches (VFISX/VFITX/VUSTX). GLD pre-2004-11 (live ETF inception) uses
-World Bank monthly gold data forward-filled to daily.
+before 2001-06 (TIP/VIPSX 12-month warm-up not complete). SHV/IEF/TLT
+pre-live use Vanguard mutual fund stitches (VFISX/VFITX/VUSTX). GLD
+pre-2004-11 (live ETF inception) uses World Bank monthly gold data
+forward-filled to daily.
 
 | Strategy                   |  Sharpe |   CAGR   |   Max DD | Calmar | Martin | Ulcer |
 |----------------------------|--------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold               |    0.61 |   10.41% |  -55.19% |   0.19 |   0.69 | 15.1% |
-| QQQ buy-hold               |    0.63 |   14.41% |  -82.96% |   0.17 |   0.35 | 41.2% |
 | **Bull-SPY**               |    0.96 |   10.00% |  -19.35% |   0.52 |   2.23 |  4.5% |
-| **Bull-QQQ**               |    0.91 |   14.13% |  -26.83% |   0.53 |   1.72 |  8.2% |
 | PP-IEF standalone          |    1.05 |    7.00% |  -15.53% |   0.45 |   2.61 |  2.7% |
 | PP-TLT standalone          |    1.01 |    7.16% |  -17.45% |   0.41 |   2.11 |  3.4% |
 
 Per-regime Sharpe (30y):
 
-| Regime              | SPY BH | QQQ BH | Bull-SPY | Bull-QQQ |
-|---------------------|-------:|-------:|---------:|---------:|
-| Dotcom (2000-2002)  |  -0.53 |  -0.59 |    +0.57 |    +0.18 |
-| GFC (2007-2009)     |  -0.05 |  +0.23 |    +0.55 |    +0.72 |
-| Disinfl (2010-2019) |  +0.93 |  +1.04 |    +1.01 |    +1.12 |
-| COVID (2020)        |  +0.67 |  +1.29 |    +0.91 |    +1.16 |
-| InflRt (2021-2023)  |  +0.63 |  +0.52 |    +1.29 |    +1.12 |
-| Post (2024+)        |  +1.33 |  +1.26 |    +1.68 |    +1.43 |
+| Regime              | SPY BH | Bull-SPY |
+|---------------------|-------:|---------:|
+| Pre2000 (1996-1999) |  +1.39 |    +0.98 |
+| Dotcom (2000-2002)  |  -0.53 |    +0.57 |
+| GFC (2007-2009)     |  -0.05 |    +0.55 |
+| Disinfl (2010-2019) |  +0.93 |    +1.01 |
+| COVID (2020)        |  +0.67 |    +0.91 |
+| InflRt (2021-2023)  |  +0.63 |    +1.29 |
+| Post (2024+)        |  +1.33 |    +1.68 |
 
-The gated strategies report positive Sharpe in every regime row including
-dotcom (Bull-SPY +0.57, Bull-QQQ +0.18 vs SPY/QQQ buy-hold -0.53 / -0.59).
-Bull-SPY's worst DD over 30y is -19.35% (1998 Russian/LTCM crisis);
-Bull-QQQ's is -26.83% (2010 Flash Crash + 2018 Q4 dual hit). The Pre2000
-regime (1996-1999) is omitted from the table because the gates fired
-actively during the LTCM crisis in 1998, producing positive but lower
-Sharpe than buy-hold during the late-1990s bull -- consistent with the
-strategy's design (forgo bull-market alpha to limit DD).
+Bull-SPY reports positive Sharpe in every regime, including dotcom
+(+0.57 vs SPY buy-hold -0.53). The Pre2000 (1996-1999) regime was a
+strong bull where buy-hold dominates (+1.39) while the gated strategy
+gives up some upside (+0.98) -- consistent with the strategy's design
+to forgo bull-market alpha in exchange for limiting DD. Bull-SPY's
+worst DD over the 30y window is -19.35% (1998 Russian/LTCM crisis).
 
 ### 3.3 60% PP + 40% Bull-equity blend — clean window (18.1y)
 
@@ -316,13 +302,11 @@ equal-weight monthly. Blending 60% PP + 40% Bull-equity:
 |-----------------------------|-------:|---------:|---------:|-------:|-------:|
 | PP-IEF standalone           |   1.00 |    6.96% |  -15.34% |   0.45 |   2.22 |
 | Bull-SPY standalone         |   1.11 |   11.19% |  -12.58% |   0.89 |   2.99 |
-| Bull-QQQ standalone         |   1.10 |   14.94% |  -13.56% |   1.10 |   2.93 |
 | 60% PP-IEF + 40% Bull-SPY   |   1.28 |    8.75% |  -10.30% |   0.85 |   3.79 |
-| 60% PP-IEF + 40% Bull-QQQ   |   1.29 |   10.30% |  -12.31% |   0.84 |   3.51 |
 
-For both variants, the blend Sharpe is **higher than either standalone
-component** AND the blend max drawdown is **smaller than either component
-alone**. This is variance reduction from low cross-sleeve correlation: PP
+The blend Sharpe (1.28) is **higher than either standalone component**
+(PP-IEF 1.00, Bull-SPY 1.11) AND the blend max drawdown (-10.30%) is
+**smaller than either component alone** (-15.34% PP-IEF, -12.58% Bull-SPY). This is variance reduction from low cross-sleeve correlation: PP
 is balanced-static and weights toward defensive assets in equity
 drawdowns; the Bull sleeve is equity-or-cash and weights toward cash in
 equity drawdowns. The two sleeves provide defensive exposure through
@@ -335,15 +319,13 @@ structurally different mechanisms.
 | PP-IEF standalone           |   1.05 |    7.00% |  -15.53% |   0.45 |   2.61 |
 | PP-TLT standalone           |   1.01 |    7.16% |  -17.45% |   0.41 |   2.11 |
 | 60% PP-IEF + 40% Bull-SPY   |   1.20 |    8.35% |  -10.46% |   0.80 |   3.67 |
-| 60% PP-IEF + 40% Bull-QQQ   |   1.16 |   10.13% |  -13.02% |   0.78 |   3.09 |
 | 60% PP-TLT + 40% Bull-SPY   |   1.19 |    8.45% |  -10.47% |   0.81 |   3.51 |
-| 60% PP-TLT + 40% Bull-QQQ   |   1.16 |   10.23% |  -13.20% |   0.78 |   3.08 |
 
-Over the 30-year documented window, the 60/40 PP+Bull blends report
-Sharpe 1.16-1.20 with max drawdown -10.5% to -13.2%. PP-IEF and PP-TLT
-variants are nearly identical on Sharpe; PP-IEF has slightly shallower
-max drawdown so it is the recommended default unless the user
-specifically wants longer-duration deflation exposure.
+Over the 30-year documented window, the 60/40 PP+Bull-SPY blends report
+Sharpe 1.19-1.20 with max drawdown -10.5%. PP-IEF and PP-TLT variants
+are nearly identical on Sharpe; PP-IEF has slightly shallower max
+drawdown so it is the recommended default unless the user specifically
+wants longer-duration deflation exposure.
 
 Daily-return metrics before GLD live inception in 2004-11 may understate
 gold volatility because the gold sleeve uses monthly World Bank gold
@@ -358,12 +340,13 @@ at month-end are unaffected.
 | 60% PP + 40% Bull-SPY       |   1.20 |    8.35% |  -10.46% |
 | 70% PP + 30% Bull-SPY       |   1.20 |    8.04% |  -10.66% |
 
-Rounded Sharpe is essentially tied between 60/40 (1.20) and 70/30 (1.20);
-60/40 has higher CAGR and slightly shallower max drawdown. 60/40 is a
-balanced compromise — slightly lower Sharpe than 70/30 with higher CAGR
-and similar drawdown. The rounded results are very close across the
-three splits; the choice depends on whether the user prefers slightly
-more growth (50/50) or slightly smoother equity curve (70/30).
+Rounded Sharpe is essentially tied between 60/40 and 70/30 (both 1.20).
+60/40 has higher CAGR and slightly shallower max drawdown in the shown
+table, making it the cleaner default compromise. The 50/50 variant has
+the highest CAGR (8.65%) but slightly deeper drawdown (-11.93%).
+Results are close enough that the choice depends on whether the user
+prefers slightly more growth (50/50) or smoother equity curve (60/40 or
+70/30).
 
 ## 4. Robustness Checks
 
@@ -383,11 +366,13 @@ which is the baseline:
 
 The 6 configs are the cartesian product of 3 backtest windows (proxy-
 assisted 22.8y from 2003-08, proxy-assisted 19.2y from 2007-02, 30y from
-1996-01) and 2 risky assets (SPY, QQQ). "Wins vs baseline" means
-strictly higher Sharpe than the `canary + asset_mom` baseline (no
-composite gate) in that cell. Note: these ablation windows are not all
-pure live-ETF; they were used for specification testing across longer
-histories. The clean 2008-04 window remains the primary live-ETF evidence.
+1996-01) and 2 risky assets (SPY and QQQ; QQQ included only for ablation
+robustness across asset choice). "Wins vs baseline" means strictly
+higher Sharpe than the `canary + asset_mom` baseline (no composite gate)
+in that cell. The ablation tables here were recomputed on the v6
+documented-stitch data stack and are retained as specification-selection
+evidence rather than as headline performance numbers. The clean 2008-04
+window remains the primary live-ETF performance evidence.
 
 The macro-composite OR rule reuses the same simple OR convention used by
 the canary, but applying OR to a custom curve/vol composite is a
@@ -410,20 +395,16 @@ framings appear later:
 
 - **Section 4.10 (DSR)** addresses specification-search risk: whether
   the observed standalone Sharpe could plausibly arise from a zero-true-
-  Sharpe null after testing N variants. Both gated strategies pass at
-  N=50 trials (PSR > 99%).
+  Sharpe null after testing N variants. Bull-SPY passes at N=50 trials
+  (PSR > 99%).
 - **Section 4.11 (paired Jobson-Korkie/Memmel)** addresses benchmark-
-  relative significance directly: whether Bull's Sharpe is statistically
-  higher than buy-hold's Sharpe on the same underlying asset, accounting
-  for the correlation between the two return streams. Bull-SPY: p=0.028
-  (significant at 5% one-sided). Bull-QQQ: p=0.091 (marginal).
+  relative significance directly: whether Bull-SPY's Sharpe is
+  statistically higher than SPY buy-hold's Sharpe, accounting for the
+  correlation between the two return streams. Result: p=0.028 (one-
+  sided), significant at 5%.
 
 Drawdown improvements (~75% reduction vs buy-hold) are mechanically
 larger relative effects, less subject to noise discount than Sharpe.
-
-For a more rigorous claim, a paired Sharpe-difference test (which
-accounts for correlation between the strategy returns and the benchmark
-returns) would be needed. This is on the future-work list.
 
 ### 4.3 Pillar firing rates (22.8y proxy-assisted window)
 
@@ -444,24 +425,21 @@ restrictive that it disables the gate.
 
 Daily return correlations among sleeves and benchmarks (clean window):
 
-|             | Bull-SPY | Bull-QQQ | PP-IEF | PP-TLT | SPY BH | QQQ BH |
-|-------------|---------:|---------:|-------:|-------:|-------:|-------:|
-| Bull-SPY    |    1.00  |   0.90   |  0.36  |  0.30  |  0.50  |  0.53  |
-| Bull-QQQ    |    0.90  |   1.00   |  0.34  |  0.29  |  0.47  |  0.59  |
-| PP-IEF      |    0.36  |   0.34   |  1.00  |  0.95  |  0.67  |  0.62  |
-| PP-TLT      |    0.30  |   0.29   |  0.95  |  1.00  |  0.53  |  0.51  |
-| SPY BH      |    0.50  |   0.47   |  0.67  |  0.53  |  1.00  |  0.93  |
-| QQQ BH      |    0.53  |   0.59   |  0.62  |  0.51  |  0.93  |  1.00  |
+|             | Bull-SPY | PP-IEF | PP-TLT | SPY BH |
+|-------------|---------:|-------:|-------:|-------:|
+| Bull-SPY    |    1.00  |  0.36  |  0.30  |  0.50  |
+| PP-IEF      |    0.36  |  1.00  |  0.95  |  0.67  |
+| PP-TLT      |    0.30  |  0.95  |  1.00  |  0.53  |
+| SPY BH      |    0.50  |  0.67  |  0.53  |  1.00  |
 
-Key observation: **PP and Bull sleeves correlate at 0.30-0.36 (daily) and
+Key observation: **PP and Bull-SPY correlate at 0.30-0.36 (daily) and
 0.32-0.41 (monthly)**, low enough that the 60/40 blend's variance
 reduction is consistent with structural diversification rather than a
-spurious sample-window artifact. By contrast,
-Bull-SPY and Bull-QQQ correlate 0.90 (same gate, same regime) and PP-IEF
-and PP-TLT correlate 0.95-0.96 (same structure, different bond duration).
-The blend benefit comes from pairing the regime-gated dynamic sleeve
-with the balanced-static PP, which observe market stress through
-structurally different mechanisms.
+spurious sample-window artifact. PP-IEF and PP-TLT correlate 0.95-0.96
+(same structure, different bond duration). The blend benefit comes
+from pairing the regime-gated dynamic sleeve with the balanced-static
+PP, which observe market stress through structurally different
+mechanisms.
 
 30y window correlations are similar (Bull-SPY vs PP-IEF: 0.40
 daily / 0.41 monthly), consistent with structural diversification across
@@ -475,7 +453,6 @@ For the clean window (n=217 monthly signals), the trend pillar
 | Risky asset | Both on | Both off | Trend only | Mom only | Agree |
 |-------------|--------:|---------:|-----------:|---------:|------:|
 | vs SPY 12-1 mom | 158 (73%) | 24 (11%) | 13 (6%)  | 22 (10%) | 84%   |
-| vs QQQ 12-1 mom | 160 (74%) | 21 (10%) | 11 (5%)  | 25 (12%) | 83%   |
 
 The trend pillar agreed with the asset-momentum gate ~83% of the time,
 confirming the redundancy claim in Section 2.8.
@@ -505,7 +482,7 @@ suggesting the composite is the most reactive of the three gates. The
 2011 episode took 493 days to fully recover, the longest underwater span.
 None exceeded -13%.
 
-### 4.7 Cost sensitivity (Bull-SPY and Bull-QQQ, clean window)
+### 4.7 Cost sensitivity (Bull-SPY, clean window)
 
 Cost is applied as bps/side on the traded notional each rebalance, charged
 on both sides of any state flip (sell + buy = 2 x bps). The implementation
@@ -524,45 +501,31 @@ debits cost from the daily return on rebalance days.
 | 100            |  0.769 |  7.66%  | -15.20%  |   0.50 |
 | 200            |  0.388 |  3.80%  | -31.01%  |   0.12 |
 
-**Bull-QQQ standalone:**
-
-| bps/side       | Sharpe | CAGR    | MaxDD    | Calmar |
-|----------------|-------:|--------:|---------:|-------:|
-| 0 (frictionless)| 1.130 | 15.34%  | -13.56%  |   1.13 |
-| 5              |  1.117 | 15.14%  | -13.56%  |   1.12 |
-| 10 (baseline)  |  1.104 | 14.94%  | -13.56%  |   1.10 |
-| 20             |  1.078 | 14.55%  | -13.56%  |   1.07 |
-| 25             |  1.065 | 14.35%  | -13.72%  |   1.05 |
-| 50             |  0.998 | 13.37%  | -14.58%  |   0.92 |
-| 100            |  0.859 | 11.41%  | -16.28%  |   0.70 |
-| 200            |  0.578 |  7.53%  | -24.95%  |   0.30 |
-
 **Cost band interpretation:**
 
 - **0-5 bps/side**: low-cost ETFs at zero-commission retail brokers
   (Vanguard, Fidelity, Schwab, IBKR Lite) with tight spreads. Realistic
-  for SPY/QQQ/SHV/HYG/TIP/IEF/TLT which all have ~1c-2c spreads on
-  10-100M+ daily volume.
+  for the listed ETFs. These are highly liquid ETFs, but realized cost
+  still depends on current spreads, order size, market conditions, and
+  execution method.
 - **10-25 bps/side**: realistic if any execution slippage occurs at scale
   or if rebalancing uses market orders during volatile periods. This is
   the sensitivity band most users should plan around.
 - **50 bps/side**: commissioned trading or thinly-traded ETF universe.
-  Bull-SPY Sharpe still 0.96 / Bull-QQQ 1.00, both well above SPY/QQQ
-  buy-hold (0.66 / 0.82).
-- **100 bps/side**: legacy commissioned brokerage with non-trivial
-  spread. Bull-SPY Sharpe 0.77, Bull-QQQ 0.86.
-- **200 bps/side**: pathological case. Sharpe collapses (0.39 / 0.58)
-  and MaxDD blows out because compound cost outpaces returns. Not
-  realistic for retail ETF universe; included as stress test.
+  Bull-SPY Sharpe still 0.96, well above SPY buy-hold 0.66.
+- **100 bps/side**: commissioned brokerage with non-trivial spread.
+  Bull-SPY Sharpe 0.77.
+- **200 bps/side**: pathological case. Sharpe collapses to 0.39 and
+  MaxDD blows out because compound cost outpaces returns. Not realistic
+  for the listed ETF universe; included as stress test.
 
-The gated strategy switches state ~1.8-2.0 times per year in the clean
-window (Section 3.1 turnover table: Bull-SPY 33 flips / 18.1y; Bull-QQQ
-37 flips / 18.1y), or roughly 3.6-4.0 sided trades per year. At 20
-bps/side, total annual cost drag is roughly 0.7-0.8% of NAV, consistent
-with the CAGR delta in the cost table (Bull-SPY 11.58% at 0 bps falls
-to 10.79% at 20 bps). Sharpe is roughly linear in cost up to ~50 bps
-and degrades non-linearly above 100 bps as cost begins to dominate
-signal.
+The gated strategy switches state ~1.8 times per year in the clean
+window (Section 3.1 turnover table: 33 flips over 18.1y), or roughly
+3.6 sided trades per year. At 20 bps/side, total annual cost drag is
+roughly 0.7% of NAV, consistent with the CAGR delta in the cost table
+(11.58% at 0 bps falls to 10.79% at 20 bps). Sharpe is roughly linear
+in cost up to ~50 bps and degrades non-linearly above 100 bps as cost
+begins to dominate signal.
 
 ### 4.8 Excess Sharpe vs SHV cash (Bull-SPY, clean window)
 
@@ -594,22 +557,17 @@ performance by hiding overnight gap risk:
 |-----------|----------------------|-------:|--------:|--------:|---------:|
 | Bull-SPY  | Close-to-close (ref) |  1.136 | 11.59%  | -12.58% |    -     |
 | Bull-SPY  | Strict open-fill     |  1.134 | 11.41%  | -12.41% |   -0.002 |
-| Bull-QQQ  | Close-to-close (ref) |  1.170 | 15.82%  | -13.56% |    -     |
-| Bull-QQQ  | Strict open-fill     |  1.161 | 15.49%  | -13.77% |   -0.009 |
 
-The DELTA is **within noise** (-0.002 to -0.009 Sharpe, ~17-22 bps DD).
-The monthly rebalance produces only ~37 weight flips x 2 = ~74 overnight
-gaps over 18y with mostly random signs, so the convention choice does
-not materially affect results.
+The DELTA is **within noise** (-0.002 Sharpe, ~17 bps DD). The monthly
+rebalance produces only ~33 weight flips x 2 = ~66 overnight gaps over
+18y with mostly random signs, so the convention choice does not
+materially affect results.
 
-Note: absolute Sharpe levels in this table (1.136 / 1.170) are from a
-parallel strict-fill reimplementation with slightly different startup
-edge handling and differ from the canonical Section 3.1 values
-(1.114 / 1.104 at 10bps cost) by ~0.02 Sharpe. The validated quantity
-is the delta between conventions on the SAME implementation, which is
-robust to that absolute offset. The strict open-fill backtest validates
-the close-to-close approximation as adequate for this monthly-rebalanced
-strategy.
+Note: absolute Sharpe in this table (1.136) is from a parallel
+strict-fill implementation with slightly different startup edge handling
+and differs from the canonical Section 3.1 value (1.114 at 10bps cost)
+by ~0.02 Sharpe. The validated quantity is the delta between conventions
+on the SAME implementation, which is robust to that absolute offset.
 
 ### 4.10 Deflated Sharpe Ratio (DSR)
 
@@ -626,19 +584,16 @@ daily returns):
 | Strategy             | Sharpe | PSR(N=5) | PSR(N=10) | PSR(N=19) | PSR(N=50) |
 |----------------------|-------:|---------:|----------:|----------:|----------:|
 | SPY buy-hold         |  0.660 |    94.6% |     88.9% |     82.2% |     70.0% |
-| QQQ buy-hold         |  0.822 |    98.9% |     97.1% |     94.5% |     88.6% |
 | Bull-SPY             |  1.114 |   100.0% |     99.9% |     99.7% |     99.2% |
-| Bull-QQQ             |  1.104 |   100.0% |     99.9% |     99.7% |     99.1% |
 
-Both gated strategies remain PSR > 99% at N=50 specification trials.
-The number of architectural variations explored during development is
-hard to count precisely but is plausibly in the 10-30 range (canary
-asset choice, pillar selection, voting rule, asset momentum lookback
-variants). **The standalone positive Sharpe is unlikely to be a
-multiple-testing artifact.** This is a null-hypothesis test (Sharpe
-is greater than zero accounting for spec-search), not a benchmark-
-relative test; for the paired Bull-vs-buy-hold significance question
-see Section 4.11.
+Bull-SPY remains PSR > 99% at N=50 specification trials. The number of
+architectural variations explored during development is hard to count
+precisely but is plausibly in the 10-30 range (canary asset choice,
+pillar selection, voting rule, asset momentum lookback variants).
+**The standalone positive Sharpe is unlikely to be a multiple-testing
+artifact.** This is a null-hypothesis test (Sharpe is greater than
+zero accounting for spec-search), not a benchmark-relative test; for
+the paired Bull-vs-buy-hold significance question see Section 4.11.
 
 Implementation notes:
 - Per-period (daily) Sharpe used in formula; annualized Sharpe divided
@@ -681,28 +636,23 @@ window (T=4540 daily, 10 bps/side cost):
 | Comparison                | Sh(Bull) | Sh(BH) | Diff   | rho   | z     | p (one-sided) | Verdict           |
 |---------------------------|---------:|-------:|-------:|------:|------:|--------------:|-------------------|
 | Bull-SPY vs SPY buy-hold  |    1.114 |  0.660 | +0.453 | 0.498 | +1.92 |        0.0276 | significant @ 5%  |
-| Bull-QQQ vs QQQ buy-hold  |    1.104 |  0.822 | +0.282 | 0.599 | +1.34 |        0.0906 | marginal (~10%)   |
 
 **Bull-SPY's Sharpe is statistically significantly higher than SPY
-buy-hold's Sharpe at the 5% level (one-sided).** Bull-QQQ's Sharpe
-advantage is positive but only marginally significant at the 10%
-level; the smaller advantage (+0.28 vs +0.45) reflects QQQ buy-hold
-already having a higher base Sharpe than SPY buy-hold during this
-window.
+buy-hold's Sharpe at the 5% level (one-sided).**
 
-**Note on "excess Sharpe" tests:** an alternative framing applies DSR
-or PSR to the EXCESS return stream `Bull - BuyHold`. That test
-measures whether the active-management excess return is significant
-relative to its own tracking-error volatility. It is appropriate for
-active managers tracking a benchmark on a TE-adjusted basis, but it is
-not the right test here. The strategy is structurally different from
-buy-hold (cash ~37-50% of time, vol roughly halved), not a TE-active
-variant. The excess Sharpe is negative for both Bull-SPY (-0.11) and
-Bull-QQQ (-0.19), reflecting the small CAGR drag (0.6 / 2.2pp) combined
-with high tracking-error vol. This negative-excess-Sharpe result does
-not contradict the JK/Memmel result above: the strategy delivers higher
-risk-adjusted return at the cost of slightly lower raw return, and the
-right statistical question is the paired Sharpe-difference test.
+**Note on active-return Sharpe tests:** an alternative framing applies
+PSR/DSR to the active return stream `Bull-SPY - SPY buy-hold`. That
+test measures whether the active return stream is significant relative
+to its own tracking-error volatility. It is appropriate for active
+managers tracking a benchmark on a TE-adjusted basis, but it is not the
+right test here. Bull-SPY is structurally different from SPY buy-hold
+(cash ~37% of time, vol roughly halved), not a TE-active variant. The
+active-return Sharpe is negative (-0.11) because of the small CAGR drag
+(0.6pp) combined with high tracking-error vol. This negative-active-
+return-Sharpe result does not contradict the JK/Memmel result above:
+the strategy delivers higher risk-adjusted return at the cost of
+slightly lower raw return, and the right statistical question is the
+paired Sharpe-difference test.
 
 References:
 - Jobson, J. D. & Korkie, B. M. (1981). Performance Hypothesis Testing
@@ -725,37 +675,14 @@ References:
 The components observe different market dimensions, but they are **not
 statistically independent**. HYG appears in the canary; SPY appears in
 both the vol pillar and is highly correlated with the risky assets (SPY,
-QQQ). The "structural distinctness" claim is qualitative, not statistical.
+QQQ in ablation phase). The "structural distinctness" claim is qualitative, not statistical.
 
 The design intent is that in normal regimes, the canary or composite
 should fire first (macro signals lead asset price), while asset momentum
 provides a direct circuit breaker when macro signals are misleading
 (e.g., dotcom, where IG credit rallied while equities crashed). The
-dotcom-window regime Sharpe of +0.57 (Bull-SPY) and +0.18 (Bull-QQQ)
-vs SPY/QQQ buy-hold -0.53 / -0.59 are consistent with this design intent
-(Section 3.2 per-regime table).
-
-### 5.2 Choice of SPY vs QQQ as risky asset
-
-**Bull-SPY (recommended default):**
-- Direct alignment between vol pillar (SPY-based) and allocation (SPY).
-- Lower concentration risk: SPY has 11 sector weights vs QQQ's tech-heavy
-  ~60% Technology + Consumer Discretionary weighting.
-- Forward-robust: does not assume tech secular outperformance continues.
-- Lower 30y max drawdown (-19.4% vs -26.8% for QQQ).
-
-**Bull-QQQ:**
-- Captures tech beta multiplier -- QQQ had ~5.4 pp/year higher buy-hold
-  CAGR than SPY in the clean window; gated, Bull-QQQ had ~3.8 pp/year
-  higher CAGR than Bull-SPY.
-- Same gate logic, no asset-specific tuning.
-- Higher 30y CAGR (14.1% vs 10.0%) at the cost of deeper drawdowns.
-- Better for investors with explicit conviction in tech secular trend.
-
-In a 60/40 PP+Bull blend, Bull-QQQ produces ~1.5pp higher blend CAGR
-with nearly identical Sharpe and similar DD vs Bull-SPY in the clean
-window. Forward-looking, the spread is sensitive to whether tech
-outperformance persists.
+dotcom-window regime Sharpe of +0.57 (Bull-SPY) vs SPY buy-hold -0.53 is
+consistent with this design intent (Section 3.2 per-regime table).
 
 ## 6. Limitations and caveats
 
@@ -771,8 +698,8 @@ outperformance persists.
 
 3. **Gate lag.** Both 13612U and 12-1 momentum use trailing windows of
    12 months. Sharp V-recoveries are partially missed (typical 2-4 week
-   re-entry lag after gates flip back on). COVID 2020 Bull-QQQ Sharpe
-   1.16 vs underlying buy-hold 1.29 reflects this lag.
+   re-entry lag after gates flip back on). COVID 2020 Bull-SPY Sharpe
+   0.91 vs SPY buy-hold 0.67 reflects partial recapture of the V-shape.
 
 4. **Single-asset all-or-nothing.** No partial scaling, no diversification
    when risk-on. In-market periods carry full equity beta.
@@ -788,10 +715,10 @@ outperformance persists.
 
 7. **Documented-stitch 30y window.** Pre-live data sources are
    summarized in Section 6 item 11. Briefly: SPY is live throughout;
-   QQQ pre-1999 uses NDX index; SHV/IEF/TLT pre-live use Vanguard mutual
-   fund stitches (VFISX/VFITX/VUSTX); HYG uses VWEHX from 1980; TIP
-   uses VIPSX from 2000-06 (canary reduces to HYG-only before then);
-   GLD pre-2000-08 uses World Bank monthly gold forward-filled to daily.
+   SHV/IEF/TLT pre-live use Vanguard mutual fund stitches
+   (VFISX/VFITX/VUSTX); HYG uses VWEHX from 1980; TIP uses VIPSX from
+   2000-06 (canary reduces to HYG-only before then); GLD pre-2004-11
+   uses World Bank monthly gold forward-filled to daily.
    **30y results are documented stress-test evidence, secondary to the
    clean 2008+ live-ETF window.**
 
@@ -821,9 +748,9 @@ outperformance persists.
    In the 30y window, all gate inputs use documented stitches (Section
    6.11): SHV/IEF/TLT from Vanguard mutual funds (VFISX/VFITX/VUSTX),
    HYG from VWEHX, TIP from VIPSX (after 2000-06; HYG-only canary
-   before then), QQQ pre-1999 from NDX index, GLD pre-2004-11 (live
-   ETF inception) from World Bank monthly gold forward-filled to daily
-   (only affects PP gold sleeve at daily granularity).
+   before then), GLD pre-2004-11 (live ETF inception) from World Bank
+   monthly gold forward-filled to daily (only affects PP gold sleeve
+   at daily granularity).
 
 10. **Gates are diversified but not statistically independent.** They
     observe structurally different signals (credit, macro, price), but
@@ -835,7 +762,6 @@ outperformance persists.
     | Target | Live ETF | Live start | Documented pre-live / warm-up source                  | Proxy data start | Used for         | Notes                                            |
     |--------|----------|------------|--------------------------------------------------------|----------------|------------------|--------------------------------------------------|
     | SPY    | SPY      | 1993-01-29 | (none needed)                                          | n/a            | risk, vol, PP    | Live throughout 30y window                       |
-    | QQQ    | QQQ      | 1999-03-10 | NDX index (^NDX) via yfinance                          | 1985-10-01     | risk, asset mom  | NDX = price-return; QQQ = total-return            |
     | SHV    | SHV      | 2007-01-05 | VFISX (Vanguard Short-Term Treasury)                   | 1991-10-28     | cash fallback    | VFISX dur ~2y vs SHV ~0.3y                       |
     | IEF    | IEF      | 2002-07-22 | VFITX (Vanguard Intermediate-Term Treasury)            | 1991-10-28     | curve, PP-IEF    | VFITX dur ~5y vs IEF ~7-10y                      |
     | TLT    | TLT      | 2002-07-22 | VUSTX (Vanguard Long-Term Treasury)                    | 1986-05-19     | curve, PP-TLT    | VUSTX dur ~15-17y vs TLT ~17-20y                 |
@@ -855,18 +781,15 @@ outperformance persists.
       slightly different effective durations than the live SHV/IEF/TLT
       ETFs they proxy. Direction is consistent but magnitude can differ
       by ~10-20% on rate moves.
-    - **NDX is price-return, QQQ is total-return:** QQQ has ~0.5-0.8%
-      annual dividend yield not captured by the NDX index. For the
-      12-1 asset-momentum signal (sign test), this slightly biases the
-      momentum reading more negative for the pre-1999 period but rarely
-      flips the sign.
     - **World Bank gold is monthly, forward-filled:** suppresses daily
       volatility in PP gold sleeve before GLD live inception (2004-11).
-      Monthly-rebalance signals at month-end are correct; daily-return
-      metrics (Sharpe, correlation) for PP-blend pre-2004-11 may
-      understate gold volatility. The gold series itself extends from
-      1995-01 (World Bank monthly via freegoldapi.com compilation; the
-      primary source is the World Bank Pink Sheet commodity data).
+      Monthly-rebalance results are less sensitive to the daily forward-
+      fill than daily-return metrics, but the monthly-average versus
+      month-end-price convention of the World Bank series remains a
+      proxy caveat. Daily-return metrics (Sharpe, correlation) for PP-
+      blend pre-2004-11 may understate gold volatility. The gold series
+      itself extends from 1995-01 (World Bank Pink Sheet commodity data
+      accessed via freegoldapi.com compilation).
     - **TIP pre-2000-06 gap:** no TIP proxy before VIPSX inception.
       Canary fails-closed on TIP signal during that period, effectively
       reducing to HYG-only canary.
@@ -890,9 +813,9 @@ python bull_qqq_live.py backtest --start 2008-04-30
 python bull_qqq_live.py backtest --start 1996-01-04
 ```
 
-To switch the risky asset from QQQ to SPY, change `BULL_TICKER = "QQQ"`
-to `BULL_TICKER = "SPY"` near the top of `bull_qqq_live.py`. The gate
-logic is unchanged.
+The risky asset is set via `BULL_TICKER = "SPY"` near the top of
+`bull_qqq_live.py`. The gate logic is unchanged for other equity
+tickers; this memo's results apply to the SPY default only.
 
 ## 8. Required Data Series
 
@@ -906,8 +829,6 @@ For Bull-SPY (live ETF only):
 | TIP    | Canary                              | 2003-12-04         |
 | IEF    | Curve pillar                        | 2002-07-22         |
 | TLT    | Curve pillar                        | 2002-07-22         |
-
-For Bull-QQQ: additionally QQQ (Nasdaq-100 ETF, inception 1999-03-10).
 
 For 60/40 PP-IEF blend: additionally GLD (Gold ETF, inception 2004-11-18).
 
@@ -931,7 +852,6 @@ canary reduces to HYG-only.
 | Curve pillar (IEF/TLT)| 2008-04-30                | 1996-01-31              | Clean: live IEF/TLT. 30y: VFITX/VUSTX stitches pre-2002                |
 | Vol pillar (SPY)      | 2008-04-30                | 1996-01-31              | 252d lookback on SPY (live since 1993)                                 |
 | Asset mom (SPY)       | 2008-04-30                | 1996-01-31              | 13mo lookback on SPY (live since 1993)                                 |
-| Asset mom (QQQ)       | 2008-04-30                | 1996-01-31              | QQQ live from 1999-03; pre-1999 uses NDX index proxy from 1985-10      |
 
 See **Section 6 item 11** for the definitive pre-live data lineage with
 stitch sources and caveats. The 30y window results are documented
@@ -941,17 +861,16 @@ secondary evidence supporting the primary clean 2008+ live-ETF window.
 
 The following items would further strengthen the empirical claims:
 
-- **Broader excess-Sharpe verification**: extend Section 4.8 from
-  Bull-SPY-only to Bull-QQQ and the PP blends, to support the general
-  raw-vs-excess ordering claim.
+- **Broader excess-Sharpe-vs-SHV verification**: extend Section 4.8 from
+  Bull-SPY-only to the PP-IEF blend, to support the general raw-vs-
+  excess ordering claim.
 - **Leave-one-regime-out test** to reduce regime-specific overfit risk
   (e.g. rerun without 2008-2009, see if forward expectations change).
-- **Paired Sharpe-difference test** vs buy-hold benchmarks (Jobson-Korkie
-  / Memmel adjustment for correlation between return streams), to
-  complement the unpaired SE estimate in Section 4.2.
-- **Rename `bull_qqq_live.py` to `bull_equity_live.py`** and expose risky
-  asset as CLI argument (file naming reflects original Bull-QQQ focus;
-  Bull-SPY is now the recommended default).
+- **HAC / bootstrap robustness** for the paired Jobson-Korkie/Memmel
+  Sharpe-difference test (Section 4.11) to relax the i.i.d. assumption
+  on daily returns.
+- **Rename `bull_qqq_live.py` to `bull_spy_live.py`** to reflect this
+  memo's recommended default.
 
 ## 10. References
 
