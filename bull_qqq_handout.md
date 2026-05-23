@@ -48,14 +48,13 @@ max drawdown -10.3% in the clean window — both blend metrics are
 correlation.
 
 
-
 All reported results are in-sample historical backtests. Several design
 choices were evaluated on the same historical sample, so the results
 should be treated as specification-tested evidence, not out-of-sample
 validation. The clean 2008+ live-ETF window is the primary evidence;
 the 1996+ documented-stitch window is secondary stress-test evidence.
-Section 4.10 reports a Deflated Sharpe Ratio check that addresses
-multiple-testing concerns.
+Section 4.10 reports a Deflated Sharpe Ratio robustness check for
+multiple-testing risk.
 
 Secondary supporting evidence: a 30-year backtest from 1996-01 to 2026-05
 using documented stitches for all non-live data (HYG/TIP/SHV/IEF/TLT
@@ -64,7 +63,7 @@ Bull-SPY Sharpe 0.96, blended 60/40 PP-IEF +
 Bull-SPY Sharpe 1.20 over the 30y window including the dotcom bust, GFC,
 COVID, and the 2022-2023 inflation regime. The full HYG+TIP canary is
 not available before 2001-06 (TIP/VIPSX warm-up); the canary reduces to
-HYG-only before then. Section 6 item 11 documents each data source. The
+HYG-only before then. Section 6.11 documents each data source. The
 clean 2008+ live-ETF window remains the primary evidence.
 
 ## 1. Motivation
@@ -79,7 +78,10 @@ The design goal of this strategy is:
 1. Keep most of the underlying benchmark's CAGR.
 2. Cut drawdown materially, targeting absolute max drawdown shallower
    than 25%.
-3. Use only freely-available ETF inputs and monthly rebalance frequency.
+3. Use freely available ETF inputs for live implementation and monthly
+   rebalance frequency; use documented public proxy series (Vanguard
+   mutual funds, World Bank gold) only for pre-inception backtest
+   extension.
 4. Avoid opaque continuous parameters and tuned numeric thresholds;
    disclose all specification choices explicitly.
 5. Demonstrate historical robustness across the full sample including
@@ -254,12 +256,12 @@ structurally distinct source types:
 | Asset momentum   | SPY                | **Endogenous SPY** (price trend) |
 
 Only the curve pillar is external macro. The vol pillar is computed on
-SPY itself and functions as a fast endogenous trend-following stop-
-loss; structurally it is the same source type as the asset-momentum
-gate, measuring variance-regime instead of price-trend sign. The
-regime composite groups one external (curve) and one endogenous (vol)
-signal under OR. Section 4.1.2 reports performance under alternative
-source-grouped rules.
+SPY itself and functions as a fast endogenous risk-off filter;
+structurally it is the same source type as the asset-momentum gate,
+measuring variance regime instead of price-trend sign. The regime
+composite groups one external (curve) and one endogenous (vol) signal
+under OR. Section 4.1.2 reports performance under alternative source-
+grouped rules.
 
 ### 2.8 Gate rationale
 
@@ -309,7 +311,7 @@ Risk-on percentage and turnover (clean window):
 
 ### 3.2 Standalone performance — documented 30y window (1996-01-04 to 2026-05-15)
 
-All data sources documented in Section 6 item 11. Canary reduces to HYG-only
+All data sources documented in Section 6.11. Canary reduces to HYG-only
 before 2001-06 (TIP/VIPSX 12-month warm-up not complete). SHV/IEF/TLT
 pre-live use Vanguard mutual fund stitches (VFISX/VFITX/VUSTX). GLD
 pre-2004-11 (live ETF inception) uses World Bank monthly gold data
@@ -453,11 +455,13 @@ Paired Jobson-Korkie/Memmel one-sided tests (H0: full Sharpe = subset Sharpe):
 | C+M+A vs C only       |      +0.260 | +1.26 |        0.105  |
 | C+M+A vs C+M          |      +0.062 | +0.47 |        0.319  |
 
-**The full three-gate stack is Sharpe-superior to all subsets**;
-significance ranges from p=0.018 (vs M+A) to p=0.32 (vs C+M, the
-closest alternative). Even the closest alternative (C+M) loses 9pp on
-MaxDD, so canary and asset_mom are paying their keep on tail-risk
-protection even when Sharpe-difference is borderline.
+**The full three-gate stack has the highest point-estimate Sharpe among
+the tested subsets.** Statistical significance varies by comparison
+(p=0.018 vs M+A to p=0.32 vs C+M, the closest alternative on Sharpe).
+C+M's Sharpe difference is not statistically significant, but C+M has
+a much deeper max drawdown (-21.30% vs -12.58%), so canary and asset_mom
+are paying their keep on tail-risk protection even when the Sharpe-
+difference is borderline.
 
 The worst-10 DD attribution (Section 4.6) shows the composite is the
 first-to-flip in all DDs deep enough to trigger gates. Canary and
@@ -654,7 +658,8 @@ in any worst-10 DD.
 
 The first-to-flip observation does not imply canary and asset_mom are
 redundant. Section 4.1 shows that removing canary or asset_mom worsens
-MaxDD by roughly 50-70%; removing the composite is worse still. The other two gates contribute by flipping early in slower-
+max drawdown from -12.6% to roughly -19% to -21%; removing the
+composite worsens it to -33.7%. The other two gates contribute by flipping early in slower-
 bleed regimes (preventing DDs from reaching worst-10 severity) and by
 reinforcing the composite when all three fail simultaneously. The
 worst-10 table only shows the first-flipper at the surface of observed
@@ -762,12 +767,14 @@ daily returns):
 | SPY buy-hold         |  0.660 |    94.6% |     88.9% |     82.2% |     70.0% |
 | Bull-SPY             |  1.114 |   100.0% |     99.9% |     99.7% |     99.2% |
 
-Bull-SPY remains PSR > 99% at N=50 specification trials. The number of
-independent architectural variations within the same gate family
-(canary asset choice, pillar selection, voting rule, asset-momentum
-lookback) is in the 10-30 range. **The standalone positive Sharpe is
-unlikely to be a multiple-testing artifact for any independent trial
-count in the 10-30 range.** This is a null-hypothesis test (Sharpe greater
+Bull-SPY remains PSR > 99% under the simplifying assumption of N=50
+independent specification trials. Real tested variants within the same
+gate family (canary asset choice, pillar selection, voting rule, asset-
+momentum lookback) are likely correlated, so this DSR result should be
+interpreted as a robustness check rather than a precise multiple-
+testing adjustment. **The standalone positive Sharpe is unlikely to
+be a multiple-testing artifact for any independent trial count in the
+10-50 range.** This is a null-hypothesis test (Sharpe greater
 than zero accounting for spec-search), not a benchmark-relative test;
 for the paired Bull-vs-buy-hold significance question see Section
 4.11.
@@ -817,6 +824,11 @@ window (T=4540 daily, 10 bps/side cost):
 The Sh(Bull), Sh(BH), and Diff columns above report annualized Sharpe
 for readability. The z-statistic is computed using daily Sharpe values
 (annualized divided by sqrt(252)) per the formula above.
+
+The one-sided test reflects the pre-specified directional hypothesis
+(gated Sharpe higher than buy-hold). A two-sided p-value would be
+approximately 0.055 (= 2 x 0.0276), marginally outside conventional
+5% significance.
 
 **Bull-SPY's Sharpe is statistically significantly higher than SPY
 buy-hold's Sharpe at the 5% level (one-sided).**
@@ -895,7 +907,7 @@ consistent with this design intent (Section 3.2 per-regime table).
    behavior in a future regime that does not resemble either may differ.
 
 7. **Documented-stitch 30y window.** Pre-live data sources are
-   summarized in Section 6 item 11. Briefly: SPY is live throughout;
+   summarized in Section 6.11. Briefly: SPY is live throughout;
    SHV/IEF/TLT pre-live use Vanguard mutual fund stitches
    (VFISX/VFITX/VUSTX); HYG uses VWEHX from 1980; TIP uses VIPSX from
    2000-06 (canary reduces to HYG-only before then); GLD pre-2004-11
@@ -938,44 +950,47 @@ consistent with this design intent (Section 3.2 per-regime table).
     HYG appears in the canary and SPY appears in both the composite and
     is highly correlated with the risky assets.
 
-11. **Data lineage.**
+### 6.11 Data lineage
 
-    | Target | Live ETF | Live start | Documented pre-live / warm-up source                  | Proxy data start | Used for         | Notes                                            |
-    |--------|----------|------------|--------------------------------------------------------|----------------|------------------|--------------------------------------------------|
-    | SPY    | SPY      | 1993-01-29 | (none needed)                                          | n/a            | risk, vol, PP    | Live throughout 30y window                       |
-    | SHV    | SHV      | 2007-01-05 | VFISX (Vanguard Short-Term Treasury)                   | 1991-10-28     | cash fallback    | VFISX dur ~2y vs SHV ~0.3y                       |
-    | IEF    | IEF      | 2002-07-22 | VFITX (Vanguard Intermediate-Term Treasury)            | 1991-10-28     | curve, PP-IEF    | VFITX dur ~5y vs IEF ~7-10y                      |
-    | TLT    | TLT      | 2002-07-22 | VUSTX (Vanguard Long-Term Treasury)                    | 1986-05-19     | curve, PP-TLT    | VUSTX dur ~15-17y vs TLT ~17-20y                 |
-    | HYG    | HYG      | 2007-04-04 | VWEHX (Vanguard High-Yield mutual fund)                | 1980-01-02     | canary, credit   | Well-established HY fund                         |
-    | TIP    | TIP      | 2003-12-04 | VIPSX (Vanguard Inflation-Protected Securities)        | 2000-06-29     | canary           | Pre-2001-06 canary reduces to HYG-only           |
-    | GLD    | GLD      | 2004-11-18 | World Bank monthly gold (freegoldapi.com), ffill->daily| 1995-01-02     | PP gold sleeve   | Monthly granularity; affects daily metrics only  |
-    | LQD    | LQD      | 2002-07-22 | VFICX (Vanguard Intermediate-Term IG Corporate Bond)   | 1993-10-29     | (not used)       | Not part of Bull-SPY rule (see Section 2.8)      |
+| Target | Live ETF | Live start | Documented pre-live / warm-up source                  | Proxy data start | Used for         | Notes                                            |
+|--------|----------|------------|--------------------------------------------------------|----------------|------------------|--------------------------------------------------|
+| SPY    | SPY      | 1993-01-29 | (none needed)                                          | n/a            | risk, vol, PP    | Live throughout 30y window                       |
+| SHV    | SHV      | 2007-01-05 | VFISX (Vanguard Short-Term Treasury)                   | 1991-10-28     | cash fallback    | VFISX dur ~2y vs SHV ~0.3y                       |
+| IEF    | IEF      | 2002-07-22 | VFITX (Vanguard Intermediate-Term Treasury)            | 1991-10-28     | curve, PP-IEF    | VFITX dur ~5y vs IEF ~7-10y                      |
+| TLT    | TLT      | 2002-07-22 | VUSTX (Vanguard Long-Term Treasury)                    | 1986-05-19     | curve, PP-TLT    | VUSTX dur ~15-17y vs TLT ~17-20y                 |
+| HYG    | HYG      | 2007-04-04 | VWEHX (Vanguard High-Yield mutual fund)                | 1980-01-02     | canary, credit   | Well-established HY fund                         |
+| TIP    | TIP      | 2003-12-04 | VIPSX (Vanguard Inflation-Protected Securities)        | 2000-06-29     | canary           | Pre-2001-06 canary reduces to HYG-only           |
+| GLD    | GLD      | 2004-11-18 | World Bank monthly gold (freegoldapi.com), ffill->daily| 1995-01-02     | PP gold sleeve   | Monthly granularity; affects daily metrics only  |
 
-    Each stitch anchors to the live ETF and rescales the pre-live
-    proxy so the splice date matches the live value. Load order is in
-    `cpm_live.load_panel()`.
+Research-only: LQD was tested as an additional canary asset, with
+VFICX (Vanguard Intermediate-Term IG Corporate Bond, 1993-10+) as the
+pre-live proxy. LQD is not part of the Bull-SPY rule (see Section 2.8).
 
-    **Proxy/stitch caveats:**
+Each stitch anchors to the live ETF and rescales the pre-live proxy so
+the splice date matches the live value. Load order is in
+`cpm_live.load_panel()`.
 
-    - **Mutual fund duration mismatch:** VFISX/VFITX/VUSTX have
-      slightly different effective durations than the live SHV/IEF/TLT
-      ETFs they proxy. Direction is consistent but magnitude can differ
-      by ~10-20% on rate moves.
-    - **World Bank gold is monthly, forward-filled:** suppresses daily
-      volatility in PP gold sleeve before GLD live inception (2004-11).
-      Monthly-rebalance results are less sensitive to the daily forward-
-      fill than daily-return metrics, but the monthly-average versus
-      month-end-price convention of the World Bank series remains a
-      proxy caveat. Daily-return metrics (Sharpe, correlation) for PP-
-      blend pre-2004-11 may understate gold volatility. The gold series
-      itself extends from 1995-01 (World Bank Pink Sheet commodity data
-      accessed via freegoldapi.com compilation).
-    - **TIP pre-2000-06 gap:** no TIP proxy before VIPSX inception.
-      Canary fails-closed on TIP signal during that period, effectively
-      reducing to HYG-only canary.
+**Proxy/stitch caveats:**
 
-    **Implication for 30y window:** documented stitches are sufficient
-    to compute all gate signals from 1996-01 onwards.
+- **Mutual fund duration mismatch:** VFISX/VFITX/VUSTX have slightly
+  different effective durations than the live SHV/IEF/TLT ETFs they
+  proxy. Direction is consistent but magnitude can differ by ~10-20%
+  on rate moves.
+- **World Bank gold is monthly, forward-filled:** suppresses daily
+  volatility in PP gold sleeve before GLD live inception (2004-11).
+  Monthly-rebalance results are less sensitive to the daily forward-
+  fill than daily-return metrics, but the monthly-average versus
+  month-end-price convention of the World Bank series remains a proxy
+  caveat. Daily-return metrics (Sharpe, correlation) for PP-blend
+  pre-2004-11 may understate gold volatility. The gold series itself
+  extends from 1995-01 (World Bank Pink Sheet commodity data accessed
+  via freegoldapi.com compilation).
+- **TIP pre-2000-06 gap:** no TIP proxy before VIPSX inception.
+  Canary fails-closed on TIP signal during that period, effectively
+  reducing to HYG-only canary.
+
+**Implication for 30y window:** documented stitches are sufficient to
+compute all gate signals from 1996-01 onwards.
 
 ## 7. Implementation
 
@@ -1033,7 +1048,7 @@ canary reduces to HYG-only.
 | Vol pillar (SPY)      | 2008-04-30                | 1996-01-31              | 252d lookback on SPY (live since 1993)                                 |
 | Asset mom (SPY)       | 2008-04-30                | 1996-01-31              | 13mo lookback on SPY (live since 1993)                                 |
 
-See **Section 6 item 11** for the definitive pre-live data lineage with
+See **Section 6.11** for the definitive pre-live data lineage with
 stitch sources and caveats. The 30y window results are documented
 secondary evidence supporting the primary clean 2008+ live-ETF window.
 
