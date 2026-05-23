@@ -1,4 +1,4 @@
-# Bull-SPY: A Three-Layer Regime Gate for Long-Equity-or-Cash on SPY
+# Bull-SPY: A Three-Layer Regime Gate for SPY (hold equity when bullish, else cash)
 
 **Author:** Rakha Kanz Kautsar
 **Date:** 2026-05-23
@@ -16,14 +16,16 @@ This note documents a simple monthly-rebalanced regime gate that converts
 SPY into a long-equity-or-cash strategy with materially lower drawdown
 and higher risk-adjusted return than buy-and-hold. The design uses three
 structurally distinct binary gates. The canary uses the Keller HAA-style
-"any positive" rule; the macro composite applies the same simple OR
-convention to two non-credit macro pillars:
+"any positive" rule; the regime composite applies the same simple OR
+convention to two non-credit regime pillars (one external rates signal,
+one endogenous SPY-vol signal):
 
 1. **Canary gate:** HYG OR TIP 13612U momentum > 0 (Keller HAA convention,
    2-asset credit + inflation signal).
-2. **Macro composite gate:** curve OR vol pillar positive, where curve =
-   `IEF 63d ret > TLT 63d ret` and vol = `SPY 63d realized vol < 252d
-   avg vol`. Both pillars use natural sign-test cutoffs.
+2. **Regime composite gate:** curve OR vol pillar positive, where curve
+   = `IEF 63d ret > TLT 63d ret` (external rates-regime signal) and vol
+   = `SPY 63d realized vol < 252d avg vol` (endogenous SPY-derived
+   variance regime). Both pillars use natural sign-test cutoffs.
 3. **Asset momentum gate:** risky asset 12-1 absolute momentum > 0
    (skip-month form, common in academic momentum / TSMOM practice). See
    Section 2.6 for the formula and relation to Antonacci GEM.
@@ -89,12 +91,16 @@ The design goal of this strategy is:
 
 ### 2.1 Risky asset
 
-The strategy is implemented in two variants by choice of risky asset:
+The risky asset is **SPY**. The strategy holds 100% SPY only when all
+three gates pass; otherwise 100% SHV cash. The "Bull-SPY" name reflects
+this: hold SPY only when the regime is bullish (per gate verdict),
+otherwise step out of equity entirely.
 
-- **Bull-SPY** (recommended default): 100% SPY when gates pass. Broad-market
-  exposure, less sector concentration, gate signals coherent with allocation.
-
-The two variants use **identical** gate logic.
+The implementation (`bull_qqq_live.py`) supports any equity ticker via
+the `BULL_TICKER` constant; this memo focuses on the SPY variant. A
+Bull-QQQ variant exists in `research/` but is not recommended here
+(weaker paired statistical significance vs QQQ buy-hold; higher cost-of-
+cash drag relative to QQQ's higher base return).
 
 ### 2.2 Cash fallback
 
@@ -167,9 +173,12 @@ month-end close prices.
 **Gate passes** if at least one of HYG, TIP has a positive score
 ("any-positive" rule, Keller HAA convention).
 
-### 2.5 Gate 2: Macro composite
+### 2.5 Gate 2: Regime composite
 
-Two binary macro pillars are evaluated at each signal date:
+Two binary regime pillars are evaluated at each signal date. The curve
+pillar is an external rates-regime signal; the vol pillar is an
+endogenous SPY-derived variance-regime signal (see signal-source
+taxonomy below):
 
 | Pillar  | Test                                                        |
 |---------|-------------------------------------------------------------|
@@ -221,10 +230,43 @@ Else:                                      100% in SHV cash
 
 There is no partial scaling, no continuous tilt, no leverage.
 
+### 2.7.1 Signal-source taxonomy
+
+The five individual signals used across the three gates fall into two
+structurally distinct source types:
+
+| Signal           | Input asset(s)     | Source type             |
+|------------------|--------------------|-------------------------|
+| HYG canary       | HYG (or VWEHX)     | External (credit)       |
+| TIP canary       | TIP (or VIPSX)     | External (inflation)    |
+| Curve pillar     | IEF vs TLT         | External (rates curve)  |
+| Vol pillar       | SPY                | **Endogenous SPY** (variance regime) |
+| Asset momentum   | SPY                | **Endogenous SPY** (price trend) |
+
+The "regime composite" label (Section 2.5) intentionally avoids the
+looser "macro composite" framing: only the curve pillar is truly
+macro-external. The vol pillar is computed on SPY itself and therefore
+functions as a fast endogenous trend-following stop-loss; in this sense
+it is the same source type as the asset-momentum gate, just measuring
+variance-regime instead of price-trend sign.
+
+Why keep the production grouping despite the mixed-source composite?
+Section 4.1.2 reports an ablation across structurally-honest source-
+grouped alternatives. Source-OR alternatives `(HYG|TIP|curve) AND
+(vol|mom)` become too permissive (88% time-on, MaxDD -33.7%) because
+three external OR-paths is too lax. The cleanest restructure
+`(HYG|TIP) AND curve AND (vol|mom)` gives Sharpe 1.01 vs production
+1.11. The closest improvement is a 2-of-3 vote among the three regime
+signals: Sharpe 1.17 with same MaxDD, but the +0.06 gain is not
+statistically significant (Jobson-Korkie p=0.25) and is consistent
+with specification-search luck. Production grouping is retained as the
+empirical default; this taxonomy section makes the source split
+explicit so the reader is not misled by the "macro" word.
+
 ### 2.8 Gate selection rationale
 
 The canary (Gate 1) is HAA-inspired (Keller "any positive" rule on
-credit/inflation proxies). The macro composite (Gate 2) was designed by
+credit/inflation proxies). The regime composite (Gate 2) was designed by
 ablation: trend (SPY 200d MA) and credit (HYG 200d MA) pillars were
 dropped as redundant with Gate 3 and Gate 1 respectively; LQD was
 rejected as a canary asset because IG corporate bonds rally on rate cuts
@@ -351,8 +393,8 @@ profile.
 Over the 30-year documented window, the 60/40 PP+Bull-SPY blends report
 Sharpe 1.19-1.20 with max drawdown -10.5%. PP-IEF and PP-TLT variants
 are nearly identical on Sharpe; PP-IEF has slightly shallower max
-drawdown so it is the recommended default unless the user specifically
-wants longer-duration deflation exposure.
+drawdown so the PP-IEF variant is used as the default; PP-TLT remains a
+valid alternative for users wanting longer-duration deflation exposure.
 
 Daily-return metrics before GLD live inception in 2004-11 may understate
 gold volatility because the gold sleeve uses monthly World Bank gold
@@ -436,7 +478,7 @@ and (c) provide the documented MaxDD protection above.
 #### 4.1.1 Pillar-selection ablation across 6 (window × asset) configs
 
 This ablation is narrower than Section 4.1: it tests which pair of
-macro pillars (curve, vol, trend, credit) form the best composite
+regime pillars (curve, vol, trend, credit) form the best composite
 GATE, holding the three-gate stack (canary + composite + asset_mom)
 fixed.
 
@@ -471,6 +513,56 @@ strictly helpful across all 6 configs; curve OR vol is the only 2-pillar
 combination that strictly beats baseline in all 6; the 4-pillar 2-of-4
 alternative ties on win-rate but loses slightly on Sharpe (-0.01) and DD
 (+2pp), within noise.
+
+#### 4.1.2 Source-grouping ablation (alternative structural rules)
+
+The production rule is `(HYG|TIP) AND (curve|vol) AND mom`. The vol
+pillar is endogenous to SPY (Section 2.7.1), structurally the same kind
+as asset_mom. This raises the question: would a structurally-honest
+source-grouping perform better? Tested alternatives at 10bps cost:
+
+**CLEAN window (18.1y):**
+
+| Rule                                                | Sharpe |   CAGR  |  MaxDD  | % on |
+|-----------------------------------------------------|-------:|--------:|--------:|-----:|
+| A. Production: (HYG\|TIP) AND (curve\|vol) AND mom  |  1.114 |  11.19% | -12.58% |  61% |
+| U1. (HYG\|TIP) AND curve AND vol AND mom            |  0.737 |   4.72% | -11.69% |  27% |
+| U2. (HYG\|TIP) AND curve AND (vol\|mom)             |  1.012 |   8.59% | -11.69% |  38% |
+| H. (HYG\|TIP\|curve) AND (vol\|mom)                 |  0.848 |  13.49% | -33.72% |  88% |
+| G. (HYG\|TIP) AND 2-of-3(curve, vol, mom)           |  1.170 |  12.59% | -12.58% |  64% |
+
+**30Y window:**
+
+| Rule                                                | Sharpe |   CAGR  |  MaxDD  | % on |
+|-----------------------------------------------------|-------:|--------:|--------:|-----:|
+| A. Production                                       |  0.960 |  10.00% | -19.35% |  58% |
+| U1. All-AND endo                                    |  0.843 |   4.73% | -11.69% |  19% |
+| U2. Curve-required + endo-OR                        |  0.877 |   6.91% | -16.64% |  31% |
+| H. Source-OR external                               |  0.730 |   9.91% | -33.72% |  71% |
+| G. 2-of-3 endogenous mix                            |  0.988 |   9.52% | -16.64% |  51% |
+
+Key observations:
+
+- **U1 (curve+all-endo required, all-AND)** is too restrictive: 19-27%
+  time on, CAGR 4.7-4.7%. Demanding all four signals simultaneously
+  rejects too many regimes.
+- **U2 (curve required, endo-OR)** preserves the source-split clarity
+  but loses Sharpe (1.01 vs production 1.11) because requiring curve as
+  hard-AND removes the production's option to substitute vol for curve.
+- **H (source-OR external)** is too permissive: 3 external paths under
+  OR (HYG|TIP|curve) lets the gate stay on through equity drawdowns;
+  MaxDD collapses to -33.7%, matching SPY buy-hold's worst windows.
+- **G (2-of-3 endogenous mix)** is the only alternative that beats
+  production on both Sharpe and MaxDD. Improvement is small (+0.06
+  Sharpe on CLEAN, +0.03 on 30Y) and not statistically significant
+  (Jobson-Korkie/Memmel p=0.25 on CLEAN). Consistent with specification-
+  search luck rather than robust structural improvement.
+
+**Decision:** retain production rule. The naming asymmetry (vol
+endogenous but bucketed with macro curve) is acknowledged in Section
+2.7.1 taxonomy but not restructured -- the alternative source-honest
+rules either degrade performance or improve it only within the
+spec-search noise floor.
 
 ### 4.2 Sharpe ratio standard error
 
@@ -968,7 +1060,7 @@ The following items would further strengthen the empirical claims:
   Sharpe-difference test (Section 4.11) to relax the i.i.d. assumption
   on daily returns.
 - **Rename `bull_qqq_live.py` to `bull_spy_live.py`** to reflect this
-  memo's recommended default.
+  memo's scope (the SPY variant).
 
 ## 10. References
 
