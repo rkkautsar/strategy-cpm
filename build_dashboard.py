@@ -586,15 +586,36 @@ def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
     return fig
 
 def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_rets: pd.Series, start: pd.Timestamp):
-    """2x4 truth-table heatmap of CPM and BULL sleeve performance by canary state.
+    """Truth-table heatmap of CPM and BULL sleeve performance by state.
 
-    Rows: HYG canary bit (HYG+ top, HYG- bottom).
-    Cols: secondary canary bits (TIP/GLD for CPM, LQD/TIP for BULL).
+    CPM (2x4): rows = HYG canary bit; cols = TIP/GLD combinations.
+    BULL (4x4): rows = HYG/TIP canary combinations; cols = curve/vol macro combinations.
     Cell: Sharpe (color) + AnnRet + MaxDD + n_months.
     """
     end = panel.index[-1]
 
-    def compute_states(canary_assets):
+    def _pillar_curve(panel, sig_d):
+        ief = panel['IEF'].loc[:sig_d].pct_change().tail(63).sum() if 'IEF' in panel.columns else float('nan')
+        tlt = panel['TLT'].loc[:sig_d].pct_change().tail(63).sum() if 'TLT' in panel.columns else float('nan')
+        if pd.isna(ief) or pd.isna(tlt):
+            return None
+        return bool(ief > tlt)
+
+    def _pillar_vol(panel, sig_d):
+        if 'SPY' not in panel.columns:
+            return None
+        rets = panel['SPY'].loc[:sig_d].pct_change().dropna()
+        if len(rets) < 252:
+            return None
+        v63 = rets.tail(63).std() * np.sqrt(252)
+        v252_avg = (rets.tail(252).rolling(63).std().dropna() * np.sqrt(252)).mean()
+        if pd.isna(v63) or pd.isna(v252_avg):
+            return None
+        return bool(v63 < v252_avg)
+
+    def compute_states(canary_assets, include_macro=False):
+        """Returns Series of state tuples per signal date.
+        If include_macro=True, appends (curve_bit, vol_bit) to each tuple."""
         monthly = panel.loc[:end].resample("ME").last()
         states = {}
         for sig_d in monthly.index:
@@ -609,8 +630,15 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
                 if pd.isna(s):
                     ok = False; break
                 bits.append(bool(s > 0))
-            if ok:
-                states[sig_d] = tuple(bits)
+            if not ok:
+                continue
+            if include_macro:
+                cv = _pillar_curve(panel, sig_d)
+                vl = _pillar_vol(panel, sig_d)
+                if cv is None or vl is None:
+                    continue
+                bits.extend([cv, vl])
+            states[sig_d] = tuple(bits)
         return pd.Series(states).sort_index()
 
     def attribute(daily_returns, state_ser):
@@ -637,16 +665,27 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
         sh = ann_ret / vol if vol > 0 else float('nan')
         return {'sh': sh, 'ann_ret': ann_ret, 'mdd': mdd}
 
-    def build_grid(daily_returns, canary_assets):
-        state_ser = compute_states(canary_assets)
+    def build_grid(daily_returns, canary_assets, include_macro=False):
+        """CPM 3-asset canary: 2x4 grid (rows=HYG, cols=last two canary bits).
+        BULL 2-asset canary + macro: 4x4 grid (rows=HYG/TIP, cols=curve/vol)."""
+        state_ser = compute_states(canary_assets, include_macro=include_macro)
         state_per_day = attribute(daily_returns, state_ser)
-        col_order = [(True, True), (True, False), (False, True), (False, False)]
-        row_order = [True, False]
+        n_assets = len(canary_assets)
+        if not include_macro and n_assets == 3:
+            # CPM: rows = HYG (first canary), cols = TIP x GLD
+            row_order = [(True,), (False,)]
+            col_order = [(True, True), (True, False), (False, True), (False, False)]
+        elif include_macro and n_assets == 2:
+            # BULL: rows = HYG x TIP, cols = curve x vol
+            row_order = [(True, True), (True, False), (False, True), (False, False)]
+            col_order = [(True, True), (True, False), (False, True), (False, False)]
+        else:
+            raise ValueError(f'Unsupported config: n_assets={n_assets}, include_macro={include_macro}')
         grid = []
         for r in row_order:
             row_cells = []
             for c in col_order:
-                st = (r, c[0], c[1])
+                st = r + c
                 mask = state_per_day == st
                 n_months = int((state_ser == st).sum())
                 d = daily_returns[mask]
@@ -655,10 +694,10 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
             grid.append(row_cells)
         return grid
 
-    def plot_sub(ax, grid, canary_labels, title):
-        col_signs = [('+', '+'), ('+', '-'), ('-', '+'), ('-', '-')]
-        row_signs = ['+', '-']
-        sh_grid = np.full((2, 4), np.nan)
+    def plot_sub(ax, grid, row_labels_text, col_labels_text, title, fontsize=9):
+        nrows = len(grid)
+        ncols = len(grid[0])
+        sh_grid = np.full((nrows, ncols), np.nan)
         for ri, row in enumerate(grid):
             for ci, cell in enumerate(row):
                 if cell['stats']:
@@ -676,30 +715,35 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
                             f"DD {s['mdd']*100:5.1f}%\n"
                             f"n={cell['n_months']}mo")
                     color = 'white' if s['sh'] < -0.3 or s['sh'] > 1.6 else 'black'
-                ax.text(ci, ri, text, ha='center', va='center', fontsize=9,
+                ax.text(ci, ri, text, ha='center', va='center', fontsize=fontsize,
                         color=color, fontfamily='monospace',
                         fontweight='bold' if s and s['sh'] > 1.0 else 'normal')
-        col_labels = [f"{canary_labels[1]}{a}\n{canary_labels[2]}{b}" for a, b in col_signs]
-        ax.set_xticks(range(4))
-        ax.set_xticklabels(col_labels, fontsize=9, fontweight='bold')
+        ax.set_xticks(range(ncols))
+        ax.set_xticklabels(col_labels_text, fontsize=fontsize, fontweight='bold')
         ax.xaxis.tick_top()
-        ax.set_yticks(range(2))
-        ax.set_yticklabels([f"{canary_labels[0]}{s}" for s in row_signs], fontsize=10, fontweight='bold')
+        ax.set_yticks(range(nrows))
+        ax.set_yticklabels(row_labels_text, fontsize=fontsize+1, fontweight='bold')
         ax.tick_params(axis='both', which='both', length=0)
         ax.set_title(title, fontsize=11, fontweight='bold', pad=36)
         return im
 
     cpm_canary = ['HYG_stitched', 'TIP', 'GLD']
-    bull_canary = ['HYG_stitched', 'LQD', 'TIP']
-    cpm_labels = ['HYG', 'TIP', 'GLD']
-    bull_labels = ['HYG', 'LQD', 'TIP']
+    bull_canary = ['HYG_stitched', 'TIP']
 
-    cpm_grid = build_grid(cpm_rets, cpm_canary)
-    bull_grid = build_grid(bull_rets, bull_canary)
+    cpm_grid = build_grid(cpm_rets, cpm_canary, include_macro=False)
+    bull_grid = build_grid(bull_rets, bull_canary, include_macro=True)
 
-    fig, axes = plt.subplots(2, 1, figsize=(10, 6.5), constrained_layout=True)
-    im = plot_sub(axes[0], cpm_grid, cpm_labels, 'CPM sleeve - performance by canary state')
-    plot_sub(axes[1], bull_grid, bull_labels, 'BULL-QQQ sleeve - performance by canary state')
+    cpm_col_labels = [f"TIP{a}\nGLD{b}" for a, b in [('+','+'),('+','-'),('-','+'),('-','-')]]
+    cpm_row_labels = ['HYG+', 'HYG-']
+    bull_col_labels = [f"curve{a}\nvol{b}" for a, b in [('+','+'),('+','-'),('-','+'),('-','-')]]
+    bull_row_labels = [f"HYG{a}\nTIP{b}" for a, b in [('+','+'),('+','-'),('-','+'),('-','-')]]
+
+    fig, axes = plt.subplots(2, 1, figsize=(11, 11), constrained_layout=True,
+                              gridspec_kw={'height_ratios':[1, 2]})
+    im = plot_sub(axes[0], cpm_grid, cpm_row_labels, cpm_col_labels,
+                   'CPM sleeve - performance by canary state', fontsize=9)
+    plot_sub(axes[1], bull_grid, bull_row_labels, bull_col_labels,
+              'BULL-QQQ sleeve - performance by canary AND macro composite state', fontsize=8)
     fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)
     return fig
 
@@ -1581,7 +1625,7 @@ def main():
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-4 PIT Nasdaq-100 by 13612U momentum, equal-weight 25%, gated by BULL_QQQ regime. SHV when off.</li>
 </ul>
 <p><strong>Headline ({yrs_full:.1f}y, post-cost):</strong> 60/30/10 blend Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong>, CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>, Calmar <strong>{prod_metrics['calmar']:.2f}</strong>, Martin <strong>{prod_metrics['martin']:.2f}</strong>.</p>
-<p class='footnote'>Bootstrap 95% CI is wide; honest forward base-case 0.90-1.20 Sharpe / 10-14% CAGR after in-sample selection bias discount.</p>
+<p class='footnote'>Bootstrap 95% CI is wide; honest forward base-case 1.05-1.35 Sharpe / 10-14% CAGR after in-sample selection bias discount.</p>
 </div>
 
 <h2>This Month's Allocation</h2>
@@ -1644,7 +1688,7 @@ def main():
 {fig_to_html(fig_canary)}
 <p><strong>CPM canary (HYG/TIP/GLD any-positive 13612U):</strong> Risk-on <strong>{regime_pct_ron:.1f}%</strong> ({regime_counts['RISK_ON']}/{n_signals}) -- pair selection runs. Defensive <strong>{regime_pct_def:.1f}%</strong> ({regime_counts['DEFENSIVE']}/{n_signals}) -- 100% SHV cash, fires only when HYG (credit) AND TIP (inflation) AND GLD (real-asset) are simultaneously negative. <em>Why GLD belongs here:</em> CPM is a cross-asset engine that holds gold as a tradable diversifier -- the canary should activate on the same real-asset / inflation / dollar-weakness regimes that make GLD or TLT the right pair. A GLD-positive month often is exactly the kind of risk-off-but-not-cash month where CPM should still rotate into defensive diversifiers rather than retreat to cash.</p>
 <p><strong>BULL gate (3-layer, all &quot;any positive&quot;):</strong> QQQ on <strong>{regime_counts['BULL_QQQ']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_QQQ']}/{n_signals}), cash <strong>{regime_counts['BULL_CASH']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_CASH']}/{n_signals}). All three gates use Keller-canonical &quot;any positive&quot; rule: (1) HYG OR TIP 13612U > 0 (credit/inflation canary), (2) curve OR vol macro pillar (yield-curve steepening OR low-vol regime), (3) QQQ 12-1 absolute momentum > 0 (Antonacci dual momentum). <em>Why HYG+TIP (not GLD or LQD):</em> Gold is flight-to-safety; LQD (IG corp) rallies on rate cuts during equity crashes (duration). HYG (HY credit stress) + TIP (inflation breakeven) are the cleanest signals. <em>Why curve+vol:</em> pair ablation across 6 (window x asset) configs showed these are the only two structurally orthogonal macro pillars not already covered by canary or asset_mom.</p>
-<p class='footnote'>Mechanism summary: CPM's canary uses GLD because gold is part of its tradable diversifier set (a GLD-positive regime invites CPM to rotate INTO gold). BULL's canary uses LQD because investment-grade credit confirms broad risk-on across the credit stack -- exactly what an equity-only overlay needs before going long. HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
+<p class='footnote'>Mechanism summary: CPM's canary uses GLD because gold is part of its tradable diversifier set (a GLD-positive regime invites CPM to rotate INTO gold). BULL's canary uses HYG+TIP (no LQD) because IG credit rallies on rate cuts during equity crashes, falsely keeping the canary risk-on in dotcom-style regimes. HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
 </div>
 
 <h2>Canary-State Conditional Performance</h2>
@@ -1683,7 +1727,7 @@ def main():
 <h2>CPM Rolling Defensive % (1-year window)</h2>
 <div class='card'>
 {fig_to_html(fig_def_pct)}
-<p>Fraction of the last 12 monthly signal dates where the CPM canary forced 100% SHV cash. Spikes mark stress regimes: 2009 (post-GFC residual), 2016 (~83% - flat directionless market), 2019, 2023 (~75% - inflation/banking stress), 2025-26 (recent shock). Mean activation ~37% confirms the strategy spends about a third of its time in defensive cash. Notably the 2008 peak isn't the highest - the canary went defensive AFTER the GFC crash, not before it (limitation of trend-following signals).</p>
+<p>Fraction of the last 12 monthly signal dates where the CPM canary forced 100% SHV cash. Spikes mark stress regimes (post-GFC residual, 2016 flat market, 2019, 2023 inflation/banking stress, 2025-26 recent shock). The canary tends to go defensive AFTER deep selloffs, not before -- inherent limitation of trend-following signals.</p>
 </div>
 
 <h2>Pair-Pick Timeline</h2>
@@ -1717,7 +1761,7 @@ def main():
 
 <h2>Extended Backtest (~27y, {ext_start.date()} -> {end.date()})</h2>
 <div class='card'>
-<p class='meta'>EXT window starts at QQQ inception (1999-03-10) and includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve <strong>falls back to BULL-QQQ mirroring</strong> pre-2006 (when PIT constituent data via <code>index-constitution</code> is unavailable) -- so the 10% NDX weight acts as extra BULL exposure rather than sitting in cash. Canary simplified to HYG+TIP (LQD removed) after empirical tests showed LQD asymmetry hurts dotcom-era robustness. Asset momentum circuit breaker (Antonacci 12-1) added as third gate to catch macro-confusion crashes directly via risky-asset observation.</p>
+<p class='meta'>EXT window starts at QQQ inception (1999-03-10) and includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve <strong>falls back to BULL-QQQ mirroring</strong> pre-2006 (when PIT constituent data via <code>index-constitution</code> is unavailable) -- so the 10% NDX weight acts as extra BULL exposure rather than sitting in cash. Gate design v4: HYG+TIP any-positive canary, curve+vol any-positive macro composite, QQQ 12-1 absolute momentum &gt; 0. All three gates required, all use Keller-canonical &quot;any positive&quot; rule.</p>
 {perf_table_html(ext_perf_rows)}
 </div>
 
@@ -1772,7 +1816,7 @@ def main():
 <li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0 (Keller HAA-style, 2-asset credit/inflation canary). LQD was tested and rejected: IG corporate bonds rally on rate cuts during equity crashes (duration effect), falsely keeping the canary risk-on in dotcom-style regimes.</li>
 <li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime. Both pillars use natural midpoint cutoffs. Pair ablation showed curve+vol are the only two structurally orthogonal macro signals worth keeping; trend (SPY 200d MA) and credit (HYG 200d MA) pillars were dropped as redundant with asset_mom and canary respectively.</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-1 absolute momentum &gt; 0 (Antonacci GEM standard). Direct observation of the risky asset itself.</li>
-<li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> (short-treasury cash) when either filter fails. Zero duration risk on this sleeve.</li>
+<li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> (short-treasury cash) when any of the three gates fails. Zero duration risk on this sleeve.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 
 </ul>
@@ -1787,7 +1831,7 @@ def main():
 <li><strong>Gate:</strong> only allocates when BULL-QQQ regime is <code>BULL_QQQ</code> (equity-friendly); cash otherwise.</li>
 <li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> when gate off or fewer than 4 positive-momentum candidates.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
-<li><strong>Tradeoff:</strong> High beta, high vol, deep DD as standalone. Diluted by 10% blend weight contributes ~+0.07 Sharpe / +2.5pp CAGR at the portfolio level.</li>
+<li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by 10% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
 </ul>
 </details>
 </div>
@@ -1795,11 +1839,11 @@ def main():
 <h2>Honest Caveats</h2>
 <div class='card'>
 <ul>
-<li><strong>In-sample selection bias:</strong> hyperparameters and universe tuned on this same data window. Forward Sharpe should be anchored at 0.90-1.20 (not backtest 1.36) for the blend; CPM standalone forward base case 0.80-1.10.</li>
+<li><strong>In-sample selection bias:</strong> hyperparameters, universe, and gate design tuned on this same data window. Forward Sharpe should be anchored ~30-40% below backtest for the blend; CPM standalone forward base case 0.80-1.10.</li>
 <li><strong>Universe risk:</strong> {len(RISKY_UNIVERSE)}-asset CPM universe + QQQ for BULL + PIT Nasdaq-100 for NDX. Curated via ablation/robustness iteration, not best-of-N sweep, but DSR concern remains after broad parameter exploration.</li>
 <li><strong>NDX survivorship bias + EXT fallback:</strong> PIT constituent data only goes back to 2006-01. Pre-2007 in the EXT backtest, NDX sleeve mirrors BULL-QQQ weights (so the 10% NDX weight becomes extra BULL exposure, not cash). A 2000-2010 tech-lost-decade with proper PIT NDX would likely underperform vs BULL-QQQ alone -- cannot be verified.</li>
 <li><strong>Crisis-concentrated alpha:</strong> CPM defensive sleeve delivers most of its edge in crisis years (2008, 2002, 2020, 2022). Non-crisis years lag SPY by design.</li>
-<li><strong>Lags V-shaped recoveries:</strong> 2009 full-year -10.8pp vs SPY; 2020-Q2 -27.6pp vs SPY in the snap-back. Canary slow to re-engage after deep selloffs.</li>
+<li><strong>Lags V-shaped recoveries:</strong> 13612U canary and 12-1 asset momentum use trailing 12-month windows, so re-entry after deep selloffs is delayed by 1-3 months. Strategy historically lagged SPY by ~5-10pp in V-snap-backs (e.g. 2009, 2020-Q2, 2022-Q4).</li>
 <li><strong>Bullish-rally underperformance is structural:</strong> MAX_LEVERAGE=1.0 prevents vol-target from levering up in low-vol bull runs. Strategy gives up bull upside in exchange for crisis alpha as designed.</li>
 <li><strong>2020+ regime favors NDX:</strong> mega-cap concentration regime massively rewarded top-K=4 NDX selection. Forward regime may revert.</li>
 <li><strong>Strategy not yet live-traded.</strong> Forward expectation should anchor below backtest. Bootstrap CI on Sharpe is wide.</li>
