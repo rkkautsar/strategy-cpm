@@ -1642,9 +1642,7 @@ def main():
 <div class='card'>
 {fig_to_html(fig_canary_heatmap)}
 <p>Each cell shows the sleeve's realized performance during months when that exact canary bit-combination was active. Sharpe colored on a -1.5/+2.5 scale (red=bad, green=good). AnnRet = annualized arithmetic return (what you'd earn if regime stayed active); DD = max drawdown of the sub-sample equity curve; n=months in state.</p>
-<p><strong>CPM key observations:</strong> Row HYG- TIP+ (any GLD) is the killer regime - Sharpe -0.73 to -0.94 across 16 months. This is the GLD+TLT liquidation-crisis cluster: credit off, inflation rising, min-vol picks GLD+TLT but both crash together (2008 GFC, 2020 COVID, 2022 inflation). Best regime is HYG+ TIP+ GLD- (Sh +2.13) - credit and inflation positive, gold quiescent. Defensive cells (HYG-, TIP-, GLD-) show high Sharpe with near-zero return - the sleeve correctly sits in SHV cash earning tiny yield at near-zero vol.</p>
-<p><strong>BULL key observations:</strong> Row HYG- (all four cells) shows extraordinarily high Sharpes (+2.25 to +2.82) - these are defensive cash periods where BULL sits in SHV. Risk-on weakness shows in HYG+ LQD- columns (Sh +0.65) - credit on but quality-credit off signals stress. Best risk-on regime is HYG+ LQD+ TIP- (Sh +2.00) - all credit positive without inflation distortion.</p>
-<p class='footnote'>Note: Cells with very high Sharpe and near-zero return are defensive states where the sleeve held SHV cash (low vol, ~RFR yield). The Sharpe metric is informative but the AnnRet shows the regime contributes little dollar return.</p>
+<p class='footnote'>Cells with very high Sharpe and near-zero return are defensive states where the sleeve held SHV cash (low vol, ~RFR yield). Sharpe is informative but the AnnRet shows the regime contributes little dollar return. Look for regimes with both decent Sharpe AND meaningful AnnRet -- those are the real edge sources.</p>
 </div>
 
 <h2>Asset Pick Frequency & Top Pair Archetypes</h2>
