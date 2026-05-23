@@ -5,13 +5,17 @@ BULL-QQQ - Regime-gated QQQ overlay with SHV cash fallback.
 30% sleeve in the 60/30/10 CPM-BULL-NDX production blend.
 
 Spec:
-  Risk-on when BOTH:
-    1. Macro:     HYG OR LQD OR TIP 13612U > 0  (credit/inflation canary)
+  Risk-on when ALL THREE:
+    1. Macro:     HYG OR TIP 13612U > 0  (credit/inflation canary)
     2. Composite: >= 2 of 4 binary pillars positive
          - trend:  SPY > 200d MA           (broad-market Faber trend)
          - credit: HYG > 200d MA           (credit-market trend)
          - curve:  IEF 63d ret > TLT 63d ret (yield-curve steepening)
          - vol:    SPY 63d vol < 252d avg  (low-vol regime)
+    3. Asset:     <BULL_TICKER> 12-1 absolute momentum > 0
+                  (direct asset circuit breaker - catches dotcom-style
+                  crashes where macro signals stay confused but the
+                  risky asset itself is falling)
 
   Risk-on  -> 100% QQQ
   Else     -> 100% SHV (ultra-short Treasury cash)
@@ -46,11 +50,13 @@ CASH_TICKER = "SHV"
 
 MOMENTUM_LOOKBACK = 12       # legacy: 12-1 momentum, kept for research imports
 
-# Macro canary: HYG OR LQD OR TIP 13612U > 0 (Keller HAA-family).
-# State matrix evidence (canonical window): lone-positive HYG/LQD/TIP states
-# all have positive forward QQQ; all-negative state has negative fwd QQQ.
+# Macro canary: HYG OR TIP 13612U > 0 (Keller HAA-family, simplified).
+# LQD removed (was HYG+LQD+TIP) because IG corporate bonds rally on rate cuts
+# during equity crashes (duration effect), making "any positive" rule falsely
+# permissive in dotcom-style regimes. EXT backtest (1999-2026) showed LQD
+# inclusion costs ~0.20 Sharpe and pushes Bull-QQQ DD to -57% vs -27% without.
 # GLD or BND as additional OR is harmful (flight-to-safety bias).
-CANARY_ASSETS = ["HYG_stitched", "LQD", "TIP"]
+CANARY_ASSETS = ["HYG_stitched", "TIP"]
 CANARY_RULE = "any_positive"
 
 # Binary composite gate: 4 yes/no pillars, threshold count.
@@ -101,7 +107,7 @@ def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, di
 
 
 def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Macro risk-on gate: HYG/LQD/TIP "any positive" 13612U canary."""
+    """Macro risk-on gate: HYG/TIP "any positive" 13612U canary."""
     sigs = {}
     for asset in CANARY_ASSETS:
         sigs[asset] = sig_13612U(monthly[asset].loc[:sig_d]) if asset in monthly.columns else float("nan")
@@ -194,7 +200,7 @@ def _composite_gate(close_panel: pd.DataFrame, sig_d: pd.Timestamp
 # ---------- Allocation ----------
 
 def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
-    """Returns canary state string '+-+' etc. based on HYG/LQD/TIP 13612U signs."""
+    """Returns canary state string '+-' etc. based on HYG/TIP 13612U signs."""
     chars = []
     for asset in CANARY_ASSETS:
         if asset not in monthly.columns:
@@ -214,19 +220,25 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
     canary_ok, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)
     composite_ok, cdiag = _composite_gate(close_panel, sig_d)
+    asset_mom_ok, tdiag = _qqq_trend_ok(monthly, sig_d)
+    all_diag = {**mdiag, **cdiag, **tdiag, "state": state}
     if not canary_ok:
         return ({CASH_TICKER: 1.0}, "CASH",
-                {**mdiag, **cdiag, "state": state,
-                 "reason": "macro_gate_off (all of HYG/LQD/TIP <= 0)"})
+                {**all_diag,
+                 "reason": "macro_gate_off (both HYG and TIP <= 0)"})
     if not composite_ok:
         return ({CASH_TICKER: 1.0}, "CASH",
-                {**mdiag, **cdiag, "state": state,
+                {**all_diag,
                  "reason": f"composite_off (only {cdiag['composite_n_pos']}/4 pillars positive, need {COMPOSITE_MIN_COUNT})"})
+    if not asset_mom_ok:
+        return ({CASH_TICKER: 1.0}, "CASH",
+                {**all_diag,
+                 "reason": f"asset_mom_off ({BULL_TICKER} 12-1 mom <= 0; circuit breaker on risky asset)"})
     # Bull state: 100% QQQ (no state rotation in current spec).
     weights = {BULL_TICKER: 1.0}
     regime_label = f"BULL_{BULL_TICKER}"
     return (weights, regime_label,
-            {**mdiag, **cdiag, "state": state, "bull_asset": BULL_TICKER,
+            {**all_diag, "bull_asset": BULL_TICKER,
              "bull_weights": weights, "gate_natural": canary_ok})
 
 
@@ -263,7 +275,8 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
         mon = panel.loc[:sig_d].resample("ME").last()
         canary_ok, _ = _macro_gate(mon, sig_d)
         composite_ok, _ = _composite_gate(panel, sig_d)
-        if canary_ok and composite_ok:
+        asset_mom_ok, _ = _qqq_trend_ok(mon, sig_d)
+        if canary_ok and composite_ok and asset_mom_ok:
             month_weights = {BULL_TICKER: 1.0}
         else:
             month_weights = {CASH_TICKER: 1.0}
@@ -318,16 +331,17 @@ def cmd_allocate(args):
     print("=" * 60)
     print(f"Bull asset:  {BULL_TICKER}  (100% when macro AND trend both pass)")
     print(f"Fallback:    {CASH_TICKER}  (100% cash when either filter fails)")
-    print(f"Macro gate:  HYG/LQD/TIP any-positive 13612U")
+    print(f"Macro gate:  HYG/TIP any-positive 13612U")
     print(f"Composite:   >= {COMPOSITE_MIN_COUNT} of 4 binary pillars positive")
     print(f"             (SPY trend, HYG trend, IEF-TLT curve, SPY low-vol)")
+    print(f"Asset mom:   {BULL_TICKER} 12-1 absolute momentum > 0 (circuit breaker)")
     print()
 
     weights, regime, diag = compute_bull_qqq_weights(panel, sig_d)
 
     print(f"Macro gate diagnostics:")
     print(f"  HYG 13612U = {diag['hyg_sig']:+.4f} ({'+' if diag['hyg_sig']>0 else '-'})")
-    print(f"  LQD 13612U = {diag['lqd_sig']:+.4f} ({'+' if diag['lqd_sig']>0 else '-'})")
+
     print(f"  TIP 13612U = {diag['tip_sig']:+.4f} ({'+' if diag['tip_sig']>0 else '-'})")
     print(f"  Canary any-positive: {'YES' if diag['canary_ok'] else 'NO'}")
     print(f"\nComposite pillar diagnostics:")
@@ -342,6 +356,10 @@ def cmd_allocate(args):
     _show_pillar("vol",    diag.get("pillar_vol"))
     print(f"  Composite: {diag.get('composite_n_pos',0)}/4 positive  "
           f"(>= {COMPOSITE_MIN_COUNT} needed: {'YES' if diag.get('composite_ok') else 'NO'})")
+    if pd.notna(diag.get('mom_12_1', float('nan'))):
+        print(f"\nAsset mom diagnostics:")
+        print(f"  {BULL_TICKER} 12-1 mom = {diag['mom_12_1']*100:+7.2f}%  "
+              f"(> 0: {'YES' if diag['mom_ok'] else 'NO'})  [circuit breaker]")
     print()
 
     state = diag.get("state")

@@ -57,9 +57,13 @@ SAFE_POOL = ["SHV"]            # ultra-short Treasury (~0.3y duration)
 CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
-# BULL-QQQ canary: HYG+LQD+TIP. Declared here so load_panel() pulls LQD
-# even when only CPM is invoked.
-BULL_CANARY_ASSETS = ["HYG_stitched", "LQD", "TIP"]
+# BULL-QQQ canary: HYG+TIP. LQD removed (was HYG+LQD+TIP) because IG corporate
+# bonds rally on rate cuts during equity crashes (duration effect), making
+# "any positive" rule falsely permissive during dotcom-style crashes. LQD
+# data still loaded for research/dashboard display but excluded from canary.
+BULL_CANARY_ASSETS = ["HYG_stitched", "TIP"]
+# Kept loaded for context but not used in gate:
+BULL_CANARY_LEGACY = ["LQD"]
 DEFAULT_CASH = "SHV"
 
 # Engine parameters
@@ -92,12 +96,14 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         panel = pd.DataFrame()
     
     # Stitched series from data/ (overwrites same-named column in proxy panel).
-    # HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post (canary).
+    # HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post.
+    # LQD = VFICX (intermediate IG bond fund) pre-2002-07 + live LQD post.
     # GLD/TIP: clean stitches for canary usage pre-live-ETF.
     for fname, col in [
         ("gld_stitched_daily_clean.csv", "GLD"),
         ("tip_stitched_daily.csv", "TIP"),
         ("hyg_stitched_daily.csv", "HYG_stitched"),
+        ("lqd_stitched_daily.csv", "LQD"),
     ]:
         fpath = DATA_DIR / fname
         if fpath.exists():
@@ -113,7 +119,8 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     
     # Live yfinance pulls for ETFs not in proxy panel
     needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS
-                  + BULL_CANARY_ASSETS + PP_ASSETS + [DEFAULT_CASH])
+                  + BULL_CANARY_ASSETS + BULL_CANARY_LEGACY
+                  + PP_ASSETS + [DEFAULT_CASH])
     missing = sorted(needed - set(panel.columns))
     
     pull_start = (start - pd.DateOffset(years=2)) if start else pd.Timestamp("1995-01-01")
