@@ -6,9 +6,10 @@
   9-asset ETF universe (US factors + international + diversifiers).
 - **BULL-QQQ (30%)** — 100% QQQ when ALL THREE gates pass (each using
   Keller-canonical "any positive" rule): (1) HYG OR TIP 13612U > 0
-  (canary), (2) curve OR vol macro pillar (curve = IEF 63d ret > TLT 63d
+  (canary), (2) curve OR vol regime pillar (curve = IEF 63d ret > TLT 63d
   ret; vol = SPY 63d vol < 252d avg), (3) QQQ 12-1 absolute momentum > 0
-  (Antonacci dual momentum). SHV cash otherwise.
+  (Antonacci dual momentum). Best-of-safe(SHV, IEF) by 13612U momentum
+  otherwise (HAA-style: SHV when rates rising, IEF when rates falling).
 - **NDX (10%)** — top-4 PIT Nasdaq-100 stocks by 13612U momentum,
   equal-weighted 25% each, gated by the BULL-QQQ regime.
 
@@ -32,13 +33,13 @@ Clean live-ETF window 2008-04-30 → 2026-05-15 (18.1y, post-cost 10 bps/side):
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.53** | **16.71%** | **10.48%** | **-11.33%** | **1.48** |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.55** | **17.30%** | **10.69%** | **-11.33%** | **1.53** |
 | SPY buy-hold | 0.66 | 11.78% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM | 1.28 | 13.75% | 10.48% | -11.30% |
-| BULL-QQQ | 1.10 | 14.94% | 13.46% | -13.56% |
+| BULL-QQQ (safe pool: best(SHV, IEF)) | 1.18 | 16.88% | 14.05% | -14.31% |
 | NDX | 1.26 | 36.44% | 27.70% | -35.92% |
 
 Documented 30y window 1996-01-04 → 2026-05-15 (uses Vanguard mutual fund
@@ -46,8 +47,8 @@ stitches for non-live ETFs; HYG-only canary before 2001-06):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.29** | **14.61%** | **-16.72%** |
-| Bull-QQQ standalone | 0.91 | 14.13% | -26.83% |
+| **PROD 60/30/10 CPM-BULL-NDX** | **1.31** | **15.10%** | **-16.53%** |
+| Bull-QQQ standalone | 0.97 | 15.74% | -26.86% |
 | CPM standalone | 1.08 | 11.86% | -15.57% |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
@@ -58,10 +59,10 @@ NDX backtest biases + tail sequencing risk not captured by return bootstrap):
 
 | Metric | Backtest (CLEAN 18.1y) | Forward base case |
 |---|---:|---|
-| Sharpe | 1.53 | **1.00-1.30** |
-| CAGR | 16.71% | **10-14%** (post-cost, pre-tax) |
+| Sharpe | 1.55 | **1.00-1.30** |
+| CAGR | 17.30% | **11-15%** (post-cost, pre-tax) |
 | MaxDD | -11.33% | **-15% to -25%** (planning band) |
-| Calmar | 1.48 | **0.55-0.90** |
+| Calmar | 1.53 | **0.55-0.90** |
 
 Base case (mid-band): Sharpe 1.00-1.20, CAGR 12-14%, DD low/mid-20s in a
 bad cycle. After-tax drop in taxable accounts: ~5-9% CAGR (vs 11-15% pre-tax).
@@ -142,7 +143,13 @@ composite_on = p_curve OR p_vol
 # Gate 3: Asset momentum (Antonacci dual momentum on the risky asset)
 asset_mom_on = mom_12_1(QQQ) > 0
 
-bull = {QQQ: 1.0} if (canary_on AND composite_on AND asset_mom_on) else {SHV: 1.0}
+if canary_on AND composite_on AND asset_mom_on:
+    bull = {QQQ: 1.0}
+else:
+    # HAA-style best-of-safe: pick whichever of SHV vs IEF has higher 13612U.
+    # SHV chosen in rising/stable-rate regimes; IEF in falling-rate regimes.
+    safe_scores = {s: mom_13612U(s) for s in [SHV, IEF]}
+    bull = {argmax(safe_scores): 1.0}
 
 # ====== NDX sleeve (10%) ======
 if BULL-QQQ regime != "BULL_QQQ":

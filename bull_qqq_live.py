@@ -47,8 +47,9 @@ from cpm_live import (
 
 # ---------- Configuration ----------
 
-BULL_TICKER = "QQQ"
-CASH_TICKER = "SHV"
+BULL_TICKER = "SPY"
+CASH_TICKER = "SHV"           # default cash if SAFE_POOL evaluation fails
+SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
 
 MOMENTUM_LOOKBACK = 12       # legacy: 12-1 momentum, kept for research imports
 
@@ -197,28 +198,35 @@ def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
     return "".join(chars)
 
 
+def _pick_safe(monthly: pd.DataFrame) -> str:
+    """HAA-style: pick the safe asset with highest 13612U momentum.
+    Falls back to CASH_TICKER if no SAFE_POOL member has computable score."""
+    scores = {}
+    for s in SAFE_POOL:
+        if s in monthly.columns:
+            sc = sig_13612U(monthly[s])
+            if pd.notna(sc):
+                scores[s] = sc
+    return max(scores, key=scores.get) if scores else CASH_TICKER
+
+
 def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
                               ) -> tuple[dict, str, dict]:
     """Returns (weights, regime_label, diagnostics).
-    regime: 'BULL_QQQ' or 'CASH'."""
+    regime: 'BULL_<asset>' or 'CASH'. Safe leg uses best-of(SAFE_POOL) by 13612U."""
     monthly = close_panel.loc[:sig_d].resample("ME").last()
     canary_ok, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)
     composite_ok, cdiag = _composite_gate(close_panel, sig_d)
     asset_mom_ok, tdiag = _qqq_trend_ok(monthly, sig_d)
     all_diag = {**mdiag, **cdiag, **tdiag, "state": state}
-    if not canary_ok:
-        return ({CASH_TICKER: 1.0}, "CASH",
-                {**all_diag,
-                 "reason": "macro_gate_off (both HYG and TIP <= 0)"})
-    if not composite_ok:
-        return ({CASH_TICKER: 1.0}, "CASH",
-                {**all_diag,
-                 "reason": f"composite_off ({cdiag['composite_n_pos']}/2 pillars positive, need any 1)"})
-    if not asset_mom_ok:
-        return ({CASH_TICKER: 1.0}, "CASH",
-                {**all_diag,
-                 "reason": f"asset_mom_off ({BULL_TICKER} 12-1 mom <= 0; circuit breaker on risky asset)"})
+    if not (canary_ok and composite_ok and asset_mom_ok):
+        safe = _pick_safe(monthly)
+        reason = ('macro_gate_off' if not canary_ok
+                  else f"composite_off ({cdiag['composite_n_pos']}/2 pillars positive, need any 1)" if not composite_ok
+                  else f"asset_mom_off ({BULL_TICKER} 12-1 mom <= 0; circuit breaker on risky asset)")
+        return ({safe: 1.0}, "CASH",
+                {**all_diag, "reason": reason, "picked_safe": safe})
     # Bull state: 100% QQQ (no state rotation in current spec).
     weights = {BULL_TICKER: 1.0}
     regime_label = f"BULL_{BULL_TICKER}"
@@ -252,7 +260,7 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
 
     common = panel.index[(panel.index >= start) & (panel.index <= end)]
-    all_tickers = {BULL_TICKER, CASH_TICKER}
+    all_tickers = {BULL_TICKER, CASH_TICKER, *SAFE_POOL}
     weights_per_day = {t: pd.Series(0.0, index=common) for t in all_tickers}
     state_per_day = pd.Series("", index=common, dtype=object)  # for cost calc
 
@@ -264,7 +272,8 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
         if canary_ok and composite_ok and asset_mom_ok:
             month_weights = {BULL_TICKER: 1.0}
         else:
-            month_weights = {CASH_TICKER: 1.0}
+            safe = _pick_safe(mon)
+            month_weights = {safe: 1.0}
 
         future = common[common > sig_d]
         if len(future) < 1:
