@@ -764,7 +764,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
         frameon=False, handlelength=1.2, handleheight=0.7,
     )
 
-    # Row 2: BULL-QQQ canary (HYG/LQD/TIP any-positive + QQQ trend)
+    # Row 2: BULL-QQQ canary (HYG/LQD/TIP any-positive + 4-pillar composite)
     bull_colors = []
     for r in bull_regimes:
         if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")
@@ -772,7 +772,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
     axes[1].set_yticks([])
     axes[1].set_ylim(0, 1)
-    axes[1].set_title("BULL canary (HYG / LQD / TIP any-positive 13612U + QQQ trend)", fontsize=9)
+    axes[1].set_title("BULL canary (HYG / LQD / TIP any-positive 13612U + binary 4-pillar composite >= 2)", fontsize=9)
     axes[1].legend(
         handles=[
             Patch(facecolor="#00a040", label="BULL_QQQ"),
@@ -1260,12 +1260,23 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     bq_w, bq_regime, bq_diag = compute_bull_qqq_weights(panel, sig_d)
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
-    mom_12_1 = bq_diag.get("mom_12_1") or 0
     cstate = bq_diag.get("state", "---")
+    n_pos = bq_diag.get("composite_n_pos", 0)
+    n_eval = bq_diag.get("composite_n_eval", 0)
+    def _pillar_str(name, val):
+        if val is None: return f"{name}=?"
+        return f"{name}={'+' if val else '-'}"
+    pillar_str = " ".join([
+        _pillar_str("trend",  bq_diag.get("pillar_trend")),
+        _pillar_str("credit", bq_diag.get("pillar_credit")),
+        _pillar_str("curve",  bq_diag.get("pillar_curve")),
+        _pillar_str("vol",    bq_diag.get("pillar_vol")),
+    ])
+    comp_str = f"composite {n_pos}/{n_eval} [{pillar_str}]"
     if bq_regime.startswith("BULL_"):
-        bq_state = f"{bq_regime} (canary {cstate}, QQQ 12-1={mom_12_1*100:+.1f}%)"
+        bq_state = f"{bq_regime} (canary {cstate}, {comp_str})"
     else:
-        bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, QQQ 12-1={mom_12_1*100:+.1f}%)"
+        bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, {comp_str})"
 
     # NDX sleeve (10%) -- gated by BULL-QQQ regime
     try:
@@ -1756,8 +1767,8 @@ def main():
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
 </details>
-<details>
-<summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- bull capture with cash defense</summary>
+<details open>
+<summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- bull capture with cash defense (binary 4-pillar composite gate)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
 <li><strong>Macro gate:</strong> HYG OR LQD OR TIP positive 13612U (any-positive, 3-asset credit/inflation canary).</li>
