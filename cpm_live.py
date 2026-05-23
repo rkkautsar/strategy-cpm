@@ -115,6 +115,7 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         ("shv_stitched_daily.csv", "SHV"),
         ("ief_stitched_daily.csv", "IEF"),
         ("tlt_stitched_daily.csv", "TLT"),
+        ("qqq_stitched_daily.csv", "QQQ"),  # NDX index proxy 1985-10 to 1999-03
     ]:
         fpath = DATA_DIR / fname
         if fpath.exists():
