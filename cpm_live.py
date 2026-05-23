@@ -99,11 +99,22 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     # HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post.
     # LQD = VFICX (intermediate IG bond fund) pre-2002-07 + live LQD post.
     # GLD/TIP: clean stitches for canary usage pre-live-ETF.
+    # Audited stitches (each replaces same-named column from proxy file):
+    # - HYG <- VWEHX (Vanguard HY mutual fund), 1980-01+, auditable
+    # - LQD <- VFICX (Vanguard Intermediate IG), 1993-10+, auditable
+    # - TIP <- VIPSX (Vanguard TIPS), 2000-06+, auditable
+    # - SHV <- VFISX (Vanguard Short-Term Treasury), 1991-10+, auditable
+    # - IEF <- VFITX (Vanguard Intermediate-Term Treasury), 1991-10+, auditable
+    # - TLT <- VUSTX (Vanguard Long-Term Treasury), 1986-05+, auditable
+    # - GLD <- partly documented stitch (2000-08+), pre-2000 still gap
     for fname, col in [
-        ("gld_stitched_daily_clean.csv", "GLD"),
+        ("gld_stitched_extended_daily.csv", "GLD"),  # World Bank monthly pre-2000-08
         ("tip_stitched_daily.csv", "TIP"),
         ("hyg_stitched_daily.csv", "HYG_stitched"),
         ("lqd_stitched_daily.csv", "LQD"),
+        ("shv_stitched_daily.csv", "SHV"),
+        ("ief_stitched_daily.csv", "IEF"),
+        ("tlt_stitched_daily.csv", "TLT"),
     ]:
         fpath = DATA_DIR / fname
         if fpath.exists():
