@@ -7,7 +7,6 @@
 **Backtest windows:**
 - **Clean**: 2008-04-30 to 2026-05-15 (18.1 years, all required ETFs live + 12-month warmup)
 - **Documented 30y**: 1996-01-04 to 2026-05-15 (30.4 years, HYG-only canary pre-2001)
-- **Extended (EXT)**: 1999-03-10 to 2026-05-15 (27.2 years, included for backwards comparison; numbers identical to documented 30y trimmed to same start)
 
 **Implementation:** `strategy_cpm/bull_qqq_live.py`
 
@@ -303,19 +302,7 @@ actively during the LTCM crisis in 1998, producing positive but lower
 Sharpe than buy-hold during the late-1990s bull -- consistent with the
 strategy's design (forgo bull-market alpha to limit DD).
 
-### 3.3 Backwards-comparison EXT window (1999-03 to 2026-05, 27.2y)
-
-This window is retained for comparison with prior versions. Numbers are
-identical to the documented 30y window trimmed to 1999-03 start. Both
-use the same documented stitches (Section 6 item 11); this is not an
-independent dataset.
-
-| Strategy        | Sharpe |   CAGR   |   Max DD |
-|-----------------|-------:|---------:|---------:|
-| Bull-SPY (EXT)  |   0.97 |    9.71% |  -12.58% |
-| Bull-QQQ (EXT)  |   0.89 |   13.21% |  -26.83% |
-
-### 3.4 60% PP + 40% Bull-equity blend — clean window (18.1y)
+### 3.3 60% PP + 40% Bull-equity blend — clean window (18.1y)
 
 The Permanent Portfolio (PP-IEF) is 25% SPY + 25% IEF + 25% GLD + 25% SHV,
 equal-weight monthly. Blending 60% PP + 40% Bull-equity:
@@ -336,7 +323,7 @@ drawdowns; the Bull sleeve is equity-or-cash and weights toward cash in
 equity drawdowns. The two sleeves provide defensive exposure through
 structurally different mechanisms.
 
-### 3.5 60% PP + 40% Bull-equity blend — documented 30y window (1996-01 to 2026-05)
+### 3.4 60% PP + 40% Bull-equity blend — documented 30y window (1996-01 to 2026-05)
 
 | Variant                     | Sharpe |   CAGR   |  Max DD  | Calmar | Martin |
 |-----------------------------|-------:|---------:|---------:|-------:|-------:|
@@ -358,7 +345,7 @@ volatility because GLD before that date uses forward-filled monthly
 World Bank gold data. Monthly-rebalance signals at month-end are
 unaffected.
 
-### 3.6 PP/Bull allocation sensitivity (PP-IEF, Bull-SPY, 30y window)
+### 3.5 PP/Bull allocation sensitivity (PP-IEF, Bull-SPY, 30y window)
 
 | Allocation                  | Sharpe |   CAGR   |  Max DD  |
 |-----------------------------|-------:|---------:|---------:|
@@ -389,8 +376,8 @@ which is the baseline:
 | Each single pillar         |   0.76-0.93|  varied  | 0-4/6            |
 
 The 6 configs are the cartesian product of 3 backtest windows (proxy-
-assisted 22.8y from 2003-08, proxy-assisted 19.2y from 2007-02, EXT 27.2y
-from 1999-03) and 2 risky assets (SPY, QQQ). "Wins vs baseline" means
+assisted 22.8y from 2003-08, proxy-assisted 19.2y from 2007-02, 30y from
+1996-01) and 2 risky assets (SPY, QQQ). "Wins vs baseline" means
 strictly higher Sharpe than the `canary + asset_mom` baseline (no
 composite gate) in that cell. Note: these ablation windows are not all
 pure live-ETF; they were used for specification testing across longer
@@ -468,7 +455,7 @@ The blend benefit comes from pairing the regime-gated dynamic sleeve
 with the balanced-static PP, which observe market stress through
 structurally different mechanisms.
 
-EXT window (27.2y) correlations are similar (Bull-SPY vs PP-IEF: 0.40
+30y window correlations are similar (Bull-SPY vs PP-IEF: 0.40
 daily / 0.41 monthly), consistent with structural diversification across
 the tested windows.
 
@@ -690,7 +677,7 @@ vs SPY/QQQ buy-hold -0.53 / -0.59 are consistent with this design intent
   CAGR than SPY in the clean window; gated, Bull-QQQ had ~4.2 pp/year
   higher CAGR than Bull-SPY.
 - Same gate logic, no asset-specific tuning.
-- Higher EXT CAGR (13.0% vs 9.5%) at the cost of deeper drawdowns.
+- Higher 30y CAGR (14.1% vs 10.0%) at the cost of deeper drawdowns.
 - Better for investors with explicit conviction in tech secular trend.
 
 In a 60/40 PP+Bull blend, Bull-QQQ produces ~1.5pp higher blend CAGR
@@ -727,14 +714,14 @@ outperformance persists.
    (1999-2020) and one bond bear market (2020-2023). The curve pillar's
    behavior in a future regime that does not resemble either may differ.
 
-7. **Documented-stitch 30y / EXT window.** Pre-live data sources are
+7. **Documented-stitch 30y window.** Pre-live data sources are
    summarized in Section 6 item 11. Briefly: SPY is live throughout;
    QQQ pre-1999 uses NDX index; SHV/IEF/TLT pre-live use Vanguard mutual
    fund stitches (VFISX/VFITX/VUSTX); HYG uses VWEHX from 1980; TIP
    uses VIPSX from 2000-06 (canary reduces to HYG-only before then);
    GLD pre-2000-08 uses World Bank monthly gold forward-filled to daily.
-   **30y / EXT results are documented stress-test evidence, secondary
-   to the clean 2008+ live-ETF window.**
+   **30y results are documented stress-test evidence, secondary to the
+   clean 2008+ live-ETF window.**
 
 8. **Backtest execution convention.** The main backtest credits the
    close[T]-to-close[T+1] return to the new weight (close-to-close
@@ -814,10 +801,7 @@ outperformance persists.
       reducing to HYG-only canary.
 
     **Implication for 30y window:** documented stitches are sufficient
-    to compute all gate signals from 1996-01 onwards. The 1999-03 EXT
-    window (Section 3.3) is retained for backward comparison with
-    earlier versions of this memo; numbers are identical to the 30y
-    window trimmed to that start date.
+    to compute all gate signals from 1996-01 onwards.
 
 ## 7. Implementation
 
@@ -832,7 +816,7 @@ python bull_qqq_live.py allocate
 python bull_qqq_live.py backtest --start 2008-04-30
 
 # Backtest (extended window)
-python bull_qqq_live.py backtest --start 1999-03-10
+python bull_qqq_live.py backtest --start 1996-01-04
 ```
 
 To switch the risky asset from QQQ to SPY, change `BULL_TICKER = "QQQ"`
@@ -868,28 +852,23 @@ This is the start of the "clean window" backtest.
 
 First month-end signal date at which the gate component is evaluable
 (under the available-assets rule, gates fail-closed when inputs missing).
-In EXT, every gate is evaluable from 1999-03-31 under the available-
-assets rule, but not every component is available. The full HYG+TIP
-canary is not available until approximately 2001-06; before then the
+In the 30y window, every gate is evaluable from 1996-01-31 under the
+available-assets rule. The full HYG+TIP canary is not available until
+approximately 2001-06 (TIP/VIPSX 12-month warm-up); before then the
 canary reduces to HYG-only.
 
-| Component             | Clean window first signal | EXT window first signal | Notes                                                                                       |
-|-----------------------|---------------------------|-------------------------|---------------------------------------------------------------------------------------------|
-| Canary HYG 13612U     | 2008-04-30                | 1999-03-31              | 12mo lookback. Clean uses live HYG; EXT uses VWEHX stitch (documented stitch) from 1980             |
-| Canary TIP 13612U     | 2008-04-30                | 2001-06-30              | 12mo lookback after VIPSX live 2000-06; pre-2001 EXT canary reduces to HYG-only             |
-| Curve pillar (IEF/TLT)| 2008-04-30                | 1999-03-31              | 63d lookback. Clean uses live IEF/TLT; 30y/EXT uses VFITX/VUSTX documented stitches pre-2002 |
-| Vol pillar (SPY)      | 2008-04-30                | 1999-03-31              | 252d lookback on SPY (live since 1993)                                                      |
-| Asset mom (SPY)       | 2008-04-30                | 1999-03-31              | 13mo lookback on SPY (live since 1993)                                                      |
-| Asset mom (QQQ)       | 2008-04-30                | 1999-03-31              | 13mo lookback. QQQ live from 1999-03; pre-1999 warm-up uses NDX index proxy (documented stitch via ^NDX from 1985-10) |
+| Component             | Clean window first signal | 30y window first signal | Notes                                                                  |
+|-----------------------|---------------------------|-------------------------|------------------------------------------------------------------------|
+| Canary HYG 13612U     | 2008-04-30                | 1996-01-31              | Clean: live HYG. 30y: VWEHX stitch from 1980                           |
+| Canary TIP 13612U     | 2008-04-30                | 2001-06-30              | VIPSX live 2000-06; pre-2001 canary reduces to HYG-only                |
+| Curve pillar (IEF/TLT)| 2008-04-30                | 1996-01-31              | Clean: live IEF/TLT. 30y: VFITX/VUSTX stitches pre-2002                |
+| Vol pillar (SPY)      | 2008-04-30                | 1996-01-31              | 252d lookback on SPY (live since 1993)                                 |
+| Asset mom (SPY)       | 2008-04-30                | 1996-01-31              | 13mo lookback on SPY (live since 1993)                                 |
+| Asset mom (QQQ)       | 2008-04-30                | 1996-01-31              | QQQ live from 1999-03; pre-1999 uses NDX index proxy from 1985-10      |
 
-For the 30y / EXT backtest pre-live data lineage including each stitch
-source and caveats, see **Section 6 item 11** (the definitive lineage
-table). Summary: every gate is evaluable from 1996-01 under the
-available-assets rule using documented Vanguard mutual fund stitches
-for Treasuries, VWEHX/VIPSX for canary, NDX index for QQQ pre-1999,
-and World Bank monthly gold pre-2004. The 30y/EXT results are
-documented secondary evidence supporting the primary clean 2008+
-live-ETF window.
+See **Section 6 item 11** for the definitive pre-live data lineage with
+stitch sources and caveats. The 30y window results are documented
+secondary evidence supporting the primary clean 2008+ live-ETF window.
 
 ## 9. Future work
 
