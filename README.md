@@ -54,7 +54,7 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8 + vol cap** | **1.55** | **17.39%** | **10.85%** | **-12.00%** | **1.60** |
+| **PROD 60/20/20 K=8 + VIX cap** | **1.53** | **16.53%** | **10.81%** | **-11.46%** | **1.44** |
 | PROD (no vol cap) | 1.51 | 17.66% | 11.17% | -12.00% | 1.47 |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
@@ -77,10 +77,10 @@ biases + tail sequencing not captured by return bootstrap):
 
 | Metric | Backtest (+ vol cap) | Forward base case |
 |---|---:|---|
-| Sharpe | 1.55 | **1.05-1.35** |
-| CAGR | 17.39% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -12.00% | **-15% to -30%** planning band (K=8 caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; vol cap reduces tail vol but doesn't always reduce MaxDD depth) |
-| Calmar | 1.60 | **0.60-0.90** |
+| Sharpe | 1.53 | **1.05-1.35** |
+| CAGR | 16.53% | **11-15%** pre-tax, **5-9%** after-tax |
+| MaxDD | -11.46% | **-15% to -30%** planning band (K=8 caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
+| Calmar | 1.44 | **0.55-0.90** |
 
 ## Strategy specification
 
@@ -526,8 +526,8 @@ covariance regime has shifted away from the one CPM was designed for.
   lookback). **Plan around recovery time, not just MaxDD depth**: any future
   central-bank-pivot or credit-event-resolution V will produce similar lag.
   CPM partial-backfills via faster pair rotation.
-- **In-sample selection bias**: anchor forward Sharpe at 1.05-1.35 (not 1.58
-  backtest); planning MaxDD band -15 to -25%. The forward floor is more
+- **In-sample selection bias**: anchor forward Sharpe at 1.05-1.35 (not 1.53
+  backtest); planning MaxDD band -15 to -30%. The forward floor is more
   optimistic than the data warrants if positive stock/bond correlation
   becomes the structural norm rather than a transient regime.
 - **CPM/BULL canary asymmetry**: when CPM is all-cash (HYG+TIP+GLD all
