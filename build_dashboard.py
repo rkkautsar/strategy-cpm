@@ -1616,11 +1616,12 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 
 def main():
     ap = argparse.ArgumentParser()
-    # Default to POST-DBC canonical 19.2y window (2007-02); all RISKY ETFs
-    # the README headline. Override with --start to view the longer extended
-    # window (1997-08 or 2001-08), but bottom-line text is calibrated to
-    # live-only metrics.
-    ap.add_argument("--start", default="2007-02-28")
+    # Default to strict live-ETF CLEAN window 18.1y (2008-04-30): ~12
+    # months after HYG live (2007-04-11), giving the BULL canary's 12mo
+    # momentum lookback a full year of real HYG data (not VWEHX stitched).
+    # Matches README CLEAN headline. Override with --start to view earlier
+    # windows that use stitched mutual-fund data for non-live periods.
+    ap.add_argument("--start", default="2008-04-30")
     ap.add_argument("--end", default=None)
     ap.add_argument("--out", default=str(ROOT / "cpm_dashboard.html"))
     args = ap.parse_args()
