@@ -147,16 +147,14 @@ else:
 # ---- Combined ----
 portfolio_uncapped = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
-# ====== Portfolio-level vol cap (hybrid threshold + latched binary 50%) ======
-# Daily check: if blend trailing-21d vol > max(252d-avg of 21d vol, 22% floor),
-# scale = 0.5; else 1.0. Once triggered, LATCH at 0.5 until next monthly
-# signal date (re-evaluate then). The hybrid threshold adapts upward if
-# baseline vol drifts > 22% (1970s-style regime), identical to fixed 22%
-# in normal regimes.
-blend_vol_21d  = realized_vol_21d(portfolio_uncapped)
-long_avg       = rolling_mean_252d(blend_vol_21d)         # 1y baseline
-threshold      = max(long_avg, 0.22)                      # adaptive with abs floor
-if blend_vol_21d > threshold OR vol_cap_latched_from_prior_day:
+# ====== Portfolio-level vol cap (VIX-based + latched binary 50%) ======
+# Daily check: if VIX > rolling-5y P95 of VIX, scale = 0.5; else 1.0.
+# Once triggered, LATCH at 0.5 until next monthly signal date (re-evaluate
+# then). VIX is externally calibrated (no tuning on own data); 5y rolling
+# P95 adapts to vol-of-vol regime; threshold today ~30 (well-known panic).
+vix_today      = VIX_close[T-1]                           # yesterday's VIX
+vix_threshold  = quantile(VIX_close[T-5y:T-1], 0.95)      # 5y rolling P95
+if vix_today > vix_threshold OR vol_cap_latched_from_prior_day:
     scale = 0.5                                           # halve everything
 else:
     scale = 1.0
@@ -255,63 +253,72 @@ driven by canary + asset_mom flips, identical across variants.
 **Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
 CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
 
-**Portfolio-level vol cap robustness** (latched binary 50%; hybrid threshold
-= max(252d-avg of 21d realized vol, 22% absolute floor)):
+**Portfolio-level vol cap robustness** (latched binary 50%, VIX > rolling-5y P95):
 
 | Test | Result |
 |---|---|
-| **PROD: R6 hybrid `max(long252, 22%)`, CLEAN 18.1y** | **Sharpe 1.553 vs baseline 1.515 (+0.038); Max-rv 31.5% → 23.4%; 0.89 trades/yr** |
-| Extended 30y (incl. dotcom) | Sharpe 1.317 vs 1.303 (+0.014); Max vol 33.1% → 25.9%; 0.7 trades/yr |
-| Out-of-window split (first half 2008-2017) | +0.042 Sharpe vs baseline (positive; identical to fixed 22% in-sample) |
-| Out-of-window split (second half 2017-2026) | +0.032 Sharpe vs baseline (positive) |
-| LB-short sensitivity (10/21/42/63d) | 21d is the optimum (Sh 1.554); others 1.498-1.510 |
-| Alternative: pure adaptive (`short > long252 avg`, no floor) | Sh 1.399 — over-triggers in calm regimes (Sh -0.15 vs baseline) |
-| Alternative: fixed 22% absolute (no adaptive arm) | Sh 1.554 — in-sample equivalent to R6 (long-avg rarely exceeds 22% in tested data) |
-| Alternative: MM continuous @ 15% (Moreira-Muir 2017) | Sh 1.535 (worse), MaxDD -10.84% (better), 6 trades/yr |
-| Alternative: VIX-percentile @ 90th latched | Sh 1.472 (worst), worse on both windows |
+| **PROD CLEAN 18.1y** | **Sharpe 1.53 vs baseline 1.51 (+0.02); MaxDD -12.00% → -11.46%; Max-rv 31.5% → 28.5%; 1.8 trades/yr** |
+| Extended 30y (incl. dotcom) | Sharpe 1.30 vs 1.30 (essentially flat); MaxDD -16.59% → -16.59% (no improvement); 1.6 trades/yr |
+| Rolling 12mo mean DD (CLEAN) | -6.63% (best of tested forms); baseline -7.28%, R6-alt -6.95% |
+| Rolling 24mo mean DD (CLEAN) | -7.40% (best); baseline -8.31%, R6-alt -7.72% |
+| Rolling 12mo min DD (CLEAN) | -11.46% (best); baseline -12.00%, R6-alt -12.00% |
+| Alternative: R6 `max(252d-avg vol, 22%)` | Sh 1.55 (+0.04); MaxDD -12.00%; Max-rv 23.4%. Better in-sample Sharpe + worst-case Max-rv, but worse rolling-DD experience. Has arbitrary 22% calibration. |
+| Alternative: P97 expanding (vol percentile) | Sh 1.54; MaxDD -12.41%. Same tail vol as R6 but worse MaxDD. |
+| Alternative: Pure adaptive (`vol > long avg`, no floor) | Sh 1.40 — over-triggers in calm regimes |
+| Alternative: MM continuous @ 15% (Moreira-Muir 2017) | Sh 1.54; MaxDD -10.84%; 6 trades/yr. Better single MaxDD at higher ops. |
+| Alternative: drawdown-trigger DD<P9 expanding | Sh 1.39 (-0.16); 30y MaxDD -11.46% (best 30y tail). Big Sharpe cost. |
 
-**Why R6 hybrid over fixed 22%**: empirically equivalent in tested data (long-
-avg rarely exceeded 22% in either window, so R6 collapsed to fixed-22% in-
-sample). The hybrid form adapts upward if baseline vol regime drifts above
-22% (1970s-style protracted high-vol regime). Pure adaptive (`short > long`
-with no floor) is empirically WORSE because it over-triggers in calm regimes
-when long-avg drifts to 10-12%. Form components supported by practitioner
-literature: exposure floor (StockAlpha), signal confirmation + cooldown
-(Moreira-Muir 2017 bounded variant), regime-bucket threshold (VRP-harvesting
-practitioners), latched whipsaw control. ~0.9 trades/yr.
+**Why VIX P95 5y over R6 / fixed 22%**: VIX is externally calibrated (no
+parameter tuning on own backtest data). Rolling 5y P95 adapts to current
+vol-of-vol regime (threshold today ~30 is the well-known panic level). On
+the full drawdown distribution (rolling 12mo/24mo means and minima), VIX cap
+empirically delivers shallower DD experience than R6 across both CLEAN and
+30y windows. R6 has slightly better in-sample Sharpe (+0.02, within bootstrap
+noise of [1.08, 1.94]) and worst-case single Max realized vol (23.4% vs
+28.5%), but worse rolling-DD experience and requires calibrating "22%" on own
+data.
+
+**Practitioner backing**: VIX-percentile regime classification is
+industry-standard (VRP-harvesting strategies; Cboe's own panic thresholds).
+Latched binary form supported by Moreira-Muir 2017 (bounded vol-managed
+variant) + practitioner literature on signal-confirmation + cooldown.
 
 **Vol-cap latch reset rules** (operational spec):
 
-Let `threshold_t = max(rolling_mean_252d(realized_21d_vol)_t, 22%)`. In all
-tested data the 252d-avg stayed below 22%, so `threshold == 22%` in normal
-regimes; the adaptive arm only matters in 1970s-style sustained high-vol
-baselines.
+Let `threshold_t = rolling 5y P95 of VIX close at day t-1`. Threshold today
+is approximately 30 (well-known panic VIX level). The 5y rolling window
+adapts to prevailing vol-of-vol regime.
 
-- **Daily check** (US-close + 30min): compute trailing 21d realized vol of the
-  uncapped blend, and the current `threshold_t`.
-  - If `vol > threshold AND current_scale == 1.0` → trigger: set scale = 0.5,
+- **Daily check** (US-close + 30min): read yesterday's VIX close and the
+  current `threshold_t`.
+  - If `VIX > threshold AND current_scale == 1.0` → trigger: set scale = 0.5,
     sell 50% of portfolio to cash, latch until next monthly signal date.
-  - If `current_scale == 0.5` → no daily action regardless of vol (latch holds).
+  - If `current_scale == 0.5` → no daily action regardless of VIX (latch holds).
 - **Monthly signal date** (last trading day of month): always re-evaluate.
-  - If `vol > threshold_t` at signal date → reset/maintain scale = 0.5; new
+  - If `VIX > threshold_t` at signal date → reset/maintain scale = 0.5; new
     month's positions are sized at 50% of the new sleeve targets, with 50%
     in cash.
-  - If `vol < threshold_t` → lift: scale = 1.0; rebuild full positions at
+  - If `VIX < threshold_t` → lift: scale = 1.0; rebuild full positions at
     100% of new sleeve targets.
   - Net trade at month-end = (new sleeve allocations × new scale) - (current
     holdings). The trade-delta table on the dashboard shows this directly.
 
 **Edge cases:**
-- Vol spikes day 2, recovers day 10: stay at 50% for the remaining ~28 days
+- VIX spikes day 2, recovers day 10: stay at 50% for the remaining ~28 days
   regardless. The cap costs upside in this scenario but the latched binary
-  empirically still wins on Sharpe vs un-latched continuous (Moreira-Muir).
-- Vol spikes again mid-month after one trigger: no double-action (already at
+  empirically still wins on rolling-DD experience vs un-latched continuous.
+- VIX spikes again mid-month after one trigger: no double-action (already at
   0.5). Re-evaluation only at next signal date.
 - Trigger fires the day before monthly signal: at signal date, immediately
   re-evaluate on the new uncapped allocation; net effect is one combined
   rebalance trade rather than two.
-- Long-avg drifts above 22% (sustained high-vol regime): threshold adapts
-  upward, reducing over-triggering. Never below the 22% floor.
+- VIX 5y P95 drifts in sustained high-vol regime: threshold adapts upward
+  (the 5y rolling baseline rises), reducing over-triggering. No floor; pure
+  percentile-of-history.
+- Vol shock without VIX panic (e.g., bond/commodity vol spike that doesn't
+  move equity options): cap does NOT fire even if blend vol exceeds historical
+  bounds. This is the known weakness vs blend-vol forms like R6 — trade-off
+  for using an external calibration-free signal.
 
 **Daily-check failure modes** (vol_check.py + GH Actions cron):
 
@@ -412,17 +419,24 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   vol-targeted at 12% sleeve-internal (and the cap is monthly ex-ante, so
   mid-month spikes are uncapped). BULL (~14-25% standalone vol) and NDX
   (~23-40% standalone vol) run uncapped at sleeve level. The portfolio-level
-  vol cap (latched binary 50% with hybrid `max(252d avg, 22% floor)` threshold; daily check) was added on top
+  vol cap (latched binary 50% with VIX > rolling-5y P95 trigger; daily check) was added on top
   to address this. Realized blend 21d vol distribution:
 
-  | Window | P50 | P75 | P95 | P99 | Max |
-  |---|---:|---:|---:|---:|---:|
-  | Uncapped (baseline) | 9.5% | 12.7% | 19.6% | 24.3% | **31.5%** (COVID 2020-04) |
-  | **With vol cap (PROD R6)** | **9.3%** | **12.4%** | **18.6%** | **22.0%** | **23.4%** |
+  | Window | P50 | P75 | P90 | P95 | P97 | P99 | Max |
+  |---|---:|---:|---:|---:|---:|---:|---:|
+  | Uncapped (baseline) | 9.5% | 12.7% | 17.0% | 19.6% | 21.5% | 24.3% | **31.5%** (COVID 2020-04) |
+  | **With VIX cap (PROD)** | **9.2%** | **12.1%** | **15.6%** | **17.4%** | **18.5%** | **22.0%** | **28.5%** |
 
-  The portfolio cap reduces tail risk (P99 -2.3pp, Max -8.1pp) at a small
-  CAGR cost (-0.22pp). Sleeve-internal caps remain in place; the portfolio
-  cap is a second defense for mid-month vol blowups.
+  The portfolio VIX cap reduces tail risk across the distribution (P95 -2.2pp,
+  P99 -2.3pp, Max -3.0pp) at a small CAGR cost (-1.1pp). MaxDD improves
+  -12.00% → -11.46% on CLEAN; rolling-12mo mean DD improves -7.28% → -6.63%.
+  Sleeve-internal caps remain in place; the portfolio VIX cap is a second
+  defense for mid-month vol blowups when VIX confirms.
+
+  **Note**: Max realized vol still 28.5% (not as compressed as a blend-vol-
+  direct trigger would give). VIX cap doesn't fire on vol spikes that don't
+  move equity options (e.g., bond/commodity shocks). Trade-off accepted in
+  exchange for external calibration-free signal.
 - **Effective Nasdaq/growth concentration**: in risk-on regimes CPM can hold
   QQQ/IWF while BULL holds QQQ and NDX holds top Nasdaq names. Realized growth
   exposure: mean 44%, median 40%, **max ~70%**, ≥70% in 34.6% of months. Not a
@@ -622,7 +636,7 @@ One-shot setup: `bash deploy/setup.sh`. Details in `deploy/cf-pages/README.md`,
 - `bull_qqq_live.py` — BULL-QQQ sleeve.
 - `ndx_sleeve_live.py` — NDX sleeve (PIT constituent fetch).
 - `build_dashboard.py` — 60/20/20 blend dashboard + peer benchmarks.
-- `vol_cap.py` — portfolio-level latched binary vol cap (50% scale; hybrid `max(252d-avg, 22% floor)` threshold).
+- `vol_cap.py` — portfolio-level latched binary vol cap (50% scale; VIX > rolling-5y P95 trigger). Includes VIX fetcher with local parquet cache.
 - `vol_check.py` — daily vol-cap check job (state persistence + Telegram alert).
 - `vol_cap_state.json` — persisted vol-cap state (committed by vol-check workflow).
 - `data/` — stitched series; `data/ndx_constituents/prices.parquet` cached.

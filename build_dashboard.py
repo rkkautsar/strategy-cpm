@@ -1414,34 +1414,34 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     # Load vol-cap state (from vol_cap_state.json, persisted by daily vol-check)
     try:
         import json
-        from vol_cap import VOL_CAP_ABS_FLOOR, VOL_CAP_LB_SHORT, VOL_CAP_LB_LONG, VOL_CAP_SCALE
+        from vol_cap import VIX_PCT, VIX_LB_YEARS, VOL_CAP_SCALE
         state_file = ROOT / "vol_cap_state.json"
         if state_file.exists():
             vc_state = json.loads(state_file.read_text())
             vc_scale = float(vc_state.get("scale", 1.0))
             vc_regime = vc_state.get("regime", "NORMAL")
-            vc_rv = vc_state.get("realized_vol_21d_pct", None)
-            vc_long_avg = vc_state.get("long_avg_252d_pct", None)
-            vc_threshold = vc_state.get("current_threshold_pct", VOL_CAP_ABS_FLOOR * 100)
+            vc_vix = vc_state.get("vix", None)
+            vc_threshold = vc_state.get("vix_threshold", None)
             vc_as_of = vc_state.get("as_of_date", "never")
+            vc_vix_asof = vc_state.get("vix_asof_date", "n/a")
             vc_last_event = vc_state.get("last_change_event")
             vc_lifetime = vc_state.get("lifetime_events", 0)
         else:
             vc_scale = 1.0
             vc_regime = "NORMAL"
-            vc_rv = None
-            vc_long_avg = None
-            vc_threshold = VOL_CAP_ABS_FLOOR * 100
+            vc_vix = None
+            vc_threshold = None
             vc_as_of = "never (vol_cap_state.json missing)"
+            vc_vix_asof = "n/a"
             vc_last_event = None
             vc_lifetime = 0
     except Exception as e:
         vc_scale = 1.0
         vc_regime = "ERROR"
-        vc_rv = None
-        vc_long_avg = None
-        vc_threshold = VOL_CAP_ABS_FLOOR * 100
+        vc_vix = None
+        vc_threshold = None
         vc_as_of = f"error: {e}"
+        vc_vix_asof = "n/a"
         vc_last_event = None
         vc_lifetime = 0
 
@@ -1455,17 +1455,16 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
                              if abs(w) > 1e-6)
 
     # Vol-cap status block
-    rv_str = f"{vc_rv:.1f}%" if vc_rv is not None else "n/a"
-    thresh_str = f"{vc_threshold:.1f}%"
-    long_str = f"{vc_long_avg:.1f}%" if vc_long_avg is not None else "n/a"
+    vix_str = f"{vc_vix:.2f}" if vc_vix is not None else "n/a"
+    thresh_str = f"{vc_threshold:.2f}" if vc_threshold is not None else "n/a"
     if vc_regime == "CAP_ENGAGED":
         vc_color = "#e74c3c"
         vc_status = (f"⚠️ <strong>CAP ENGAGED</strong> at {int(vc_scale*100)}% scale "
-                      f"(half to cash). Realized 21d vol: {rv_str} &gt; threshold {thresh_str}. "
+                      f"(half to cash). VIX: {vix_str} &gt; threshold {thresh_str}. "
                       f"Latched until next monthly signal.")
     elif vc_regime == "NORMAL":
         vc_color = "#27ae60"
-        vc_status = (f"✓ NORMAL: scale 100%. Realized 21d vol: {rv_str} &lt; threshold {thresh_str}.")
+        vc_status = (f"✓ NORMAL: scale 100%. VIX: {vix_str} &lt; threshold {thresh_str}.")
     else:
         vc_color = "#666"
         vc_status = f"State: {vc_regime}. As-of: {vc_as_of}."
@@ -1473,17 +1472,17 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     if vc_last_event:
         last_event_str = (f" Last state change: {vc_last_event.get('at_date')} "
                            f"({vc_last_event.get('kind')}, "
-                           f"vol={vc_last_event.get('realized_vol_at_change')}%).")
+                           f"VIX={vc_last_event.get('vix_at_change')}, "
+                           f"threshold={vc_last_event.get('threshold_at_change')}).")
     vol_cap_html = (
         f"<div style='grid-column: 1 / -1; background:#fef9e7; "
         f"border-left: 4px solid {vc_color}; padding:10px 14px; border-radius:4px; "
         f"margin: 8px 0;'>"
         f"<strong>Portfolio vol cap</strong> (latched binary {int(VOL_CAP_SCALE*100)}%; "
-        f"threshold = max({VOL_CAP_LB_LONG}d-avg realized vol, {int(VOL_CAP_ABS_FLOOR*100)}% floor); "
-        f"{VOL_CAP_LB_SHORT}d trailing realized vol on the blend): {vc_status} "
-        f"<br><span style='font-size:0.9em;color:#555'>Current threshold {thresh_str} "
-        f"(long-avg {long_str}, abs floor {int(VOL_CAP_ABS_FLOOR*100)}%; whichever is higher).{last_event_str}"
-        f" State as-of {vc_as_of}. Lifetime events: {vc_lifetime}.</span>"
+        f"VIX-based trigger: VIX &gt; P{int(VIX_PCT*100)} of rolling {VIX_LB_YEARS}y VIX): {vc_status} "
+        f"<br><span style='font-size:0.9em;color:#555'>Threshold today = {thresh_str} "
+        f"(P{int(VIX_PCT*100)} of last {VIX_LB_YEARS} years of VIX closes).{last_event_str}"
+        f" VIX as-of {vc_vix_asof}. State as-of {vc_as_of}. Lifetime events: {vc_lifetime}.</span>"
         f"</div>"
     )
 
@@ -1603,15 +1602,21 @@ def main():
     bull_qqq_rets = bull_qqq_rets.reindex(common)
     ndx_rets = ndx_rets.reindex(common).fillna(0.0)
     blended_uncapped = CPM_W * cpm + BULL_W * bull_qqq_rets + NDX_W * ndx_rets
-    # Apply portfolio-level vol cap (latched binary 50%; hybrid threshold
-    # = max(252d-avg of 21d realized vol, 22% abs floor))
-    from vol_cap import compute_latched_scale
+    # Apply portfolio-level vol cap (latched binary 50%; trigger when
+    # VIX > rolling 5y P95 of VIX)
+    from vol_cap import compute_latched_scale, load_vix
     blend_sig_dates = (pd.date_range(blended_uncapped.index[0], blended_uncapped.index[-1],
                                        freq="ME")
                        .intersection(blended_uncapped.index).tolist())
-    vol_scale, vol_events = compute_latched_scale(blended_uncapped, blend_sig_dates)
+    vix_series = load_vix(
+        start=blended_uncapped.index[0] - pd.Timedelta(days=365 * 6),
+        end=blended_uncapped.index[-1] + pd.Timedelta(days=2),
+    )
+    vol_scale, vol_events = compute_latched_scale(
+        blended_uncapped, blend_sig_dates, vix=vix_series
+    )
     blended = vol_scale * blended_uncapped
-    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + vol cap"
+    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + VIX cap"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)

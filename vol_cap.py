@@ -1,74 +1,124 @@
-"""Portfolio-level vol cap: latched binary 50% with hybrid threshold.
+"""Portfolio-level vol cap: VIX-based latched binary 50%.
 
-Threshold form:
-  trigger if  realized_21d_vol > max(rolling_mean_252d(realized_21d_vol), 22%)
+Trigger form:
+  threshold = rolling 5y P95 of VIX close
+  trigger if VIX > threshold
 
-When triggered:
+Once triggered:
   - Scale all sleeves by 0.5 (half to cash)
   - Hold scale until next monthly signal date (latched)
-  - At signal date, re-evaluate: lift scale back to 1.0 if threshold not breached
+  - At signal date, re-evaluate: lift if VIX < threshold, else stay
 
 Rationale:
-  - The 22% absolute floor matches the simpler fixed-22% empirical optimum in
-    tested data (CLEAN 18.1y Sh 1.554, identical to fixed-22%).
-  - The relative `> long_avg` arm activates ONLY if the baseline vol regime
-    drifts above 22% (e.g. sustained 1970s-style high-vol regime). In that
-    case the threshold adapts upward, avoiding over-triggering in genuinely
-    high-vol baselines while still catching real spikes above the floor.
-  - In all tested data (CLEAN 18.1y, 30y extended) the long-avg threshold
-    rarely exceeded 22%, so R6 collapsed to fixed-22% in-sample. Future-proof
-    against regime shifts at zero current cost.
+  - VIX is externally calibrated; not tuned to own backtest data
+  - Rolling 5y P95 adapts to the prevailing vol-of-vol regime
+  - Industry-standard signal; VIX > 30 is widely recognized as panic
+  - Threshold today ~30; current VIX ~16-18 in normal regimes
 
 Empirical comparison (CLEAN 18.1y):
-  - Baseline (no cap):                Sh 1.515 / Max-rv 31.5%
-  - Fixed 22% (prior):                Sh 1.554 / Max-rv 23.4% / 0.9 trades/yr
-  - R6 max(long252, 22%):             Sh 1.554 / Max-rv 23.4% / 0.9 trades/yr
-  - Pure adaptive (short > long):     Sh 1.399 (worse - triggers too often)
-  - Moreira-Muir continuous @ 15%:    Sh 1.535 (worse) / 6 trades/yr
+  Variant                       Sh    MaxDD    r12mean-DD  r24mean-DD  trades/yr
+  Baseline (no cap)             1.51  -12.00%  -7.28%      -8.31%      0
+  R6 max(252d-avg, 22%)         1.55  -12.00%  -6.95%      -7.72%      0.9
+  P97 expanding (vol)           1.54  -12.41%  -6.72%      -7.60%      1.1
+  VIX P95 rolling 5y (PROD)     1.53  -11.46%  -6.63%      -7.40%      1.8
+
+  VIX P95 5y has the lowest rolling 12mo and 24mo mean drawdown on both
+  windows (CLEAN + 30y), and the best worst-case MaxDD on CLEAN. Sharpe
+  difference vs R6 is 0.02 = noise (bootstrap CI [1.08, 1.94] is 40x wider).
 
 Form supported by practitioner literature:
-  - Exposure floor (StockAlpha-style minimum-exposure rule)
-  - Signal confirmation + cooldown (Moreira-Muir 2017 bounded variant)
-  - Regime-bucket threshold (VIX-percentile / VRP-harvesting practitioners)
-  - Whipsaw control via monthly latch (Lancaster RRW change-point detection)
+  - VIX-percentile regime classification (standard practitioner approach)
+  - Rolling 5y window matches institutional risk-management norms
+  - Signal-confirmation + cooldown (Moreira-Muir 2017 bounded variant)
 """
 from __future__ import annotations
+
+import os
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-VOL_CAP_ABS_FLOOR = 0.22     # absolute trigger floor (matches in-sample optimum)
-VOL_CAP_LB_SHORT = 21         # short trailing-vol window (trading days)
-VOL_CAP_LB_LONG = 252         # long-avg baseline window (~1y)
-VOL_CAP_SCALE = 0.5           # binary scale-down (half to cash) when triggered
+VIX_PCT = 0.95             # 95th percentile of trailing VIX distribution
+VIX_LB_YEARS = 5           # rolling 5-year window
+VIX_LB_DAYS = VIX_LB_YEARS * 252  # ~1260 trading days
+VOL_CAP_SCALE = 0.5        # binary scale-down (half to cash) when triggered
+
+ROOT = Path(__file__).resolve().parent
+VIX_CACHE = ROOT / "data" / "vix_cache.parquet"
 
 
-def _threshold_at(rv_lag_history: pd.Series,
-                   abs_floor: float = VOL_CAP_ABS_FLOOR,
-                   long_lb: int = VOL_CAP_LB_LONG) -> float:
-    """Threshold = max(rolling_mean_LB_long of short-vol series, absolute_floor)."""
-    if len(rv_lag_history) < long_lb:
-        return float(abs_floor)
-    long_avg = float(rv_lag_history.tail(long_lb).mean())
-    if not np.isfinite(long_avg):
-        return float(abs_floor)
-    return max(long_avg, abs_floor)
+def load_vix(start: pd.Timestamp | None = None,
+              end: pd.Timestamp | None = None,
+              refresh: bool = False) -> pd.Series:
+    """Load VIX close series. Uses local parquet cache; refreshes via yfinance
+    when stale or refresh=True. Returns daily close timeseries (UTC-naive)."""
+    import yfinance as yf
+    cached: pd.Series | None = None
+    if VIX_CACHE.exists() and not refresh:
+        try:
+            df = pd.read_parquet(VIX_CACHE)
+            cached = df["close"].copy()
+            cached.index = pd.to_datetime(cached.index).tz_localize(None)
+        except Exception:
+            cached = None
+    today = pd.Timestamp.utcnow().tz_localize(None).normalize()
+    need_refresh = (
+        refresh
+        or cached is None
+        or len(cached) == 0
+        or (today - cached.index[-1]).days > 1
+    )
+    if need_refresh:
+        fetch_start = "1990-01-01"
+        fetch_end = today + pd.Timedelta(days=2)
+        v = yf.Ticker("^VIX").history(start=fetch_start, end=fetch_end,
+                                        auto_adjust=True)
+        if v is None or v.empty:
+            if cached is None:
+                raise RuntimeError("VIX fetch failed and no cache available")
+            v_series = cached
+        else:
+            v_series = v["Close"].copy()
+            v_series.index = pd.to_datetime(v_series.index).tz_localize(None)
+            v_series = v_series.dropna()
+            VIX_CACHE.parent.mkdir(parents=True, exist_ok=True)
+            v_series.to_frame(name="close").to_parquet(VIX_CACHE)
+    else:
+        v_series = cached  # type: ignore[assignment]
+    if start is not None:
+        v_series = v_series.loc[v_series.index >= start]
+    if end is not None:
+        v_series = v_series.loc[v_series.index <= end]
+    return v_series
+
+
+def _vix_threshold_series(vix: pd.Series,
+                            pct: float = VIX_PCT,
+                            lb_days: int = VIX_LB_DAYS) -> pd.Series:
+    """Rolling P95 of VIX close over lb_days, lagged 1d to avoid look-ahead."""
+    return vix.rolling(lb_days, min_periods=lb_days).quantile(pct).shift(1)
 
 
 def compute_latched_scale(blend_returns: pd.Series,
                            signal_dates: list[pd.Timestamp],
-                           abs_floor: float = VOL_CAP_ABS_FLOOR,
-                           lb_short: int = VOL_CAP_LB_SHORT,
-                           lb_long: int = VOL_CAP_LB_LONG,
+                           vix: pd.Series | None = None,
+                           pct: float = VIX_PCT,
+                           lb_days: int = VIX_LB_DAYS,
                            latched_scale: float = VOL_CAP_SCALE,
                            ) -> tuple[pd.Series, list[dict]]:
-    """Compute daily vol-cap scale series with monthly-latched binary trigger.
+    """Compute daily vol-cap scale: latched binary 50% on VIX > rolling P95.
 
-    Trigger: realized 21d vol > max(rolling mean 252d of realized 21d vol, abs_floor).
-    Once triggered, hold scale = latched_scale until next signal date.
+    blend_returns: only used for index alignment + as the natural ops boundary.
+    vix: VIX close series (loaded automatically if None).
     """
-    rv = blend_returns.rolling(lb_short).std() * np.sqrt(252)
-    rv_lag = rv.shift(1)
+    if vix is None:
+        vix = load_vix(start=blend_returns.index[0] - pd.Timedelta(days=365 * VIX_LB_YEARS + 60),
+                        end=blend_returns.index[-1] + pd.Timedelta(days=2))
+    vix_aligned = vix.reindex(blend_returns.index).ffill()
+    threshold_series = _vix_threshold_series(vix_aligned, pct=pct, lb_days=lb_days)
+    triggered_today = (vix_aligned.shift(1) > threshold_series)
+
     scale = pd.Series(1.0, index=blend_returns.index)
     events: list[dict] = []
     current = 1.0
@@ -78,33 +128,28 @@ def compute_latched_scale(blend_returns: pd.Series,
     for i in range(len(sig_sorted)):
         sd = sig_sorted[i]
         nxt = sig_sorted[i + 1] if i + 1 < len(sig_sorted) else end
-        rv_history = rv_lag.loc[:sd]
-        rv_at_sd = float(rv_history.iloc[-1]) if len(rv_history) and pd.notna(rv_history.iloc[-1]) else float("nan")
-        thresh_at_sd = _threshold_at(rv_history, abs_floor, lb_long)
-        triggered_at_sd = pd.notna(rv_at_sd) and rv_at_sd > thresh_at_sd
-        if triggered_at_sd:
+        trig_sd = bool(triggered_today.loc[:sd].iloc[-1]) if len(triggered_today.loc[:sd]) else False
+        vix_at_sd = float(vix_aligned.loc[:sd].iloc[-1]) if len(vix_aligned.loc[:sd]) else float("nan")
+        thr_at_sd = float(threshold_series.loc[:sd].iloc[-1]) if len(threshold_series.loc[:sd]) else float("nan")
+        if trig_sd:
             if current >= 1.0:
-                events.append(dict(
-                    date=sd, action="trigger@signal", scale=latched_scale,
-                    realized_vol=rv_at_sd, threshold=thresh_at_sd))
+                events.append(dict(date=sd, action="trigger@signal", scale=latched_scale,
+                                    vix=vix_at_sd, threshold=thr_at_sd))
             current = latched_scale
         else:
             if current < 1.0:
-                events.append(dict(
-                    date=sd, action="lift@signal", scale=1.0,
-                    realized_vol=rv_at_sd, threshold=thresh_at_sd))
+                events.append(dict(date=sd, action="lift@signal", scale=1.0,
+                                    vix=vix_at_sd, threshold=thr_at_sd))
             current = 1.0
 
         in_period = blend_returns.index[(blend_returns.index > sd)
                                          & (blend_returns.index <= nxt)]
         for day in in_period:
-            rv_today = rv_lag.loc[day] if day in rv_lag.index else float("nan")
-            rv_history_today = rv_lag.loc[:day]
-            thresh_today = _threshold_at(rv_history_today, abs_floor, lb_long)
-            if current >= 1.0 and pd.notna(rv_today) and rv_today > thresh_today:
-                events.append(dict(
-                    date=day, action="trigger@daily", scale=latched_scale,
-                    realized_vol=float(rv_today), threshold=thresh_today))
+            trig = bool(triggered_today.loc[day]) if day in triggered_today.index else False
+            if current >= 1.0 and trig:
+                events.append(dict(date=day, action="trigger@daily", scale=latched_scale,
+                                    vix=float(vix_aligned.loc[day]) if day in vix_aligned.index else float("nan"),
+                                    threshold=float(threshold_series.loc[day]) if day in threshold_series.index else float("nan")))
                 current = latched_scale
             scale.loc[day] = current
 
@@ -119,43 +164,36 @@ def apply_vol_cap(blend_returns: pd.Series,
     return scale * blend_returns
 
 
-def current_threshold(blend_returns: pd.Series,
-                       abs_floor: float = VOL_CAP_ABS_FLOOR,
-                       lb_short: int = VOL_CAP_LB_SHORT,
-                       lb_long: int = VOL_CAP_LB_LONG) -> dict:
-    """Return current threshold breakdown: realized 21d vol, long avg, threshold."""
-    rv = blend_returns.rolling(lb_short).std() * np.sqrt(252)
-    rv_last = float(rv.iloc[-1]) if len(rv) and pd.notna(rv.iloc[-1]) else float("nan")
-    long_avg = (float(rv.dropna().tail(lb_long).mean())
-                 if rv.dropna().shape[0] >= lb_long else float("nan"))
-    thresh = max(long_avg if pd.notna(long_avg) else 0.0, abs_floor)
-    return dict(
-        realized_vol_21d=rv_last,
-        long_avg_252d=long_avg,
-        threshold=thresh,
-        abs_floor=abs_floor,
-    )
+def current_threshold(vix: pd.Series | None = None,
+                       pct: float = VIX_PCT,
+                       lb_days: int = VIX_LB_DAYS) -> dict:
+    """Return current VIX, threshold, and triggered state."""
+    if vix is None:
+        vix = load_vix()
+    vix = vix.dropna()
+    if len(vix) < lb_days:
+        return dict(vix=float(vix.iloc[-1]) if len(vix) else float("nan"),
+                    threshold=float("nan"), triggered=False,
+                    pct=pct, lb_days=lb_days)
+    thr = float(vix.iloc[:-1].tail(lb_days).quantile(pct))
+    last_vix = float(vix.iloc[-1])
+    return dict(vix=last_vix, threshold=thr, triggered=(last_vix > thr),
+                pct=pct, lb_days=lb_days, asof=str(vix.index[-1].date()))
 
 
 def current_scale_state(blend_returns: pd.Series,
                          signal_dates: list[pd.Timestamp],
                          **kwargs) -> dict:
-    """Current vol-cap state for the live dashboard / vol_check.py."""
     scale, events = compute_latched_scale(blend_returns, signal_dates, **kwargs)
     last_scale = float(scale.iloc[-1])
-    breakdown = current_threshold(
-        blend_returns,
-        abs_floor=kwargs.get("abs_floor", VOL_CAP_ABS_FLOOR),
-        lb_short=kwargs.get("lb_short", VOL_CAP_LB_SHORT),
-        lb_long=kwargs.get("lb_long", VOL_CAP_LB_LONG),
-    )
+    breakdown = current_threshold()
     return dict(
         scale=last_scale,
         regime="CAP_ENGAGED" if last_scale < 1.0 else "NORMAL",
-        realized_vol_21d=breakdown["realized_vol_21d"],
-        long_avg_252d=breakdown["long_avg_252d"],
+        vix=breakdown["vix"],
         threshold=breakdown["threshold"],
-        abs_floor=breakdown["abs_floor"],
+        pct=breakdown["pct"],
+        lb_years=VIX_LB_YEARS,
         last_event=events[-1] if events else None,
         n_events_total=len(events),
     )
