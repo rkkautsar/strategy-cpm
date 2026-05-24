@@ -1,4 +1,4 @@
-"""NDX sleeve (10% of 60/30/10 PROD blend).
+"""NDX sleeve (20% of 60/20/20 PROD blend).
 
 Spec:
   1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)

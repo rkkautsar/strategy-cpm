@@ -47,7 +47,7 @@ from cpm_live import (
 
 # ---------- Configuration ----------
 
-BULL_TICKER = "SPY"
+BULL_TICKER = "QQQ"           # production sleeve ticker (NDX sleeve depends on this)
 CASH_TICKER = "SHV"           # default cash if SAFE_POOL evaluation fails
 SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
 

@@ -77,7 +77,7 @@ MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
 
 # Benchmark-only constants for Naive 60/40 PP/QQQ-trend in build_dashboard.py.
-# PRODUCTION strategy is 60% CPM + 30% BULL-QQQ + 10% NDX (no PP buffer).
+# PRODUCTION strategy is 60% CPM + 20% BULL-QQQ + 20% NDX (no PP buffer).
 PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
 PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
 

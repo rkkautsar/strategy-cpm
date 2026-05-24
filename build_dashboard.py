@@ -44,10 +44,10 @@ from bull_qqq_live import (
     BULL_TICKER, CASH_TICKER,
 )
 
-# Production blend: 60% CPM + 30% BULL-QQQ + 10% NDX
+# Production blend: 60% CPM + 20% BULL-QQQ + 20% NDX
 CPM_W = 0.60
-BULL_W = 0.30
-NDX_W = 0.10
+BULL_W = 0.20
+NDX_W = 0.20
 BULL_BLEND = BULL_W  # alias used by chart helpers below
 
 # matplotlib styling
@@ -281,7 +281,7 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0):
 
 def naive_60_40_pp_qqq_trend(panel, start, end):
     """Naive 60/40: 60% Permanent Portfolio + 40% QQQ trend-follow.
-    Apples-to-apples benchmark for CPM-BULL-NDX PROD (60/30/10 = 60% defensive
+    Apples-to-apples benchmark for CPM-BULL-NDX PROD (60/20/20 = 60% defensive
     + 40% growth-leveraged)."""
     from cpm_live import run_pp_backtest
     pp = run_pp_backtest(panel, start, end)
@@ -1277,14 +1277,14 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: p
         body += f"<td style='text-align:right' class='{exn_class}'>{ex_n:+.2f}pp</td>"
         body += f"<td style='text-align:right' class='{exq_class}'>{ex_q:+.2f}pp</td></tr>\n"
     return f"""<div class='table-scroll'><table class='yearly'>
-<thead><tr><th>Year</th><th>PROD<br>(60/30/10)</th><th>CPM only</th><th>BULL-QQQ only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
+<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-QQQ only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
 
 # Production blend weights
 CPM_WEIGHT = 0.6
-BULL_WEIGHT = 0.3
-NDX_WEIGHT = 0.1
+BULL_WEIGHT = 0.2
+NDX_WEIGHT = 0.2
 
 
 def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
@@ -1300,7 +1300,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
                         for t, w in sorted(weights.items(), key=lambda x: -x[1]))
     pair_str = f"{pair[0]} + {pair[1]}" if pair else "-"
 
-    # BULL-QQQ sleeve (30%)
+    # BULL-QQQ sleeve (20%)
     bq_w, bq_regime, bq_diag = compute_bull_qqq_weights(panel, sig_d)
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
@@ -1320,7 +1320,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     else:
         bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, {comp_str})"
 
-    # NDX sleeve (10%) -- gated by BULL-QQQ regime
+    # NDX sleeve (20%) -- gated by BULL-QQQ regime
     try:
         from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
         ndx_panel_data = load_ndx_panel()
@@ -1336,7 +1336,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
         ndx_html = "<tr><td colspan='2'>(NDX panel not available)</td></tr>"
         ndx_state = f"NDX panel data unavailable ({e})"
 
-    # Combined 60% CPM + 30% BULL-QQQ + 10% NDX
+    # Combined 60% CPM + 20% BULL-QQQ + 20% NDX
     combined = {}
     for t, w in weights.items():
         combined[t] = combined.get(t, 0.0) + w * CPM_WEIGHT
@@ -1409,7 +1409,7 @@ def main():
         print("  NDX panel data not found; skipping NDX sleeve.")
         ndx_rets = pd.Series(0.0, index=bull_qqq_rets.index)
 
-    # Production blend: 60% CPM + 30% BULL-QQQ + 10% NDX
+    # Production blend: 60% CPM + 20% BULL-QQQ + 20% NDX
     common = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
     cpm = cpm.reindex(common)
     bull_qqq_rets = bull_qqq_rets.reindex(common)
@@ -1453,7 +1453,7 @@ def main():
     fig_dd = chart_drawdown({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                             prod_label=prod_label)
     fig_yearly = chart_yearly_bars(blended, qqq, strategies["Naive 60/40 PP/QQQ-trend"])
-    fig_monthly_heatmap = chart_monthly_heatmap(blended, title="PROD 60/30/10 Monthly Returns Heatmap")
+    fig_monthly_heatmap = chart_monthly_heatmap(blended, title="PROD 60/20/20 Monthly Returns Heatmap")
     fig_rolling = chart_rolling_sharpe(blended, strategies["Naive 60/40 PP/QQQ-trend"])
     fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
     fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
@@ -1484,13 +1484,13 @@ def main():
     common_idx = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
     fcp_c = cpm.loc[common_idx]; mt2_c = bull_qqq_rets.loc[common_idx]
     ndx_c = ndx_rets.loc[common_idx].fillna(0.0)
-    blend_60_30_10 = CPM_W * fcp_c + BULL_W * mt2_c + NDX_W * ndx_c
+    blend_60_20_20 = CPM_W * fcp_c + BULL_W * mt2_c + NDX_W * ndx_c
 
     sleeve_rows = [
-        {"strategy": "CPM-BULL-NDX 60/30/10 (PRODUCTION)", **perf_metrics(blend_60_30_10)},
+        {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)", **perf_metrics(blend_60_20_20)},
         {"strategy": "CPM standalone (60% sleeve)",        **perf_metrics(cpm)},
-        {"strategy": "BULL-QQQ standalone (30% sleeve)",   **perf_metrics(bull_qqq_rets)},
-        {"strategy": "NDX standalone (10% sleeve)",         **perf_metrics(ndx_c)},
+        {"strategy": "BULL-QQQ standalone (20% sleeve)",   **perf_metrics(bull_qqq_rets)},
+        {"strategy": "NDX standalone (20% sleeve)",         **perf_metrics(ndx_c)},
     ]
 
     # ========================================================
@@ -1624,7 +1624,7 @@ def main():
 <li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when ALL THREE gates pass (each using Keller-canonical &quot;any positive&quot; rule): (1) HYG OR TIP 13612U &gt; 0 (canary), (2) curve OR vol macro pillar (curve = IEF 63d ret &gt; TLT 63d ret; vol = SPY 63d vol &lt; 252d avg), (3) QQQ 12-1 absolute momentum &gt; 0 (Antonacci dual momentum). Otherwise 100% {CASH_TICKER}.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-4 PIT Nasdaq-100 by 13612U momentum, equal-weight 25%, gated by BULL_QQQ regime. SHV when off.</li>
 </ul>
-<p><strong>Headline ({yrs_full:.1f}y, post-cost):</strong> 60/30/10 blend Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong>, CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>, Calmar <strong>{prod_metrics['calmar']:.2f}</strong>, Martin <strong>{prod_metrics['martin']:.2f}</strong>.</p>
+<p><strong>Headline ({yrs_full:.1f}y, post-cost):</strong> 60/20/20 blend Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong>, CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>, Calmar <strong>{prod_metrics['calmar']:.2f}</strong>, Martin <strong>{prod_metrics['martin']:.2f}</strong>.</p>
 <p class='footnote'>Bootstrap 95% CI is wide; honest forward base-case 1.05-1.35 Sharpe / 10-14% CAGR after in-sample selection bias discount.</p>
 </div>
 
@@ -1663,7 +1663,7 @@ def main():
 <h2>Monthly Returns Heatmap</h2>
 <div class='card'>
 {fig_to_html(fig_monthly_heatmap)}
-<p class='footnote'>Monthly returns of the PROD 60/30/10 blend. YTD column shows full-year compounded return. Red = down, green = up; color scale capped at +/-20%.</p>
+<p class='footnote'>Monthly returns of the PROD 60/20/20 blend. YTD column shows full-year compounded return. Red = down, green = up; color scale capped at +/-20%.</p>
 </div>
 
 <h2>Rolling Sharpe (12-month, vs Naive 60/40 PP/QQQ-trend)</h2>
@@ -1713,7 +1713,7 @@ def main():
 <h2>Per-Sleeve Yearly Contribution to Blend</h2>
 <div class='card'>
 {fig_to_html(fig_sleeve_contrib)}
-<p>Each year's bar shows what each sleeve contributed to the blend return (60% CPM + 30% BULL-QQQ + 10% NDX, daily-sum approximation). Diamonds mark total blend annual return. Useful for seeing which sleeve carried each year - CPM tends to dominate in defensive/stagflation regimes (2008, 2022), while BULL-QQQ and NDX dominate strong bull years (2013, 2017, 2020, 2023-24).</p>
+<p>Each year's bar shows what each sleeve contributed to the blend return (60% CPM + 20% BULL-QQQ + 20% NDX, daily-sum approximation). Diamonds mark total blend annual return. Useful for seeing which sleeve carried each year - CPM tends to dominate in defensive/stagflation regimes (2008, 2022), while BULL-QQQ and NDX dominate strong bull years (2013, 2017, 2020, 2023-24).</p>
 <p class='footnote'>Calculation note: contribution = sleeve_weight * sum(daily_returns) per year. This is a linear approximation; actual compounding effects mean the contributions sum to approximately (but not exactly) the blend annual return.</p>
 </div>
 
@@ -1739,7 +1739,7 @@ def main():
 <h2>Rolling Sleeve Correlations</h2>
 <div class='card'>
 {fig_to_html(fig_sleeve_corr)}
-<p><strong>This is the strategy's risk-adjusted edge made visible.</strong> CPM-vs-BULL and CPM-vs-NDX correlation swings from <strong>-0.5 to +0.95</strong> over time. During equity stress (2008, 2012, 2020, 2022) CPM goes <strong>negatively correlated</strong> with equities - real diversification. During calm bull markets (2014-15, 2018-19, 2024+) CPM picks growth-equity pairs and acts like another equity sleeve. BULL-vs-NDX correlation stays high (~0.7-0.9) because both are Nasdaq-driven. The time-varying CPM correlation is exactly the property that makes the 60/30/10 blend efficient.</p>
+<p><strong>This is the strategy's risk-adjusted edge made visible.</strong> CPM-vs-BULL and CPM-vs-NDX correlation swings from <strong>-0.5 to +0.95</strong> over time. During equity stress (2008, 2012, 2020, 2022) CPM goes <strong>negatively correlated</strong> with equities - real diversification. During calm bull markets (2014-15, 2018-19, 2024+) CPM picks growth-equity pairs and acts like another equity sleeve. BULL-vs-NDX correlation stays high (~0.7-0.9) because both are Nasdaq-driven. The time-varying CPM correlation is exactly the property that makes the 60/20/20 blend efficient.</p>
 </div>
 
 <h2>Monthly Return Distributions</h2>
@@ -1761,7 +1761,7 @@ def main():
 
 <h2>Extended Backtest (~27y, {ext_start.date()} -> {end.date()})</h2>
 <div class='card'>
-<p class='meta'>EXT window starts at QQQ inception (1999-03-10) and includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve <strong>falls back to BULL-QQQ mirroring</strong> pre-2006 (when PIT constituent data via <code>index-constitution</code> is unavailable) -- so the 10% NDX weight acts as extra BULL exposure rather than sitting in cash. Gate design v4: HYG+TIP any-positive canary, curve+vol any-positive macro composite, QQQ 12-1 absolute momentum &gt; 0. All three gates required, all use Keller-canonical &quot;any positive&quot; rule.</p>
+<p class='meta'>EXT window starts at QQQ inception (1999-03-10) and includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve <strong>falls back to BULL-QQQ mirroring</strong> pre-2006 (when PIT constituent data via <code>index-constitution</code> is unavailable) -- so the 20% NDX weight acts as extra BULL exposure rather than sitting in cash. Gate design v4: HYG+TIP any-positive canary, curve+vol any-positive macro composite, QQQ 12-1 absolute momentum &gt; 0. All three gates required, all use Keller-canonical &quot;any positive&quot; rule.</p>
 {perf_table_html(ext_perf_rows)}
 </div>
 

@@ -1,16 +1,16 @@
 # CPM-BULL-NDX
 
-**60/30/10 multi-sleeve tactical asset allocation strategy.** Three sleeves:
+**60/20/20 multi-sleeve tactical asset allocation strategy.** Three sleeves:
 
 - **CPM (60%)** — canary-gated momentum + min-variance pair selection on a
   9-asset ETF universe (US factors + international + diversifiers).
-- **BULL-QQQ (30%)** — 100% QQQ when ALL THREE gates pass (each using
+- **BULL-QQQ (20%)** — 100% QQQ when ALL THREE gates pass (each using
   Keller-canonical "any positive" rule): (1) HYG OR TIP 13612U > 0
   (canary), (2) curve OR vol regime pillar (curve = IEF 63d ret > TLT 63d
   ret; vol = SPY 63d vol < 252d avg), (3) QQQ 12-1 absolute momentum > 0
   (Antonacci dual momentum). Best-of-safe(SHV, IEF) by 13612U momentum
   otherwise (HAA-style: SHV when rates rising, IEF when rates falling).
-- **NDX (10%)** — top-4 PIT Nasdaq-100 stocks by 13612U momentum,
+- **NDX (20%)** — top-4 PIT Nasdaq-100 stocks by 13612U momentum,
   equal-weighted 25% each, gated by the BULL-QQQ regime.
 
 Monthly rebalance, ETF + individual stocks (NDX), no leverage, 10 bps/side
@@ -22,32 +22,37 @@ cost, T+1 OPEN execution. Total-return prices throughout (yfinance
 >
 > ⚠️ **IRA/401k/Roth only.** Monthly rotation = short-term capital gains.
 > Federal 22-37% + state 0-13% bracket can drop after-tax CAGR from
-> 11-15% pre-tax forward expectation to **~5-9% after-tax** -- close to
+> 12-16% pre-tax forward expectation to **~6-10% after-tax** -- close to
 > SPY buy-hold after-tax. NDX individual-stock churn compounds the drag.
 > Run only in tax-advantaged accounts unless you've confirmed your tax
 > situation absorbs the drag.
 
 ## Headline metrics
 
-Clean live-ETF window 2008-04-30 → 2026-05-15 (18.1y, post-cost 10 bps/side):
+Clean live-ETF window 2008-04-30 → 2026-05-15 (18.1y, post-cost 10 bps/side).
+Numbers below are from raw backtest data; the Shumway-pessimistic Monte
+Carlo survivor-bias adjustment (24% of historical picks delisted, NDX-100
+typical event mix per Shumway 1999) shifts PROD numbers by less than
+0.01 Sharpe / 0.05pp CAGR -- see NDX sleeve caveats section for details.
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.55** | **17.30%** | **10.69%** | **-11.33%** | **1.53** |
+| **PROD 60/20/20 CPM-BULL-NDX** | **1.58** | **19.33%** | **11.64%** | **-12.93%** | **1.49** |
 | SPY buy-hold | 0.66 | 11.78% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM | 1.28 | 13.75% | 10.48% | -11.30% |
 | BULL-QQQ (safe pool: best(SHV, IEF)) | 1.18 | 16.88% | 14.05% | -14.31% |
-| NDX | 1.26 | 36.44% | 27.70% | -35.92% |
+| NDX (raw) | 1.26 | 36.44% | 27.70% | -35.92% |
+| NDX (Shumway-MC 24% delist mean) | 1.22 | 35.97% | 27.73% | -37.31% |
 
 Documented 30y window 1996-01-04 → 2026-05-15 (uses Vanguard mutual fund
 stitches for non-live ETFs; HYG-only canary before 2001-06):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.31** | **15.10%** | **-16.53%** |
+| **PROD 60/20/20 CPM-BULL-NDX** | **1.34** | **16.42%** | **-16.59%** |
 | Bull-QQQ standalone | 0.97 | 15.74% | -26.86% |
 | CPM standalone | 1.08 | 11.86% | -15.57% |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
@@ -59,19 +64,24 @@ NDX backtest biases + tail sequencing risk not captured by return bootstrap):
 
 | Metric | Backtest (CLEAN 18.1y) | Forward base case |
 |---|---:|---|
-| Sharpe | 1.55 | **1.00-1.30** |
-| CAGR | 17.30% | **11-15%** (post-cost, pre-tax) |
-| MaxDD | -11.33% | **-15% to -25%** (planning band) |
-| Calmar | 1.53 | **0.55-0.90** |
+| Sharpe | 1.58 | **1.05-1.35** |
+| CAGR | 19.33% | **12-16%** (post-cost, pre-tax) |
+| MaxDD | -12.93% | **-15% to -25%** (planning band) |
+| Calmar | 1.49 | **0.60-0.95** |
 
-Base case (mid-band): Sharpe 1.00-1.20, CAGR 12-14%, DD low/mid-20s in a
-bad cycle. After-tax drop in taxable accounts: ~5-9% CAGR (vs 11-15% pre-tax).
+Base case (mid-band): Sharpe 1.10-1.25, CAGR 13-15%, DD low/mid-20s in a
+bad cycle. After-tax drop in taxable accounts: ~6-10% CAGR (vs 12-16% pre-tax).
 
 ## NDX sleeve caveats
 
-The NDX 10% sleeve has documented backtest biases that materially overstate
-its standalone numbers (Sharpe 1.26 / CAGR 36% in CLEAN). At 10% blend weight
-the bias impact on PROD is bounded but disclosed for transparency:
+The NDX 20% sleeve has documented backtest biases. Standalone NDX numbers
+(Sharpe 1.26 / CAGR 36% in CLEAN raw) appear inflated by survivor bias,
+though the bias direction for large-cap NDX-100 is non-obvious (acquired-
+at-premium dominates bankruptcies). Quantified bias via Monte Carlo
+simulation (Shumway 1999 academic distribution, 24% delist rate, 1000
+MC iterations) shows the impact on PROD blend is small (~0.01 Sharpe,
+~0.01pp CAGR). At 20% blend weight the bias impact is structurally bounded.
+Documented for transparency:
 
 - **Yearly PIT membership**: `index_constitution` library snapshots NDX-100
   constituents at year boundaries, so mid-year additions (e.g., TSLA on
@@ -87,10 +97,19 @@ the bias impact on PROD is bounded but disclosed for transparency:
 - **Pre-2006 fallback**: PIT data starts 2006-01; the sleeve mirrors
   Bull-QQQ weights before then, so 1996-2005 NDX is not a real selection.
 
-**Stress test**: discounting NDX returns by 30% (aggressive bias
-allowance) reduces 30Y PROD CAGR from 14.61% to 13.71% (still above 60/40
-CPM/Bull-QQQ baseline at 13.10%) and Sharpe from 1.29 to 1.27 (still above
-CPM standalone). The 10% NDX weight bounds bias impact.
+**Stress test (Monte Carlo, CLEAN 18.1y, 1000 sims, 24% of unique tickers
+randomly delisted with realistic event impacts):**
+
+| Event distribution | PROD Sharpe (mean) | PROD CAGR (mean) | PROD MaxDD (mean) |
+|---|---:|---:|---:|
+| No adjustment (baseline) | 1.579 | 19.33% | -12.93% |
+| Realistic NDX-100 (acq-dominated, +8% mean event) | 1.599 | 19.62% | -12.92% |
+| Shumway pessimistic (10% bankruptcy at -55%) | 1.574 | 19.31% | -12.99% |
+| Worst case (25% bankruptcy at -80%, small-cap-like) | 1.508 | 18.42% | -13.20% |
+
+Even worst-case stress still leaves PROD Sharpe 1.51 (vs CPM standalone
+1.28) and CAGR 18.42%. The 20% NDX weight bounds bias impact to ~0.07
+Sharpe / ~0.9pp CAGR even in implausibly severe scenarios.
 
 ## Strategy spec
 
@@ -127,7 +146,7 @@ scale = min(1.0, 0.15 / realized_vol_63d(cpm))
 cpm   = {a: w * scale for a, w in cpm.items()}
 cpm[SHV] += 1.0 - sum(cpm.values())                   # cash absorbs residual
 
-# ====== BULL-QQQ sleeve (30%) ======
+# ====== BULL-QQQ sleeve (20%) ======
 # Three independent gates, each using Keller-canonical 'any positive' rule.
 
 # Gate 1: Macro canary (HYG+TIP, any positive)
@@ -151,7 +170,7 @@ else:
     safe_scores = {s: mom_13612U(s) for s in [SHV, IEF]}
     bull = {argmax(safe_scores): 1.0}
 
-# ====== NDX sleeve (10%) ======
+# ====== NDX sleeve (20%) ======
 if BULL-QQQ regime != "BULL_QQQ":
     ndx = {SHV: 1.0}                                  # gate off
 elif PIT NDX-100 data unavailable (pre-2006):
@@ -164,7 +183,7 @@ else:
     ndx[SHV] = 1.0 - 0.25 * n                         # rest in cash (partial fill)
 
 # ---- Combined ----
-portfolio = 0.60 * cpm + 0.30 * bull + 0.10 * ndx
+portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 # Execution: month-end signal T, trade T+1 OPEN (next-day MOO), 10 bps/side
 # Cron: monthly, 10am SGT
 ```
@@ -179,7 +198,7 @@ portfolio = 0.60 * cpm + 0.30 * bull + 0.10 * ndx
 | Min-variance pair selection | Markowitz mean-variance optimization; min equal-weight portfolio variance using EWMA covariance with 504d half-life (RiskMetrics-family estimator, JPM 1996) |
 | Hold buffer dampener | Practitioner standard (AQR turnover-aware momentum notes) |
 | Vol cap (de-risk only) | Moskowitz/Ooi/Pedersen 2012 TSMOM vol scaling; capped at 1.0 (no leverage) |
-| Canary regime gates | Keller HAA-family multi-asset breadth canaries (HYG, LQD, TIP, GLD as credit/inflation/real-asset stress proxies) |
+| Canary regime gates | Keller HAA-family multi-asset breadth canaries (CPM: HYG/TIP/GLD; BULL-QQQ: HYG/TIP) |
 | Top-K cross-sectional selection (NDX) | Jegadeesh & Titman 1993 momentum family |
 | PIT Nasdaq-100 constituents (NDX) | `index-constitution` Python library (coverage 2006-01+) |
 | Deflated Sharpe Ratio | Bailey & Lopez de Prado 2012 multi-test haircut |
@@ -200,11 +219,14 @@ portfolio = 0.60 * cpm + 0.30 * bull + 0.10 * ndx
 VWEHX mutual fund pre-2007-04 + live HYG), `TIP` (inflation-linked bonds),
 `GLD` (real-asset / tail hedge).
 
-**BULL-QQQ canary (3-asset, 13612U any-positive):** `HYG_stitched`, `LQD`
-(investment-grade credit), `TIP`. Different from CPM canary by design —
-BULL-QQQ is a pure equity overlay so the canary requires evidence that
-equity risk-taking is healthy (credit markets bidding + real rates supportive).
-CPM has cross-asset diversifiers so it uses GLD as the third canary instead.
+**BULL-QQQ canary (2-asset, 13612U any-positive):** `HYG_stitched`
+(high-yield credit) and `TIP` (inflation-linked bonds). LQD was tested
+as a third canary asset but rejected because IG corporate bonds rally
+on rate cuts during equity crashes (duration effect), falsely keeping
+the canary risk-on in dotcom-style regimes. CPM uses a different
+3-asset canary (HYG + TIP + GLD) because it has cross-asset diversifiers
+to rotate into; BULL-QQQ is a binary single-equity gate so a stricter
+2-asset canary is appropriate.
 
 **NDX universe:** point-in-time Nasdaq-100 constituents at each signal date
 (individual stocks; e.g., top-4 might be NVDA / AAPL / MSFT / AVGO in a
@@ -229,7 +251,7 @@ tech-led regime).
 | CPM standalone | 1.113 | 1.120 | [0.708, 1.528] | 73.2% |
 | BULL standalone | 1.011 | 1.011 | [0.578, 1.444] | 52.6% |
 | NDX standalone | 1.131 | 1.117 | [0.669, 1.564] | 69.1% |
-| **60/30/10 PROD** | **1.364** | **1.362** | **[0.946, 1.796]** | **95.1%** |
+| **60/30/10 PROD (prior config)** | **1.364** | **1.362** | **[0.946, 1.796]** | **95.1%** |
 
 ### Deflated Sharpe (Bailey-Lopez de Prado, P[true Sh > 0] after N-trial haircut)
 
@@ -238,7 +260,7 @@ tech-led regime).
 | CPM standalone | 99.6% | 99.1% | 96.8% | 95.1% |
 | BULL standalone | 98.6% | 97.3% | 92.2% | 88.9% |
 | NDX standalone | 99.7% | 99.4% | 97.5% | 96.1% |
-| **60/30/10 PROD** | **99.99%** | **99.97%** | **99.84%** | **99.70%** |
+| **60/30/10 PROD (prior config)** | **99.99%** | **99.97%** | **99.84%** | **99.70%** |
 
 Bootstrap and DSR results are **supportive but not proof of forward edge**.
 The bootstrap Sharpe lower bound (0.946) is roughly at the forward
@@ -246,7 +268,7 @@ expectation floor (0.95), so the strategy is supported by the tested data
 but not comfortably above the floor. DSR depends heavily on the assumed
 effective trial count -- the true hyperparameter search space (9-asset
 universe, top-K=5, 504d EWMA cov, HOLD_BUFFER 2.0z, 15% vol cap, 63d
-realized lookback, 12-1 trend, 13612U canary, NDX K=4, 60/30/10 blend,
+realized lookback, 12-1 trend, 13612U canary, NDX K=4, prior 60/30/10 blend,
 etc.) is plausibly larger than N=1000 even at conservative count. These
 results reduce the probability that the historical result is pure noise,
 but they do not eliminate model-selection bias, regime risk, data-quality
@@ -276,7 +298,7 @@ strategies after cost:
 | 60% CPM + 40% SHV (defensive) | 1.27 | 9.17% | 7.09% | -8.53% | +0.41 (CPM engine) |
 | 100% CPM standalone | 1.19 | 14.21% | 11.80% | -14.74% | (alt: CPM full size) |
 | **70/30 CPM-BULL (no NDX)** | **1.34** | **15.66%** | **11.36%** | **-12.59%** | +0.15 (BULL adds) |
-| **PROD 60/30/10 CPM-BULL-NDX** | **1.41** | **18.35%** | **12.51%** | **-15.43%** | +0.07 (NDX adds, at +3pp DD cost) |
+| **PROD 60/30/10 (prior config)** | **1.41** | **18.35%** | **12.51%** | **-15.43%** | +0.07 (NDX adds, at +3pp DD cost) |
 
 Each layer adds Sharpe. NDX is the smallest marginal gain (+0.07 Sh) at
 the steepest DD cost (+3pp); justified by the +2.7pp CAGR contribution.
@@ -310,8 +332,8 @@ Within the validated 2-5z plateau, exact value is not sensitive.
 
 1. **Tax inefficient outside tax-advantaged accounts.** Monthly rebalance =
    short-term gains. NDX sleeve (individual stocks) compounds tax drag.
-   At federal 37% + state 13%, after-tax CAGR drops from 11-15% pre-tax to
-   ~5-9%. Run only in IRA / Roth / 401k unless tax-advantaged space is
+   At federal 37% + state 13%, after-tax CAGR drops from 12-16% pre-tax to
+   ~6-10%. Run only in IRA / Roth / 401k unless tax-advantaged space is
    fully utilized.
 
 2. **Strategy is not yet live-traded.** All validation is backtest. Bootstrap
@@ -319,7 +341,7 @@ Within the validated 2-5z plateau, exact value is not sensitive.
    but not proof. Future regime may differ from 2007-2026.
 
 3. **Portfolio-level vol is NOT capped.** Only CPM (60%) is vol-targeted at
-   15%. BULL (30% QQQ raw, ~18-25% vol) and NDX (10% top-4 stocks, ~30-40%
+   15%. BULL (20% QQQ raw, ~18-25% vol) and NDX (20% top-4 stocks, ~30-40%
    vol) run uncapped. Realized blend vol distribution (21-day rolling):
 
    | Percentile | Annualized vol |
@@ -341,10 +363,12 @@ Within the validated 2-5z plateau, exact value is not sensitive.
    shift.
 
 5. **NDX sleeve concentration + regime risk.** 4 names × 25% each =
-   standalone MaxDD -47%. Mega-cap concentration alpha is regime-dependent;
-   a 2000-2010-style tech-lost-decade would likely underperform vs BULL-QQQ
-   alone. Pre-2006 PIT constituent data unavailable (NDX mirrors BULL in
-   extended backtest).
+   standalone MaxDD -36% (raw clean) / -37% (Shumway-MC adjusted).
+   Mega-cap concentration alpha is regime-dependent; a 2000-2010-style
+   tech-lost-decade would likely underperform vs BULL-QQQ alone. At 20%
+   blend weight (up from prior 10%), NDX is now an equal-sized growth
+   sleeve alongside BULL-QQQ, not a small satellite kicker. Pre-2006 PIT
+   constituent data unavailable (NDX mirrors BULL in extended backtest).
 
 6. **Effective Nasdaq/growth concentration.** In risk-on regimes, CPM can
    pick QQQ or IWF while BULL holds QQQ and NDX holds top Nasdaq-100
@@ -375,9 +399,10 @@ Within the validated 2-5z plateau, exact value is not sensitive.
    the 1.41 backtest); MaxDD planning band widened to -18% to -30%.
 
 10. **CPM canary HYG+TIP+GLD differs from BULL canary HYG+TIP.** When CPM
-    is in cash (all three negative) but BULL has LQD+ → portfolio can hold
-    30% QQQ while 60% of capital is in SHV. Intentional; CPM uses GLD as
-    real-asset diversifier while BULL uses LQD as equity-confirmation signal.
+    is in cash (all three negative) but BULL canary fires positive → portfolio
+    can hold 20% QQQ + 20% NDX while 60% of capital is in SHV. Intentional;
+    CPM uses GLD as real-asset diversifier; BULL-QQQ uses a stricter 2-asset
+    canary appropriate for a binary single-equity gate.
 
 11. **Pre-2007 extended backtest is least reliable in exactly the periods
     that matter most.** Dot-com (2000-02) and GFC (2008) are precisely when
@@ -434,7 +459,7 @@ Details: `deploy/cf-pages/README.md`, `deploy/cf-cron/README.md`
 - `cpm_live.py` — CPM sleeve (allocate + backtest CLI, panel loader)
 - `bull_qqq_live.py` — BULL-QQQ sleeve (allocate + backtest CLI)
 - `ndx_sleeve_live.py` — NDX sleeve (allocate + backtest, PIT constituent fetch)
-- `build_dashboard.py` — dashboard generator (production 60/30/10 blend + peer benchmarks)
+- `build_dashboard.py` — dashboard generator (production 60/20/20 blend + peer benchmarks)
 - `data/` — stitched price series (HYG, GLD, TIP)
 - `data/ndx_constituents/prices.parquet` — cached NDX-100 historical prices
 - `deploy/` — Cloudflare cron + Pages deployment

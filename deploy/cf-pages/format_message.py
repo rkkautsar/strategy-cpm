@@ -16,8 +16,8 @@ from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 
 CPM_WEIGHT = 0.6
-BULL_WEIGHT = 0.3
-NDX_WEIGHT = 0.1
+BULL_WEIGHT = 0.2
+NDX_WEIGHT = 0.2
 
 
 def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:
@@ -59,13 +59,13 @@ def main() -> None:
     parts.append("")
     parts.append(fmt_alloc(cpm_w, "CPM sleeve (60%)", 0.6))
     parts.append("")
-    parts.append(fmt_alloc(bull_w, "BULL-QQQ sleeve (30%)", 0.3))
+    parts.append(fmt_alloc(bull_w, "BULL-QQQ sleeve (20%)", 0.2))
     parts.append("")
-    parts.append(fmt_alloc(ndx_w, "NDX sleeve (10%)", 0.1))
+    parts.append(fmt_alloc(ndx_w, "NDX sleeve (20%)", 0.2))
     parts.append("")
     parts.append(fmt_alloc(combined, "Combined portfolio (100%)"))
     parts.append("")
-    parts.append("⚠️ Forward Sh 0.90-1.20 (not 1.43 canonical) · MaxDD -15-25% expected")
+    parts.append("⚠️ Forward Sh 1.05-1.35 (not 1.58 canonical) · MaxDD -15-25% expected")
 
     print("\n".join(parts))
 
