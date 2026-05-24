@@ -2004,7 +2004,6 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 {picks_html}
 {fig_to_html(fig_pair_timeline)}
 {fig_to_html(fig_asset_picked)}
-{asset_when_picked_note_html(asset_picked_rows)}
 </div>
 
 <h3>Attribution & distributions</h3>
