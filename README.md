@@ -571,17 +571,11 @@ marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
 disabled when (a) fewer than 3 positive candidates, (b) prior asset's faber
 score <= 0, or (c) canary-state transition between months.
 
-**Covariance lookback sensitivity** (CPM standalone, CLEAN 18.1y, simple
-rolling cov):
+**Covariance lookback sensitivity** (CPM standalone, CLEAN 18.1y):
 
 | Lookback | CPM Sh | CPM CAGR | CPM MaxDD |
 |---|---:|---:|---:|
 | **504d (2.0y, PROD)** | **1.331** | **14.41%** | **-11.24%** |
-
-Switched from EWMA halflife=504d to simple rolling 504d cov after live/
-backtest divergence investigation: simple rolling has hard window cutoff so
-results are deterministic regardless of caller panel start, and empirically
-performs in-line with EWMA (within bootstrap noise).
 
 with 756d giving identical metrics.
 
