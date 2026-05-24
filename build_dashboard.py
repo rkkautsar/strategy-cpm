@@ -1225,10 +1225,14 @@ def chart_correlations(strategies: dict):
 
 # ---------- Tables ----------
 
-def perf_table_html(rows: list[dict]) -> str:
-    """rows: list of {strategy, cagr, vol, sharpe, max_drawdown, ulcer, calmar, martin, ...}"""
+def perf_table_html(rows: list[dict], compact: bool = False) -> str:
+    """rows: list of {strategy, cagr, vol, sharpe, max_drawdown, ulcer, calmar, martin, ...}.
+    compact=True drops Ulcer/Calmar/Martin (keep them for collapsed details view)."""
     df = pd.DataFrame(rows)
-    cols = ["strategy", "cagr", "vol", "sharpe", "max_drawdown", "ulcer", "calmar", "martin"]
+    if compact:
+        cols = ["strategy", "sharpe", "cagr", "vol", "max_drawdown"]
+    else:
+        cols = ["strategy", "cagr", "vol", "sharpe", "max_drawdown", "ulcer", "calmar", "martin"]
     cols = [c for c in cols if c in df.columns]
     df = df[cols]
     rename = {"strategy": "Strategy", "cagr": "CAGR", "vol": "Vol", "sharpe": "Sharpe",
@@ -1507,53 +1511,79 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
             prev_combined[CASH_TICKER] = prev_combined.get(CASH_TICKER, 0.0) + (1.0 - vc_scale)
     all_keys = set(combined) | set(prev_combined)
     trade_rows = []
-    for t in sorted(all_keys, key=lambda k: -(combined.get(k, 0.0))):
+    hold_count = 0
+    for t in sorted(all_keys, key=lambda k: -abs((combined.get(k, 0.0) - prev_combined.get(k, 0.0)))):
         prev_w = prev_combined.get(t, 0.0)
         new_w = combined.get(t, 0.0)
         delta = new_w - prev_w
         if abs(prev_w) < 1e-6 and abs(new_w) < 1e-6: continue
-        sign = "BUY " if delta > 1e-4 else ("SELL" if delta < -1e-4 else "HOLD")
-        color = "#1d8348" if delta > 1e-4 else ("#c0392b" if delta < -1e-4 else "#666")
+        if abs(delta) < 1e-4:
+            hold_count += 1
+            continue
+        sign = "BUY " if delta > 0 else "SELL"
+        color = "#1d8348" if delta > 0 else "#c0392b"
         trade_rows.append(
             f"<tr><td>{t}</td><td style='text-align:right'>{prev_w*100:.1f}%</td>"
             f"<td style='text-align:right'>{new_w*100:.1f}%</td>"
-            f"<td style='text-align:right;color:{color}'>{sign} {delta*100:+.1f}pp</td></tr>"
+            f"<td style='text-align:right;color:{color};font-weight:600'>{sign} {abs(delta)*100:.1f}pp</td></tr>"
         )
     if trade_rows:
+        hold_note = f"<p style='font-size:0.75rem;color:#888;margin:4px 0 0 0'>({hold_count} unchanged positions hidden)</p>" if hold_count else ""
         trade_html = ("<table class='alloc'><thead><tr><th>Ticker</th>"
                       "<th style='text-align:right'>Prior</th>"
                       "<th style='text-align:right'>Target</th>"
                       "<th style='text-align:right'>Trade</th></tr></thead><tbody>"
-                      + "".join(trade_rows) + "</tbody></table>")
+                      + "".join(trade_rows) + "</tbody></table>" + hold_note)
     else:
-        trade_html = "<p style='font-size:0.85rem;color:#666'>(no prior signal date in history; no trade-delta to show)</p>"
+        trade_html = "<p style='font-size:0.85rem;color:#666'>(no rebalance trades needed; all positions unchanged from prior signal)</p>"
+
+    # Combined target weights table
+    combined_target_html = "".join(
+        f"<tr><td>{t}</td><td style='text-align:right;font-weight:600'>{w*100:.1f}%</td></tr>"
+        for t, w in sorted(combined.items(), key=lambda x: -x[1])
+        if abs(w) > 1e-6
+    )
+
+    # Vol-cap one-line summary for top-of-card
+    if vc_regime == "CAP_ENGAGED":
+        vc_summary = f"⚠️ Vol cap engaged ({int(vc_scale*100)}% scale, half to cash) — VIX {vix_str} &gt; {thresh_str} threshold"
+    elif vc_regime == "NORMAL":
+        vc_summary = f"✓ Vol cap normal (100% scale) — VIX {vix_str} &lt; {thresh_str} threshold"
+    else:
+        vc_summary = f"Vol cap state: {vc_regime} (as-of {vc_as_of})"
+
+    # Bull-QQQ + NDX picks one-liner (for top summary)
+    bull_pick = next(iter(bq_w), CASH_TICKER) if bq_w else CASH_TICKER
+    ndx_picks_str = ", ".join(ndx_diag.get("selected", [])) if ndx_diag.get("selected") else "(cash)"
+    sector_str = _ndx_sector_summary(ndx_diag.get("selected", [])) if ndx_diag.get("selected") else ""
 
     return f"""
 <div class='alloc-grid'>
-{vol_cap_html}
-<div>
-  <h4>CPM sleeve internal ({int(CPM_WEIGHT*100)}% of capital; weights below sum to 100% of sleeve)</h4>
-  <p style='font-size:0.85rem'>Regime: <strong>{regime}</strong><br>Best safe: <strong>{safe}</strong><br>Pair: <strong>{pair_str}</strong></p>
-  <div class='table-scroll'><table class='alloc'>{fcp_html}</table></div>
-</div>
-<div>
-  <h4>BULL-QQQ sleeve internal ({int(BULL_WEIGHT*100)}% of capital; weights below sum to 100% of sleeve)</h4>
-  <p style='font-size:0.85rem'>State: <strong>{bq_state}</strong><br>Canary: HYG OR TIP 13612U &gt; 0 (Keller/HAA-inspired)<br>Composite: curve OR vol macro pillar &gt; 0 (custom)<br>Asset mom: QQQ 12-1 absolute momentum &gt; 0 (TSMOM-style)<br>Bull asset: 100% QQQ<br>Fallback: HAA best-of-safe by 13612U: argmax(SHV, IEF) (IEF in falling-rate, SHV otherwise; may carry duration risk)</p>
-  <div class='table-scroll'><table class='alloc'>{bq_html}</table></div>
-</div>
-<div>
-  <h4>NDX sleeve internal ({int(NDX_WEIGHT*100)}% of capital; weights below sum to 100% of sleeve)</h4>
-  <p style='font-size:0.85rem'>State: <strong>{ndx_state}</strong><br>Universe: PIT Nasdaq-100 constituents (via index-constitution lib)<br>Selection: top-{NDX_SELECT_K} by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each<br>Gate: BULL-QQQ regime must be BULL_QQQ (cash otherwise)</p>
-  <div class='table-scroll'><table class='alloc'>{ndx_html}</table></div>
-</div>
-<div>
-  <h4 style='background:#fff4d6;padding:6px 10px;border-radius:4px'>→ FINAL PORTFOLIO TARGET WEIGHTS {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} {('(× vol-cap scale ' + str(vc_scale) + ')') if vc_scale < 1.0 else '(100% of capital)'} ←</h4>
-  <p style='font-size:0.8rem;color:#555'>This is the actual blended portfolio after applying vol-cap scale. Per-name weight = sleeve-internal weight × sleeve allocation × vol-cap scale. Excess (1 - scale) parked in {CASH_TICKER} cash.</p>
-  <div class='table-scroll'><table class='alloc'>{combined_html}</table></div>
+<div style='grid-column: 1 / -1'>
+  <h4 style='background:#fff4d6;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Final portfolio target {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} {('× ' + str(vc_scale)) if vc_scale < 1.0 else ''}</h4>
+  <p style='font-size:0.78rem;color:#666;margin:2px 0 6px 0'>{vc_summary}</p>
+  <div class='table-scroll'><table class='alloc'>{combined_target_html}</table></div>
 </div>
 <div style='grid-column: 1 / -1'>
-  <h4 style='background:#e8f4fd;padding:6px 10px;border-radius:4px'>Trade delta (prior signal → current target)</h4>
+  <h4 style='background:#e8f4fd;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Rebalance trade (vs prior signal)</h4>
   <div class='table-scroll'>{trade_html}</div>
+</div>
+<div style='grid-column: 1 / -1'>
+  <details>
+    <summary style='font-weight:600;cursor:pointer'>Signal diagnostics (sleeves, vol-cap state, selection details)</summary>
+    <div style='margin-top:10px'>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>CPM</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): pair = <strong>{pair_str}</strong>, safe = {safe}</p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>BULL-QQQ</strong> ({int(BULL_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{bull_pick}</strong></p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' · sectors: ' + sector_str) if sector_str else ''}</p>
+    {vol_cap_html}
+    <h4 style='margin-top:14px'>Sleeve-internal weights (sum to 100% of each sleeve)</h4>
+    <div style='display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px'>
+      <div><strong>CPM</strong><div class='table-scroll'><table class='alloc'>{fcp_html}</table></div></div>
+      <div><strong>BULL-QQQ</strong><div class='table-scroll'><table class='alloc'>{bq_html}</table></div></div>
+      <div><strong>NDX</strong><div class='table-scroll'><table class='alloc'>{ndx_html}</table></div></div>
+    </div>
+    </div>
+  </details>
 </div>
 </div>
 """
@@ -1588,7 +1618,7 @@ def main():
     bull_qqq_rets = run_bull_qqq_backtest(panel, start, end)
 
     print("Computing NDX sleeve ...")
-    from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel
+    from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel, SELECT_K as NDX_SELECT_K
     try:
         ndx_panel = load_ndx_panel()
         ndx_rets, _ = run_ndx_backtest(panel, ndx_panel, start, end)
@@ -1695,6 +1725,17 @@ def main():
         ndx_snapshot_date = _np.index[-1].date()
     except Exception:
         ndx_snapshot_date = "unknown"
+
+    # Trade due date = first trading day AFTER signal date (T+1 OPEN)
+    next_idx_pos = panel.index.searchsorted(sig_d) + 1
+    trade_due_date = panel.index[next_idx_pos].date() if next_idx_pos < len(panel.index) else "future"
+    age_days = (pd.Timestamp.today().normalize() - pd.Timestamp(sig_d)).days
+    if age_days <= 7:
+        age_status = "<span style='color:#1d8348;font-weight:600'>CURRENT</span>"
+    elif age_days <= 35:
+        age_status = "<span style='color:#6f4e00'>recent</span>"
+    else:
+        age_status = f"<span style='color:#c0392b;font-weight:600'>STALE (next signal end of month)</span>"
     
     # Per-sleeve breakdown of the PROD blend
     common_idx = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
@@ -1843,13 +1884,9 @@ def main():
     .warning-banner {{ break-inside: avoid; }}
   }}
   .warning-banner {{
-    background: #fff3cd;
-    border: 2px solid #f0ad4e;
-    color: #6f4e00;
-    padding: 12px 16px;
-    margin: 8px 0 16px 0;
-    border-radius: 6px;
-    font-size: 0.92rem;
+    color: #888;
+    font-size: 0.78rem;
+    margin: 4px 0 8px 0;
   }}
   .audit-block {{
     background: #f0f4f8;
@@ -1865,194 +1902,102 @@ def main():
 </head>
 <body>
 
-<div class='warning-banner'>
-<strong>⚠ Backtest only. Not live-traded.</strong> Forward expectations are
-discounted (Sharpe 1.00-1.30 vs 1.51 backtest). NDX selection-stage bias
-is bounded but not eliminated; stress-clustered MaxDD can reach -22%.
-<strong>Tax-advantaged accounts only</strong> (IRA/401k/Roth); short-term gains
-drop after-tax CAGR from 11-15% to ~5-9%. Data pipeline is research-grade:
-no fallback vendor, no abort-on-missing-data, no audit snapshots. These
-are production blockers, not nice-to-haves.
-</div>
+<p class='warning-banner'>Backtest only, not live-traded. IRA / 401k / Roth only.</p>
 
 <h1>CPM-BULL-NDX Strategy Dashboard</h1>
-<p class='subtitle'><strong>{int(CPM_W*100)}% CPM</strong> (canary-gated momentum + min-vol pair) + <strong>{int(BULL_W*100)}% BULL-QQQ</strong> (trend overlay) + <strong>{int(NDX_W*100)}% NDX</strong> (top-K Nasdaq-100 concentration).</p>
-<p class='meta'>Backtest window: {window_str} | Built: {today}</p>
+<p class='meta'>{int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX · monthly rebalance · T+1 OPEN · 10 bps/side · backtest {window_str} · built {today}</p>
 
+<h2>→ This month's allocation</h2>
 <div class='card'>
-<h3>Strategy at a glance</h3>
-<p><strong>Production blend</strong>: {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX, monthly rebalance, T+1 OPEN (next-day MOO), 10 bps/side cost.</p>
-<ul>
-<li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z with reset when canary breadth crosses majority (>=2 positive), vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only, no leverage). SHV cash fallback.</li>
-<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: (1) Keller/HAA-inspired HYG OR TIP 13612U &gt; 0 canary, (2) custom curve OR vol macro composite (curve = IEF 63d ret &gt; TLT 63d ret; vol = SPY 63d vol &lt; 252d avg), (3) QQQ 12-1 absolute momentum &gt; 0 (TSMOM-style trend filter). Only the canary is Keller-canonical; composite and trend gates are extensions. Fallback: HAA best-of-safe by 13612U: argmax(SHV, IEF). May carry duration risk in falling-rate regimes.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-K PIT Nasdaq-100 by 13612U momentum, equal-weight, gated by BULL_QQQ regime. SHV when off. K=8 chosen over K=4 for selection-stage bias mitigation; halves stress-clustered MaxDD at -0.07 baseline Sh cost.</li>
-</ul>
-<p><strong>Headline ({yrs_full:.1f}y, post-cost):</strong> 60/20/20 blend Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong>, CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>, Calmar <strong>{prod_metrics['calmar']:.2f}</strong>, Martin <strong>{prod_metrics['martin']:.2f}</strong>.</p>
-<p class='footnote'>Bootstrap 95% CI [1.08, 1.94]; honest forward base-case 1.00-1.30 Sharpe / 11-15% CAGR after in-sample selection bias discount.</p>
-</div>
-
-<h2>This Month's Allocation</h2>
-<div class='card'>
-<p class='meta'>Signal date: {sig_d.date()}</p>
 <div class='audit-block'>
-Data through:    {panel_index_last}<br>
-Signal date:     {sig_d.date()} (last trading day of month)<br>
-Effective trade: T+1 OPEN (next-day MOO)<br>
-Code commit:     {git_sha}<br>
-NDX snapshot:    {ndx_snapshot_date}<br>
-Generated:       {today}
+Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <strong>T+1 OPEN</strong> ({trade_due_date}) · Age: {age_days}d · Status: {age_status}<br>
+<span style='color:#888'>Data through {panel_index_last} · NDX snapshot {ndx_snapshot_date} · commit {git_sha} · built {today}</span>
 </div>
 {alloc_html}
 </div>
 
-<h2>Performance Summary</h2>
+<h2>Headline performance</h2>
 <div class='card'>
-{perf_table_html(perf_rows)}
-<p class='footnote'>Post-cost (10 bps/side). CPM sleeve uses {TARGET_VOL*100:.0f}% annualized de-risk-only vol cap; BULL and NDX are uncapped.</p>
+<p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>. Forward base-case Sh 1.00–1.30, CAGR 11–15% pre-tax (5–9% after).</p>
+{perf_table_html(perf_rows, compact=True)}
+<details>
+  <summary style='font-size:0.85rem;color:#666;cursor:pointer'>Full metrics (Ulcer / Calmar / Martin)</summary>
+  {perf_table_html(perf_rows)}
+</details>
 </div>
 
-<h2>Sleeve Breakdown</h2>
+<details>
+<summary><strong>Strategy spec (sleeves)</strong></summary>
+<div class='card'>
+<ul>
+<li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). SHV cash fallback.</li>
+<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND QQQ 12-1 momentum &gt; 0. Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_QQQ regime.</li>
+</ul>
+</div>
+</details>
+
+<details>
+<summary><strong>Sleeve breakdown</strong></summary>
 <div class='card'>
 {perf_table_html(sleeve_rows)}
 </div>
+</details>
 
-<h2>Equity Curves</h2>
+<details>
+<summary><strong>Charts & analysis</strong> (equity curves, regime history, attribution, distributions; click to expand)</summary>
+
+<h3>Equity & drawdown</h3>
 <div class='card'>
 {fig_to_html(fig_equity)}
-</div>
-
-<h2>Drawdown Profile</h2>
-<div class='card'>
 {fig_to_html(fig_dd)}
+{fig_to_html(fig_roll_dd)}
 </div>
 
-<h2>Year-by-Year</h2>
+<h3>Returns by period</h3>
 <div class='card'>
 {fig_to_html(fig_yearly)}
-</div>
-
-<h2>Monthly Returns Heatmap</h2>
-<div class='card'>
 {fig_to_html(fig_monthly_heatmap)}
-<p class='footnote'>Monthly returns of the PROD 60/20/20 blend. YTD column shows year-to-date compounded return (current year is partial). 2007 and earliest extended years are also partial. Red = down, green = up; color scale capped at +/-20%.</p>
+{yearly_table_html(blended, qqq, cpm, bull_qqq_rets, naive_pp_qt)}
 </div>
 
-<h2>Rolling Sharpe (12-month, vs Naive 60/40 PP/QQQ-trend)</h2>
+<h3>Rolling metrics (12-month)</h3>
 <div class='card'>
 {fig_to_html(fig_rolling)}
-</div>
-
-<h2>Rolling Excess Return (12-month, annualized)</h2>
-<div class='card'>
 {fig_to_html(fig_excess)}
-<p class='footnote'>Excess CAGR over Naive 60/40 PP/QQQ-trend (apples-to-apples benchmark: same 60/40 architecture with off-the-shelf components). Negative regions = strategy lagged that window vs simpler implementation of same meta-design.</p>
+{fig_to_html(fig_sleeve_corr)}
 </div>
 
-<h2>Rolling 3-Month Max Drawdown</h2>
-<div class='card'>
-{fig_to_html(fig_roll_dd)}
-<p class='footnote'>Worst peak-to-trough drawdown within each rolling 63-trading-day window. Shallower (closer to 0) = better risk control over short horizons. Compares CPM standalone, CPM-BULL-NDX production blend, BULL-QQQ standalone, and Naive 60/40 PP/QQQ-trend benchmark.</p>
-</div>
-
-<h2>Canary Regime History</h2>
+<h3>Regime & gate history</h3>
 <div class='card'>
 {fig_to_html(fig_canary)}
-<p><strong>CPM canary (HYG/TIP/GLD any-positive 13612U):</strong> Risk-on <strong>{regime_pct_ron:.1f}%</strong> ({regime_counts['RISK_ON']}/{n_signals}) -- pair selection runs. Defensive <strong>{regime_pct_def:.1f}%</strong> ({regime_counts['DEFENSIVE']}/{n_signals}) -- 100% SHV cash, fires only when HYG (credit) AND TIP (inflation) AND GLD (real-asset) are simultaneously negative. <em>Why GLD belongs here:</em> CPM is a cross-asset engine that holds gold as a tradable diversifier -- the canary should activate on the same real-asset / inflation / dollar-weakness regimes that make GLD or TLT the right pair. A GLD-positive month often is exactly the kind of risk-off-but-not-cash month where CPM should still rotate into defensive diversifiers rather than retreat to cash.</p>
-<p><strong>BULL gate (3-layer):</strong> QQQ on <strong>{regime_counts['BULL_QQQ']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_QQQ']}/{n_signals}), defensive (HAA best-of SHV/IEF) <strong>{regime_counts['BULL_CASH']/n_signals*100:.1f}%</strong> ({regime_counts['BULL_CASH']}/{n_signals}). Gates: (1) Keller/HAA-inspired HYG OR TIP 13612U > 0 canary, (2) custom curve OR vol macro composite, (3) QQQ 12-1 absolute momentum > 0 (TSMOM-style). Only canary is Keller-canonical; composite + trend gates are custom extensions. <em>Why HYG+TIP (not GLD or LQD):</em> Gold is flight-to-safety; LQD (IG corp) rallies on rate cuts during equity crashes (duration). HYG (HY credit stress) + TIP (inflation breakeven) are the cleanest signals. <em>Why curve+vol:</em> pair ablation across 6 (window x asset) configs showed these are the only two structurally orthogonal macro pillars not already covered by canary or asset_mom.</p>
-<p class='footnote'>Mechanism summary: CPM's canary uses GLD because gold is part of its tradable diversifier set (a GLD-positive regime invites CPM to rotate INTO gold). BULL's canary uses HYG+TIP (no LQD) because IG credit rallies on rate cuts during equity crashes, falsely keeping the canary risk-on in dotcom-style regimes. HYG_stitched = VWEHX pre-2007-04 + live HYG.</p>
-</div>
-
-<h2>Canary-State Conditional Performance</h2>
-<div class='card'>
+{fig_to_html(fig_def_pct)}
 {fig_to_html(fig_canary_heatmap)}
-<p>Each cell shows the sleeve's realized performance during months when that exact canary bit-combination was active. Sharpe colored on a -1.5/+2.5 scale (red=bad, green=good). AnnRet = annualized arithmetic return (what you'd earn if regime stayed active); DD = max drawdown of the sub-sample equity curve; n=months in state.</p>
-<p class='footnote'>Cells with very high Sharpe and near-zero return are defensive states where the sleeve held SHV cash (low vol, ~RFR yield). Sharpe is informative but the AnnRet shows the regime contributes little dollar return. Look for regimes with both decent Sharpe AND meaningful AnnRet -- those are the real edge sources.</p>
 </div>
 
-<h2>Asset Pick Frequency & Top Pair Archetypes</h2>
+<h3>Pair selection</h3>
 <div class='card'>
 {picks_html}
-<p class='footnote'>Counts across signal dates from {start.strftime('%Y-%m')} onward. Shows which assets the min-variance pair selection actually picks most often, and which pair archetypes dominate. Helpful to verify universe is actually being used (no zombies).</p>
-</div>
-
-<h2>Conditional Asset Performance (when picked)</h2>
-<div class='card'>
+{fig_to_html(fig_pair_timeline)}
 {fig_to_html(fig_asset_picked)}
 {asset_when_picked_note_html(asset_picked_rows)}
 </div>
 
-<h2>Per-Sleeve Yearly Contribution to Blend</h2>
+<h3>Attribution & distributions</h3>
 <div class='card'>
 {fig_to_html(fig_sleeve_contrib)}
-<p>Each year's bar shows what each sleeve contributed to the blend return (60% CPM + 20% BULL-QQQ + 20% NDX, daily-sum approximation). Diamonds mark total blend annual return. Useful for seeing which sleeve carried each year - CPM tends to dominate in defensive/stagflation regimes (2008, 2022), while BULL-QQQ and NDX dominate strong bull years (2013, 2017, 2020, 2023-24).</p>
-<p class='footnote'>Calculation note: contribution = sleeve_weight * sum(daily_returns) per year. This is a linear approximation; actual compounding effects mean the contributions sum to approximately (but not exactly) the blend annual return.</p>
-</div>
-
-<h2>Top-10 Worst Blend Drawdowns (peak-to-trough attribution)</h2>
-<div class='card'>
 {drawdowns_html}
-<p>Each row is a distinct peak-to-trough drawdown of the blend. CPM/BULL/NDX columns show each sleeve's <em>contribution</em> to blend returns over the peak-to-trough window (sleeve weight * sum of daily returns). Negative values are losses; positive values mean the sleeve hedged the drawdown.</p>
-<p class='footnote'>Drawdown periods are identified as continuous sub-windows where equity is below prior peak. Recovery date = when equity first re-touches the prior peak (or '-' if still ongoing). 'To trough' = days from peak to drawdown low; 'To recover' = days from trough back to peak.</p>
-</div>
-
-<h2>CPM Rolling Defensive % (1-year window)</h2>
-<div class='card'>
-{fig_to_html(fig_def_pct)}
-<p>Fraction of the last 12 monthly signal dates where the CPM canary forced 100% SHV cash. Spikes mark stress regimes (post-GFC residual, 2016 flat market, 2019, 2023 inflation/banking stress, 2025-26 recent shock). The canary tends to go defensive AFTER deep selloffs, not before -- inherent limitation of trend-following signals.</p>
-</div>
-
-<h2>Pair-Pick Timeline</h2>
-<div class='card'>
-{fig_to_html(fig_pair_timeline)}
-<p>Each square = one monthly signal. Y-axis = which pair (or DEFENSIVE) was picked. Color = realized 1mo return of held weights (red = loss, green = gain, yellow ~ flat). Visualizes pair clustering by regime: GLD+TLT clustered in 2008/2010-12/2019-20 (with red months marking the bad cluster), EFA+GLD recent 2024-26, GLD+SPHQ current dominant since 2023. DEFENSIVE row shows long defensive stretches especially mid-2010s.</p>
-</div>
-
-<h2>Rolling Sleeve Correlations</h2>
-<div class='card'>
-{fig_to_html(fig_sleeve_corr)}
-<p><strong>Historical diversification mechanism.</strong> CPM-vs-BULL and CPM-vs-NDX correlation swings from <strong>-0.5 to +0.95</strong> over time. During equity stress (2008, 2012, 2020, 2022) CPM goes <strong>negatively correlated</strong> with equities. During calm bull markets (2014-15, 2018-19, 2024+) CPM picks growth-equity pairs and acts like another equity sleeve. BULL-vs-NDX correlation stays high (~0.7-0.9) because both are Nasdaq-driven. The time-varying CPM correlation has historically made the 60/20/20 blend efficient; whether this regime-conditional diversification persists forward is uncertain.</p>
-</div>
-
-<h2>Monthly Return Distributions</h2>
-<div class='card'>
 {fig_to_html(fig_distributions)}
-<p>Distribution of monthly returns per sleeve and blend. <strong>NDX has heavy excess kurtosis (+4.31)</strong> from long-tail wins (and losses) of individual stock concentration. <strong>BULL has bimodal-ish look</strong> - tall spike at 0% from defensive cash months. <strong>Blend distribution is closest to normal</strong> (skew -0.01, ex.kurt +0.44) - sleeve diversification smooths tail risk. Median > 0% across all sleeves; mean > median for blend (positive skew benefit from compounding).</p>
-</div>
-
-<h2>Strategy Correlations</h2>
-<div class='card'>
 {fig_to_html(fig_corr)}
-<p class='footnote'>Lower correlation = better diversifier. BULL-QQQ's trend/regime filters cut equity exposure to 0% (SHV cash) in defensive months, giving regime-conditional diversification with the CPM sleeve.</p>
 </div>
 
-<h2>Yearly Returns Table</h2>
+<h3>Extended backtest (~27y, {ext_start.date()} -> {end.date()})</h3>
+<p class='footnote'>NDX sleeve mirrors BULL-QQQ pre-2006 (no PIT data). Pre-2010 uses stitched ETF proxies.</p>
 <div class='card'>
-{yearly_table_html(blended, qqq, cpm, bull_qqq_rets, naive_pp_qt)}
-</div>
-
-<h2>Extended Backtest (~27y, {ext_start.date()} -> {end.date()})</h2>
-<div class='card'>
-<p class='meta'>EXT window starts at QQQ inception (1999-03-10) and includes dot-com bust (2000-2002), GFC (2008), COVID (2020), 2022 stress. Tests robustness across multiple regimes. Pre-2010 uses stitched ETF proxies (Vanguard mutual funds etc.) for some assets. NDX sleeve <strong>falls back to BULL-QQQ mirroring</strong> pre-2006 (when PIT constituent data via <code>index-constitution</code> is unavailable) -- so the 20% NDX weight acts as extra BULL exposure rather than sitting in cash. Gate design v4: HYG+TIP any-positive canary, curve+vol any-positive macro composite, QQQ 12-1 absolute momentum &gt; 0. All three gates required, all use Keller-canonical &quot;any positive&quot; rule.</p>
 {perf_table_html(ext_perf_rows)}
-</div>
-
-<h3>EXT Equity Curves</h3>
-<div class='card'>
 {fig_to_html(ext_fig_equity)}
-</div>
-
-<h3>EXT Drawdown Profile</h3>
-<div class='card'>
 {fig_to_html(ext_fig_dd)}
-</div>
-
-<h3>EXT Year-by-Year</h3>
-<div class='card'>
 {fig_to_html(ext_fig_yearly)}
-</div>
-
-<h3>EXT Rolling Sharpe (12-month)</h3>
-<div class='card'>
 {fig_to_html(ext_fig_rolling)}
 </div>
 
@@ -2061,9 +2006,12 @@ Generated:       {today}
 {fig_to_html(ext_fig_roll_dd)}
 </div>
 
-<h2>Strategy Spec</h2>
+</details>
+
+<details>
+<summary><strong>Strategy spec details</strong> (full sleeve mechanics)</summary>
 <div class='card'>
-<details open>
+<details>
 <summary>CPM Sleeve ({int(CPM_W*100)}%)</summary>
 <ul>
 <li><strong>Universe ({len(RISKY_UNIVERSE)}):</strong> US factor + international + diversifier.
@@ -2080,7 +2028,7 @@ Generated:       {today}
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
 </details>
-<details open>
+<details>
 <summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (Keller/HAA canary + custom curve/vol composite + TSMOM trend filter)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
@@ -2107,20 +2055,24 @@ Generated:       {today}
 </details>
 </div>
 
-<h2>Honest Caveats</h2>
+</details>
+
+<details>
+<summary><strong>Honest caveats</strong> (in-sample bias, NDX survivorship, regime risks; click to expand)</summary>
 <div class='card'>
-<ul>
-<li><strong>In-sample selection bias:</strong> hyperparameters, universe, and gate design tuned on this same data window. Forward Sharpe should be anchored ~30-40% below backtest for the blend; CPM standalone forward base case 0.80-1.10.</li>
-<li><strong>Universe risk:</strong> {len(RISKY_UNIVERSE)}-asset CPM universe + QQQ for BULL + PIT Nasdaq-100 for NDX. Curated via ablation/robustness iteration, not best-of-N sweep, but DSR concern remains after broad parameter exploration.</li>
-<li><strong>NDX survivorship bias (two stages).</strong> <em>Holding-stage</em> (Shumway-MC v1, already-selected delistings): bounded at &lt;0.01 Sharpe / 0.05pp CAGR under Shumway-Warther 1999 distribution at PROD scale. <em>Selection-stage</em> (ghost-injection MC v2, missing delisted names in ranking universe): 177 historical NDX-100 members have no panel price data (CELG, BRCM, ATVI, DELL, CERN). At K=8 ghost-selection rate ~17-20%. Adversarial 1-bankruptcy-per-year stress-clustered impact: Sharpe -0.11, CAGR -1.40pp, MaxDD -15.51% (vs -25.70% at prior K=4). Shumway-MC alone does not eliminate selection-stage bias unless missing delisted constituents are inserted into the ranking universe before top-K selection. NDX results remain research-grade until validated against a survivorship-bias-free database (CRSP, Norgate, Compustat). The K=8 dilution + 20% sleeve weight are the structural caps.</li>
-<li><strong>NDX pre-2006 PIT fallback:</strong> point-in-time NDX-100 membership data starts 2006-01. In the 30y extended backtest, NDX sleeve mirrors BULL-QQQ weights pre-2006 (so the 20% NDX weight becomes extra BULL-QQQ exposure rather than concentrated NDX-100 selection). 1996-2005 NDX numbers do not reflect actual constituent selection. <strong>Important:</strong> the 30y window does not stress-test the live NDX top-K stock-selection sleeve through dot-com.</li>
-<li><strong>Crisis-concentrated alpha:</strong> CPM defensive sleeve delivers most of its edge in crisis years (2008, 2002, 2020, 2022). Non-crisis years lag SPY by design.</li>
-<li><strong>Lags V-shaped recoveries:</strong> 13612U canary and 12-1 asset momentum use trailing 12-month windows, so re-entry after deep selloffs is delayed by 1-3 months. Strategy historically lagged SPY by ~5-10pp in V-snap-backs (e.g. 2009, 2020-Q2, 2022-Q4).</li>
-<li><strong>Bullish-rally underperformance is structural:</strong> MAX_LEVERAGE=1.0 prevents vol-target from levering up in low-vol bull runs. Strategy gives up bull upside in exchange for crisis alpha as designed.</li>
-<li><strong>2020+ regime favors NDX:</strong> mega-cap concentration regime massively rewarded top-K NDX selection. Forward regime may revert.</li>
-<li><strong>Strategy not yet live-traded.</strong> Forward expectation should anchor below backtest. Bootstrap CI on Sharpe is wide.</li>
+<ul style='line-height:1.5'>
+<li><strong>In-sample bias.</strong> Tuned on this window. Forward Sharpe ~30-40% below backtest; blend 1.00-1.30, CPM standalone 0.80-1.10.</li>
+<li><strong>NDX survivorship.</strong> Holding-stage MC bounded &lt;0.01 Sh. Selection-stage MC v2 (177 missing delisted tickers): adversarial stress-clustered impact -0.11 Sh / -1.40pp CAGR / MaxDD -15.51% at K=8. CRSP/Norgate validation pending.</li>
+<li><strong>NDX 30y caveat.</strong> Pre-2006 sleeve mirrors BULL-QQQ (no PIT data). 30y window does NOT stress-test live stock-selection sleeve through dotcom.</li>
+<li><strong>V-shape recovery lag.</strong> 13612U + 12-1 momentum use trailing 12mo → re-entry delayed 1-3 months after deep selloffs. Lagged SPY ~5-10pp in 2009/2020-Q2/2022-Q4 snap-backs.</li>
+<li><strong>Crisis-concentrated alpha.</strong> CPM defensive edge concentrated in 2008/2002/2020/2022. Non-crisis years lag SPY by design.</li>
+<li><strong>Bull underperformance is structural.</strong> No leverage; gives up bull upside for crisis alpha.</li>
+<li><strong>2020+ regime favors NDX.</strong> Mega-cap concentration regime massively rewarded top-K. Forward regime may revert.</li>
+<li><strong>Not live-traded.</strong> Bootstrap CI on Sharpe is wide [1.08, 1.94].</li>
 </ul>
 </div>
+
+</details>
 
 <p class='footnote' style='margin-top:30px'>Generated by <code>strategy_cpm/build_dashboard.py</code> on {today}.</p>
 
