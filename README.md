@@ -91,9 +91,10 @@ biases + tail sequencing not captured by return bootstrap):
 
 | Metric | Backtest (+ vol cap + bypass) | Forward base case |
 |---|---:|---|
-| Sharpe | 1.53 | **1.05-1.35** |
+| Raw Sharpe | 1.53 | **1.05-1.35** |
+| Excess Sharpe (over SHV) | 1.41 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
 | CAGR | 16.78% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -11.46% | **-15% to -30%** planning band (per-pick weight caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
+| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress** (per-pick weight caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
 | Calmar | 1.47 | **0.55-0.90** |
 
 ## Strategy specification
@@ -243,6 +244,60 @@ with limited margin (~0.04). P(true Sharpe > 1.05 forward floor) = 98.5%.
 Deflated Sharpe on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut
 (Bailey-Lopez de Prado); sensitive to assumed effective trial count.
 
+**Excess Sharpe over T-bills (SHV).** Raw Sharpes above are computed against
+zero, not the risk-free rate. SHV-excess Sharpe is the honest metric for a
+strategy that holds cash in defensive months:
+
+| Strategy | CLEAN raw Sh | CLEAN excess Sh | 30y raw Sh | 30y excess Sh |
+|---|---:|---:|---:|---:|
+| **PROD** | **1.537** | **1.411** (-0.13) | **1.307** | **1.065** (-0.24) |
+| CPM solo | 1.284 | 1.158 | 1.082 | 0.838 |
+| BULL solo | 1.231 | 1.139 | 0.979 | 0.823 |
+| NDX solo | 1.190 | 1.132 | 1.074 | 0.950 |
+| SPY buy-hold | 0.662 | 0.593 | 0.610 | 0.465 |
+| QQQ buy-hold | 0.824 | 0.762 | 0.631 | 0.527 |
+
+T-bill CAGR averaged 1.34% on CLEAN window, 2.74% on 30y. **The 30y
+excess Sharpe of 1.065 sits right at the forward base-case floor (1.05) --
+essentially no margin** once rate income is netted out. CLEAN excess Sharpe
+(1.411) retains real edge but with a -0.13 haircut from raw. PROD still
+clears every benchmark on excess Sharpe in both windows, but the 30y margin
+over SHV is thinner than the raw Sharpe suggests. **Use excess Sharpe for
+any capital-allocation decision; raw Sharpe overstates by 0.1-0.25.**
+
+**Block bootstrap robustness across block lengths** (N=2000 resamples, raw
+Sharpe; addresses external-review concern that 21d blocks may underestimate
+autocorrelation):
+
+| Window | Block | Mean Sh | 95% CI |
+|---|---:|---:|---:|
+| CLEAN 18.1y | 21d (1mo) | 1.525 | [1.095, 1.982] |
+| CLEAN 18.1y | 63d (3mo) | 1.546 | [1.155, 1.913] |
+| CLEAN 18.1y | 126d (6mo) | 1.568 | [1.205, 1.921] |
+| Extended 30y | 21d (1mo) | 1.297 | [0.965, 1.646] |
+| Extended 30y | 63d (3mo) | 1.310 | [1.022, 1.608] |
+| Extended 30y | 126d (6mo) | 1.300 | [1.021, 1.560] |
+
+Block-length robustness is good: mean Sharpe stable across 1mo-6mo blocks
+on both windows; longer blocks narrow CI as expected (less effective
+samples). 30y 21d-block CI lower bound dips to 0.965 -- below 1.0 raw
+Sharpe -- suggesting the 21d-block default may understate dependence in
+deeper-history data. Use 63-126d blocks for conservative inference.
+
+**Regime-block bootstrap** (SPY 200d-SMA bull/bear buckets, N=2000;
+addresses external-review concern about regime imbalance):
+
+| Window | Regime split | Mean Sh | 95% CI |
+|---|---|---:|---:|
+| CLEAN 18.1y | 79% bull / 21% bear | 1.548 | [1.095, 2.010] |
+| Extended 30y | 74% bull / 26% bear | 1.306 | [0.946, 1.669] |
+
+Resampling within regime buckets to preserve bull/bear mix. CLEAN CI
+remains positive throughout. **30y regime-block CI lower bound 0.946 falls
+below forward floor 1.05** -- the 30y window's bear-regime weight (26%) is
+historical, but a future regime with >30% bear could push realized Sharpe
+below the forward floor. Treat as a sensitivity warning, not a base case.
+
 **BULL composite gate DSR** (Bailey-Lopez de Prado, BULL standalone Sharpe
 1.182, daily skew -0.374, kurt 3.74):
 
@@ -256,6 +311,30 @@ Gate selection space is ~15-20 effective trials (curve definition x vol
 asset x logical combination x lookback choices). At N=20 the BULL
 standalone Sharpe survives the multi-comparison haircut comfortably (PSR
 99.88%). At N=100 (highly conservative), PSR is still 99.2%.
+
+**Full research-path DSR** (PROD blend, excess Sharpe over SHV; addresses
+external-review concern about insufficient multi-test haircut). Effective
+trial count includes the full architectural search across sleeves, weight
+blends, gates, hold-buffer parameters, vol-cap variants, Rebound bypass
+variants, and per-component sensitivity grids over the multi-session
+research path:
+
+| N trials | CLEAN PSR | 30y PSR |
+|---:|---:|---:|
+| N=20 (composite gate alone) | >99.99% | >99.99% |
+| N=100 | 99.96% | 99.95% |
+| N=200 (this-session variants) | 99.92% | 99.89% |
+| N=500 (cumulative research path) | 99.79% | 99.74% |
+| N=1000 (very conservative) | 99.62% | 99.52% |
+| N=2000 (paranoid upper bound) | 99.35% | 99.18% |
+
+PSR survives all reasonable haircut levels for P(true SR > 0). Caveat:
+the "true SR > 0" bar is low at observed SR 1.07-1.41 with 4500-7600
+daily obs; this measures "have we found a real positive-Sharpe pattern"
+not "is the observed Sharpe magnitude meaningful." For the harder
+question "P(true SR > 1.05 forward floor)," rely on the block bootstrap
+CI lower bounds above. The 30y regime-block CI lower bound (0.946)
+crossing below the floor is the more pessimistic signal.
 
 **30y MaxDD attribution.** Worst blend drawdown on the 30y window is
 **-16.59%, the 1998 LTCM/Russia crisis** (peak 1998-07-20, trough
