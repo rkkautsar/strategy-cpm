@@ -48,7 +48,7 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8 + VIX cap + Rebound bypass** | **1.54** | **16.78%** | **10.41%** | **-11.46%** | **1.47** |
+| **PROD 60/20/20 K=8 + VIX cap + Rebound bypass** | **1.53** | **16.78%** | **10.41%** | **-11.46%** | **1.47** |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
@@ -62,7 +62,7 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/20/20 + VIX cap + Rebound bypass** | **1.31** | **14.85%** | **-16.59%** |
+| **PROD 60/20/20 + VIX cap + Rebound bypass** | **1.30** | **14.85%** | **-16.59%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
 **Forward expectation** (discount for selection bias + regime dependency + NDX
@@ -414,23 +414,29 @@ drops ~1pp per 25 bps. MaxDD stable to 50 bps, expands materially past
 75 bps. Blend Sharpe stays above 1.05 forward floor up to 100 bps; the
 edge is not thin enough that 2-3x cost overruns destroy it.
 
-**Rebound bypass (FIXED-5050)** addresses BULL gate V-shape reentry lag.
-When slow gate says DEFENSIVE but QQQ 2-month TR is positive (Goulding-Harvey
-2022 Rebound state), BULL holds 50% QQQ + 50% safe instead of 100% cash.
-Symmetric with the 50% VIX cap. Zero free parameters: FAST horizon (2mo) is
-Goulding paper standard, blend weight is fixed 50/50, no estimator. Compared
-head-to-head with Goulding's full 4-state adaptive blend (rolling 12-48mo
-estimator of Rebound→next-month returns), FIXED-5050 captures ~88% of CLEAN
-lift and ~80% of 30y lift with no machinery (Goulding marginal value:
-+0.002 Sharpe). Restricted to BULL sleeve only: extending to NDX+CPM blew
-up 30y MaxDD from -16.6% to -26.5% (BMR-trap blast radius).
+**Rebound bypass (FIXED-5050)** is a behavioral path-dependence fix, not a
+Sharpe enhancement. Sharpe lift (+0.008 CLEAN / +0.003 30y) is well within
+the PROD bootstrap CI noise width [1.09, 1.97] -- treat as no statistically
+meaningful performance signal. CAGR lift (+0.20pp CLEAN / +0.19pp 30y) is
+real but small; production rationale is unchanged MaxDD plus better
+behavior in known V-shape recovery months. Original problem: BULL binary
+cash gate misses ~1.6 V-shape recoveries per year, mean missed move +13%
+QQQ over 3 months.
 
-| Window | PROD Sh | Bypass Sh | Δ | MaxDD |
+Mechanism: when slow gate says DEFENSIVE but QQQ 2mo TR > 0 (Goulding-
+Harvey 2022 Rebound state), BULL holds 50% QQQ + 50% safe instead of 100%
+cash. Zero free parameters: FAST 2mo is Goulding paper standard, blend
+weight is fixed 50/50, no estimator. The 50% dampening is a hedge against
+bear-market rallies, not tail insurance. Restricted to BULL sleeve only:
+extending to NDX+CPM blew up 30y MaxDD from -16.6% to -26.5% (BMR blast
+radius is real).
+
+| Window | PROD Sh | Bypass Sh | Δ (within noise) | MaxDD |
 |---|---:|---:|---:|---:|
 | CLEAN 18.1y | 1.529 | 1.537 | +0.008 | -11.46% (unchanged) |
 | Extended 30y | 1.304 | 1.307 | +0.003 | -16.59% (unchanged) |
 
-Fire stats (post-cost, shipped logic):
+Fire behavior (post-cost):
 
 | Stat | CLEAN 18.1y | Extended 30y |
 |---|---:|---:|
@@ -440,12 +446,16 @@ Fire stats (post-cost, shipped logic):
 | Avg lift on losses | -1.60pp BULL | -2.91pp BULL |
 | Win:loss size ratio | 2.0× | 1.23× |
 
-Key wins: 2009-03 GFC bottom (+13% QQQ next mo), 2020-04 COVID V (+13%),
-2023-02/03 banking-crisis pivot (+8-9%). Key losses (30y only): 2000-03,
-2001-01 dotcom bear-market rallies (-24% to -26% QQQ next mo). The 50/50
-dampening capped 2001-01 single-fire loss at -13.7pp BULL (vs -27pp if full
-bypass). Predates Goulding (Levine-Pedersen 2016, Hurst-Ooi-Pedersen 2017
-fixed multi-horizon blends established the no-estimator pattern).
+Wins: 2009-03 GFC bottom (+13% QQQ next mo), 2020-04 COVID V (+13%),
+2023-02/03 banking-crisis pivot (+8-9%). Losses (30y only): 2000-03,
+2001-01 dotcom bear-market rallies (-24% to -26% QQQ next mo, BULL sleeve
+hit -12 to -14pp). The 50/50 dampening capped 2001-01 at -13.7pp vs -27pp
+full bypass would have produced; this is sleeve-level damage limitation,
+not tail protection. Architectural lineage: Levine-Pedersen 2016 / Hurst-
+Ooi-Pedersen 2017 (fixed multi-horizon blend pattern) plus Goulding-Harvey
+2022 4-state model (FAST horizon definition). Goulding's full adaptive
+a_Re estimator was tested; marginal value over FIXED-5050 was +0.002
+Sharpe -- not worth the added estimator complexity.
 
 **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
 marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
