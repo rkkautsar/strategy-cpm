@@ -81,7 +81,8 @@ at-premium dominates bankruptcies). Quantified bias via Monte Carlo
 simulation (Shumway 1999 academic distribution, 24% delist rate, 1000
 MC iterations) shows the impact on PROD blend is small (~0.01 Sharpe,
 ~0.01pp CAGR). At 20% blend weight the bias impact is structurally bounded.
-Documented for transparency:
+
+Documented bias sources:
 
 - **Yearly PIT membership**: `index_constitution` library snapshots NDX-100
   constituents at year boundaries, so mid-year additions (e.g., TSLA on
@@ -90,26 +91,43 @@ Documented for transparency:
 - **Missing delisted-ticker data**: 24% of historical NDX-100 members have
   no usable price data in the panel (yfinance silently drops delisted
   acquired-out names like CELG, ATVI, BRCM, YHOO). Selection pool tilts
-  toward survivors.
-- **NaN-in-holding bug**: when a held NDX ticker delists mid-period, the
-  backtest silently zero-contributes that day instead of realizing the
-  bankruptcy loss or acquisition cash. Missed losses inflate returns.
+  toward survivors. This is the dominant remaining bias source.
+- **NaN-in-holding handling**: when a held NDX ticker delists mid-
+  period (NaN price on a market-open day), the backtest applies a -10%
+  haircut to the position (conservative blended estimate of acquisition-
+  vs-bankruptcy outcomes) and converts the position to SHV cash for the
+  remainder of the holding period. Market-holiday detection prevents
+  false triggers on days when all panel tickers are NaN.
 - **Pre-2006 fallback**: PIT data starts 2006-01; the sleeve mirrors
   Bull-QQQ weights before then, so 1996-2005 NDX is not a real selection.
 
-**Stress test (Monte Carlo, CLEAN 18.1y, 1000 sims, 24% of unique tickers
-randomly delisted with realistic event impacts):**
+**Survivor-bias Monte Carlo stress test (CLEAN 18.1y, 1000 sims, 24% of
+unique selected tickers randomly delist with realistic event impacts):**
 
-| Event distribution | PROD Sharpe (mean) | PROD CAGR (mean) | PROD MaxDD (mean) |
-|---|---:|---:|---:|
-| No adjustment (baseline) | 1.579 | 19.33% | -12.93% |
-| Realistic NDX-100 (acq-dominated, +8% mean event) | 1.599 | 19.62% | -12.92% |
-| Shumway pessimistic (10% bankruptcy at -55%) | 1.574 | 19.31% | -12.99% |
-| Worst case (25% bankruptcy at -80%, small-cap-like) | 1.508 | 18.42% | -13.20% |
+| Event distribution | Mean event impact | PROD Sharpe | PROD CAGR | PROD MaxDD |
+|---|---:|---:|---:|---:|
+| Raw (no MC injection) | n/a | 1.579 | 19.33% | -12.93% |
+| Realistic NDX-100 (70% acq-premium +20%, 15% merger, 10% weak -20%, 5% bankrupt -80%) | +8.0% | 1.599 | 19.62% | -12.92% |
+| **Shumway-pessimistic (55% acq, 15% merger, 20% weak -30%, 10% bankrupt -55% per Shumway-Warther 1999)** | **-0.5%** | **1.574** | **19.31%** | **-12.99%** |
+| Worst case (40% acq, 15% merger, 20% weak -30%, 25% bankrupt -80%) | -20.0% | 1.508 | 18.42% | -13.20% |
 
-Even worst-case stress still leaves PROD Sharpe 1.51 (vs CPM standalone
+The Shumway-pessimistic distribution uses the academic-standard
+-55% imputation for performance-related Nasdaq delistings (Shumway 1997,
+Shumway-Warther 1999), which is the convention used in CRSP's
+preprocessed data. Under this distribution, PROD CAGR shifts by
+-0.02pp from raw -- effectively noise. Even worst-case stress leaves PROD Sharpe 1.51 (vs CPM standalone
 1.28) and CAGR 18.42%. The 20% NDX weight bounds bias impact to ~0.07
 Sharpe / ~0.9pp CAGR even in implausibly severe scenarios.
+
+Reproducibility: MC analysis scripts at `/tmp/cpm_ndx_delisting_mc_v2.py`
+and `/tmp/cpm_ndx_mc_pessimistic.py` (1000 iterations each, seed=42).
+
+References:
+- Shumway, T. (1997). The Delisting Bias in CRSP Data. *Journal of
+  Finance* 52(1), 327-340.
+- Shumway, T. & Warther, V. (1999). The Delisting Bias in CRSP's Nasdaq
+  Data and Its Implications for the Size Effect. *Journal of Finance*
+  54(6), 2361-2379.
 
 ## Strategy spec
 
@@ -244,14 +262,14 @@ tech-led regime).
 
 ## Validation
 
-### Bootstrap CI (block bootstrap, B=2000, 21-day blocks, prior canonical 19.3y window)
+### Bootstrap CI (block bootstrap, B=2000, 21-day blocks, alternative 19.3y window)
 
 | Strategy | Sharpe | Bootstrap mean | 95% CI | P(Sh > 1.0) |
 |---|---:|---:|---:|---:|
 | CPM standalone | 1.113 | 1.120 | [0.708, 1.528] | 73.2% |
 | BULL standalone | 1.011 | 1.011 | [0.578, 1.444] | 52.6% |
 | NDX standalone | 1.131 | 1.117 | [0.669, 1.564] | 69.1% |
-| **60/30/10 PROD (prior config)** | **1.364** | **1.362** | **[0.946, 1.796]** | **95.1%** |
+| **60/30/10 CPM-BULL-NDX (alt weights)** | **1.364** | **1.362** | **[0.946, 1.796]** | **95.1%** |
 
 ### Deflated Sharpe (Bailey-Lopez de Prado, P[true Sh > 0] after N-trial haircut)
 
@@ -260,7 +278,7 @@ tech-led regime).
 | CPM standalone | 99.6% | 99.1% | 96.8% | 95.1% |
 | BULL standalone | 98.6% | 97.3% | 92.2% | 88.9% |
 | NDX standalone | 99.7% | 99.4% | 97.5% | 96.1% |
-| **60/30/10 PROD (prior config)** | **99.99%** | **99.97%** | **99.84%** | **99.70%** |
+| **60/30/10 CPM-BULL-NDX (alt weights)** | **99.99%** | **99.97%** | **99.84%** | **99.70%** |
 
 Bootstrap and DSR results are **supportive but not proof of forward edge**.
 The bootstrap Sharpe lower bound (0.946) is roughly at the forward
@@ -268,7 +286,7 @@ expectation floor (0.95), so the strategy is supported by the tested data
 but not comfortably above the floor. DSR depends heavily on the assumed
 effective trial count -- the true hyperparameter search space (9-asset
 universe, top-K=5, 504d EWMA cov, HOLD_BUFFER 2.0z, 15% vol cap, 63d
-realized lookback, 12-1 trend, 13612U canary, NDX K=4, prior 60/30/10 blend,
+realized lookback, 12-1 trend, 13612U canary, NDX K=4, 60/30/10 vs 60/20/20 blend weight options,
 etc.) is plausibly larger than N=1000 even at conservative count. These
 results reduce the probability that the historical result is pure noise,
 but they do not eliminate model-selection bias, regime risk, data-quality
@@ -285,7 +303,7 @@ World Bank monthly gold forward-filled to daily. Asset momentum circuit
 breaker (Antonacci 12-1) is the primary defense in macro-confusion
 regimes like dotcom.
 
-### Complexity-layer ablation (prior canonical 19.3y window)
+### Complexity-layer ablation (alternative 19.3y window)
 
 Each added complexity layer should justify itself versus simpler adjacent
 strategies after cost:
@@ -298,7 +316,7 @@ strategies after cost:
 | 60% CPM + 40% SHV (defensive) | 1.27 | 9.17% | 7.09% | -8.53% | +0.41 (CPM engine) |
 | 100% CPM standalone | 1.19 | 14.21% | 11.80% | -14.74% | (alt: CPM full size) |
 | **70/30 CPM-BULL (no NDX)** | **1.34** | **15.66%** | **11.36%** | **-12.59%** | +0.15 (BULL adds) |
-| **PROD 60/30/10 (prior config)** | **1.41** | **18.35%** | **12.51%** | **-15.43%** | +0.07 (NDX adds, at +3pp DD cost) |
+| **60/30/10 CPM-BULL-NDX (alt weights)** | **1.41** | **18.35%** | **12.51%** | **-15.43%** | +0.07 (NDX adds, at +3pp DD cost) |
 
 Each layer adds Sharpe. NDX is the smallest marginal gain (+0.07 Sh) at
 the steepest DD cost (+3pp); justified by the +2.7pp CAGR contribution.
@@ -366,13 +384,13 @@ Within the validated 2-5z plateau, exact value is not sensitive.
    standalone MaxDD -36% (raw clean) / -37% (Shumway-MC adjusted).
    Mega-cap concentration alpha is regime-dependent; a 2000-2010-style
    tech-lost-decade would likely underperform vs BULL-QQQ alone. At 20%
-   blend weight (up from prior 10%), NDX is now an equal-sized growth
-   sleeve alongside BULL-QQQ, not a small satellite kicker. Pre-2006 PIT
-   constituent data unavailable (NDX mirrors BULL in extended backtest).
+   blend weight, NDX is an equal-sized growth sleeve alongside BULL-QQQ.
+   Pre-2006 PIT constituent data unavailable (NDX mirrors BULL in
+   extended backtest).
 
 6. **Effective Nasdaq/growth concentration.** In risk-on regimes, CPM can
    pick QQQ or IWF while BULL holds QQQ and NDX holds top Nasdaq-100
-   names. Realized growth-exposure distribution (prior canonical 19.3y window):
+   names. Realized growth-exposure distribution (alternative 19.3y window):
 
    | Stat | Total growth/Nasdaq exposure |
    |---|---:|
@@ -382,7 +400,7 @@ Within the validated 2-5z plateau, exact value is not sensitive.
    | Months ≥ 70% | **34.6%** (80/231) |
 
    In 34.6% of months the portfolio runs close to 70% Nasdaq/growth (30%
-   CPM growth + 30% BULL QQQ + 10% NDX). This is not a diversified TAA model
+   CPM growth + 20% BULL QQQ + 20% NDX). This is not a diversified TAA model
    in those regimes -- it's a growth/Nasdaq momentum strategy with tactical
    defensive machinery. The min-vol pair selector prevents 100% growth
    concentration (never picks both QQQ AND IWF as the pair simultaneously).
