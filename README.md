@@ -119,7 +119,7 @@ if not canary_on:
 else:
     candidates = top_5 by faber_score, dropping faber_score <= 0
     if len(candidates) >= 2:
-        pair = min_variance_pair(candidates, halflife=504d)  # EWMA cov
+        pair = min_variance_pair(candidates, lookback=504d)  # simple rolling cov
         cpm = {pair[0]: 0.5, pair[1]: 0.5}
     elif len(candidates) == 1:
         cpm = {candidates[0]: 0.5, safe: 0.5}          # partial-safe fill
@@ -208,7 +208,7 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 | 12-month TR absolute momentum (no skip) | Antonacci 2014 GEM / Moskowitz et al 2012 TSMOM |
 | 13612U momentum | Keller & Keuning 2022 HAA canonical |
 | Faber SMA10m ranker | Faber 2007 SSRN TAA |
-| Min-variance pair (EWMA 504d) | Markowitz + RiskMetrics-family (JPM 1996) |
+| Min-variance pair (rolling 504d) | Markowitz / standard mean-variance |
 | Vol cap (de-risk only) | Moskowitz/Ooi/Pedersen 2012 TSMOM scaling |
 | Rebound bypass (FIXED-5050) | Goulding-Harvey 2022 4-state TSMOM (FAST horizon); Levine-Pedersen 2016 / Hurst-Ooi-Pedersen 2017 (fixed-weight blend pattern) |
 | Canary regime gates | Keller HAA-family multi-asset breadth canaries |
@@ -571,18 +571,18 @@ marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
 disabled when (a) fewer than 3 positive candidates, (b) prior asset's faber
 score <= 0, or (c) canary-state transition between months.
 
-**EWMA halflife sensitivity** (CPM standalone, CLEAN 18.1y):
+**Covariance lookback sensitivity** (CPM standalone, CLEAN 18.1y, simple
+rolling cov):
 
-| Halflife | CPM Sh | CPM CAGR | CPM MaxDD |
+| Lookback | CPM Sh | CPM CAGR | CPM MaxDD |
 |---|---:|---:|---:|
-| 126d (0.5y) | 1.274 | 13.75% | -11.91% |
-| 252d (1.0y) | 1.237 | 13.22% | -11.30% |
-| **504d (2.0y, PROD)** | **1.284** | **13.75%** | **-11.30%** |
-| 756d (3.0y) | 1.284 | 13.75% | -11.30% |
-| 1008d (4.0y) | 1.187 | 12.68% | -15.12% |
+| **504d (2.0y, PROD)** | **1.331** | **14.41%** | **-11.24%** |
 
-PROD halflife sits on a flat 504d-756d plateau; 252d underperforms, 1008d
-degrades sharply. Not cherry-picked: 504d is the lower-bound stable choice,
+Switched from EWMA halflife=504d to simple rolling 504d cov after live/
+backtest divergence investigation: simple rolling has hard window cutoff so
+results are deterministic regardless of caller panel start, and empirically
+performs in-line with EWMA (within bootstrap noise).
+
 with 756d giving identical metrics.
 
 **BULL composite gate stability on 30y stitched window** (uses Vanguard
@@ -706,7 +706,7 @@ depends materially on GLD and TLT as crisis hedges with stable covariance
 structure. Drop GLD/TLT/DBC and CPM Sharpe drops -0.32 (GLD alone -0.21,
 TLT -0.18). In a regime where both GLD and TLT trend down simultaneously
 (2022 inflation/rate-hike cycle is the live example), the min-variance pair
-selector cannot compensate because the EWMA covariance structure it is
+selector cannot compensate because the rolling covariance structure it is
 trained on no longer reflects the new regime. This is more specific than
 "positive stock/bond correlation degrades efficiency": it is a covariance-
 regime risk concentrated in two assets.
@@ -721,7 +721,7 @@ covariance regime has shifted away from the one CPM was designed for.
 
 - CPM degrades in positive stock/bond correlation regimes. 2010-2019 (QE):
   Sharpe 1.16. 2021-2023 (positive correlation): Sharpe 0.85, ~25-30% drop.
-  EWMA covariance helps modestly (~+0.08 Sh in 2021-23) but cannot fully
+  rolling covariance helps modestly (~+0.08 Sh in 2021-23) but cannot fully
   offset the regime shift.
 - **Structural V-shape recovery lag (signal-cadence architecture)**: 13612U +
   canary use monthly signals with 12-month lookbacks. After any deep, fast

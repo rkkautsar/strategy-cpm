@@ -252,27 +252,16 @@ def canary_risk_state(n_pos: int | None) -> str | None:
 def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
     """Return the pair with lowest 50/50 portfolio variance.
 
-    Uses EWMA covariance with half-life = `lookback` trading days (e.g. 504d
-    => half-life ~2y; same long-term anchor as a 504d simple window but with
-    exponential decay that smoothly incorporates more history).
-
-    RiskMetrics-family estimator (J.P. Morgan 1996); standard in AQR /
-    Bridgewater / Ledoit-Wolf practitioner literature. For our small CPM
-    universe (pair selection from top-K=5), HL=504d gives the best Sharpe
-    while avoiding the over-reactive noise of fast EWMA (HL=30-63d) that
-    hurts when applied to small portfolios.
+    Simple rolling covariance over the trailing `lookback` trading days
+    (504d ~ 2y). Hard window: live/backtest consistent regardless of
+    caller panel start (above 504d minimum).
     """
     if len(candidates) < 2:
         return None
-    rets = daily[candidates].pct_change().dropna(how="all")
+    rets = daily[candidates].pct_change().dropna(how="all").tail(lookback)
     if len(rets) < lookback:
         return None
-    # EWMA cov with min_periods=lookback to require enough history to anchor decay.
-    cov_ew = rets.ewm(halflife=lookback, min_periods=lookback).cov()
-    if isinstance(cov_ew.index, pd.MultiIndex):
-        cov = cov_ew.iloc[-len(candidates):].droplevel(0)
-    else:
-        cov = cov_ew
+    cov = rets.cov()
     if cov.isna().any().any():
         return None
     best = None
@@ -421,6 +410,62 @@ def compute_target_weights(
 
 
 # ---------- Backtest ----------
+
+LIVE_WALK_MONTHS = 36  # walk forward this many months ending at sig_d.
+                       # 36mo = 12mo canary warmup + 24mo prev_pair propagation
+                       # buffer (covers 1-2 canary regime transitions for
+                       # hold-buffer reset history). Simple rolling cov uses
+                       # a hard 504d window so no warmup-convergence concern.
+
+
+def compute_live_weights(
+    panel: pd.DataFrame,
+    sig_d: pd.Timestamp,
+    walk_months: int = LIVE_WALK_MONTHS,
+) -> tuple[dict, tuple, str, str]:
+    """STATELESS production-correct allocation at sig_d.
+
+    Walks forward from (sig_d - walk_months) with prev_pair propagation +
+    hold-buffer reset on canary breadth-majority crossings, matching
+    `run_cpm_backtest` behavior. No state file needed -- the walk
+    reconstructs hold-buffer state from scratch each call.
+
+    walk_months default 36 = 12mo canary lookback + 24mo EWMA cov warmup
+    + buffer for 1-2 canary regime transitions. This is sufficient to
+    reach a stable prev_pair chain by the time we hit sig_d. Longer walks
+    are harmless but slower. Shorter (<24mo) risks missing buffer-reset
+    history that would otherwise have happened.
+
+    cpm_live.py allocate and format_message.py MUST call this to avoid
+    backtest/live divergence. The single-call `compute_target_weights`
+    does NOT apply hold buffer (no prev_pair), causing pair churn.
+    """
+    cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
+    close = panel[cols]
+    monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
+    walk_start = sig_d - pd.DateOffset(months=walk_months)
+    sig_dates = monthly_idx.index[(monthly_idx.index >= walk_start)
+                                    & (monthly_idx.index <= sig_d)].tolist()
+    if not sig_dates:
+        return compute_target_weights(close, sig_d)
+    prev_pair = None
+    prev_risk_state = None
+    weights = pair = regime = safe = None
+    for sd in sig_dates:
+        monthly = close.loc[:sd].resample("ME").last()
+        n_pos = canary_positive_count(monthly, CANARY_ASSETS)
+        risk_state = canary_risk_state(n_pos)
+        if (prev_pair is not None and risk_state is not None
+                and prev_risk_state is not None
+                and risk_state != prev_risk_state):
+            prev_pair = None
+        weights, new_pair, regime, safe = compute_target_weights(
+            close, sd, prev_pair=prev_pair)
+        prev_pair = new_pair
+        prev_risk_state = risk_state
+        pair = new_pair
+    return weights, pair, regime, safe
+
 
 def perf_metrics(daily: pd.Series) -> dict:
     if daily.empty:
@@ -601,8 +646,8 @@ def cmd_allocate(args):
     print(f"CPM Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)
     
-    # CPM weights
-    weights, pair, regime, safe = compute_target_weights(panel, sig_d)
+    # CPM weights (walk-forward with hold-buffer; matches backtest path)
+    weights, pair, regime, safe = compute_live_weights(panel, sig_d)
     print(f"\n[CPM sleeve — 60% of PROD]")
     print(f"  Regime: {regime}")
     print(f"  Best safe: {safe}")
@@ -611,11 +656,10 @@ def cmd_allocate(args):
     print(f"  Weights:")
     for t, w in sorted(weights.items(), key=lambda x: -x[1]):
         print(f"    {t:8s} {w*100:5.1f}%")
-    
-    # NOTE: This shows the CPM sleeve only (which is 60% of PROD).
-    # PROD = 60% CPM + 30% BULL-QQQ + 10% NDX (NO static buffer).
-    # For full PROD allocation, use deploy/cf-pages/format_message.py or the dashboard.
-    print(f"\n[CPM sleeve only — this is 60% of PROD; no PP buffer in PROD]")
+
+    # NOTE: This shows the CPM sleeve only (60% of PROD). For full
+    # PROD allocation, use deploy/cf-pages/format_message.py or dashboard.
+    print(f"\n[CPM sleeve only -- this is 60% of PROD]")
     print(f"  Full PROD allocation: see format_message.py or dashboard.")
 
 
