@@ -78,7 +78,7 @@ biases + tail sequencing not captured by return bootstrap):
 |---|---:|---|
 | Sharpe | 1.51 | **1.00-1.30** |
 | CAGR | 17.66% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -12.00% | **-15% to -22%** planning band (K=8 halves NDX selection-bias clustering vs K=4) |
+| MaxDD | -12.00% | **-15% to -30%** planning band (K=8 caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%) |
 | Calmar | 1.47 | **0.55-0.90** |
 
 ## Strategy specification
@@ -211,10 +211,10 @@ Prado); sensitive to assumed effective trial count.
 | 60/0/40 (no BULL) | 1.552 | 23.57% | 14.31% | -17.52% |
 
 Sharpe is on a flat plateau across 60/20/20 - 60/15/25 (both 1.590); BULL/NDX
-split trades CAGR vs MaxDD ~linearly along that plateau. PROD sits at the
-shallower-DD end of the Sharpe-optimal plateau — a deliberate preference for
-lower drawdown over marginally higher CAGR, since DD compounds psychological
-risk in live execution.
+split trades CAGR vs MaxDD ~linearly along that plateau. **Choice of 60/20/20
+on this plateau is a personal preference for shallower DD over marginally
+higher CAGR, not a model-evidence claim of superiority** — the Sharpe data
+does not distinguish 60/20/20 from 60/15/25 within sample noise.
 
 **Composite-gate contribution to BULL** (vs canary + asset_mom only, from
 handout §4.1): the curve|vol composite gate adds +0.246 Sharpe and reduces
@@ -240,6 +240,34 @@ CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
 marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
 disabled when (a) fewer than 3 positive candidates, (b) prior asset's faber
 score <= 0, or (c) canary-state transition between months.
+
+**EWMA halflife sensitivity** (CPM standalone, CLEAN 18.1y):
+
+| Halflife | CPM Sh | CPM CAGR | CPM MaxDD |
+|---|---:|---:|---:|
+| 126d (0.5y) | 1.274 | 13.75% | -11.91% |
+| 252d (1.0y) | 1.237 | 13.22% | -11.30% |
+| **504d (2.0y, PROD)** | **1.284** | **13.75%** | **-11.30%** |
+| 756d (3.0y) | 1.284 | 13.75% | -11.30% |
+| 1008d (4.0y) | 1.187 | 12.68% | -15.12% |
+
+PROD halflife sits on a flat 504d-756d plateau; 252d underperforms, 1008d
+degrades sharply. Not cherry-picked: 504d is the lower-bound stable choice,
+with 756d giving identical metrics.
+
+**BULL composite gate stability on 30y stitched window** (uses Vanguard
+mutual fund proxies pre-live for IEF/TLT):
+
+| Gate set | 30y Sharpe | 30y CAGR | 30y MaxDD |
+|---|---:|---:|---:|
+| baseline (canary + asset_mom only) | 0.651 | 3.39% | -11.52% |
+| **+ curve OR vol (PROD)** | **0.970** | **15.74%** | -26.86% |
+| + 4-pillar 2-of-4 (alt) | 0.971 | 18.55% | -32.63% |
+
+Composite gate adds +0.32 Sh on 30y (vs +0.25 on 18.1y). Same direction
+across windows; magnitude similar. The +0.246 Sh on 18y is not a single-
+window artifact, though stitched-proxy data for IEF/TLT pre-2002 means the
+pre-2002 result is directional only.
 
 **Additional vetos tested and rejected** (CLEAN 18.1y backtest):
 
@@ -363,14 +391,19 @@ covariance regime has shifted away from the one CPM was designed for.
   Sharpe 1.16. 2021-2023 (positive correlation): Sharpe 0.85, ~25-30% drop.
   EWMA covariance helps modestly (~+0.08 Sh in 2021-23) but cannot fully
   offset the regime shift.
-- **Structural V-shape recovery lag**: 13612U + canary signals are slow by
-  design. COVID 2020 calibration: BULL flipped to safe on 2020-03-31 month-
-  end signal (good — went defensive during crash) but did not re-enter QQQ
-  until 2020-07-01 (next signal after the June 30 risk-on flip), **100 days
-  (~14 weeks) after the 2020-03-23 SPY trough**. During that period SPY
-  recovered +40% (out of +51% trough-to-Sep 30 move), so BULL+NDX **missed
-  ~77% of the initial recovery**. CPM partially backfilled via faster
-  pair-rotation. Plan for similar lag at any future V-shape recovery.
+- **Structural V-shape recovery lag (signal-cadence architecture)**: 13612U +
+  canary use monthly signals with 12-month lookbacks. After any deep, fast
+  bottom (COVID-2020 = calibration tail), expect **~100 days (~3 months) of
+  no re-entry** while the lookback windows roll forward, then T+1 OPEN
+  execution adds one more day. COVID 2020: BULL flipped to safe on
+  2020-03-31 (correct), re-entered QQQ on 2020-07-01 (100 days post the
+  2020-03-23 SPY trough). During that period SPY recovered +40% (out of
+  +51% trough-to-Sep 30 move) — BULL+NDX **missed ~77% of the initial
+  recovery move**. This is inherent to the 13612U + HAA-family design and
+  cannot be patched without changing the signal cadence (monthly + 12-month
+  lookback). **Plan around recovery time, not just MaxDD depth**: any future
+  central-bank-pivot or credit-event-resolution V will produce similar lag.
+  CPM partial-backfills via faster pair rotation.
 - **In-sample selection bias**: anchor forward Sharpe at 1.05-1.35 (not 1.58
   backtest); planning MaxDD band -15 to -25%. The forward floor is more
   optimistic than the data warrants if positive stock/bond correlation
@@ -385,7 +418,7 @@ covariance regime has shifted away from the one CPM was designed for.
   two sleeves' regime verdicts, reducing the value of running them as
   independent risk-management overlays.
 
-**NDX gate asymmetry**
+**NDX gate asymmetry + bear-market gap**
 
 NDX turns off when BULL is in cash, inheriting BULL's macro verdict rather
 than evaluating its own signal. Failure mode: BULL macro canary flips
@@ -393,8 +426,26 @@ negative (credit stress) while top NDX momentum names are still accelerating
 due to sector rotation; NDX mechanically goes to SHV, missing the rotation
 upside. Defended on the basis that individual-stock momentum during macro
 stress historically reverses sharply, and the 20% sleeve sizing limits the
-cost of false-positive defensive moves. Acknowledged as a known design
-trade-off, not eliminated.
+cost of false-positive defensive moves.
+
+**Bear-market validation gap**: the live NDX top-8 stock-selection sleeve has
+no backtest evidence through a Nasdaq bear comparable to 2000-2002 (-78%)
+or a sustained Nasdaq-specific drawdown. Stylized stress (apply hypothetical
+-78% 12-month NDX bear to current selections, assuming BULL gate fails to
+fire):
+
+| Bear start date | Blend Sh | Blend MaxDD | Note |
+|---|---:|---:|---|
+| 2010-08-31 | 1.35 | -16.86% | benign-period stress |
+| 2012-05-31 | 1.32 | -13.38% | mild |
+| 2015-08-31 | 1.33 | -21.42% | Aug-15 vol concurrent |
+| 2020-01-31 | 1.35 | -12.94% | BULL gate fired off (March) |
+| **2022-01-31** | **1.36** | **-29.66%** | **worst case: protracted bear gate-miss** |
+
+Worst case is a 2022-style protracted bear where BULL gate cycles in/out as
+the lookback rolls. **MaxDD widens from -12% to -30% in that scenario.**
+Plan around -25 to -30% for the deep-bear-protracted case in addition to
+the -22% selection-bias stress band reported under NDX bias.
 
 **Pre-2007 backtest reliability**
 
@@ -409,9 +460,24 @@ intended for personal use, not endorsed) and `index-constitution` (Wikipedia-
 sourced, beta; old tickers not auto-resolved in strict membership checks).
 Known failure modes: yfinance DOM-change breakage, rate limiting / missing
 data on month-end for individual NDX stocks, bad split/dividend adjustments,
-unresolved old ticker symbols, NDX delisted-ticker leakage. **For small
-personal capital this may be tolerable. For meaningful sizing the following
-are required, not optional:**
+unresolved old ticker symbols, NDX delisted-ticker leakage.
+
+**Backtested data-gap frequency** (CLEAN 18.1y panel):
+
+| Pool | Total slot-checks | Missing | Rate |
+|---|---:|---:|---:|
+| CPM required ETFs (12 tickers × 151 months) | 1812 | 0 | **0.00%** |
+| NDX PIT members (last 60 months) | 6287 | 433 | **6.89%** |
+
+CPM ETF coverage is robust: zero historical gaps means abort-on-missing-data
+would never have triggered. NDX gap rate is 6.89% at the universe level but
+the top-8 selector picks from ~93 available tickers each month — a missing
+ticker only matters if it would have been in the top-8 momentum picks.
+Ghost-injection MC v2 (selection-stage bias section) quantifies the
+downstream impact at ~0.03 Sh / 0.5pp CAGR in realistic scenarios.
+
+**For small personal capital this may be tolerable. For meaningful sizing
+the following are required, not optional:**
 
 - abort-on-missing-data for required ETFs;
 - abort-on-suspicious split/dividend jumps (sanity check vs prior bar);
