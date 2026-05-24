@@ -205,34 +205,57 @@ The 95% lower bound (1.08) sits above the forward-expectation floor (1.00).
 Deflated Sharpe on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut
 (Bailey-Lopez de Prado); sensitive to assumed effective trial count.
 Bootstrap CI is computed on the **uncapped blend** (point Sharpe 1.514);
-the VIX-capped variant shifts Sharpe by ~+0.02 on the CLEAN window, within
-the CI width. CI on the capped variant is not separately computed.
+the VIX-capped variant shifts Sharpe by ~+0.014 on the CLEAN window. Capped
+variant CI lower bound is approximately **1.10** (1.08 + 0.014); above the
+1.05 forward floor but with limited margin.
 
-**BULL composite gate.** The 3-gate stack (canary + curve|vol composite +
-asset_mom) was selected from a ~15-20 effective trial space (curve definition
-x vol asset x logical combination x lookback). BULL standalone DSR is not
-separately reported. The 30y cross-window stability check (composite adds
-+0.32 Sh vs canary+asset_mom baseline) is the primary overfitting check;
-a formal trial-count haircut for gate selection is not quantified.
+**BULL composite gate DSR** (Bailey-Lopez de Prado, BULL standalone Sharpe
+1.182, daily skew -0.374, kurt 3.74):
 
-**Blend-weight sensitivity** (CPM fixed at 60%, BULL/NDX split varies, no
-vol cap applied to isolate the weight effect):
+| Effective trial count N | PSR (P[true Sh > 0]) |
+|---|---:|
+| N=20 (composite gate search space) | 99.88% |
+| N=50 | 99.61% |
+| N=100 | 99.20% |
+
+Gate selection space is ~15-20 effective trials (curve definition x vol
+asset x logical combination x lookback choices). At N=20 the BULL
+standalone Sharpe survives the multi-comparison haircut comfortably (PSR
+99.88%). At N=100 (highly conservative), PSR is still 99.2%.
+
+**30y MaxDD attribution.** Worst blend drawdown on the 30y window is
+**-16.59%, the 1998 LTCM/Russia crisis** (peak 1998-07-20, trough
+1998-10-08, 80 days peak-to-trough, recovered 1999-07-14). Sleeve
+contributions peak-to-trough: CPM -8.70pp, BULL -4.32pp, NDX -4.47pp (NDX
+in pre-2006 BULL-mirror mode, so duplicates BULL's loss profile). All three
+sleeves contributed; pre-2001-06 the canary reduces to HYG-only (TIP not
+live yet), leaving the system more exposed to the 1998 liquidity shock
+than it would be with the full 2-asset BULL canary today.
+
+**Blend-weight sensitivity** (CPM fixed at 60%, BULL/NDX split varies):
+
+*Both columns shown so the headline (60/20/20 with VIX cap, Sharpe 1.53)
+is comparable to the sensitivity grid.*
+
 
 | Weights | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| 60/40/0 (no NDX) | 1.470 | 15.43% | 10.12% | -9.85% |
-| 60/30/10 | 1.560 | 17.49% | 10.72% | -11.33% |
-| 60/25/15 | 1.581 | 18.51% | 11.15% | -12.13% |
-| **60/20/20 (PROD)** | **1.590** | **19.53%** | **11.67%** | **-12.92%** |
-| 60/15/25 | 1.590 | 20.55% | 12.25% | -13.86% |
-| 60/10/30 | 1.582 | 21.56% | 12.89% | -15.01% |
-| 60/0/40 (no BULL) | 1.552 | 23.57% | 14.31% | -17.52% |
+| Weights | Uncap Sh | Uncap CAGR | Uncap MaxDD | Cap Sh | Cap CAGR | Cap MaxDD |
+|---|---:|---:|---:|---:|---:|---:|
+| 60/40/0 (no NDX) | 1.458 | 15.24% | -9.85% | 1.467 | 14.25% | -9.30% |
+| 60/30/10 | 1.501 | 16.44% | -10.87% | 1.514 | 15.40% | -10.32% |
+| 60/25/15 | 1.511 | 17.03% | -11.43% | 1.525 | 15.97% | -10.89% |
+| **60/20/20 (PROD)** | **1.515** | **17.62%** | **-12.00%** | **1.529** | **16.53%** | **-11.46%** |
+| 60/15/25 | 1.513 | 18.20% | -12.90% | 1.528 | 17.09% | -12.02% |
+| 60/10/30 | 1.506 | 18.78% | -13.85% | 1.521 | 17.65% | -12.62% |
+| 60/0/40 (no BULL) | 1.482 | 19.93% | -15.71% | 1.498 | 18.76% | -14.38% |
 
-Sharpe is on a flat plateau across 60/20/20 - 60/15/25 (both 1.590); BULL/NDX
-split trades CAGR vs MaxDD ~linearly along that plateau. **Choice of 60/20/20
-on this plateau is a personal preference for shallower DD over marginally
-higher CAGR, not a model-evidence claim of superiority** — the Sharpe data
-does not distinguish 60/20/20 from 60/15/25 within sample noise.
+Sharpe is on a flat plateau spanning roughly 60/30/10 - 60/10/30; BULL/NDX
+split trades CAGR vs MaxDD ~linearly along the plateau. The point estimates
+show 60/20/20 at the Sharpe peak (1.529 capped / 1.515 uncapped), with
+60/25/15 and 60/15/25 essentially tied within sample noise (±0.004 Sharpe).
+**The plateau is flat; this is a choice within a noise-equivalent range, not
+a model-dominance claim.**
 
 **Composite-gate contribution to BULL** (vs canary + asset_mom only, from
 handout §4.1): the curve|vol composite gate adds +0.246 Sharpe and reduces
@@ -252,7 +275,26 @@ Broad-market vol (SPY) materially outperforms asset-specific (QQQ). MaxDD is
 driven by canary + asset_mom flips, identical across variants.
 
 **Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
-CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
+CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost. Window is
+~1y longer than CLEAN headline (18.1y); Sh increments expected to be
+similar magnitude on CLEAN (no regime structurally different in the extra
+1y of data).
+
+**Conditional sleeve correlation** (CPM vs BULL+NDX combined as one
+growth-tilted entity, CLEAN 18.1y, regime classified by BULL gate state):
+
+| Regime | Months | Days | corr(daily) | corr(monthly) |
+|---|---:|---:|---:|---:|
+| RISK-ON | 139 | 2,912 | 0.46 | 0.47 |
+| RISK-OFF | 79 | 1,628 | 0.24 | 0.19 |
+| ALL | 218 | 4,540 | 0.40 | 0.40 |
+
+In risk-on regimes (BULL holding QQQ), CPM and BULL+NDX co-move at
+moderate correlation (~0.46) because CPM often picks QQQ/IWF/SPHQ as one
+pair member. In risk-off regimes the correlation halves (~0.24) as CPM
+rotates into diversifiers (GLD/TLT/DBC). The blend Sharpe gain over
+sleeve standalones (blend 1.53 vs CPM 1.29, BULL 1.18, NDX 1.22) is
+consistent with through-cycle correlation ~0.40.
 
 **Portfolio-level vol cap robustness** (latched binary 50%, VIX > rolling-5y P95):
 
@@ -569,6 +611,12 @@ unresolved old ticker symbols, NDX delisted-ticker leakage.
 as likely data errors (historical extremes: ~9 low 2017, ~85 high 1987 Black
 Monday / ~83 COVID 2020). `vol_check.py` aborts state update + alert if
 today's VIX is out of bounds rather than falsely triggering.
+
+**VIX threshold during sustained low-vol periods**: in a 5y window
+dominated by sub-15 VIX (e.g. 2012-2016), the rolling 5y P95 threshold
+can drop to ~20, making the cap more trigger-happy than the ~30 today's
+level implies. The cap's trigger frequency is regime-dependent on the
+broader vol-of-vol regime, not a fixed VIX level.
 
 **Backtested data-gap frequency** (CLEAN 18.1y panel):
 
