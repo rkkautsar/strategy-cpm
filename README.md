@@ -295,22 +295,39 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
 
 **NDX bias**
 
-NDX sleeve has documented backtest biases. Monte Carlo stress (Shumway 1999
-academic distribution, 24% delist rate, 1000 sims) suggests **blend-level
-sensitivity to delisting return assumptions is bounded by the 20% NDX sleeve
-sizing** (< 0.01 Sharpe / 0.05pp CAGR under realistic distributions; ~0.07
-Sharpe / 0.9pp CAGR even at worst-case 25% bankruptcy at -80%).
+NDX sleeve has documented backtest biases. Two-stage MC bound:
 
-**This bound is on holding-stage bias only.** Shumway-MC corrects the
-*delisting-return* contribution for tickers that were selected, but it does
-not fix the **selection-stage** bias: missing delisted names are absent from
-the candidate universe before the top-4 ranking, so the selector never had
-the chance to pick some historical losers that would have entered the
-ranking pool, looked strong, then crashed. Fully eliminating this requires
-a survivorship-bias-free equity database (CRSP, Norgate, Compustat) that
-includes delisted names in the pre-selection ranking universe. The 20%
-sleeve weight remains a hard structural cap on blend-level damage from
-either bias source.
+**Holding-stage bias** (Shumway-MC v1, ticker-already-selected delistings):
+< 0.01 Sharpe / 0.05pp CAGR under realistic distributions; ~0.07 Sharpe /
+0.9pp CAGR at worst-case 25% bankruptcy at -80%. The 20% blend weight
+structurally bounds this contribution.
+
+**Selection-stage bias** (Ghost-injection MC v2, missing delisted names
+injected into ranking universe with synthetic price paths calibrated to NDX
+distribution): **177 historical NDX-100 members had no panel price data**
+(CELG, BRCM, ATVI, DELL, CERN, etc.); ghost selection rate is **15-19%** of
+NDX picks. Blend impact under stress-clustered v2 MC (N=30) + adversarial
+cross-validation (50 seeds per scenario):
+
+| Scenario | Sharpe Δ | CAGR Δ | MaxDD impact |
+|---|---:|---:|---:|
+| Ghost-injection MC (realistic distribution) | -0.026 | -0.49pp | ~unchanged |
+| Adversarial 1.5% bankruptcy rate (random) | -0.037 | -0.50pp | -0.25pp |
+| Adversarial 3% rate | -0.074 | -1.02pp | -0.69pp |
+| Adversarial 6% rate | -0.169 | -2.30pp | -1.19pp |
+| **Adversarial 1/yr bankruptcy stress-clustered** | **-0.209** | **-2.83pp** | **-12.78pp (-12.92% → -25.70%)** |
+| Adversarial worst-case (10% rate @ -80%) | -0.560 | -7.46pp | -9.87pp |
+
+The selection-stage bias is **~5x larger on Sharpe and ~25x larger on CAGR**
+than the v1 holding-stage Shumway-MC suggested. The operational risk is
+stress-clustered bankruptcies: when forced future-failures cluster in macro-
+stress periods (GFC / COVID / 2022), MaxDD widens from headline -12.92% to
+~-26%. Plan around the wider band, not the headline.
+
+Fully eliminating selection-stage bias requires a survivorship-bias-free
+equity database (CRSP, Norgate, Compustat) that includes delisted names in
+the pre-selection ranking universe. The 20% sleeve weight remains a hard
+structural cap on Sharpe-level damage from either bias source.
 
 Bias sources:
 
