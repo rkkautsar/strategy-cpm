@@ -65,15 +65,36 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 | **PROD 60/20/20 + VIX cap + Rebound bypass** | **1.30** | **14.85%** | **-16.59%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
+**Naive benchmark suite** (CLEAN 18.1y / Extended 30y; post-cost 10bps/side
+where applicable). PROD vs single-asset buy-hold and naive QQQ-trend strategies:
+
+| Benchmark | CLEAN Sh | CLEAN CAGR | CLEAN MaxDD | 30y Sh | 30y CAGR | 30y MaxDD |
+|---|---:|---:|---:|---:|---:|---:|
+| **PROD** | **1.53** | **16.78%** | **-11.46%** | **1.30** | **14.85%** | **-16.59%** |
+| SPY buy-hold | 0.66 | 11.78% | -51.48% | 0.61 | 10.41% | -55.19% |
+| QQQ buy-hold | 0.82 | 17.17% | -49.37% | 0.63 | 14.41% | -82.96% |
+| QQQ + 10mo SMA (Faber) | 0.82 | 13.02% | -28.56% | 0.78 | 14.26% | -41.73% |
+| QQQ + 12mo TR>0 (GEM-equiv) | 0.91 | 16.38% | -28.56% | 0.83 | 16.72% | -46.72% |
+| SPY + 12mo TR>0 (GEM-equiv) | 0.74 | 10.62% | -33.72% | 0.79 | 11.21% | -33.72% |
+
+Reading: QQQ-buy-hold matches PROD's CLEAN CAGR but loses ~5x on MaxDD. Naive
+QQQ + 12mo TR (closest one-asset benchmark) has comparable CAGR but ~2.5x
+worse MaxDD and 0.5-0.7 Sharpe gap. PROD's risk-adjusted edge over the best
+naive single-asset trend benchmark is +0.5-0.7 Sharpe and 2-5× MaxDD
+compression on both windows. Even after the forward base-case haircut
+(Sh 1.05-1.35), PROD remains above QQQ+12mo-TR (Sh 0.83-0.91). The blend
+architecture is doing real risk-adjusted work, not just QQQ regime-riding.
+
+
 **Forward expectation** (discount for selection bias + regime dependency + NDX
 biases + tail sequencing not captured by return bootstrap):
 
-| Metric | Backtest (+ vol cap) | Forward base case |
+| Metric | Backtest (+ vol cap + bypass) | Forward base case |
 |---|---:|---|
 | Sharpe | 1.53 | **1.05-1.35** |
-| CAGR | 16.58% | **11-15%** pre-tax, **5-9%** after-tax |
+| CAGR | 16.78% | **11-15%** pre-tax, **5-9%** after-tax |
 | MaxDD | -11.46% | **-15% to -30%** planning band (per-pick weight caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
-| Calmar | 1.45 | **0.55-0.90** |
+| Calmar | 1.47 | **0.55-0.90** |
 
 ## Strategy specification
 
@@ -200,7 +221,12 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 - Typical month: ~16 tickers (9 CPM risky + SHV + QQQ + 8 NDX stocks).
 
 Methodology, sensitivity grids, complexity-layer ablation, and references in
-`cpm_bull_ndx_handout.md`. Key numbers inline:
+`cpm_bull_ndx_handout.md`. Key numbers inline. **Note on baseline consistency**:
+the headline performance row reflects the shipped configuration (VIX cap +
+Rebound bypass). Sensitivity tables below (bootstrap, weight split, vol cap,
+cost, etc.) use the **pre-bypass baseline** (Sh 1.528) to keep each factor's
+marginal effect isolated; bypass lift is within bootstrap CI noise and would
+shift each row by ~+0.005-0.010 Sharpe / +0.2pp CAGR.
 
 **PROD 60/20/20 K=8 + VIX cap block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
 
@@ -664,6 +690,21 @@ Worst case is a 2022-style protracted bear where BULL gate cycles in/out as
 the lookback rolls. **MaxDD widens from -12% to -30% in that scenario.**
 Plan around -25 to -30% for the deep-bear-protracted case in addition to
 the -22% selection-bias stress band reported under NDX bias.
+
+**Deeper-tail stress sizing (-35% / -40% scenarios).** External review
+asked for explicit planning at -35% and -40%, beyond the -15% to -30%
+base-case planning band. Reconstruction of extreme tail paths:
+
+| Scenario | Plausibility | MaxDD est | Driver |
+|---|---|---:|---|
+| Adverse signal-cluster failure (3-4 consecutive misses) | ~5-10% over 30y | **-32 to -37%** | BULL gate-miss + NDX selection-bias clustering + CPM canary lag, all coincident |
+| BULL gate misses full Nasdaq bear (eg 2000-2002 -78%) | ~3-5% over 30y | **-35 to -42%** | Sustained risk-on through real bear, VIX cap and bypass insufficient |
+| Adversarial bankruptcy clustering + 2022-style bear concurrent | ~1-2% over 30y | **-40 to -45%** | NDX names blowing up at peak macro stress; live history has not produced this combination |
+
+These are stylized upper bounds, not predictions. Use for position-sizing
+stress: assume the -35% to -40% case can happen and size such that personal
+financial situation absorbs it without forced liquidation or behavioral exit.
+**Don't size based on backtest -11.46% MaxDD.**
 
 **Stress applied to uncapped variant.** The VIX cap would likely engage
 during a 2022-style sustained bear (VIX consistently above 25-30) and
