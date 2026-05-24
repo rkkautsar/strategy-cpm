@@ -74,7 +74,7 @@ biases + tail sequencing not captured by return bootstrap):
 |---|---:|---|
 | Sharpe | 1.59 | **1.05-1.35** |
 | CAGR | 19.53% | **12-16%** pre-tax, **6-10%** after-tax |
-| MaxDD | -12.92% | **-15% to -25%** planning band |
+| MaxDD | -12.92% | **-20% to -30%** planning band (widened for NDX selection-bias clustering) |
 | Calmar | 1.51 | **0.60-0.95** |
 
 ## Strategy specification
