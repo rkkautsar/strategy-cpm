@@ -33,19 +33,24 @@ one endogenous SPY-vol signal):
 All three gates must pass for risk-on (100% in risky asset). Any gate
 failure flips to 100% SHV cash.
 
-Over the clean window (18.1y, 10 bps/side cost), Bull-SPY delivers
-Sharpe 1.11 (vs SPY buy-hold 0.66) and max drawdown -12.6% (vs -51.5%).
-CAGR is slightly lower than buy-hold (11.2% vs 11.8%) but vol is roughly
-halved (10.0% vs 19.8%), giving the higher risk-adjusted return. Paired
-Jobson-Korkie/Memmel Sharpe-difference test: Bull-SPY's Sharpe advantage
-over SPY buy-hold is statistically significant at the 5% level (p=0.028
-one-sided). The standalone DSR null check (Section 4.10) also passes
+**Headline trade-off: Bull-SPY trades raw return for drawdown reduction.**
+Over the clean window (18.1y, 10 bps/side cost), Bull-SPY CAGR (11.2%) is
+*below* SPY buy-hold (11.8%), but vol is roughly halved (10.0% vs 19.8%) and
+max drawdown is cut to -12.6% vs -51.5%, giving Sharpe 1.11 vs 0.66. The 30y
+window shows the same pattern (CAGR 10.00% vs SPY 10.41%; MaxDD -19.4% vs
+-55.2%). The value proposition is risk reduction, not return generation.
+
+Paired Jobson-Korkie/Memmel Sharpe-difference test: Bull-SPY's Sharpe
+advantage over SPY buy-hold is statistically significant at the 5% level
+(p=0.028 one-sided). The standalone DSR null check (Section 4.10) also passes
 (PSR > 99% at N=50 specification trials).
 
-A 60% Permanent Portfolio + 40% Bull-SPY blend produces Sharpe 1.28 with
-max drawdown -10.3% in the clean window — both blend metrics are
-**better than either standalone component**, due to low cross-sleeve
-correlation.
+A 60% Permanent Portfolio + 40% Bull-SPY blend produces Sharpe 1.28 with max
+drawdown -10.3% in the clean window — both blend metrics are **better than
+either standalone component**, due to low through-cycle cross-sleeve
+correlation. Conditional analysis (Section 4.4) shows this correlation is
+regime-dependent: ~0.61 daily during risk-on months and near zero during
+risk-off months. The blend benefit comes primarily from risk-off periods.
 
 
 All reported results are in-sample historical backtests. Several design
@@ -288,12 +293,18 @@ rule.
 | Strategy                  |  Sharpe |   CAGR   |    Vol   |   Max DD | Calmar | Martin | Ulcer |
 |---------------------------|--------:|---------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold              |    0.66 |   11.78% |   19.81% |  -51.48% |   0.23 |   1.03 | 11.4% |
-| **Bull-SPY**              |    1.11 [†]  |   11.19% |    9.98% |  -12.58% |   0.89 |   2.99 |  3.7% |
+| **Bull-SPY**              |    1.11 |   11.19% |    9.98% |  -12.58% |   0.89 |   2.99 |  3.7% |
 | PP-IEF standalone         |    1.00 |    6.96% |    6.98% |  -15.34% |   0.45 |   2.22 |  3.1% |
 
-Per-regime Sharpe (clean window). GFC label is **partial** since clean
-window starts 2008-04-30, missing the pre-crisis peak and early decline
-(Oct 2007 to Apr 2008).
+Note the CAGR trade-off: Bull-SPY's 11.19% trails SPY buy-hold's 11.78%. The
+risk-adjusted advantage comes entirely from vol-halving and drawdown reduction
+(see Abstract). Section 4.9 reports a strict open-fill comparator at Sharpe
+1.136; the ~0.02 offset vs the canonical 1.114 is startup-edge handling and is
+documented in 4.9 only.
+
+Per-regime Sharpe (clean window). GFC label is **partial** since clean window
+starts 2008-04-30, missing the pre-crisis peak and early decline (Oct 2007 to
+Apr 2008).
 
 | Regime                       | SPY BH | Bull-SPY |
 |------------------------------|-------:|---------:|
@@ -302,12 +313,6 @@ window starts 2008-04-30, missing the pre-crisis peak and early decline
 | COVID (2020)                 |   0.67 |    +0.91 |
 | InflRt (2021-2023)           |   0.63 |    +1.29 |
 | Post (2024+)                 |   1.33 |    +1.68 |
-
-[†] Canonical clean-window Bull-SPY Sharpe is **1.114** at 10 bps/side
-cost (production `bull_qqq_live.py` implementation). The 1.136 value
-appearing in Section 4.9 is from a separate strict-fill comparator with
-slightly different startup edge handling; the ~0.02 offset is
-consistent across runs and does not affect any other comparison.
 
 Risk-on percentage and turnover (clean window):
 
@@ -491,19 +496,33 @@ regime pillars (curve, vol, trend, credit) form the best composite
 GATE, holding the three-gate stack (canary + composite + asset_mom)
 fixed.
 
-Per-cell Sharpe across all 6 (window x asset) configs, on top of canary
-+ asset_mom (baseline = canary + asset_mom only, no composite gate):
+**Primary evidence (SPY rows):** per-cell Sharpe across 3 windows, on top of
+canary + asset_mom (baseline = canary + asset_mom only, no composite gate):
 
 | Window            | Asset | baseline | curve | vol  | curve\|vol | 4p 2-of-4 | 4p 1-of-4 |
 |-------------------|-------|---------:|------:|-----:|-----------:|----------:|----------:|
-| 22.8y from 2003-08| SPY   |    0.845 | 0.873 | 0.858|     1.011  |     0.990 |     0.831 |
+| 22.8y from 2003-08| SPY   |    0.845 | 0.873 | 0.858|   **1.011**|     0.990 |     0.831 |
+| 19.2y from 2007-02| SPY   |    0.814 | 0.928 | 0.942|   **1.088**|     0.983 |     0.797 |
+| 30y   from 1996-01| SPY   |    0.901 | 0.874 | 0.790|   **0.960**|     0.975 |     0.891 |
+
+SPY aggregate: `curve|vol` beats baseline in 3/3 SPY windows, by an avg
++0.10 Sharpe. The 4-pillar 2-of-4 alternative wins 2/3 SPY cells by smaller
+margin (+0.07 avg). This is the primary evidence for the chosen rule.
+
+**Auxiliary asset-robustness (QQQ rows):** included only to test whether the
+pillar choice generalizes beyond the headline risky asset. The Bull-SPY memo
+uses SPY; QQQ rows are not used for the design decision.
+
+| Window            | Asset | baseline | curve | vol  | curve\|vol | 4p 2-of-4 | 4p 1-of-4 |
+|-------------------|-------|---------:|------:|-----:|-----------:|----------:|----------:|
 | 22.8y from 2003-08| QQQ   |    0.901 | 0.728 | 0.746|     0.917  |     0.912 |     0.851 |
-| 19.2y from 2007-02| SPY   |    0.814 | 0.928 | 0.942|     1.088  |     0.983 |     0.797 |
 | 19.2y from 2007-02| QQQ   |    0.984 | 0.839 | 0.946|     1.109  |     1.045 |     0.928 |
-| 30y   from 1996-01| SPY   |    0.901 | 0.874 | 0.790|     0.960  |     0.975 |     0.891 |
 | 30y   from 1996-01| QQQ   |    0.980 | 0.772 | 0.713|     0.906  |     0.963 |     0.946 |
 
-Aggregates:
+QQQ: `curve|vol` wins 2/3 (loses 30y by -0.07); margins are smaller and
+more mixed than SPY. Result generalizes directionally but not as cleanly.
+
+**Combined aggregate (6 configs, included for completeness):**
 
 | Composite        | Avg Sh | Avg MaxDD | Wins vs baseline |
 |------------------|-------:|----------:|-----------------:|
@@ -514,27 +533,22 @@ Aggregates:
 | 4-pillar 2-of-4  |  0.978 |   -20.02% | 5/6              |
 | 4-pillar 1-of-4  |  0.874 |   -32.02% | 0/6              |
 
-The 4 candidate pillars are: curve (IEF 63d ret > TLT 63d ret), vol (SPY
-63d vol < 252d avg vol), trend (SPY > 200d MA), credit (HYG > 200d MA).
-The 6 configs are the cartesian product of 3 windows (proxy-assisted
-22.8y from 2003-08, proxy-assisted 19.2y from 2007-02, documented 30y
-from 1996-01) and 2 risky assets (SPY and QQQ; QQQ included only for
-ablation robustness across asset choice). "Wins vs baseline" means
-strictly higher Sharpe than the canary + asset_mom baseline (no
-composite gate) in that cell. Ablation tables here use the documented-
-stitch data stack and serve as gate-structure evidence rather than
-headline performance numbers. The clean 2008-04 window provides the
-primary live-ETF performance evidence.
+The 4 candidate pillars are: curve (IEF 63d ret > TLT 63d ret), vol (SPY 63d
+vol < 252d avg vol), trend (SPY > 200d MA), credit (HYG > 200d MA). The 3
+ablation windows are proxy-assisted 22.8y from 2003-08, proxy-assisted 19.2y
+from 2007-02, and documented 30y from 1996-01. Ablation tables here use the
+documented-stitch data stack and serve as gate-structure evidence; the clean
+2008-04 window is the primary live-ETF performance evidence.
 
-The regime-composite OR rule reuses the same simple OR convention used
-by the canary, but applying OR to a custom curve/vol composite is not
-a published Keller rule.
+The regime-composite OR rule reuses the same simple OR convention used by the
+canary, but applying OR to a custom curve/vol composite is not a published
+Keller rule.
 
 Key findings (rationale summarized in Section 2.8): no single pillar is
 strictly helpful across all 6 configs; curve OR vol is the only 2-pillar
-combination that strictly beats baseline in all 6; the 4-pillar 2-of-4
-alternative ties on win-rate but loses slightly on Sharpe (-0.01) and DD
-(+2pp), within noise.
+combination that strictly beats baseline in all SPY windows (3/3) and in 5/6
+overall; the 4-pillar 2-of-4 alternative ties on overall win-rate but loses
+slightly on Sharpe (-0.01 avg) and DD (+2pp), within noise.
 
 #### 4.1.2 Source-grouping ablation (alternative structural rules)
 
@@ -636,13 +650,30 @@ Daily return correlations among sleeves and benchmarks (clean window):
 | SPY BH      |    0.50  |  0.67  |  0.53  |  1.00  |
 
 Key observation: **PP and Bull-SPY correlate at 0.30-0.36 (daily) and
-0.32-0.41 (monthly)**, low enough that the 60/40 blend's variance
-reduction is consistent with structural diversification rather than a
-spurious sample-window artifact. PP-IEF and PP-TLT correlate 0.95-0.96
-(same structure, different bond duration). The blend benefit comes
-from pairing the regime-gated dynamic sleeve with the balanced-static
-PP, which observe market stress through structurally different
-mechanisms.
+0.32-0.41 (monthly)**, low enough that the 60/40 blend's variance reduction
+is consistent with structural diversification rather than a spurious
+sample-window artifact. PP-IEF and PP-TLT correlate 0.95-0.96 (same
+structure, different bond duration). The blend benefit comes from pairing
+the regime-gated dynamic sleeve with the balanced-static PP, which observe
+market stress through structurally different mechanisms.
+
+**Conditional correlation by Bull-SPY regime state (clean window).** The
+through-cycle 0.36 daily correlation above averages two very different
+states. Conditioning on Bull-SPY's gate state, computed month-by-month:
+
+| Regime    | Months | Days  | corr(daily) | corr(monthly) |
+|-----------|-------:|------:|------------:|--------------:|
+| RISK-ON   |    139 | 2,912 |        0.61 |          0.70 |
+| RISK-OFF  |     79 | 1,628 |       -0.04 |          0.24 |
+| ALL       |    218 | 4,540 |        0.38 |          0.48 |
+
+When Bull-SPY is risk-on (holding SPY), it is heavily co-moving with PP-IEF's
+equity sleeve, so daily correlation rises to ~0.61. When Bull-SPY flips to
+cash, daily correlation collapses to near zero (and can be slightly negative
+intraday). **The blend benefit comes primarily from risk-off periods**;
+in a sustained risk-on regime, blend diversification is materially weaker
+than the through-cycle 0.36 implies. Forward planning should assume
+correlation in the 0.5-0.7 daily band during extended bull runs.
 
 30y window correlations are similar (Bull-SPY vs PP-IEF: 0.40
 daily / 0.41 monthly), consistent with structural diversification across
@@ -675,14 +706,20 @@ confirming the redundancy claim in Section 2.8.
 |    9 | 2024-07-17 | 2024-08-05 | 2024-09-19 |  -8.41% |   64 | none                   |
 |   10 | 2021-11-26 | 2022-03-08 | 2022-03-25 |  -8.00% |  119 | composite (2021-11-30) |
 
-Observations: the gate flipped to cash in only 3 of 10 worst DDs (COVID,
-2011 EU debt, 2021-22 inflation). The other 7 are normal -8% to -12%
-equity volatility the strategy rides through. The gates catch **sustained
-multi-month stress**, not flash crashes. When the gates DID fire, the
-failing gate was always the **composite** -- specifically the vol pillar
-within the composite, which is endogenous to SPY (Section 2.5) and
-fastest-reacting. Canary and asset_mom did not independently flip first
-in any worst-10 DD.
+**Key observation: the gate stays open through 7 of the 10 worst DDs in the
+clean window.** This is by design — the gates catch *sustained multi-month
+stress*, not flash crashes — but users expecting frequent defensive action
+may be surprised. Three of the worst-10 DDs are recent (2025-02 rank 4 at
+-10.04%, 2025-02 rank 6 at -10.04% from a different start, 2026-02 rank 8 at
+-8.88%) and all three rode through without a gate flip. Plan for the
+strategy to experience -8% to -12% equity volatility several times per
+decade without defensive action.
+
+The gate flipped to cash in 3 of 10 worst DDs (COVID, 2011 EU debt, 2021-22
+inflation). When the gates DID fire, the failing gate was always the
+**composite** — specifically the vol pillar within the composite, which is
+endogenous to SPY (Section 2.5) and fastest-reacting. Canary and asset_mom
+did not independently flip first in any worst-10 DD.
 
 The first-to-flip observation does not imply canary and asset_mom are
 redundant. Section 4.1 shows that removing canary or asset_mom worsens
@@ -926,9 +963,10 @@ References:
 | Asset momentum    | Direct observation of risky asset (skip-month 12-1 abs mom) |
 
 The components observe different market dimensions, but they are **not
-statistically independent**. HYG appears in the canary; SPY appears in
-both the vol pillar and is highly correlated with the risky assets (SPY,
-QQQ in ablation phase). The "structural distinctness" claim is qualitative, not statistical.
+statistically independent** (see Section 2.7.1 for the signal-source
+taxonomy). HYG appears in the canary; SPY appears in both the vol pillar
+and is highly correlated with the risky assets (SPY, QQQ in ablation phase).
+The "structural distinctness" claim is qualitative, not statistical.
 
 The design intent is that in normal regimes, the canary or composite
 should fire first (macro signals lead asset price), while asset momentum
@@ -1045,15 +1083,24 @@ consistent with this design intent (Section 3.2 per-regime table).
     regimes; forward-looking results in a sustained ZIRP environment
     would likely be weaker than the sample average.
 
-14. **Endogenous vol whipsaw in sustained chop.** The vol pillar tests
-    63d realized vol against a 252d rolling average. In sustained high-
-    but-stable volatility regimes, the 252d average eventually rises
-    to meet the 63d realized vol, and the pillar can flip risk-on
-    purely because vol has stabilized at an elevated level. This is
-    not a hypothetical: the 2010-2019 disinflation Sharpe of 1.01 vs
-    SPY buy-hold 0.93 is only a modest premium, suggesting some
-    whipsaw cost is real in calm sustained bulls. The canary and
-    asset_mom gates partially filter this.
+14. **Endogenous vol whipsaw in sustained chop.** The vol pillar tests 63d
+    realized vol against a 252d rolling average. In sustained high-but-stable
+    volatility regimes, the 252d average eventually rises to meet the 63d
+    realized vol, and the pillar can flip risk-on purely because vol has
+    stabilized at an elevated level. The 2010-2019 disinflation Sharpe of
+    1.01 vs SPY buy-hold 0.93 is only a modest premium, suggesting some
+    whipsaw cost is real in calm sustained bulls.
+
+    **Quantified catch-up stress (clean window 18.1y).** Across 12 sustained
+    SPY drawdown episodes (>=7% peak-trough, >=30 days), the vol pillar
+    tripped OFF in 9 of 12. In **0 of those 9** did the pillar mechanically
+    flip back ON within 3 or 6 months while the drawdown was still below
+    -5%. The 252d average rises with the elevated 63d, but in practice the
+    63d stays meaningfully above the moving average until the drawdown
+    itself recovers. The mechanical-catch-up failure mode is theoretically
+    real but does not materialize in this sample. (Analysis script:
+    `/tmp/bull_qqq_review_analyses.py`.) The canary and asset_mom gates
+    additionally filter calm-bull whipsaw.
 
 ### 6.11 Data lineage
 
