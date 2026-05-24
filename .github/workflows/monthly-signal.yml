@@ -11,6 +11,8 @@ on:
   repository_dispatch:
     types: [monthly-signal]
   workflow_dispatch:  # allow manual trigger anytime
+  push:
+    branches: [main]
 
 permissions:
   contents: read
