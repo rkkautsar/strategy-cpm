@@ -1322,6 +1322,21 @@ NDX_SECTORS = {
     "ODFL":"Trucks", "EXC":"Utilities", "AEP":"Utilities",
     "XEL":"Utilities", "CTAS":"Services", "ROST":"Retail",
     "ORLY":"Auto Parts", "AZN":"Pharma",
+    # Current NDX-100 additions (2026-05)
+    "ADP":"Services", "PAYX":"Services",
+    "ADSK":"Software", "EA":"Gaming", "TTWO":"Gaming",
+    "DDOG":"Software", "PLTR":"Software", "SHOP":"Internet/Retail",
+    "APP":"AdTech", "MSTR":"Software", "CSGP":"Data/RE",
+    "VRSK":"Data/Analytics", "TRI":"Media/Data",
+    "ALNY":"Biotech", "INSM":"Biotech", "ENDP":"Pharma",
+    "GEHC":"MedTech",
+    "MPWR":"Semis",
+    "AXON":"Defense", "HON":"Industrials", "ROP":"Industrials",
+    "CPRT":"Auto Services", "FER":"Auto",
+    "BKR":"Energy", "FANG":"Energy", "CEG":"Utilities",
+    "LIN":"Materials",
+    "CCEP":"Beverages", "KHC":"Consumer Staples", "WMT":"Retail",
+    "WBD":"Media", "NWSA":"Media", "WLTW":"Insurance/Consulting",
 }
 
 def _ndx_sector_summary(picks: list) -> str:
