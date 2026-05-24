@@ -17,7 +17,7 @@ on:
       - 'vol_cap_state.json'  # vol-check workflow commits this; don't re-trigger
 
 permissions:
-  contents: read
+  contents: write  # monthly job updates vol_cap_state.json (safety net)
 
 jobs:
   build-and-deploy:
@@ -48,6 +48,28 @@ jobs:
           # Extract just the allocation block for the message
           uv run python deploy/cf-pages/format_message.py > signal_message.txt
           cat signal_message.txt
+
+      - name: Vol-cap safety net (monthly re-evaluation)
+        # Safety net: even if daily vol-check missed for 30 days, monthly
+        # job catches the current scale state at the signal date. Updates
+        # vol_cap_state.json which the dashboard reads downstream.
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DASHBOARD_URL: https://cpm-bull-dashboard.pages.dev
+        run: uv run python vol_check.py
+
+      - name: Commit vol-cap state if changed
+        run: |
+          git config user.name "monthly-bot"
+          git config user.email "monthly@noreply.github.com"
+          if [[ -n "$(git status --porcelain vol_cap_state.json)" ]]; then
+            git add vol_cap_state.json
+            git commit -m "vol-cap state from monthly safety net [skip workflow]"
+            git push
+          else
+            echo "no state change"
+          fi
 
       - name: Build dashboard
         run: |

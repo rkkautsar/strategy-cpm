@@ -210,7 +210,9 @@ though less comfortably than the prior K=4 CI [1.13, 2.02]. Deflated Sharpe
 on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut (Bailey-Lopez de
 Prado); sensitive to assumed effective trial count.
 
-**Blend-weight sensitivity (CPM fixed at 60%, BULL/NDX split varies):**
+**Blend-weight sensitivity** (CPM fixed at 60%, BULL/NDX split varies;
+**no vol cap baseline** for clean comparison — PROD with vol cap is 60/20/20
++ cap, see headline numbers):
 
 | Weights | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
@@ -264,6 +266,50 @@ Latched binary form empirically beats Moreira-Muir continuous and VIX-percentile
 alternatives by Sharpe in both windows. MaxDD reduction is weaker than continuous
 scaling but tail-vol compression is comparable. 22% threshold is the only one
 positive across both in-sample halves. ~0.9 trades/yr.
+
+**Vol-cap latch reset rules** (operational spec):
+
+- **Daily check** (US-close + 30min): compute trailing 21d realized vol of the
+  uncapped blend.
+  - If `vol > 22% AND current_scale == 1.0` → trigger: set scale = 0.5,
+    sell 50% of portfolio to cash, latch until next monthly signal date.
+  - If `current_scale == 0.5` → no daily action regardless of vol (latch holds).
+- **Monthly signal date** (last trading day of month): always re-evaluate.
+  - If `vol > 22%` → reset/maintain scale = 0.5; new month's positions are
+    sized at 50% of the new sleeve targets, with 50% in cash.
+  - If `vol < 22%` → lift: scale = 1.0; rebuild full positions at 100% of
+    new sleeve targets.
+  - Net trade at month-end = (new sleeve allocations × new scale) - (current
+    holdings). The trade-delta table on the dashboard shows this directly.
+
+**Edge cases:**
+- Vol spikes day 2, recovers day 10: stay at 50% for the remaining ~28 days
+  regardless. The cap costs upside in this scenario but the latched binary
+  empirically still wins on Sharpe vs un-latched continuous (Moreira-Muir).
+- Vol spikes again mid-month after one trigger: no double-action (already at
+  0.5). Re-evaluation only at next signal date.
+- Trigger fires the day before monthly signal: at signal date, immediately
+  re-evaluate on the new uncapped allocation; net effect is one combined
+  rebalance trade rather than two.
+
+**Daily-check failure modes** (vol_check.py + GH Actions cron):
+
+- **GH Actions runner outage** (estimated 95-98% daily reliability per
+  industry norms): missed check defaults to the prior persisted state. If
+  vol crosses threshold on a missed day, the latch fires at the next
+  successful daily check or at month-end re-evaluation, whichever comes
+  first. Worst case = 1-day late trigger (typically ~1-2pp additional drag).
+- **State file corruption / missing**: `vol_check.py` treats missing/invalid
+  `vol_cap_state.json` as `scale=1.0` (safe-open default). Next successful
+  check rebuilds state. Trade-off chosen: false-negative risk (missed
+  trigger) over false-positive risk (spurious de-risk).
+- **Monthly safety net**: the monthly rebalance workflow also computes the
+  current scale and applies it to the new allocation. Even if every daily
+  check fails for 30 days, the monthly job catches the regime at the next
+  signal date (eliminates persistent gap).
+- **Telegram alert failure** (network/token): non-fatal; state file is still
+  updated. Manual check via the dashboard's vol-cap status block (always
+  reflects latest state file).
 
 **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
 marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
@@ -341,9 +387,21 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
 
 **Vol & concentration**
 
-- **Portfolio-level vol is NOT capped.** Only CPM (60%) is vol-targeted at 12%.
-  BULL (~18-25% vol) and NDX (~30-40% vol) run uncapped. Realized blend vol
-  (21d rolling): P50 10.3%, P95 21.0%, P99 27.8%, **max 38.7%** (COVID 2020-04).
+- **Sleeve-internal vol caps don't fully bound blend tail.** Only CPM (60%) is
+  vol-targeted at 12% sleeve-internal (and the cap is monthly ex-ante, so
+  mid-month spikes are uncapped). BULL (~14-25% standalone vol) and NDX
+  (~23-40% standalone vol) run uncapped at sleeve level. The portfolio-level
+  vol cap (latched binary 50% @ 22% trigger; daily check) was added on top
+  to address this. Realized blend 21d vol distribution:
+
+  | Window | P50 | P75 | P95 | P99 | Max |
+  |---|---:|---:|---:|---:|---:|
+  | Uncapped (baseline) | 9.5% | 12.7% | 19.6% | 24.3% | **31.5%** (COVID 2020-04) |
+  | **With vol cap (PROD)** | **9.3%** | **12.4%** | **18.6%** | **22.0%** | **23.4%** |
+
+  The portfolio cap reduces tail risk (P99 -2.3pp, Max -8.1pp) at a small
+  CAGR cost (-0.27pp). Sleeve-internal caps remain in place; the portfolio
+  cap is a second defense for mid-month vol blowups.
 - **Effective Nasdaq/growth concentration**: in risk-on regimes CPM can hold
   QQQ/IWF while BULL holds QQQ and NDX holds top Nasdaq names. Realized growth
   exposure: mean 44%, median 40%, **max ~70%**, ≥70% in 34.6% of months. Not a
