@@ -8,10 +8,18 @@ Blend validation detail (NDX MC, bootstrap, DSR, ablation, hold-buffer) in
   9-asset ETF universe (US factors + international + diversifiers).
 - **BULL-QQQ (20%)** — 100% QQQ when all three Keller-canonical "any positive"
   gates pass: (1) HYG OR TIP 13612U > 0 (canary), (2) curve OR vol regime
-  pillar, (3) QQQ 12-1 absolute momentum > 0. HAA-style best-of-safe(SHV, IEF)
-  by 13612U otherwise.
+  pillar, (3) QQQ 12-1 absolute momentum > 0. In risk-off periods, BULL selects
+  between SHV and IEF by 13612U momentum (HAA-style best-of-safe): IEF in
+  falling-rate regimes (captures bond rally), SHV when rates are rising or
+  stable. This is a return enhancement, not pure defensive cash.
 - **NDX (20%)** — top-4 PIT Nasdaq-100 stocks by 13612U momentum, 25% each,
-  gated by the BULL-QQQ regime.
+  gated by the BULL-QQQ regime (NDX = SHV cash when BULL flips to safe).
+  Design choice: BULL's macro canary acts as a portfolio-level circuit breaker
+  for the growth sleeve. The asymmetry is intentional — individual-stock
+  momentum during a credit-stress or vol-blowup regime is unreliable even when
+  individual names appear strong, so NDX inherits BULL's regime verdict
+  rather than running an independent macro gate (which would double-count
+  HYG/TIP signal). See Caveats § NDX gate asymmetry for the trade-off.
 
 Monthly rebalance, ETF + individual stocks (NDX), no leverage, 10 bps/side cost,
 T+1 OPEN execution. Total-return prices (yfinance `auto_adjust=True`).
@@ -32,14 +40,14 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 CPM-BULL-NDX** | **1.58** | **19.33%** | **11.64%** | **-12.93%** | **1.49** |
+| **PROD 60/20/20 CPM-BULL-NDX** | **1.59** | **19.53%** | **11.67%** | **-12.92%** | **1.51** |
 | SPY buy-hold | 0.66 | 11.78% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM | 1.28 | 13.75% | 10.48% | -11.30% |
-| BULL-QQQ | 1.18 | 16.88% | 14.05% | -14.31% |
-| NDX (raw) | 1.26 | 36.44% | 27.70% | -35.92% |
+| CPM | 1.31 | 14.06% | 10.49% | -10.59% |
+| BULL-QQQ | 1.18 | 16.88% | 14.06% | -14.31% |
+| NDX (raw) | 1.26 | 36.45% | 27.71% | -35.92% |
 | NDX (Shumway-MC) | 1.22 | 35.97% | 27.73% | -37.31% |
 
 Extended 30y window 1996-01-04 → 2026-05-15 (uses Vanguard mutual fund stitches
@@ -55,10 +63,10 @@ biases + tail sequencing not captured by return bootstrap):
 
 | Metric | Backtest | Forward base case |
 |---|---:|---|
-| Sharpe | 1.58 | **1.05-1.35** |
-| CAGR | 19.33% | **12-16%** pre-tax, **6-10%** after-tax |
-| MaxDD | -12.93% | **-15% to -25%** planning band |
-| Calmar | 1.49 | **0.60-0.95** |
+| Sharpe | 1.59 | **1.05-1.35** |
+| CAGR | 19.53% | **12-16%** pre-tax, **6-10%** after-tax |
+| MaxDD | -12.92% | **-15% to -25%** planning band |
+| Calmar | 1.51 | **0.60-0.95** |
 
 ## Strategy specification
 
@@ -156,24 +164,55 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 - Cron: monthly, 10am SGT (first business day after month-end).
 - Typical month: ~12 tickers (9 CPM risky + SHV + QQQ + 4 NDX stocks).
 
-## Validation summary
+Methodology, sensitivity grids, complexity-layer ablation, and references in
+`cpm_bull_ndx_handout.md`. Key numbers inline:
 
-All validation detail (tables, methodology, sensitivity grids, complexity
-ablation) lives in `cpm_bull_ndx_handout.md`. High-level conclusion:
+**PROD 60/20/20 block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
 
-- **Block bootstrap** (B=2000, 21d blocks): blend Sharpe 95% CI excludes the
-  forward-expectation floor only modestly — lower bound roughly at the floor.
-  Supportive, not proof.
-- **Deflated Sharpe** (Bailey-Lopez de Prado): blend P[true Sh > 0] = 99.7% at
-  N=1000 trial haircut. Sensitive to assumed effective trial count.
-- **Complexity-layer ablation**: each layer (CPM → +BULL → +NDX) adds Sharpe.
-  NDX is smallest marginal gain (+0.07 Sh) at steepest DD cost (+3pp).
-- **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
-  marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z.
-- **30y extended window**: includes dotcom, GFC, COVID, 2022 inflation;
-  pre-2006 NDX mirrors BULL and pre-2001-06 canary reduces to HYG-only.
-  Asset-momentum 12-1 circuit breaker is primary defense in macro-confusion
-  regimes (dotcom).
+| Metric | Value |
+|---|---|
+| Point Sharpe | 1.590 |
+| Bootstrap mean | 1.567 |
+| 95% CI | [1.131, 2.021] |
+| P(Sharpe > 1.0) | 99.6% |
+
+The 95% lower bound (1.13) sits above the forward-expectation floor (1.05),
+stronger than the alt-weights 60/30/10 CI reported in the handout. Deflated
+Sharpe on the blend is P(Sh > 0) = 99.7% at N=1000 trial haircut (Bailey-Lopez
+de Prado); sensitive to assumed effective trial count.
+
+**Blend-weight sensitivity (CPM fixed at 60%, BULL/NDX split varies):**
+
+| Weights | Sharpe | CAGR | Vol | MaxDD |
+|---|---:|---:|---:|---:|
+| 60/40/0 (no NDX) | 1.470 | 15.43% | 10.12% | -9.85% |
+| 60/30/10 | 1.560 | 17.49% | 10.72% | -11.33% |
+| 60/25/15 | 1.581 | 18.51% | 11.15% | -12.13% |
+| **60/20/20 (PROD)** | **1.590** | **19.53%** | **11.67%** | **-12.92%** |
+| 60/15/25 | 1.590 | 20.55% | 12.25% | -13.86% |
+| 60/10/30 | 1.582 | 21.56% | 12.89% | -15.01% |
+| 60/0/40 (no BULL) | 1.552 | 23.57% | 14.31% | -17.52% |
+
+Sharpe is on a flat plateau across 60/20/20 - 60/15/25 (both 1.590); BULL/NDX
+split trades CAGR vs MaxDD ~linearly along that plateau. PROD sits at the
+shallower-DD end of the Sharpe-optimal plateau — a deliberate preference for
+lower drawdown over marginally higher CAGR, since DD compounds psychological
+risk in live execution.
+
+**Composite-gate contribution to BULL** (vs canary + asset_mom only, from
+handout §4.1): the curve|vol composite gate adds +0.246 Sharpe and reduces
+MaxDD by 21.1pp (-33.72% to -12.58% standalone BULL-SPY). The three-gate
+stack is strictly best on both Sharpe and MaxDD across all 7 gate subsets.
+
+**Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
+CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
+
+**Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
+marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z.
+
+**30y extended window** includes dotcom, GFC, COVID, 2022 inflation; pre-2006
+NDX mirrors BULL and pre-2001-06 canary reduces to HYG-only. Asset-momentum
+12-1 circuit breaker is primary defense in macro-confusion regimes (dotcom).
 
 Bootstrap + DSR reduce noise probability but do not eliminate model-selection
 bias, regime risk, data-quality risk, or implementation drift.
@@ -224,22 +263,62 @@ CAGR. The 20% blend weight structurally bounds the bias. Bias sources:
 
 Full MC tables + Shumway references in `cpm_bull_ndx_handout.md` §1, §7.
 
+**CPM diversifier dependency (primary structural risk)**
+
+CPM is fundamentally a pair-momentum engine on a 9-asset universe whose edge
+depends materially on GLD and TLT as crisis hedges with stable covariance
+structure. Drop GLD/TLT/DBC and CPM Sharpe drops -0.32 (GLD alone -0.21,
+TLT -0.18). In a regime where both GLD and TLT trend down simultaneously
+(2022 inflation/rate-hike cycle is the live example), the min-variance pair
+selector cannot compensate because the EWMA covariance structure it is
+trained on no longer reflects the new regime. This is more specific than
+"positive stock/bond correlation degrades efficiency": it is a covariance-
+regime risk concentrated in two assets.
+
+**Forward review triggers.** Consider a strategy review if any of: (a) 12-month
+rolling GLD-TLT correlation turns positive and stays > 0.4 for two quarters,
+(b) CPM rolling 12-month Sharpe drops below 0.5 for two quarters, (c) CPM
+rolling 12-month MaxDD exceeds -18%. These are early signals that the
+covariance regime has shifted away from the one CPM was designed for.
+
 **Regime & model risk**
 
 - CPM degrades in positive stock/bond correlation regimes. 2010-2019 (QE):
-  Sharpe 1.16. 2021-2023 (positive correlation): Sharpe 0.85, ~25-30% drop
-  when GLD/TLT lose crisis-hedge property. EWMA covariance helps modestly
-  (~+0.08 Sh in 2021-23) but can't fully offset the regime shift.
-- **Cross-asset diversifier dependency**: drop GLD/TLT/DBC and CPM Sharpe drops
-  -0.32 (GLD alone -0.21, TLT -0.18). Fundamentally pair-momentum, not factor
-  rotation.
-- **Structural V-shape recovery lag**: 13612U + canary are slow by design,
-  bleeding 1-2 months of alpha at violent regime turns (COVID 2020).
+  Sharpe 1.16. 2021-2023 (positive correlation): Sharpe 0.85, ~25-30% drop.
+  EWMA covariance helps modestly (~+0.08 Sh in 2021-23) but cannot fully
+  offset the regime shift.
+- **Structural V-shape recovery lag**: 13612U + canary signals are slow by
+  design. COVID 2020 calibration: BULL flipped to safe on 2020-03-31 month-
+  end signal (good — went defensive during crash) but did not re-enter QQQ
+  until 2020-07-01 (next signal after the June 30 risk-on flip), **100 days
+  (~14 weeks) after the 2020-03-23 SPY trough**. During that period SPY
+  recovered +40% (out of +51% trough-to-Sep 30 move), so BULL+NDX **missed
+  ~77% of the initial recovery**. CPM partially backfilled via faster
+  pair-rotation. Plan for similar lag at any future V-shape recovery.
 - **In-sample selection bias**: anchor forward Sharpe at 1.05-1.35 (not 1.58
-  backtest); planning MaxDD band -15 to -25%.
-- **CPM/BULL canary asymmetry**: when CPM all-cash (HYG+TIP+GLD all negative)
-  but BULL canary fires, portfolio can hold 20% QQQ + 20% NDX with 60% SHV.
-  Intentional — different defensive geometries.
+  backtest); planning MaxDD band -15 to -25%. The forward floor is more
+  optimistic than the data warrants if positive stock/bond correlation
+  becomes the structural norm rather than a transient regime.
+- **CPM/BULL canary asymmetry**: when CPM is all-cash (HYG+TIP+GLD all
+  negative) but BULL canary fires (HYG+TIP positive), the portfolio can hold
+  20% QQQ + 20% NDX with 60% SHV. Intentional. CPM uses GLD as a real-asset
+  diversifier because it has alternative cross-asset rotations available;
+  BULL-QQQ is a binary single-equity gate where a stricter 2-asset canary
+  is preferred (a third asset adds redundant credit-rates signal rather
+  than new structural information). Same-canary symmetry would couple the
+  two sleeves' regime verdicts, reducing the value of running them as
+  independent risk-management overlays.
+
+**NDX gate asymmetry**
+
+NDX turns off when BULL is in cash, inheriting BULL's macro verdict rather
+than evaluating its own signal. Failure mode: BULL macro canary flips
+negative (credit stress) while top NDX momentum names are still accelerating
+due to sector rotation; NDX mechanically goes to SHV, missing the rotation
+upside. Defended on the basis that individual-stock momentum during macro
+stress historically reverses sharply, and the 20% sleeve sizing limits the
+cost of false-positive defensive moves. Acknowledged as a known design
+trade-off, not eliminated.
 
 **Pre-2007 backtest reliability**
 
@@ -247,16 +326,17 @@ Dot-com (2000-02) and GFC (2008) are exactly where the defensive machinery
 matters most, but they use proxy-stitched data (mutual-fund proxies for some
 ETFs pre-2005; NDX sleeve mirrors BULL pre-2006 PIT). Directional only.
 
-**Data quality (research-grade, not production-grade)**
+**Data quality (current gap; research-grade, not production-grade)**
 
 Live system uses `yfinance` (Yahoo scraper, beta) and `index-constitution`
 (Wikipedia-sourced, beta). Known failure modes: yfinance DOM-change breakage,
 rate limiting / missing data on month-end for individual NDX stocks, bad
 split/dividend adjustments, unresolved old ticker symbols, NDX delisted-ticker
-leakage. Production deployment should add data-validation circuit breakers
-(abort + alert on missing required ticker rather than silently exclude), and
-snapshot raw inputs + constituent lists + orders per rebalance for audit.
-Consider migrating to Tiingo / Polygon / IEX Cloud before scaling capital.
+leakage. **Gaps in the current system**: no data-validation circuit breaker
+(silent-exclude on missing required ticker rather than abort + alert); no per-
+rebalance snapshot of raw inputs, constituent lists, and final orders for
+audit; no fallback data source. These are required additions before scaling
+capital; consider migrating to Tiingo / Polygon / IEX Cloud at that point.
 
 ## Deployment and usage
 

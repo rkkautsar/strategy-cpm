@@ -1414,7 +1414,6 @@ def main():
     cpm = cpm.reindex(common)
     bull_qqq_rets = bull_qqq_rets.reindex(common)
     ndx_rets = ndx_rets.reindex(common).fillna(0.0)
-    CPM_W, BULL_W, NDX_W = 0.6, 0.3, 0.1
     blended = CPM_W * cpm + BULL_W * bull_qqq_rets + NDX_W * ndx_rets
     prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)})"
 
