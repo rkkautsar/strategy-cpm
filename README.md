@@ -21,14 +21,19 @@ Blend validation detail (NDX MC, bootstrap, DSR, ablation, hold-buffer) in
   best-of-safe): IEF in falling-rate regimes (captures bond rally), SHV when
   rates are rising or stable. BULL is therefore an equity-or-defensive-sleeve
   strategy, not equity-or-cash; the defensive sleeve can carry duration risk.
-- **NDX (20%)** — top-4 PIT Nasdaq-100 stocks by 13612U momentum, 25% each,
+- **NDX (20%)** — top-8 PIT Nasdaq-100 stocks by 13612U momentum, 12.5% each,
   gated by the BULL-QQQ regime (NDX = SHV cash when BULL flips to safe).
-  Design choice: BULL's macro canary acts as a portfolio-level circuit breaker
-  for the growth sleeve. The asymmetry is intentional — individual-stock
-  momentum during a credit-stress or vol-blowup regime is unreliable even when
-  individual names appear strong, so NDX inherits BULL's regime verdict
-  rather than running an independent macro gate (which would double-count
-  HYG/TIP signal). See Caveats § NDX gate asymmetry for the trade-off.
+  K=8 chosen over a smaller K (4-6) for selection-stage bias mitigation: each
+  pick is 12.5% of sleeve = 2.5% of portfolio, so a single-name bankruptcy
+  caps blend damage at ~2.5%. K=8 halves the stress-clustered MaxDD vs K=4
+  (-15.51% vs -25.70% under 1-bankruptcy-per-year stress-period simulation)
+  at a -0.07 Sharpe edge cost. Annual turnover-bps is actually lower at K=8
+  than K=4 (95 vs 100 bps) because per-pick rotation is smaller. Design
+  choice for the regime asymmetry: BULL's macro canary acts as a portfolio-
+  level circuit breaker for the growth sleeve. Individual-stock momentum
+  during credit-stress or vol-blowup regimes is unreliable even when names
+  appear strong, so NDX inherits BULL's regime verdict rather than running
+  an independent macro gate (which would double-count HYG/TIP signal).
 
 Monthly rebalance, ETF + individual stocks (NDX), no leverage, 10 bps/side cost,
 T+1 OPEN execution. Total-return prices (yfinance `auto_adjust=True`).
@@ -37,9 +42,9 @@ T+1 OPEN execution. Total-return prices (yfinance `auto_adjust=True`).
 > supportive but not proof of forward edge.
 >
 > ⚠️ **IRA/401k/Roth only.** Monthly rotation = short-term gains. Federal 22-37%
-> + state 0-13% can drop after-tax CAGR from **12-16% pre-tax to ~6-10%
-> after-tax** — close to SPY buy-hold after-tax. NDX stock churn compounds the
-> drag. Run only in tax-advantaged accounts.
+> + state 0-13% can drop after-tax CAGR from **11-15% pre-tax to ~5-9%
+> after-tax** — close to SPY buy-hold after-tax. NDX stock churn (8 names)
+> compounds the drag. Run only in tax-advantaged accounts.
 
 ## Expected performance
 
@@ -49,15 +54,14 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 CPM-BULL-NDX** | **1.59** | **19.53%** | **11.67%** | **-12.92%** | **1.51** |
-| SPY buy-hold | 0.66 | 11.78% | 19.81% | -51.48% | 0.23 |
+| **PROD 60/20/20 CPM-BULL-NDX (K=8)** | **1.51** | **17.66%** | **11.17%** | **-12.00%** | **1.47** |
+| SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM | 1.31 | 14.06% | 10.49% | -10.59% |
+| CPM | 1.29 | 13.83% | 10.49% | -11.30% |
 | BULL-QQQ | 1.18 | 16.88% | 14.06% | -14.31% |
-| NDX (raw) | 1.26 | 36.45% | 27.71% | -35.92% |
-| NDX (Shumway-MC) | 1.22 | 35.97% | 27.73% | -37.31% |
+| NDX top-8 (K=8) | 1.19 | 28.02% | 23.03% | -29.51% |
 
 Extended 30y window 1996-01-04 → 2026-05-15 (uses Vanguard mutual fund stitches
 pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
@@ -72,10 +76,10 @@ biases + tail sequencing not captured by return bootstrap):
 
 | Metric | Backtest | Forward base case |
 |---|---:|---|
-| Sharpe | 1.59 | **1.05-1.35** |
-| CAGR | 19.53% | **12-16%** pre-tax, **6-10%** after-tax |
-| MaxDD | -12.92% | **-20% to -30%** planning band (widened for NDX selection-bias clustering) |
-| Calmar | 1.51 | **0.60-0.95** |
+| Sharpe | 1.51 | **1.00-1.30** |
+| CAGR | 17.66% | **11-15%** pre-tax, **5-9%** after-tax |
+| MaxDD | -12.00% | **-15% to -22%** planning band (K=8 halves NDX selection-bias clustering vs K=4) |
+| Calmar | 1.47 | **0.55-0.90** |
 
 ## Strategy specification
 
@@ -107,7 +111,7 @@ else:
     # is within HOLD_BUFFER=2.0z of worst new pick. Off when < 3 positive.
 
 # Vol cap (de-risk only, scale <= 1.0)
-scale = min(1.0, 0.15 / realized_vol_63d(cpm))
+scale = min(1.0, 0.12 / realized_vol_63d(cpm))   # 12% vol cap (de-risk only)
 cpm   = {a: w * scale for a, w in cpm.items()}
 cpm[SHV] += 1.0 - sum(cpm.values())
 
@@ -135,9 +139,9 @@ elif PIT NDX-100 data unavailable (pre-2006):
     ndx = bull                                        # mirror BULL-QQQ
 else:
     momenta = {t: mom_13612U(t) for t in PIT_NDX100(T)}
-    picks   = [t for t, m in sorted(momenta, by=-m) if m > 0][:4]
-    ndx     = {t: 0.25 for t in picks}
-    ndx[SHV] = 1.0 - 0.25 * len(picks)
+    picks   = [t for t, m in sorted(momenta, by=-m) if m > 0][:8]
+    ndx     = {t: 0.125 for t in picks}                # 1/K=12.5% per pick
+    ndx[SHV] = 1.0 - 0.125 * len(picks)
 
 # ---- Combined ----
 portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
@@ -151,7 +155,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | Safe / cash | SHV (BULL also uses IEF as best-of-safe) |
 | CPM canary (3, HAA-style) | HYG_stitched, TIP, GLD |
 | BULL canary (2) | HYG_stitched, TIP (LQD rejected: IG rallies on rate cuts during equity crashes, falsely keeps gate on in dotcom-style regimes) |
-| NDX | point-in-time Nasdaq-100 (top-4 by 13612U) |
+| NDX | point-in-time Nasdaq-100 (top-8 by 13612U, 12.5% each) |
 
 `HYG_stitched` = VWEHX mutual fund pre-2007-04 + live HYG.
 
@@ -175,24 +179,24 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 - Trade date: T+1 OPEN (next-day MOO).
 - Cost: 10 bps/side on any state change (full A→B switch = 20 bps).
 - Cron: monthly, 10am SGT (first business day after month-end).
-- Typical month: ~12 tickers (9 CPM risky + SHV + QQQ + 4 NDX stocks).
+- Typical month: ~16 tickers (9 CPM risky + SHV + QQQ + 8 NDX stocks).
 
 Methodology, sensitivity grids, complexity-layer ablation, and references in
 `cpm_bull_ndx_handout.md`. Key numbers inline:
 
-**PROD 60/20/20 block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
+**PROD 60/20/20 K=8 block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
 
 | Metric | Value |
 |---|---|
-| Point Sharpe | 1.590 |
-| Bootstrap mean | 1.567 |
-| 95% CI | [1.131, 2.021] |
-| P(Sharpe > 1.0) | 99.6% |
+| Point Sharpe | 1.514 |
+| Bootstrap mean | 1.500 |
+| 95% CI | [1.081, 1.940] |
+| P(Sharpe > 1.0) | 99.2% |
 
-The 95% lower bound (1.13) sits above the forward-expectation floor (1.05),
-stronger than the alt-weights 60/30/10 CI reported in the handout. Deflated
-Sharpe on the blend is P(Sh > 0) = 99.7% at N=1000 trial haircut (Bailey-Lopez
-de Prado); sensitive to assumed effective trial count.
+The 95% lower bound (1.08) sits above the forward-expectation floor (1.00),
+though less comfortably than the prior K=4 CI [1.13, 2.02]. Deflated Sharpe
+on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut (Bailey-Lopez de
+Prado); sensitive to assumed effective trial count.
 
 **Blend-weight sensitivity (CPM fixed at 60%, BULL/NDX split varies):**
 
@@ -258,7 +262,7 @@ NDX mirrors BULL and pre-2001-06 canary reduces to HYG-only. Asset-momentum
 
 **Important: 30y does not stress-test the live NDX sleeve.** Because NDX
 mirrors BULL before 2006, dot-com-era 30y evidence validates CPM+BULL
-behavior only, not the current top-4 PIT Nasdaq stock-selection sleeve.
+behavior only, not the current top-8 PIT Nasdaq stock-selection sleeve.
 The production NDX sleeve has no dotcom-era backtest evidence; the live
 sample for the NDX selector is the post-2006 PIT data only.
 
@@ -274,13 +278,13 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
 
 **Tax & live status**
 
-- Monthly rotation = short-term gains; NDX stock churn compounds drag. After-tax
-  CAGR drops from 12-16% to ~6-10%. Tax-advantaged accounts only.
+- Monthly rotation = short-term gains; NDX stock churn (8 names) compounds
+  drag. After-tax CAGR drops from 11-15% to ~5-9%. Tax-advantaged accounts only.
 - Strategy is NOT live-traded. All performance is backtest.
 
 **Vol & concentration**
 
-- **Portfolio-level vol is NOT capped.** Only CPM (60%) is vol-targeted at 15%.
+- **Portfolio-level vol is NOT capped.** Only CPM (60%) is vol-targeted at 12%.
   BULL (~18-25% vol) and NDX (~30-40% vol) run uncapped. Realized blend vol
   (21d rolling): P50 10.3%, P95 21.0%, P99 27.8%, **max 38.7%** (COVID 2020-04).
 - **Effective Nasdaq/growth concentration**: in risk-on regimes CPM can hold
@@ -289,9 +293,9 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   diversified TAA in those regimes — it's growth/Nasdaq momentum with tactical
   defensive machinery. Min-vol pair selector prevents 100% growth (never picks
   both QQQ AND IWF as the pair).
-- NDX sleeve standalone MaxDD ~ -36% (raw) / -37% (Shumway-MC). Mega-cap
-  concentration alpha is regime-dependent; 2000-2010-style tech lost decade
-  would likely underperform vs BULL-QQQ alone.
+- NDX sleeve standalone MaxDD ~ -30% (K=8 raw). Mega-cap concentration alpha
+  is regime-dependent; 2000-2010-style tech lost decade would likely
+  underperform vs BULL-QQQ alone.
 
 **NDX bias**
 
@@ -305,29 +309,23 @@ structurally bounds this contribution.
 **Selection-stage bias** (Ghost-injection MC v2, missing delisted names
 injected into ranking universe with synthetic price paths calibrated to NDX
 distribution): **177 historical NDX-100 members had no panel price data**
-(CELG, BRCM, ATVI, DELL, CERN, etc.); ghost selection rate is **15-19%** of
-NDX picks. Blend impact under stress-clustered v2 MC (N=30) + adversarial
-cross-validation (50 seeds per scenario):
+(CELG, BRCM, ATVI, DELL, CERN, etc.). At K=8, ghost selection rate is
+~17-20% of NDX picks (slightly higher than K=4 because more slots are
+filled). Blend impact at K=8 under adversarial cross-validation (50 seeds
+per scenario):
 
-| Scenario | Sharpe Δ | CAGR Δ | MaxDD impact |
-|---|---:|---:|---:|
-| Ghost-injection MC (realistic distribution) | -0.026 | -0.49pp | ~unchanged |
-| Adversarial 1.5% bankruptcy rate (random) | -0.037 | -0.50pp | -0.25pp |
-| Adversarial 3% rate | -0.074 | -1.02pp | -0.69pp |
-| Adversarial 6% rate | -0.169 | -2.30pp | -1.19pp |
-| **Adversarial 1/yr bankruptcy stress-clustered** | **-0.209** | **-2.83pp** | **-12.78pp (-12.92% → -25.70%)** |
-| Adversarial worst-case (10% rate @ -80%) | -0.560 | -7.46pp | -9.87pp |
+| Scenario | Sharpe Δ | CAGR Δ | MaxDD (K=8) | vs K=4 |
+|---|---:|---:|---:|---:|
+| Realistic 1.5% bankruptcy rate (random) | -0.019 | -0.25pp | -12.01% | (K=4: -13.17%) |
+| Pessim 3% rate | -0.039 | -0.50pp | -12.12% | (K=4: -13.61%) |
+| **Adversarial 1/yr bankruptcy stress-clustered** | **-0.109** | **-1.40pp** | **-15.51%** | **(K=4: -25.70%)** |
 
-The selection-stage bias is **~5x larger on Sharpe and ~25x larger on CAGR**
-than the v1 holding-stage Shumway-MC suggested. The operational risk is
-stress-clustered bankruptcies: when forced future-failures cluster in macro-
-stress periods (GFC / COVID / 2022), MaxDD widens from headline -12.92% to
-~-26%. Plan around the wider band, not the headline.
-
-Fully eliminating selection-stage bias requires a survivorship-bias-free
-equity database (CRSP, Norgate, Compustat) that includes delisted names in
-the pre-selection ranking universe. The 20% sleeve weight remains a hard
-structural cap on Sharpe-level damage from either bias source.
+**K=8 cuts the stress-clustered MaxDD damage in half** (-25.70% → -15.51%)
+because per-pick weight drops from 5% to 2.5% of portfolio. Realistic-case
+damage is small (-0.02 to -0.04 Sharpe). Fully eliminating selection-stage
+bias requires a survivorship-bias-free equity database (CRSP, Norgate,
+Compustat) that includes delisted names in the pre-selection ranking
+universe. The K=8 dilution + 20% sleeve weight are the structural caps.
 
 Bias sources:
 
