@@ -238,8 +238,6 @@ than it would be with the full 2-asset BULL canary today.
 is comparable to the sensitivity grid.*
 
 
-| Weights | Sharpe | CAGR | Vol | MaxDD |
-|---|---:|---:|---:|---:|
 | Weights | Uncap Sh | Uncap CAGR | Uncap MaxDD | Cap Sh | Cap CAGR | Cap MaxDD |
 |---|---:|---:|---:|---:|---:|---:|
 | 60/40/0 (no NDX) | 1.458 | 15.24% | -9.85% | 1.467 | 14.25% | -9.30% |
@@ -276,9 +274,11 @@ driven by canary + asset_mom flips, identical across variants.
 
 **Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
 CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost. Window is
-~1y longer than CLEAN headline (18.1y); Sh increments expected to be
-similar magnitude on CLEAN (no regime structurally different in the extra
-1y of data).
+~1y longer than CLEAN headline (18.1y). Reconciliation: the 19.3y increments
+sum to **+0.22 Sh**, consistent with the CLEAN-window blend (1.53) minus CPM
+standalone (1.29) gap of **+0.24 Sh**; the small ~0.02 surplus on CLEAN is
+attributable to the VIX cap contribution (capped blend +0.02 vs uncapped on
+that window).
 
 **Conditional sleeve correlation** (CPM vs BULL+NDX combined as one
 growth-tilted entity, CLEAN 18.1y, regime classified by BULL gate state):
@@ -289,10 +289,13 @@ growth-tilted entity, CLEAN 18.1y, regime classified by BULL gate state):
 | RISK-OFF | 79 | 1,628 | 0.24 | 0.19 |
 | ALL | 218 | 4,540 | 0.40 | 0.40 |
 
-In risk-on regimes (BULL holding QQQ), CPM and BULL+NDX co-move at
-moderate correlation (~0.46) because CPM often picks QQQ/IWF/SPHQ as one
-pair member. In risk-off regimes the correlation halves (~0.24) as CPM
-rotates into diversifiers (GLD/TLT/DBC). The blend Sharpe gain over
+In risk-on regimes (BULL holding QQQ), CPM and BULL+NDX co-move at moderate
+correlation (~0.46) because CPM often picks QQQ/IWF/SPHQ as one pair member.
+**Empirical pair-mechanism check**: across the 95 risk-on signal months
+(BULL gate engaged) with CPM in pair-selection mode, CPM holds a growth
+ticker (QQQ / IWF / SPHQ) as one of the two pair members in **73/95 =
+76.8%** of months. In risk-off regimes the correlation halves (~0.24) as
+CPM rotates into diversifiers (GLD / TLT / DBC). The blend Sharpe gain over
 sleeve standalones (blend 1.53 vs CPM 1.29, BULL 1.18, NDX 1.22) is
 consistent with through-cycle correlation ~0.40.
 
