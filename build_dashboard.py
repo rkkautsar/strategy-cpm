@@ -1605,7 +1605,7 @@ def main():
     start = pd.Timestamp(args.start)
     end = pd.Timestamp(args.end) if args.end else pd.Timestamp.today().normalize()
     
-    # Load with sufficient warmup so CPM signals + BULL-QQQ 12-1 momentum are stable
+    # Load with sufficient warmup so CPM signals + BULL-QQQ 12mo TR momentum are stable
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
     panel = load_panel(start=panel_start, end=end)
@@ -1931,7 +1931,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). SHV cash fallback.</li>
-<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND QQQ 12-1 momentum &gt; 0. Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND QQQ 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_QQQ regime.</li>
 </ul>
 </div>
@@ -2034,7 +2034,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
 <li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0. Two-asset credit (HYG = high-yield) + inflation (TIP) regime check.</li>
 <li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime. Both pillars use natural midpoint cutoffs. Pair ablation showed curve+vol are the only two structurally orthogonal macro signals worth keeping; trend (SPY 200d MA) and credit (HYG 200d MA) pillars were dropped as redundant with asset_mom and canary respectively.</li>
-<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-1 absolute momentum &gt; 0 (Antonacci GEM standard). Direct observation of the risky asset itself.</li>
+<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-month TR absolute momentum &gt; 0 (Antonacci GEM 2014, no skip-month). Direct observation of the risky asset itself.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 
@@ -2064,7 +2064,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>In-sample bias.</strong> Tuned on this window. Forward Sharpe ~30-40% below backtest; blend 1.00-1.30, CPM standalone 0.80-1.10.</li>
 <li><strong>NDX survivorship.</strong> Holding-stage MC bounded &lt;0.01 Sh. Selection-stage MC v2 (177 missing delisted tickers): adversarial stress-clustered impact -0.11 Sh / -1.40pp CAGR / MaxDD -15.51% at K=8. CRSP/Norgate validation pending.</li>
 <li><strong>NDX 30y caveat.</strong> Pre-2006 sleeve mirrors BULL-QQQ (no PIT data). 30y window does NOT stress-test live stock-selection sleeve through dotcom.</li>
-<li><strong>V-shape recovery lag.</strong> 13612U + 12-1 momentum use trailing 12mo → re-entry delayed 1-3 months after deep selloffs. Lagged SPY ~5-10pp in 2009/2020-Q2/2022-Q4 snap-backs.</li>
+<li><strong>V-shape recovery lag.</strong> 13612U + 12mo TR momentum use trailing 12mo → re-entry delayed 1-3 months after deep selloffs. Lagged SPY ~5-10pp in 2009/2020-Q2/2022-Q4 snap-backs.</li>
 <li><strong>Crisis-concentrated alpha.</strong> CPM defensive edge concentrated in 2008/2002/2020/2022. Non-crisis years lag SPY by design.</li>
 <li><strong>Bull underperformance is structural.</strong> No leverage; gives up bull upside for crisis alpha.</li>
 <li><strong>2020+ regime favors NDX.</strong> Mega-cap concentration regime massively rewarded top-K. Forward regime may revert.</li>

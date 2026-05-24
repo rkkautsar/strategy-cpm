@@ -98,7 +98,7 @@ Bailey & Lopez de Prado 2012. P[true Sh > 0] after N-trial haircut.
 
 DSR depends heavily on the assumed effective trial count. True hyperparameter
 search space (9-asset universe, top-K=5, 504d EWMA cov, HOLD_BUFFER 2.0z, 15%
-vol cap, 63d realized lookback, 12-1 trend, 13612U canary, NDX K=4, 60/30/10
+vol cap, 63d realized lookback, 12mo TR trend, 13612U canary, NDX K=4, 60/30/10
 vs 60/20/20 blend, etc.) is plausibly larger than N=1000 even at conservative
 count. These results reduce the probability that the historical result is pure
 noise; they do not eliminate model-selection bias, regime risk, data-quality
@@ -115,7 +115,7 @@ versus simpler adjacent strategies after cost.
 |---|---:|---:|---:|---:|---:|
 | SPY buy-hold | 0.62 | 10.89% | 19.69% | -55.19% | (baseline) |
 | QQQ buy-hold | 0.80 | 16.47% | 22.22% | -53.40% | +0.18 (beta switch) |
-| QQQ 12-1 timing only | 0.87 | 15.76% | 18.83% | -28.72% | +0.07 (trend filter) |
+| QQQ 12mo TR timing only | 0.87 | 15.76% | 18.83% | -28.72% | +0.07 (trend filter) |
 | 60% CPM + 40% SHV (defensive) | 1.27 | 9.17% | 7.09% | -8.53% | +0.41 (CPM engine) |
 | 100% CPM standalone | 1.19 | 14.21% | 11.80% | -14.74% | (alt: CPM full size) |
 | **70/30 CPM-BULL (no NDX)** | **1.34** | **15.66%** | **11.36%** | **-12.59%** | +0.15 (BULL adds) |
@@ -153,7 +153,7 @@ the validated 2-5z plateau, exact value is not sensitive.
   not complete).
 - SHV/IEF/TLT pre-live use VFISX/VFITX/VUSTX Vanguard mutual fund stitches.
 - GLD pre-2004-11 uses World Bank monthly gold forward-filled to daily.
-- Asset momentum circuit breaker (Antonacci 12-1) is the primary defense in
+- Asset momentum circuit breaker (Antonacci 12mo TR) is the primary defense in
   macro-confusion regimes like dotcom.
 
 Pre-2007 is least reliable in exactly the periods that matter most (dotcom,

@@ -26,7 +26,7 @@ one endogenous SPY-vol signal):
    = `IEF 63d ret > TLT 63d ret` (external rates-regime signal) and vol
    = `SPY 63d realized vol < 252d avg vol` (endogenous SPY-derived
    variance regime). Both pillars use natural sign-test cutoffs.
-3. **Asset momentum gate:** risky asset 12-1 absolute momentum > 0
+3. **Asset momentum gate:** risky asset 12-month TR absolute momentum > 0 (Antonacci GEM)
    (skip-month form, common in academic momentum / TSMOM practice). See
    Section 2.6 for the formula and relation to Antonacci GEM.
 
@@ -226,7 +226,7 @@ functions as a true rates-regime signal.
 
 ### 2.6 Gate 3: Asset momentum
 
-Compute 12-1 absolute momentum on the risky asset itself:
+Compute 12-month TR absolute momentum on the risky asset itself:
 
 ```
 mom_12_1 = price(t-1m) / price(t-13m) - 1
@@ -688,7 +688,7 @@ For the clean window (n=217 monthly signals), the trend pillar
 
 | Risky asset | Both on | Both off | Trend only | Mom only | Agree |
 |-------------|--------:|---------:|-----------:|---------:|------:|
-| vs SPY 12-1 mom | 158 (73%) | 24 (11%) | 13 (6%)  | 22 (10%) | 84%   |
+| vs SPY 12mo TR | 158 (73%) | 24 (11%) | 13 (6%)  | 22 (10%) | 84%   |
 
 The trend pillar agreed with the asset-momentum gate 84% of the time,
 confirming the redundancy claim in Section 2.8.
@@ -882,7 +882,7 @@ Real tested variants within the same gate family (canary asset choice,
 pillar selection, voting rule, asset-momentum lookback) are likely
 correlated, so this DSR result should be interpreted as a robustness
 check rather than a precise multiple-testing adjustment. **Additional caveat:** the parameter forms used
-here (Keller's 13612U multi-horizon momentum, the 12-1 skip-month TSMOM
+here (Keller's 13612U multi-horizon momentum, the 12-month TR absolute
 convention, 63d/252d vol windows) are themselves drawn from published
 literature where they were selected on similar historical samples.
 If prior-literature parameter mining is counted toward effective N,
@@ -979,7 +979,7 @@ References:
 | TIP canary        | TIPS total-return momentum (real-rate + inflation-sensitive) |
 | Curve pillar      | Growth-on vs late-cycle (yield curve shape)              |
 | Vol pillar        | Volatility regime (calm vs unstable)                     |
-| Asset momentum    | Direct observation of risky asset (skip-month 12-1 abs mom) |
+| Asset momentum    | Direct observation of risky asset (12-month TR, Antonacci GEM) |
 
 The components observe different market dimensions, but they are **not
 statistically independent** (see Section 2.7.1 for the signal-source
@@ -1006,7 +1006,7 @@ consistent with this design intent (Section 3.2 per-regime table).
    appear once in the sample. Per-regime Sharpes are descriptive, not
    predictive.
 
-3. **Gate lag.** Both 13612U and 12-1 momentum use trailing windows of
+3. **Gate lag.** Both 13612U and 12-month TR absolute momentum use trailing windows of
    12 months. Sharp V-recoveries are partially missed (typical 2-4 week
    re-entry lag after gates flip back on). COVID 2020 Bull-SPY Sharpe
    0.91 vs SPY buy-hold 0.67 reflects partial recapture of the V-shape.
@@ -1084,8 +1084,8 @@ consistent with this design intent (Section 3.2 per-regime table).
 12. **DSR N depends on the prior parameter mining.** The DSR check
     (Section 4.10) assumes N independent specification trials. The
     canary uses Keller's 13612U (a heavily-mined optimal momentum form),
-    asset_mom uses the 12-1 skip-month convention (heavily-mined TSMOM
-    parameter), and the curve/vol pillars use 63d/252d windows that are
+    asset_mom uses the 12-month TR convention (heavily-published TSMOM /
+    Antonacci GEM parameter), and the curve/vol pillars use 63d/252d windows that are
     similarly conventional. If "effectively previously-mined" parameter
     choices are counted toward the trial budget, the true effective N
     likely exceeds 50. This would soften (not flip) the PSR conclusion;

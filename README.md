@@ -14,8 +14,9 @@ Blend validation detail (NDX MC, bootstrap, DSR, ablation, hold-buffer) in
   9-asset ETF universe (US factors + international + diversifiers).
 - **BULL-QQQ (20%)** — 100% QQQ when three gates all pass: (1) Keller/HAA-
   inspired HYG OR TIP 13612U > 0 canary, (2) a custom curve OR vol regime
-  composite (curve from rates, vol from broad market), (3) QQQ 12-1 absolute
-  momentum (Antonacci/TSMOM-style trend filter). Only the canary is
+  composite (curve from rates, vol from broad market), (3) QQQ 12mo TR
+  absolute momentum (Antonacci GEM 2014 / TSMOM-style trend filter).
+  Antonacci GEM uses simple 12-month total return (no skip-month). Only the canary is
   Keller-canonical; the composite and trend gates are extensions. In risk-off
   periods, BULL selects between SHV and IEF by 13612U momentum (HAA-style
   best-of-safe): IEF in falling-rate regimes (captures bond rally), SHV when
@@ -78,7 +79,7 @@ biases + tail sequencing not captured by return bootstrap):
 
 ```python
 # Signal date T = last trading day of each calendar month.
-mom_12_1(asset)    = price[T-1mo] / price[T-13mo] - 1
+mom_12mo(asset)    = price[T] / price[T-12mo] - 1                 # Antonacci GEM TR (no skip-month)
 mom_13612U(asset)  = (r1 + r3 + r6 + r12) / 4         # canonical HAA unweighted
 faber_score(asset) = (price[T] - SMA_10mo) / SMA_10mo
 
@@ -117,7 +118,7 @@ p_curve      = sum(IEF[T-63d:T] ret) > sum(TLT[T-63d:T] ret)   # curve steepenin
 # sleeve than asset-specific Nasdaq vol despite QQQ being the held asset.
 p_market_vol = realized_vol_63d(SPY) < avg(rolling_63d_vol over 252d, SPY)
 composite_on = p_curve OR p_market_vol
-asset_mom_on = mom_12_1(QQQ) > 0
+asset_mom_on = mom_12mo(QQQ) > 0
 
 if canary_on AND composite_on AND asset_mom_on:
     bull = {QQQ: 1.0}
@@ -170,7 +171,7 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 
 | Component | Source |
 |---|---|
-| 12-1 absolute momentum | Antonacci 2014 dual momentum / Moskowitz et al 2012 TSMOM |
+| 12-month TR absolute momentum (no skip) | Antonacci 2014 GEM / Moskowitz et al 2012 TSMOM |
 | 13612U momentum | Keller & Keuning 2022 HAA canonical |
 | Faber SMA10m ranker | Faber 2007 SSRN TAA |
 | Min-variance pair (EWMA 504d) | Markowitz + RiskMetrics-family (JPM 1996) |
@@ -384,6 +385,25 @@ adapts to prevailing vol-of-vol regime.
   updated. Manual check via the dashboard's vol-cap status block (always
   reflects latest state file).
 
+**Cost sensitivity** (CLEAN 18.1y blend + VIX cap; same cost_bps/side applied
+to every sleeve):
+
+| Cost/side | Blend Sh | CAGR | MaxDD |
+|---:|---:|---:|---:|
+| 0 bps | 1.563 | 17.01% | -11.32% |
+| 5 bps | 1.546 | 16.79% | -11.39% |
+| **10 bps (PROD)** | **1.528** | **16.58%** | **-11.46%** |
+| 15 bps | 1.510 | 16.36% | -11.53% |
+| 25 bps | 1.474 | 15.93% | -11.67% |
+| 50 bps | 1.382 | 14.86% | -12.02% |
+| 75 bps | 1.289 | 13.80% | -12.81% |
+| 100 bps | 1.195 | 12.75% | -15.52% |
+
+Linear Sharpe degradation ~**0.0036 Sh per bps** through full range; CAGR
+drops ~1pp per 25 bps. MaxDD stable to 50 bps, expands materially past
+75 bps. Blend Sharpe stays above 1.05 forward floor up to 100 bps; the
+edge is not thin enough that 2-3x cost overruns destroy it.
+
 **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
 marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
 disabled when (a) fewer than 3 positive candidates, (b) prior asset's faber
@@ -419,7 +439,7 @@ pre-2002 result is directional only.
 
 **30y extended window** includes dotcom, GFC, COVID, 2022 inflation; pre-2006
 NDX mirrors BULL and pre-2001-06 canary reduces to HYG-only. Asset-momentum
-12-1 circuit breaker is primary defense in macro-confusion regimes (dotcom).
+12mo TR absolute momentum is the primary defense in macro-confusion regimes (dotcom).
 
 **Important: 30y does not stress-test the live NDX sleeve.** Because NDX
 mirrors BULL before 2006, dot-com-era 30y evidence validates CPM+BULL

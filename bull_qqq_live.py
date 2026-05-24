@@ -10,7 +10,7 @@ Spec:
     2. Macro:     curve OR vol pillar > 0   (2 orthogonal macro indicators)
          - curve:  IEF 63d ret > TLT 63d ret  (yield-curve steepening)
          - vol:    SPY 63d vol < 252d avg     (low-vol regime)
-    3. Asset mom: <BULL_TICKER> 12-1 absolute momentum > 0
+    3. Asset mom: <BULL_TICKER> 12-month TR absolute momentum > 0 (Antonacci GEM)
                   (Antonacci dual momentum on the risky asset)
 
   All three layers use Keller-canonical 'any positive' rule.
@@ -51,7 +51,8 @@ BULL_TICKER = "QQQ"           # production sleeve ticker (NDX sleeve depends on 
 CASH_TICKER = "SHV"           # default cash if SAFE_POOL evaluation fails
 SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
 
-MOMENTUM_LOOKBACK = 12       # legacy: 12-1 momentum, kept for research imports
+MOMENTUM_LOOKBACK = 12       # months: 12-month total return (Antonacci GEM / TSMOM standard;
+                             # NOT skip-month -- absolute momentum gates include latest month)
 
 # Macro canary: HYG OR TIP 13612U > 0 (Keller HAA-family, simplified).
 # LQD removed (was HYG+LQD+TIP) because IG corporate bonds rally on rate cuts
@@ -82,9 +83,12 @@ COST_BPS_PER_SIDE = 10
 
 def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
                        n: int = MOMENTUM_LOOKBACK) -> float:
-    """N-month absolute total return (Antonacci 12-1 / Moskowitz TSMOM).
-    SLOW anchor signal -- stays negative throughout sustained bears,
-    avoiding whipsaws. `s` should be MONTHLY resampled prices."""
+    """N-month absolute total return (Antonacci GEM 2014 / Moskowitz-Ooi-
+    Pedersen TSMOM 2012). For default n=12: price_today / price_12mo_ago - 1,
+    no skip-month (latest month included). Skip-month form is for cross-
+    sectional ranking (Jegadeesh-Titman 1993); not standard for absolute
+    momentum regime gates. Slow anchor signal -- stays negative throughout
+    sustained bears, avoiding whipsaws. `s` should be MONTHLY resampled prices."""
     sd = s.loc[:sig_d].dropna()
     if len(sd) < n + 1:
         return float("nan")
@@ -92,11 +96,11 @@ def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
 
 
 def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Trend filter: QQQ 12-1 absolute momentum > 0 (Antonacci GEM standard).
+    """Trend filter: QQQ 12-month TR absolute momentum > 0 (Antonacci GEM 2014).
 
     Returns (signal_on, diagnostics):
-      signal_on = True if 12-1 absolute momentum is positive.
-      12-1: slow anchor (anti-whipsaw, GEM standard)
+      signal_on = True if 12mo absolute TR is positive.
+      Slow anchor (anti-whipsaw, GEM standard), no skip-month.
     """
     mom_12_1 = _absolute_momentum(monthly_qqq, sig_d)
     mom_ok = pd.notna(mom_12_1) and mom_12_1 > 0
@@ -126,7 +130,7 @@ def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]
 
 
 def _qqq_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """DEPRECATED: legacy QQQ 12-1 momentum filter, no longer used by gate.
+    """DEPRECATED: legacy QQQ 12mo momentum filter, no longer used by gate.
     Kept for research imports / backward compat in diagnostics only."""
     if BULL_TICKER not in monthly.columns:
         return (False, dict(mom_12_1=float("nan"), sig_13612U=float("nan"),
@@ -224,7 +228,7 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
         safe = _pick_safe(monthly)
         reason = ('macro_gate_off' if not canary_ok
                   else f"composite_off ({cdiag['composite_n_pos']}/2 pillars positive, need any 1)" if not composite_ok
-                  else f"asset_mom_off ({BULL_TICKER} 12-1 mom <= 0; circuit breaker on risky asset)")
+                  else f"asset_mom_off ({BULL_TICKER} 12mo TR <= 0; circuit breaker on risky asset)")
         return ({safe: 1.0}, "CASH",
                 {**all_diag, "reason": reason, "picked_safe": safe})
     # Bull state: 100% QQQ (no state rotation in current spec).
@@ -328,7 +332,7 @@ def cmd_allocate(args):
     print(f"Macro gate:  HYG/TIP any-positive 13612U")
     print(f"Composite:   any 1 of 2 macro pillars positive")
     print(f"             (IEF-TLT curve, SPY low-vol)")
-    print(f"Asset mom:   {BULL_TICKER} 12-1 absolute momentum > 0 (circuit breaker)")
+    print(f"Asset mom:   {BULL_TICKER} 12mo TR absolute momentum > 0 (Antonacci GEM, circuit breaker)")
     print()
 
     weights, regime, diag = compute_bull_qqq_weights(panel, sig_d)
@@ -350,7 +354,7 @@ def cmd_allocate(args):
           f"(any 1 needed: {'YES' if diag.get('composite_ok') else 'NO'})")
     if pd.notna(diag.get('mom_12_1', float('nan'))):
         print(f"\nAsset mom diagnostics:")
-        print(f"  {BULL_TICKER} 12-1 mom = {diag['mom_12_1']*100:+7.2f}%  "
+        print(f"  {BULL_TICKER} 12mo TR = {diag['mom_12_1']*100:+7.2f}%  "
               f"(> 0: {'YES' if diag['mom_ok'] else 'NO'})  [circuit breaker]")
     print()
 
