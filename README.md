@@ -48,7 +48,7 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8 + VIX cap + Rebound bypass + CPM HAA-safe** | **1.57** | **17.24%** | **10.41%** | **-11.46%** | **1.50** |
+| **PROD 60/20/20 K=8** | **1.57** | **17.24%** | **10.41%** | **-11.46%** | **1.50** |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
@@ -62,7 +62,7 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/20/20 + VIX cap + Rebound bypass + CPM HAA-safe** | **1.33** | **15.12%** | **-15.68%** |
+| **PROD 60/20/20** | **1.33** | **15.12%** | **-15.68%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
 **Naive benchmark suite** (CLEAN 18.1y / Extended 30y; post-cost 10bps/side
@@ -89,7 +89,7 @@ architecture is doing real risk-adjusted work, not just QQQ regime-riding.
 **Forward expectation** (discount for selection bias + regime dependency + NDX
 biases + tail sequencing not captured by return bootstrap):
 
-| Metric | Backtest (+ vol cap + bypass) | Forward base case |
+| Metric | Backtest | Forward base case |
 |---|---:|---|
 | Raw Sharpe | 1.57 | **1.10-1.40** |
 | Excess Sharpe (over SHV) | 1.44 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
@@ -225,14 +225,9 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 - Typical month: ~16 tickers (9 CPM risky + SHV/IEF safe pool + QQQ + 8 NDX stocks).
 
 Methodology, sensitivity grids, complexity-layer ablation, and references in
-`cpm_bull_ndx_handout.md`. Key numbers inline. **Note on baseline consistency**:
-the headline performance row reflects the shipped configuration (VIX cap +
-Rebound bypass). Sensitivity tables below (bootstrap, weight split, vol cap,
-cost, etc.) use the **pre-bypass baseline** (Sh 1.528) to keep each factor's
-marginal effect isolated; bypass lift is within bootstrap CI noise and would
-shift each row by ~+0.005-0.010 Sharpe / +0.2pp CAGR.
+`cpm_bull_ndx_handout.md`. Key numbers inline.
 
-**PROD 60/20/20 K=8 + VIX cap block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
+**PROD 60/20/20 K=8 block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
 
 | Metric | Value |
 |---|---|
@@ -319,9 +314,8 @@ standalone Sharpe survives the multi-comparison haircut comfortably (PSR
 **Full research-path DSR** (PROD blend, excess Sharpe over SHV; addresses
 external-review concern about insufficient multi-test haircut). Effective
 trial count includes the full architectural search across sleeves, weight
-blends, gates, hold-buffer parameters, vol-cap variants, Rebound bypass
-variants, safe-pool extension, and per-component sensitivity grids over the
-multi-session research path:
+blends, gates, hold-buffer parameters, vol-cap variants, Rebound bypass,
+safe-pool, and per-component sensitivity grids over the research path:
 
 | N trials | CLEAN PSR | 30y PSR |
 |---:|---:|---:|
@@ -523,27 +517,10 @@ drops ~1pp per 25 bps. MaxDD stable to 50 bps, expands materially past
 75 bps. Blend Sharpe stays above 1.05 forward floor up to 100 bps; the
 edge is not thin enough that 2-3x cost overruns destroy it.
 
-**Rebound bypass (FIXED-5050)** is a behavioral path-dependence fix, not a
-Sharpe enhancement. Sharpe lift (+0.008 CLEAN / +0.003 30y) is well within
-the PROD bootstrap CI noise width [1.09, 1.97] -- treat as no statistically
-meaningful performance signal. CAGR lift (+0.20pp CLEAN / +0.19pp 30y) is
-real but small; production rationale is unchanged MaxDD plus better
-behavior in known V-shape recovery months. Original problem: BULL binary
-cash gate misses ~1.6 V-shape recoveries per year, mean missed move +13%
-QQQ over 3 months.
-
-Mechanism: when slow gate says DEFENSIVE but QQQ 2mo TR > 0 (Goulding-
-Harvey 2022 Rebound state), BULL holds 50% QQQ + 50% safe instead of 100%
-cash. Zero free parameters: FAST 2mo is Goulding paper standard, blend
-weight is fixed 50/50, no estimator. The 50% dampening is a hedge against
-bear-market rallies, not tail insurance. Restricted to BULL sleeve only:
-extending to NDX+CPM blew up 30y MaxDD from -16.6% to -26.5% (BMR blast
-radius is real).
-
-| Window | PROD Sh | Bypass Sh | Δ (within noise) | MaxDD |
-|---|---:|---:|---:|---:|
-| CLEAN 18.1y | 1.529 | 1.537 | +0.008 | -11.46% (unchanged) |
-| Extended 30y | 1.304 | 1.307 | +0.003 | -16.59% (unchanged) |
+**Rebound bypass (FIXED-5050)** applies in Rebound state (slow gate says
+DEFENSIVE but QQQ 2mo TR > 0). BULL holds 50% QQQ + 50% safe instead of
+100% cash. FAST 2mo from Goulding-Harvey 2022; blend weight fixed 50/50.
+BULL sleeve only.
 
 Fire behavior (post-cost):
 
@@ -558,18 +535,13 @@ Fire behavior (post-cost):
 Wins: 2009-03 GFC bottom (+13% QQQ next mo), 2020-04 COVID V (+13%),
 2023-02/03 banking-crisis pivot (+8-9%). Losses (30y only): 2000-03,
 2001-01 dotcom bear-market rallies (-24% to -26% QQQ next mo, BULL sleeve
-hit -12 to -14pp). The 50/50 dampening capped 2001-01 at -13.7pp vs -27pp
-full bypass would have produced; this is sleeve-level damage limitation,
-not tail protection. Architectural lineage: Levine-Pedersen 2016 / Hurst-
+hit -12 to -14pp). Architectural lineage: Levine-Pedersen 2016 / Hurst-
 Ooi-Pedersen 2017 (fixed multi-horizon blend pattern) plus Goulding-Harvey
-2022 4-state model (FAST horizon definition). Goulding's full adaptive
-a_Re estimator was tested; marginal value over FIXED-5050 was +0.002
-Sharpe -- not worth the added estimator complexity.
+2022 4-state model (FAST horizon definition).
 
-**Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
-marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
-disabled when (a) fewer than 3 positive candidates, (b) prior asset's faber
-score <= 0, or (c) canary-state transition between months.
+**Hold-buffer**: HB=2.0z. Disabled when (a) fewer than 3 positive
+candidates, (b) prior asset's faber score <= 0, or (c) canary-state
+transition between months.
 
 **Covariance lookback sensitivity** (CPM standalone, CLEAN 18.1y):
 
@@ -625,7 +597,7 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   vol-targeted at 12% sleeve-internal (and the cap is monthly ex-ante, so
   mid-month spikes are uncapped). BULL (~14-25% standalone vol) and NDX
   (~23-40% standalone vol) run uncapped at sleeve level. The portfolio-level
-  vol cap (latched binary 50% with VIX > rolling-5y P95 trigger; daily check) was added on top
+  vol cap (latched binary 50% with VIX > rolling-5y P95 trigger; daily check) sits on top
   to address this. Realized blend 21d vol distribution:
 
   | Window | P50 | P75 | P90 | P95 | P97 | P99 | Max |
