@@ -15,16 +15,16 @@ Rationale:
   - Industry-standard signal; VIX > 30 is widely recognized as panic
   - Threshold today ~30; current VIX ~16-18 in normal regimes
 
-Empirical comparison (CLEAN 18.1y):
+Empirical results (CLEAN 18.1y, post-cost):
   Variant                       Sh    MaxDD    r12mean-DD  r24mean-DD  trades/yr
-  Baseline (no cap)             1.51  -12.00%  -7.28%      -8.31%      0
-  R6 max(252d-avg, 22%)         1.55  -12.00%  -6.95%      -7.72%      0.9
-  P97 expanding (vol)           1.54  -12.41%  -6.72%      -7.60%      1.1
+  Baseline (no vol cap)         1.51  -12.00%  -7.28%      -8.31%      0
   VIX P95 rolling 5y (PROD)     1.53  -11.46%  -6.63%      -7.40%      1.8
 
-  VIX P95 5y has the lowest rolling 12mo and 24mo mean drawdown on both
-  windows (CLEAN + 30y), and the best worst-case MaxDD on CLEAN. Sharpe
-  difference vs R6 is 0.02 = noise (bootstrap CI [1.08, 1.94] is 40x wider).
+  The VIX cap improves rolling 12mo / 24mo mean drawdown and the single
+  worst-case MaxDD at a small CAGR cost (-1.1pp) and modest ops (~1.8
+  trades/yr). Sharpe shift +0.02 is within the blend bootstrap CI
+  [1.08, 1.94] width — treat as noise; the cap is for tail-DD compression,
+  not Sharpe enhancement.
 
 Form supported by practitioner literature:
   - VIX-percentile regime classification (standard practitioner approach)

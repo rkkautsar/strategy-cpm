@@ -208,14 +208,12 @@ Methodology, sensitivity grids, complexity-layer ablation, and references in
 | 95% CI | [1.081, 1.940] |
 | P(Sharpe > 1.0) | 99.2% |
 
-The 95% lower bound (1.08) sits above the forward-expectation floor (1.00),
-though less comfortably than the prior K=4 CI [1.13, 2.02]. Deflated Sharpe
-on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut (Bailey-Lopez de
-Prado); sensitive to assumed effective trial count.
+The 95% lower bound (1.08) sits above the forward-expectation floor (1.00).
+Deflated Sharpe on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut
+(Bailey-Lopez de Prado); sensitive to assumed effective trial count.
 
-**Blend-weight sensitivity** (CPM fixed at 60%, BULL/NDX split varies;
-**no vol cap baseline** for clean comparison — PROD with vol cap is 60/20/20
-+ cap, see headline numbers):
+**Blend-weight sensitivity** (CPM fixed at 60%, BULL/NDX split varies, no
+vol cap applied to isolate the weight effect):
 
 | Weights | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
@@ -255,33 +253,20 @@ CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
 
 **Portfolio-level vol cap robustness** (latched binary 50%, VIX > rolling-5y P95):
 
-| Test | Result |
-|---|---|
-| **PROD CLEAN 18.1y** | **Sharpe 1.53 vs baseline 1.51 (+0.02); MaxDD -12.00% → -11.46%; Max-rv 31.5% → 28.5%; 1.8 trades/yr** |
-| Extended 30y (incl. dotcom) | Sharpe 1.30 vs 1.30 (essentially flat); MaxDD -16.59% → -16.59% (no improvement); 1.6 trades/yr |
-| Rolling 12mo mean DD (CLEAN) | -6.63% (best of tested forms); baseline -7.28%, R6-alt -6.95% |
-| Rolling 24mo mean DD (CLEAN) | -7.40% (best); baseline -8.31%, R6-alt -7.72% |
-| Rolling 12mo min DD (CLEAN) | -11.46% (best); baseline -12.00%, R6-alt -12.00% |
-| Alternative: R6 `max(252d-avg vol, 22%)` | Sh 1.55 (+0.04); MaxDD -12.00%; Max-rv 23.4%. Better in-sample Sharpe + worst-case Max-rv, but worse rolling-DD experience. Has arbitrary 22% calibration. |
-| Alternative: P97 expanding (vol percentile) | Sh 1.54; MaxDD -12.41%. Same tail vol as R6 but worse MaxDD. |
-| Alternative: Pure adaptive (`vol > long avg`, no floor) | Sh 1.40 — over-triggers in calm regimes |
-| Alternative: MM continuous @ 15% (Moreira-Muir 2017) | Sh 1.54; MaxDD -10.84%; 6 trades/yr. Better single MaxDD at higher ops. |
-| Alternative: drawdown-trigger DD<P9 expanding | Sh 1.39 (-0.16); 30y MaxDD -11.46% (best 30y tail). Big Sharpe cost. |
+| Window | Sharpe | CAGR | MaxDD | Max-rv | r12mo mean-DD | r24mo mean-DD | Trades/yr |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| CLEAN 18.1y (baseline) | 1.51 | 17.62% | -12.00% | 31.5% | -7.28% | -8.31% | 0 |
+| **CLEAN 18.1y (with cap)** | **1.53** | **16.53%** | **-11.46%** | **28.5%** | **-6.63%** | **-7.40%** | **1.8** |
+| Extended 30y (baseline) | 1.30 | 15.41% | -16.59% | 33.1% | -8.30% | -9.64% | 0 |
+| Extended 30y (with cap) | 1.30 | 14.66% | -16.59% | 33.1% | -7.88% | -9.09% | 1.6 |
 
-**Why VIX P95 5y over R6 / fixed 22%**: VIX is externally calibrated (no
-parameter tuning on own backtest data). Rolling 5y P95 adapts to current
-vol-of-vol regime (threshold today ~30 is the well-known panic level). On
-the full drawdown distribution (rolling 12mo/24mo means and minima), VIX cap
-empirically delivers shallower DD experience than R6 across both CLEAN and
-30y windows. R6 has slightly better in-sample Sharpe (+0.02, within bootstrap
-noise of [1.08, 1.94]) and worst-case single Max realized vol (23.4% vs
-28.5%), but worse rolling-DD experience and requires calibrating "22%" on own
-data.
-
-**Practitioner backing**: VIX-percentile regime classification is
-industry-standard (VRP-harvesting strategies; Cboe's own panic thresholds).
-Latched binary form supported by Moreira-Muir 2017 (bounded vol-managed
-variant) + practitioner literature on signal-confirmation + cooldown.
+VIX is an external signal (not tuned on this strategy's backtest). Rolling 5y
+P95 adapts to the prevailing vol-of-vol regime; today's threshold is ~30 (the
+conventional VIX panic level). VIX-percentile regime classification is
+standard practitioner methodology (VRP-harvesting strategies; Cboe's own
+thresholds). The latched binary form draws on Moreira-Muir 2017 bounded
+vol-managed portfolios + practitioner signal-confirmation + cooldown
+literature.
 
 **Vol-cap latch reset rules** (operational spec):
 
@@ -313,12 +298,10 @@ adapts to prevailing vol-of-vol regime.
   re-evaluate on the new uncapped allocation; net effect is one combined
   rebalance trade rather than two.
 - VIX 5y P95 drifts in sustained high-vol regime: threshold adapts upward
-  (the 5y rolling baseline rises), reducing over-triggering. No floor; pure
-  percentile-of-history.
+  (the 5y rolling baseline rises), reducing over-triggering.
 - Vol shock without VIX panic (e.g., bond/commodity vol spike that doesn't
   move equity options): cap does NOT fire even if blend vol exceeds historical
-  bounds. This is the known weakness vs blend-vol forms like R6 — trade-off
-  for using an external calibration-free signal.
+  bounds. Known limitation of using an external equity-vol signal.
 
 **Daily-check failure modes** (vol_check.py + GH Actions cron):
 
@@ -371,21 +354,6 @@ Composite gate adds +0.32 Sh on 30y (vs +0.25 on 18.1y). Same direction
 across windows; magnitude similar. The +0.246 Sh on 18y is not a single-
 window artifact, though stitched-proxy data for IEF/TLT pre-2002 means the
 pre-2002 result is directional only.
-
-**Additional vetos tested and rejected** (CLEAN 18.1y backtest):
-
-| Variant | CPM Sh | CPM MaxDD | Blend Sh | Blend MaxDD |
-|---|---:|---:|---:|---:|
-| **PROD (current vetos)** | **1.308** | **-10.59%** | **1.590** | **-12.92%** |
-| + (d) prior 13612U mom > 0 required | 1.242 | -12.49% | 1.533 | -13.94% |
-| + (e) buf-var <= 1.10 * fresh-var | 1.267 | -12.49% | 1.552 | -13.94% |
-| + both (d) + (e) | 1.267 | -12.49% | 1.552 | -13.94% |
-
-Both proposed safety vetos hurt on both Sharpe and MaxDD. The buffer's value
-is retaining weak-momentum prior members during noise; additional vetos
-defeat its core function by forcing unnecessary swaps. Current minimal
-veto set (faber>0 + small-sample + canary transition) is empirically at
-the right balance.
 
 **30y extended window** includes dotcom, GFC, COVID, 2022 inflation; pre-2006
 NDX mirrors BULL and pre-2001-06 canary reduces to HYG-only. Asset-momentum
