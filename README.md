@@ -212,13 +212,6 @@ shallower-DD end of the Sharpe-optimal plateau — a deliberate preference for
 lower drawdown over marginally higher CAGR, since DD compounds psychological
 risk in live execution.
 
-**Conservative-deployment alternative: 60/25/15.** Sharpe 1.581 (-0.009 vs
-PROD), CAGR 18.51% (-1.02pp), MaxDD -12.13% (+0.79pp shallower). Given the
-unresolved NDX selection-stage bias (see Caveats § NDX bias) and the lack
-of pre-2006 NDX backtest evidence, 60/25/15 is the safer first-deployment
-weighting until shadow-live confirms NDX data quality, fills, and
-constituent-handling stability. Move to 60/20/20 only after that audit.
-
 **Composite-gate contribution to BULL** (vs canary + asset_mom only, from
 handout §4.1): the curve|vol composite gate adds +0.246 Sharpe and reduces
 MaxDD by 21.1pp (-33.72% to -12.58% standalone BULL-SPY). The three-gate
@@ -242,12 +235,22 @@ CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
 **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
 marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
 disabled when (a) fewer than 3 positive candidates, (b) prior asset's faber
-score <= 0, or (c) canary-state transition between months. **Missing safety
-vetos (known refinement opportunity, not yet implemented)**: (d) prior
-asset's 13612U momentum <= 0, (e) buffered-pair variance > 1.10x fresh-pair
-variance. (d) and (e) would prevent the buffer from retaining a position
-whose forward outlook has degraded even if its cross-sectional z is still
-within tolerance.
+score <= 0, or (c) canary-state transition between months.
+
+**Additional vetos tested and rejected** (CLEAN 18.1y backtest):
+
+| Variant | CPM Sh | CPM MaxDD | Blend Sh | Blend MaxDD |
+|---|---:|---:|---:|---:|
+| **PROD (current vetos)** | **1.308** | **-10.59%** | **1.590** | **-12.92%** |
+| + (d) prior 13612U mom > 0 required | 1.242 | -12.49% | 1.533 | -13.94% |
+| + (e) buf-var <= 1.10 * fresh-var | 1.267 | -12.49% | 1.552 | -13.94% |
+| + both (d) + (e) | 1.267 | -12.49% | 1.552 | -13.94% |
+
+Both proposed safety vetos hurt on both Sharpe and MaxDD. The buffer's value
+is retaining weak-momentum prior members during noise; additional vetos
+defeat its core function by forcing unnecessary swaps. Current minimal
+veto set (faber>0 + small-sample + canary transition) is empirically at
+the right balance.
 
 **30y extended window** includes dotcom, GFC, COVID, 2022 inflation; pre-2006
 NDX mirrors BULL and pre-2001-06 canary reduces to HYG-only. Asset-momentum
