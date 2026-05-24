@@ -44,6 +44,12 @@ VIX_LB_YEARS = 5           # rolling 5-year window
 VIX_LB_DAYS = VIX_LB_YEARS * 252  # ~1260 trading days
 VOL_CAP_SCALE = 0.5        # binary scale-down (half to cash) when triggered
 
+# VIX sanity bounds: reject values outside this range as likely data errors
+# (yfinance occasionally returns spurious prints). VIX historical extremes:
+# all-time low ~9 (2017), all-time high ~85 (1987 Black Monday) / ~83 (COVID 2020).
+VIX_SANE_MIN = 8.0
+VIX_SANE_MAX = 100.0
+
 ROOT = Path(__file__).resolve().parent
 VIX_CACHE = ROOT / "data" / "vix_cache.parquet"
 
@@ -82,6 +88,13 @@ def load_vix(start: pd.Timestamp | None = None,
             v_series = v["Close"].copy()
             v_series.index = pd.to_datetime(v_series.index).tz_localize(None)
             v_series = v_series.dropna()
+            # Sanity-bound: drop spurious prints outside historical extremes.
+            bad = (v_series < VIX_SANE_MIN) | (v_series > VIX_SANE_MAX)
+            if bad.any():
+                print(f"[vol_cap.load_vix] WARNING: {int(bad.sum())} VIX prints "
+                      f"outside sane range [{VIX_SANE_MIN}, {VIX_SANE_MAX}] "
+                      f"dropped: {v_series[bad].tail(3).to_dict()}")
+                v_series = v_series[~bad]
             VIX_CACHE.parent.mkdir(parents=True, exist_ok=True)
             v_series.to_frame(name="close").to_parquet(VIX_CACHE)
     else:

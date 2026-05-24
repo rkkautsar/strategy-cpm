@@ -47,7 +47,7 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8 + VIX cap** | **1.53** | **16.53%** | **10.81%** | **-11.46%** | **1.44** |
+| **PROD 60/20/20 K=8 + VIX cap** | **1.53** | **16.58%** | **10.41%** | **-11.46%** | **1.45** |
 | PROD (no vol cap) | 1.51 | 17.66% | 11.17% | -12.00% | 1.47 |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
@@ -71,9 +71,9 @@ biases + tail sequencing not captured by return bootstrap):
 | Metric | Backtest (+ vol cap) | Forward base case |
 |---|---:|---|
 | Sharpe | 1.53 | **1.05-1.35** |
-| CAGR | 16.53% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -11.46% | **-15% to -30%** planning band (K=8 caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
-| Calmar | 1.44 | **0.55-0.90** |
+| CAGR | 16.58% | **11-15%** pre-tax, **5-9%** after-tax |
+| MaxDD | -11.46% | **-15% to -30%** planning band (per-pick weight caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
+| Calmar | 1.45 | **0.55-0.90** |
 
 ## Strategy specification
 
@@ -204,6 +204,16 @@ Methodology, sensitivity grids, complexity-layer ablation, and references in
 The 95% lower bound (1.08) sits above the forward-expectation floor (1.00).
 Deflated Sharpe on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut
 (Bailey-Lopez de Prado); sensitive to assumed effective trial count.
+Bootstrap CI is computed on the **uncapped blend** (point Sharpe 1.514);
+the VIX-capped variant shifts Sharpe by ~+0.02 on the CLEAN window, within
+the CI width. CI on the capped variant is not separately computed.
+
+**BULL composite gate.** The 3-gate stack (canary + curve|vol composite +
+asset_mom) was selected from a ~15-20 effective trial space (curve definition
+x vol asset x logical combination x lookback). BULL standalone DSR is not
+separately reported. The 30y cross-window stability check (composite adds
++0.32 Sh vs canary+asset_mom baseline) is the primary overfitting check;
+a formal trial-count haircut for gate selection is not quantified.
 
 **Blend-weight sensitivity** (CPM fixed at 60%, BULL/NDX split varies, no
 vol cap applied to isolate the weight effect):
@@ -248,10 +258,21 @@ CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
 
 | Window | Sharpe | CAGR | MaxDD | Max-rv | r12mo mean-DD | r24mo mean-DD | Trades/yr |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| CLEAN 18.1y (baseline) | 1.51 | 17.62% | -12.00% | 31.5% | -7.28% | -8.31% | 0 |
-| **CLEAN 18.1y (with cap)** | **1.53** | **16.53%** | **-11.46%** | **28.5%** | **-6.63%** | **-7.40%** | **1.8** |
+| CLEAN 18.1y (baseline) | 1.51 | 17.66% | -12.00% | 31.5% | -7.28% | -8.31% | 0 |
+| **CLEAN 18.1y (with cap)** | **1.53** | **16.58%** | **-11.46%** | **28.5%** | **-6.63%** | **-7.40%** | **1.8** |
 | Extended 30y (baseline) | 1.30 | 15.41% | -16.59% | 33.1% | -8.30% | -9.64% | 0 |
 | Extended 30y (with cap) | 1.30 | 14.66% | -16.59% | 33.1% | -7.88% | -9.09% | 1.6 |
+
+**Trade-off interpretation.** On CLEAN 18.1y the cap improves single MaxDD
+by 0.54pp (-12.00% → -11.46%), tail vol by 3.0pp (31.5% → 28.5%), and
+rolling-12mo mean DD by 0.65pp, at the cost of -1.08pp CAGR. On Extended
+30y the cap is **essentially flat on Sharpe and gives no MaxDD or Max-rv
+improvement**, while costing -0.75pp CAGR; only rolling-DD experience
+improves modestly (~0.4pp on 12mo mean). The cap's value comes from
+shallower rolling drawdown experience and the external (non-data-tuned)
+calibration; the headline Sharpe shift is within bootstrap-CI noise on
+both windows. Pre-2002 stitched-proxy data + the 5y VIX lookback warmup
+dampen the cap's effect on the early portion of the 30y window.
 
 VIX is an external signal (not tuned on this strategy's backtest). Rolling 5y
 P95 adapts to the prevailing vol-of-vol regime; today's threshold is ~30 (the
@@ -523,6 +544,12 @@ the lookback rolls. **MaxDD widens from -12% to -30% in that scenario.**
 Plan around -25 to -30% for the deep-bear-protracted case in addition to
 the -22% selection-bias stress band reported under NDX bias.
 
+**Stress applied to uncapped variant.** The VIX cap would likely engage
+during a 2022-style sustained bear (VIX consistently above 25-30) and
+reduce realized MaxDD depth, but the cap doesn't fully eliminate
+protracted-bear gap risk. The numbers above are conservative (no cap)
+upper bounds on potential MaxDD.
+
 **Pre-2007 backtest reliability**
 
 Dot-com (2000-02) and GFC (2008) are exactly where the defensive machinery
@@ -537,6 +564,11 @@ sourced, beta; old tickers not auto-resolved in strict membership checks).
 Known failure modes: yfinance DOM-change breakage, rate limiting / missing
 data on month-end for individual NDX stocks, bad split/dividend adjustments,
 unresolved old ticker symbols, NDX delisted-ticker leakage.
+
+**VIX data sanity bounds**: `vol_cap.py` rejects VIX prints outside [8, 100]
+as likely data errors (historical extremes: ~9 low 2017, ~85 high 1987 Black
+Monday / ~83 COVID 2020). `vol_check.py` aborts state update + alert if
+today's VIX is out of bounds rather than falsely triggering.
 
 **Backtested data-gap frequency** (CLEAN 18.1y panel):
 

@@ -112,6 +112,13 @@ def main() -> int:
     breakdown = current_threshold(vix)
     today_vix = breakdown["vix"]
     today_thresh = breakdown["threshold"]
+    # Sanity-bound check on today's VIX print: drop alert if outside bounds
+    from vol_cap import VIX_SANE_MIN, VIX_SANE_MAX
+    if pd.notna(today_vix) and (today_vix < VIX_SANE_MIN or today_vix > VIX_SANE_MAX):
+        print(f"[vol-check] ERROR: today's VIX {today_vix:.2f} outside sane "
+              f"range [{VIX_SANE_MIN}, {VIX_SANE_MAX}] - likely data error, "
+              f"skipping state update")
+        return 2
 
     # Load prior state
     if STATE_FILE.exists():
