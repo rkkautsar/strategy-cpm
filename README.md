@@ -48,7 +48,6 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
 | **PROD 60/20/20 K=8 + VIX cap** | **1.53** | **16.58%** | **10.41%** | **-11.46%** | **1.45** |
-| PROD (no vol cap) | 1.51 | 17.66% | 11.17% | -12.00% | 1.47 |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
@@ -62,7 +61,7 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/20/20** | **1.34** | **16.42%** | **-16.59%** |
+| **PROD 60/20/20 + VIX cap** | **1.30** | **14.66%** | **-16.59%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
 **Forward expectation** (discount for selection bias + regime dependency + NDX
@@ -192,22 +191,20 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 Methodology, sensitivity grids, complexity-layer ablation, and references in
 `cpm_bull_ndx_handout.md`. Key numbers inline:
 
-**PROD 60/20/20 K=8 block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
+**PROD 60/20/20 K=8 + VIX cap block bootstrap (CLEAN 18.1y, B=2000, 21d blocks):**
 
 | Metric | Value |
 |---|---|
-| Point Sharpe | 1.514 |
-| Bootstrap mean | 1.500 |
-| 95% CI | [1.081, 1.940] |
+| Point Sharpe | 1.528 |
+| Bootstrap mean | 1.515 |
+| 95% CI | [1.088, 1.970] |
 | P(Sharpe > 1.0) | 99.2% |
+| P(Sharpe > 1.05) | 98.5% |
 
-The 95% lower bound (1.08) sits above the forward-expectation floor (1.00).
+The 95% lower bound (1.09) sits above the forward-expectation floor (1.05)
+with limited margin (~0.04). P(true Sharpe > 1.05 forward floor) = 98.5%.
 Deflated Sharpe on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut
 (Bailey-Lopez de Prado); sensitive to assumed effective trial count.
-Bootstrap CI is computed on the **uncapped blend** (point Sharpe 1.514);
-the VIX-capped variant shifts Sharpe by ~+0.014 on the CLEAN window. Capped
-variant CI lower bound is approximately **1.10** (1.08 + 0.014); above the
-1.05 forward floor but with limited margin.
 
 **BULL composite gate DSR** (Bailey-Lopez de Prado, BULL standalone Sharpe
 1.182, daily skew -0.374, kurt 3.74):
@@ -234,24 +231,22 @@ than it would be with the full 2-asset BULL canary today.
 
 **Blend-weight sensitivity** (CPM fixed at 60%, BULL/NDX split varies):
 
-*Both columns shown so the headline (60/20/20 with VIX cap, Sharpe 1.53)
-is comparable to the sensitivity grid.*
+(All numbers include the VIX cap.)
 
-
-| Weights | Uncap Sh | Uncap CAGR | Uncap MaxDD | Cap Sh | Cap CAGR | Cap MaxDD |
-|---|---:|---:|---:|---:|---:|---:|
-| 60/40/0 (no NDX) | 1.458 | 15.24% | -9.85% | 1.467 | 14.25% | -9.30% |
-| 60/30/10 | 1.501 | 16.44% | -10.87% | 1.514 | 15.40% | -10.32% |
-| 60/25/15 | 1.511 | 17.03% | -11.43% | 1.525 | 15.97% | -10.89% |
-| **60/20/20 (PROD)** | **1.515** | **17.62%** | **-12.00%** | **1.529** | **16.53%** | **-11.46%** |
-| 60/15/25 | 1.513 | 18.20% | -12.90% | 1.528 | 17.09% | -12.02% |
-| 60/10/30 | 1.506 | 18.78% | -13.85% | 1.521 | 17.65% | -12.62% |
-| 60/0/40 (no BULL) | 1.482 | 19.93% | -15.71% | 1.498 | 18.76% | -14.38% |
+| Weights | Sharpe | CAGR | MaxDD | Max-rv |
+|---|---:|---:|---:|---:|
+| 60/40/0 (no NDX) | 1.467 | 14.25% | -9.30% | 24.9% |
+| 60/30/10 | 1.514 | 15.40% | -10.32% | 26.7% |
+| 60/25/15 | 1.525 | 15.97% | -10.89% | 27.6% |
+| **60/20/20 (PROD)** | **1.529** | **16.53%** | **-11.46%** | **28.5%** |
+| 60/15/25 | 1.528 | 17.09% | -12.02% | 29.5% |
+| 60/10/30 | 1.521 | 17.65% | -12.62% | 30.5% |
+| 60/0/40 (no BULL) | 1.498 | 18.76% | -14.38% | 32.5% |
 
 Sharpe is on a flat plateau spanning roughly 60/30/10 - 60/10/30; BULL/NDX
-split trades CAGR vs MaxDD ~linearly along the plateau. The point estimates
-show 60/20/20 at the Sharpe peak (1.529 capped / 1.515 uncapped), with
-60/25/15 and 60/15/25 essentially tied within sample noise (±0.004 Sharpe).
+split trades CAGR vs MaxDD ~linearly along the plateau. 60/20/20 sits at the
+Sharpe peak (1.529); 60/25/15 and 60/15/25 are essentially tied within
+sample noise (±0.004 Sharpe).
 **The plateau is flat; this is a choice within a noise-equivalent range, not
 a model-dominance claim.**
 
@@ -274,14 +269,14 @@ driven by canary + asset_mom flips, identical across variants.
 
 **Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
 CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost. Window is
-~1y longer than CLEAN headline (18.1y). Reconciliation: the 19.3y increments
-sum to **+0.22 Sh**, consistent with the CLEAN-window blend (1.53) minus CPM
-standalone (1.29) gap of **+0.24 Sh**; the small ~0.02 surplus on CLEAN is
-attributable to the VIX cap contribution (capped blend +0.02 vs uncapped on
-that window).
+~1y longer than CLEAN headline (18.1y). The 19.3y increments sum to **+0.22
+Sh**, comparable to the CLEAN-window blend (1.53) minus CPM standalone
+(1.29) gap of **+0.24 Sh**; remaining ~0.02pp likely reflects the VIX cap
+plus window-overlap differences.
 
 **Conditional sleeve correlation** (CPM vs BULL+NDX combined as one
-growth-tilted entity, CLEAN 18.1y, regime classified by BULL gate state):
+growth-tilted entity, CLEAN 18.1y, regime classified by **BULL gate state**
+— *not* realized market stress; see caveat below):
 
 | Regime | Months | Days | corr(daily) | corr(monthly) |
 |---|---:|---:|---:|---:|
@@ -298,6 +293,14 @@ ticker (QQQ / IWF / SPHQ) as one of the two pair members in **73/95 =
 CPM rotates into diversifiers (GLD / TLT / DBC). The blend Sharpe gain over
 sleeve standalones (blend 1.53 vs CPM 1.29, BULL 1.18, NDX 1.22) is
 consistent with through-cycle correlation ~0.40.
+
+**Classifier caveat**: "risk-on" here means BULL gate engaged, not
+realized market calm. In gate-miss stress episodes (BULL stays risk-on
+while markets are actually under pressure), both CPM and BULL+NDX would
+be losing simultaneously and the realized correlation in that sub-state
+would be HIGHER than 0.46. The 0.46 risk-on correlation is therefore a
+lower bound on realized correlation when the BULL gate is engaged AND
+stress materializes despite the gate.
 
 **Portfolio-level vol cap robustness** (latched binary 50%, VIX > rolling-5y P95):
 
