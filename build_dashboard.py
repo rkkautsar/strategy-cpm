@@ -1421,11 +1421,14 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     # Vol-cap state: computed on-the-fly from full history (stateless;
     # no vol_cap_state.json required). Reconstructs latched scale from
     # panel date index + VIX + signal dates.
+    # IMPORTANT: read scale at LATEST panel date (not sig_d). The latched
+    # scale on the signal date itself is the prior-period state; the lift/
+    # trigger evaluated at signal date takes effect starting the next day.
     from vol_cap import (VIX_PCT, VIX_LB_YEARS, VOL_CAP_SCALE,
                           compute_latched_scale, load_vix)
     try:
-        # Stub returns series with the right index (values don't affect scale).
-        _idx = panel.index[panel.index <= sig_d]
+        # Use entire panel through today (not capped at sig_d).
+        _idx = panel.index
         if len(_idx) > 0:
             _stub = pd.Series(0.0, index=_idx)
             _vix_for_state = load_vix(end=_idx[-1] + pd.Timedelta(days=2))
@@ -1477,8 +1480,12 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     thresh_str = f"{vc_threshold:.2f}" if vc_threshold is not None else "n/a"
     if vc_regime == "CAP_ENGAGED":
         vc_color = "#e74c3c"
+        # cap could be latched from prior trigger even if today's VIX < threshold
+        _cmp = "&gt;" if (vc_vix is not None and vc_threshold is not None
+                          and vc_vix > vc_threshold) else "&lt;"
+        _latch_note = " (latched from prior trigger; will lift at next signal date if VIX stays below threshold)" if _cmp == "&lt;" else ""
         vc_status = (f"⚠️ <strong>CAP ENGAGED</strong> at {int(vc_scale*100)}% scale "
-                      f"(half to cash). VIX: {vix_str} &gt; threshold {thresh_str}. "
+                      f"(half to cash). VIX: {vix_str} {_cmp} threshold {thresh_str}.{_latch_note} "
                       f"Latched until next monthly signal.")
     elif vc_regime == "NORMAL":
         vc_color = "#27ae60"
@@ -1569,7 +1576,9 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 
     # Vol-cap one-line summary for top-of-card
     if vc_regime == "CAP_ENGAGED":
-        vc_summary = f"⚠️ Vol cap engaged ({int(vc_scale*100)}% scale, half to cash) — VIX {vix_str} &gt; {thresh_str} threshold"
+        _cmp_sum = "&gt;" if (vc_vix is not None and vc_threshold is not None
+                              and vc_vix > vc_threshold) else "&lt;"
+        vc_summary = f"⚠️ Vol cap engaged ({int(vc_scale*100)}% scale, half to cash) — VIX {vix_str} {_cmp_sum} {thresh_str} threshold"
     elif vc_regime == "NORMAL":
         vc_summary = f"✓ Vol cap normal (100% scale) — VIX {vix_str} &lt; {thresh_str} threshold"
     else:
