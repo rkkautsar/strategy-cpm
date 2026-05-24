@@ -147,16 +147,21 @@ else:
 # ---- Combined ----
 portfolio_uncapped = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
-# ====== Portfolio-level vol cap (latched binary 50% @ 22% trigger) ======
-# Daily check: if blend trailing-21d realized vol > 22%, scale = 0.5; else 1.0.
-# Once triggered, LATCH at 0.5 until next monthly signal date (re-evaluate then).
+# ====== Portfolio-level vol cap (hybrid threshold + latched binary 50%) ======
+# Daily check: if blend trailing-21d vol > max(252d-avg of 21d vol, 22% floor),
+# scale = 0.5; else 1.0. Once triggered, LATCH at 0.5 until next monthly
+# signal date (re-evaluate then). The hybrid threshold adapts upward if
+# baseline vol drifts > 22% (1970s-style regime), identical to fixed 22%
+# in normal regimes.
 blend_vol_21d  = realized_vol_21d(portfolio_uncapped)
-if blend_vol_21d > 0.22 OR vol_cap_latched_from_prior_day:
-    scale = 0.5                                       # halve everything
+long_avg       = rolling_mean_252d(blend_vol_21d)         # 1y baseline
+threshold      = max(long_avg, 0.22)                      # adaptive with abs floor
+if blend_vol_21d > threshold OR vol_cap_latched_from_prior_day:
+    scale = 0.5                                           # halve everything
 else:
     scale = 1.0
 portfolio = scale * portfolio_uncapped
-portfolio[SHV] += (1 - scale)                         # excess to cash
+portfolio[SHV] += (1 - scale)                             # excess to cash
 ```
 
 **Universe** (all live since 2006-02 = DBC inception):
@@ -250,35 +255,49 @@ driven by canary + asset_mom flips, identical across variants.
 **Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
 CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
 
-**Portfolio-level vol cap robustness** (latched binary 50% @ 22% trigger):
+**Portfolio-level vol cap robustness** (latched binary 50%; hybrid threshold
+= max(252d-avg of 21d realized vol, 22% absolute floor)):
 
 | Test | Result |
 |---|---|
-| In-sample CLEAN 18.1y | Sharpe 1.554 vs baseline 1.515 (+0.039); Max realized vol 31.5% → 23.4% |
-| Extended 30y (incl. dotcom) | Sharpe 1.311 vs 1.303 (+0.008); Max vol 33.1% → 24.9% |
-| Out-of-window split (first half 2008-2017) | +0.042 Sharpe vs baseline (positive) |
+| **PROD: R6 hybrid `max(long252, 22%)`, CLEAN 18.1y** | **Sharpe 1.553 vs baseline 1.515 (+0.038); Max-rv 31.5% → 23.4%; 0.89 trades/yr** |
+| Extended 30y (incl. dotcom) | Sharpe 1.317 vs 1.303 (+0.014); Max vol 33.1% → 25.9%; 0.7 trades/yr |
+| Out-of-window split (first half 2008-2017) | +0.042 Sharpe vs baseline (positive; identical to fixed 22% in-sample) |
 | Out-of-window split (second half 2017-2026) | +0.032 Sharpe vs baseline (positive) |
-| LB sensitivity (10/21/42/63d) | 21d is the optimum (Sh 1.554); others 1.498-1.510 |
-| Alternative form: MM continuous @ 15% (Moreira-Muir 2017) | Sh 1.535 (worse), MaxDD -10.84% (better), 6 trades/yr |
-| Alternative form: VIX-percentile @ 90th latched | Sh 1.472 (worst), worse on both windows |
+| LB-short sensitivity (10/21/42/63d) | 21d is the optimum (Sh 1.554); others 1.498-1.510 |
+| Alternative: pure adaptive (`short > long252 avg`, no floor) | Sh 1.399 — over-triggers in calm regimes (Sh -0.15 vs baseline) |
+| Alternative: fixed 22% absolute (no adaptive arm) | Sh 1.554 — in-sample equivalent to R6 (long-avg rarely exceeds 22% in tested data) |
+| Alternative: MM continuous @ 15% (Moreira-Muir 2017) | Sh 1.535 (worse), MaxDD -10.84% (better), 6 trades/yr |
+| Alternative: VIX-percentile @ 90th latched | Sh 1.472 (worst), worse on both windows |
 
-Latched binary form empirically beats Moreira-Muir continuous and VIX-percentile
-alternatives by Sharpe in both windows. MaxDD reduction is weaker than continuous
-scaling but tail-vol compression is comparable. 22% threshold is the only one
-positive across both in-sample halves. ~0.9 trades/yr.
+**Why R6 hybrid over fixed 22%**: empirically equivalent in tested data (long-
+avg rarely exceeded 22% in either window, so R6 collapsed to fixed-22% in-
+sample). The hybrid form adapts upward if baseline vol regime drifts above
+22% (1970s-style protracted high-vol regime). Pure adaptive (`short > long`
+with no floor) is empirically WORSE because it over-triggers in calm regimes
+when long-avg drifts to 10-12%. Form components supported by practitioner
+literature: exposure floor (StockAlpha), signal confirmation + cooldown
+(Moreira-Muir 2017 bounded variant), regime-bucket threshold (VRP-harvesting
+practitioners), latched whipsaw control. ~0.9 trades/yr.
 
 **Vol-cap latch reset rules** (operational spec):
 
+Let `threshold_t = max(rolling_mean_252d(realized_21d_vol)_t, 22%)`. In all
+tested data the 252d-avg stayed below 22%, so `threshold == 22%` in normal
+regimes; the adaptive arm only matters in 1970s-style sustained high-vol
+baselines.
+
 - **Daily check** (US-close + 30min): compute trailing 21d realized vol of the
-  uncapped blend.
-  - If `vol > 22% AND current_scale == 1.0` → trigger: set scale = 0.5,
+  uncapped blend, and the current `threshold_t`.
+  - If `vol > threshold AND current_scale == 1.0` → trigger: set scale = 0.5,
     sell 50% of portfolio to cash, latch until next monthly signal date.
   - If `current_scale == 0.5` → no daily action regardless of vol (latch holds).
 - **Monthly signal date** (last trading day of month): always re-evaluate.
-  - If `vol > 22%` → reset/maintain scale = 0.5; new month's positions are
-    sized at 50% of the new sleeve targets, with 50% in cash.
-  - If `vol < 22%` → lift: scale = 1.0; rebuild full positions at 100% of
-    new sleeve targets.
+  - If `vol > threshold_t` at signal date → reset/maintain scale = 0.5; new
+    month's positions are sized at 50% of the new sleeve targets, with 50%
+    in cash.
+  - If `vol < threshold_t` → lift: scale = 1.0; rebuild full positions at
+    100% of new sleeve targets.
   - Net trade at month-end = (new sleeve allocations × new scale) - (current
     holdings). The trade-delta table on the dashboard shows this directly.
 
@@ -291,6 +310,8 @@ positive across both in-sample halves. ~0.9 trades/yr.
 - Trigger fires the day before monthly signal: at signal date, immediately
   re-evaluate on the new uncapped allocation; net effect is one combined
   rebalance trade rather than two.
+- Long-avg drifts above 22% (sustained high-vol regime): threshold adapts
+  upward, reducing over-triggering. Never below the 22% floor.
 
 **Daily-check failure modes** (vol_check.py + GH Actions cron):
 
@@ -391,16 +412,16 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   vol-targeted at 12% sleeve-internal (and the cap is monthly ex-ante, so
   mid-month spikes are uncapped). BULL (~14-25% standalone vol) and NDX
   (~23-40% standalone vol) run uncapped at sleeve level. The portfolio-level
-  vol cap (latched binary 50% @ 22% trigger; daily check) was added on top
+  vol cap (latched binary 50% with hybrid `max(252d avg, 22% floor)` threshold; daily check) was added on top
   to address this. Realized blend 21d vol distribution:
 
   | Window | P50 | P75 | P95 | P99 | Max |
   |---|---:|---:|---:|---:|---:|
   | Uncapped (baseline) | 9.5% | 12.7% | 19.6% | 24.3% | **31.5%** (COVID 2020-04) |
-  | **With vol cap (PROD)** | **9.3%** | **12.4%** | **18.6%** | **22.0%** | **23.4%** |
+  | **With vol cap (PROD R6)** | **9.3%** | **12.4%** | **18.6%** | **22.0%** | **23.4%** |
 
   The portfolio cap reduces tail risk (P99 -2.3pp, Max -8.1pp) at a small
-  CAGR cost (-0.27pp). Sleeve-internal caps remain in place; the portfolio
+  CAGR cost (-0.22pp). Sleeve-internal caps remain in place; the portfolio
   cap is a second defense for mid-month vol blowups.
 - **Effective Nasdaq/growth concentration**: in risk-on regimes CPM can hold
   QQQ/IWF while BULL holds QQQ and NDX holds top Nasdaq names. Realized growth
@@ -601,7 +622,7 @@ One-shot setup: `bash deploy/setup.sh`. Details in `deploy/cf-pages/README.md`,
 - `bull_qqq_live.py` — BULL-QQQ sleeve.
 - `ndx_sleeve_live.py` — NDX sleeve (PIT constituent fetch).
 - `build_dashboard.py` — 60/20/20 blend dashboard + peer benchmarks.
-- `vol_cap.py` — portfolio-level latched binary vol cap (50% @ 22% trigger).
+- `vol_cap.py` — portfolio-level latched binary vol cap (50% scale; hybrid `max(252d-avg, 22% floor)` threshold).
 - `vol_check.py` — daily vol-cap check job (state persistence + Telegram alert).
 - `vol_cap_state.json` — persisted vol-cap state (committed by vol-check workflow).
 - `data/` — stitched series; `data/ndx_constituents/prices.parquet` cached.

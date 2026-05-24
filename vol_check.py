@@ -22,14 +22,21 @@ sys.path.insert(0, str(ROOT))
 from cpm_live import load_panel, run_cpm_backtest  # noqa: E402
 from bull_qqq_live import run_bull_qqq_backtest  # noqa: E402
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest  # noqa: E402
-from vol_cap import compute_latched_scale, VOL_CAP_TARGET, VOL_CAP_LOOKBACK  # noqa: E402
+from vol_cap import (  # noqa: E402
+    compute_latched_scale,
+    current_threshold,
+    VOL_CAP_ABS_FLOOR,
+    VOL_CAP_LB_SHORT,
+    VOL_CAP_LB_LONG,
+)
 
 STATE_FILE = ROOT / "vol_cap_state.json"
-HISTORY_DAYS = 400  # >1y context for trailing-vol + monthly latch logic
+HISTORY_DAYS = 700  # >2y context: 252d long-avg + 21d short-vol + monthly latch + margin
 
 
 def send_telegram_alert(prior_scale: float, new_scale: float,
-                          realized_vol: float, date: pd.Timestamp,
+                          realized_vol: float, threshold: float,
+                          date: pd.Timestamp,
                           dashboard_url: str | None = None) -> None:
     token = os.environ.get("TELEGRAM_TOKEN")
     chat = os.environ.get("TELEGRAM_CHAT_ID")
@@ -53,7 +60,8 @@ def send_telegram_alert(prior_scale: float, new_scale: float,
     msg = (
         f"{action_line}\n\n"
         f"As of: {date.date()}\n"
-        f"21d realized vol: {realized_vol:.1f}%  (threshold {VOL_CAP_TARGET * 100:.0f}%)\n"
+        f"21d realized vol: {realized_vol:.1f}%  (current threshold {threshold:.1f}%; "
+        f"abs floor {VOL_CAP_ABS_FLOOR * 100:.0f}%)\n"
         f"Scale: {prior_scale:.2f} → {new_scale:.2f}\n\n"
         f"{order}\n\n"
         f"Latched until next monthly rebalance (or until vol re-evaluates at signal date)."
@@ -83,7 +91,7 @@ def main() -> int:
     bull_r = run_bull_qqq_backtest(panel, start, end)
     ndx_r, _ = run_ndx_backtest(panel, ndx_panel, start, end)
     common = cpm_r.index.intersection(bull_r.index).intersection(ndx_r.index)
-    if len(common) < VOL_CAP_LOOKBACK + 30:
+    if len(common) < VOL_CAP_LB_LONG + 30:
         print(f"[vol-check] insufficient history: {len(common)} bars")
         return 1
     c = cpm_r.reindex(common).fillna(0.0)
@@ -97,8 +105,10 @@ def main() -> int:
 
     today_scale = float(scale.iloc[-1])
     today_date = scale.index[-1]
-    rv_series = blend.rolling(VOL_CAP_LOOKBACK).std() * np.sqrt(252) * 100
-    realized_vol = float(rv_series.iloc[-1]) if pd.notna(rv_series.iloc[-1]) else float("nan")
+    breakdown = current_threshold(blend)
+    realized_vol = breakdown["realized_vol_21d"] * 100 if pd.notna(breakdown["realized_vol_21d"]) else float("nan")
+    long_avg = breakdown["long_avg_252d"] * 100 if pd.notna(breakdown["long_avg_252d"]) else float("nan")
+    current_thresh = breakdown["threshold"] * 100
 
     # Load prior state
     if STATE_FILE.exists():
@@ -117,8 +127,11 @@ def main() -> int:
         "regime": "CAP_ENGAGED" if today_scale < 1.0 else "NORMAL",
         "as_of_date": str(today_date.date()),
         "realized_vol_21d_pct": round(realized_vol, 2),
-        "trigger_threshold_pct": VOL_CAP_TARGET * 100,
-        "lookback_days": VOL_CAP_LOOKBACK,
+        "long_avg_252d_pct": round(long_avg, 2) if pd.notna(long_avg) else None,
+        "current_threshold_pct": round(current_thresh, 2),
+        "abs_floor_pct": VOL_CAP_ABS_FLOOR * 100,
+        "lb_short_days": VOL_CAP_LB_SHORT,
+        "lb_long_days": VOL_CAP_LB_LONG,
         "last_check_utc": datetime.now(timezone.utc).isoformat(),
         "last_change_event": (
             {
@@ -126,6 +139,7 @@ def main() -> int:
                 "to_scale": today_scale,
                 "at_date": str(today_date.date()),
                 "realized_vol_at_change": round(realized_vol, 2),
+                "threshold_at_change": round(current_thresh, 2),
                 "kind": "trigger" if today_scale < prior_scale else "lift",
             }
             if state_changed
@@ -140,13 +154,15 @@ def main() -> int:
 
     if state_changed:
         print(f"[vol-check] ⚠ STATE CHANGED: {prior_scale:.2f} -> {today_scale:.2f}  "
-              f"realized_vol={realized_vol:.2f}%")
+              f"realized_vol={realized_vol:.2f}%  threshold={current_thresh:.2f}%")
         dash_url = os.environ.get("DASHBOARD_URL")
-        send_telegram_alert(prior_scale, today_scale, realized_vol, today_date, dash_url)
+        send_telegram_alert(prior_scale, today_scale, realized_vol,
+                              current_thresh, today_date, dash_url)
     else:
         print(f"[vol-check] no change: scale={today_scale:.2f}  "
               f"realized_vol={realized_vol:.2f}%  "
-              f"threshold={VOL_CAP_TARGET * 100:.0f}%")
+              f"threshold={current_thresh:.2f}% "
+              f"(= max(long_avg {long_avg:.2f}%, abs_floor {VOL_CAP_ABS_FLOOR*100:.0f}%))")
     return 0
 
 
