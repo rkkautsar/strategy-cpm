@@ -1,17 +1,26 @@
 # CPM-BULL-NDX
 
-**60/20/20 multi-sleeve tactical asset allocation.** Personal runbook + spec.
+**60/20/20 growth/Nasdaq momentum strategy with defensive overlays.** Personal
+runbook + spec. Realized mean Nasdaq/growth exposure is ~44% with max ~70% in
+34.6% of months — this is *not* a fully diversified all-weather TAA. Defensive
+machinery (canaries, vol cap, pair selection) caps drawdowns when macro stress
+registers; in calm bull regimes the portfolio runs as concentrated growth
+beta.
+
 Blend validation detail (NDX MC, bootstrap, DSR, ablation, hold-buffer) in
 `cpm_bull_ndx_handout.md`. BULL-QQQ academic memo in `bull_qqq_handout.md`.
 
 - **CPM (60%)** — canary-gated momentum + min-variance pair selection on a
   9-asset ETF universe (US factors + international + diversifiers).
-- **BULL-QQQ (20%)** — 100% QQQ when all three Keller-canonical "any positive"
-  gates pass: (1) HYG OR TIP 13612U > 0 (canary), (2) curve OR vol regime
-  pillar, (3) QQQ 12-1 absolute momentum > 0. In risk-off periods, BULL selects
-  between SHV and IEF by 13612U momentum (HAA-style best-of-safe): IEF in
-  falling-rate regimes (captures bond rally), SHV when rates are rising or
-  stable. This is a return enhancement, not pure defensive cash.
+- **BULL-QQQ (20%)** — 100% QQQ when three gates all pass: (1) Keller/HAA-
+  inspired HYG OR TIP 13612U > 0 canary, (2) a custom curve OR vol regime
+  composite (curve from rates, vol from broad market), (3) QQQ 12-1 absolute
+  momentum (Antonacci/TSMOM-style trend filter). Only the canary is
+  Keller-canonical; the composite and trend gates are extensions. In risk-off
+  periods, BULL selects between SHV and IEF by 13612U momentum (HAA-style
+  best-of-safe): IEF in falling-rate regimes (captures bond rally), SHV when
+  rates are rising or stable. BULL is therefore an equity-or-defensive-sleeve
+  strategy, not equity-or-cash; the defensive sleeve can carry duration risk.
 - **NDX (20%)** — top-4 PIT Nasdaq-100 stocks by 13612U momentum, 25% each,
   gated by the BULL-QQQ regime (NDX = SHV cash when BULL flips to safe).
   Design choice: BULL's macro canary acts as a portfolio-level circuit breaker
@@ -105,8 +114,12 @@ cpm[SHV] += 1.0 - sum(cpm.values())
 # ====== BULL-QQQ sleeve (20%) ======
 canary_on    = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0
 p_curve      = sum(IEF[T-63d:T] ret) > sum(TLT[T-63d:T] ret)   # curve steepening
-p_vol        = realized_vol_63d(SPY) < avg(rolling_63d_vol over 252d, SPY)
-composite_on = p_curve OR p_vol
+# Broad-MARKET vol pillar, intentionally SPY not QQQ.
+# Empirical test (see Validation): QQQ-vol gives BULL Sh 1.09 vs SPY-vol
+# 1.18, so the broad-market vol regime is a stronger filter for the BULL
+# sleeve than asset-specific Nasdaq vol despite QQQ being the held asset.
+p_market_vol = realized_vol_63d(SPY) < avg(rolling_63d_vol over 252d, SPY)
+composite_on = p_curve OR p_market_vol
 asset_mom_on = mom_12_1(QQQ) > 0
 
 if canary_on AND composite_on AND asset_mom_on:
@@ -199,20 +212,52 @@ shallower-DD end of the Sharpe-optimal plateau — a deliberate preference for
 lower drawdown over marginally higher CAGR, since DD compounds psychological
 risk in live execution.
 
+**Conservative-deployment alternative: 60/25/15.** Sharpe 1.581 (-0.009 vs
+PROD), CAGR 18.51% (-1.02pp), MaxDD -12.13% (+0.79pp shallower). Given the
+unresolved NDX selection-stage bias (see Caveats § NDX bias) and the lack
+of pre-2006 NDX backtest evidence, 60/25/15 is the safer first-deployment
+weighting until shadow-live confirms NDX data quality, fills, and
+constituent-handling stability. Move to 60/20/20 only after that audit.
+
 **Composite-gate contribution to BULL** (vs canary + asset_mom only, from
 handout §4.1): the curve|vol composite gate adds +0.246 Sharpe and reduces
 MaxDD by 21.1pp (-33.72% to -12.58% standalone BULL-SPY). The three-gate
 stack is strictly best on both Sharpe and MaxDD across all 7 gate subsets.
 
+**Vol-pillar asset choice** (BULL standalone, CLEAN 18.1y, this run):
+
+| Vol input | Sharpe | CAGR | MaxDD |
+|---|---:|---:|---:|
+| **SPY (PROD)** | **1.182** | **16.88%** | -14.31% |
+| QQQ | 1.091 | 15.38% | -14.31% |
+| SPY OR QQQ low-vol (permissive) | 1.167 | 16.90% | -14.31% |
+| SPY AND QQQ low-vol (strict) | 1.106 | 15.37% | -14.31% |
+
+Broad-market vol (SPY) materially outperforms asset-specific (QQQ). MaxDD is
+driven by canary + asset_mom flips, identical across variants.
+
 **Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
 CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
 
 **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
-marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z.
+marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
+disabled when (a) fewer than 3 positive candidates, (b) prior asset's faber
+score <= 0, or (c) canary-state transition between months. **Missing safety
+vetos (known refinement opportunity, not yet implemented)**: (d) prior
+asset's 13612U momentum <= 0, (e) buffered-pair variance > 1.10x fresh-pair
+variance. (d) and (e) would prevent the buffer from retaining a position
+whose forward outlook has degraded even if its cross-sectional z is still
+within tolerance.
 
 **30y extended window** includes dotcom, GFC, COVID, 2022 inflation; pre-2006
 NDX mirrors BULL and pre-2001-06 canary reduces to HYG-only. Asset-momentum
 12-1 circuit breaker is primary defense in macro-confusion regimes (dotcom).
+
+**Important: 30y does not stress-test the live NDX sleeve.** Because NDX
+mirrors BULL before 2006, dot-com-era 30y evidence validates CPM+BULL
+behavior only, not the current top-4 PIT Nasdaq stock-selection sleeve.
+The production NDX sleeve has no dotcom-era backtest evidence; the live
+sample for the NDX selector is the post-2006 PIT data only.
 
 Bootstrap + DSR reduce noise probability but do not eliminate model-selection
 bias, regime risk, data-quality risk, or implementation drift.
@@ -248,10 +293,23 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
 **NDX bias**
 
 NDX sleeve has documented backtest biases. Monte Carlo stress (Shumway 1999
-academic distribution, 24% delist rate, 1000 sims) shows the impact on PROD
-blend is **< 0.01 Sharpe / 0.05pp CAGR** under realistic distributions; even
-worst-case (25% bankruptcy at -80%) bounds the impact at ~0.07 Sharpe / 0.9pp
-CAGR. The 20% blend weight structurally bounds the bias. Bias sources:
+academic distribution, 24% delist rate, 1000 sims) suggests **blend-level
+sensitivity to delisting return assumptions is bounded by the 20% NDX sleeve
+sizing** (< 0.01 Sharpe / 0.05pp CAGR under realistic distributions; ~0.07
+Sharpe / 0.9pp CAGR even at worst-case 25% bankruptcy at -80%).
+
+**This bound is on holding-stage bias only.** Shumway-MC corrects the
+*delisting-return* contribution for tickers that were selected, but it does
+not fix the **selection-stage** bias: missing delisted names are absent from
+the candidate universe before the top-4 ranking, so the selector never had
+the chance to pick some historical losers that would have entered the
+ranking pool, looked strong, then crashed. Fully eliminating this requires
+a survivorship-bias-free equity database (CRSP, Norgate, Compustat) that
+includes delisted names in the pre-selection ranking universe. The 20%
+sleeve weight remains a hard structural cap on blend-level damage from
+either bias source.
+
+Bias sources:
 
 - **Yearly PIT membership** (mid-year adds appear from Jan 1 of that year).
 - **Missing delisted tickers** (24% of historical NDX-100 names have no panel
@@ -326,17 +384,29 @@ Dot-com (2000-02) and GFC (2008) are exactly where the defensive machinery
 matters most, but they use proxy-stitched data (mutual-fund proxies for some
 ETFs pre-2005; NDX sleeve mirrors BULL pre-2006 PIT). Directional only.
 
-**Data quality (current gap; research-grade, not production-grade)**
+**Data quality (production-readiness blockers, not nice-to-haves)**
 
-Live system uses `yfinance` (Yahoo scraper, beta) and `index-constitution`
-(Wikipedia-sourced, beta). Known failure modes: yfinance DOM-change breakage,
-rate limiting / missing data on month-end for individual NDX stocks, bad
-split/dividend adjustments, unresolved old ticker symbols, NDX delisted-ticker
-leakage. **Gaps in the current system**: no data-validation circuit breaker
-(silent-exclude on missing required ticker rather than abort + alert); no per-
-rebalance snapshot of raw inputs, constituent lists, and final orders for
-audit; no fallback data source. These are required additions before scaling
-capital; consider migrating to Tiingo / Polygon / IEX Cloud at that point.
+Live system uses `yfinance` (Yahoo scraper, beta; Yahoo Finance API is
+intended for personal use, not endorsed) and `index-constitution` (Wikipedia-
+sourced, beta; old tickers not auto-resolved in strict membership checks).
+Known failure modes: yfinance DOM-change breakage, rate limiting / missing
+data on month-end for individual NDX stocks, bad split/dividend adjustments,
+unresolved old ticker symbols, NDX delisted-ticker leakage. **For small
+personal capital this may be tolerable. For meaningful sizing the following
+are required, not optional:**
+
+- abort-on-missing-data for required ETFs;
+- abort-on-suspicious split/dividend jumps (sanity check vs prior bar);
+- per-rebalance raw data snapshot (price panel as fetched);
+- per-rebalance constituent-list snapshot (NDX membership at signal date);
+- per-rebalance signal snapshot (canary states, pillar values, picks);
+- per-rebalance final allocation snapshot;
+- broker order/fill snapshot;
+- fallback data vendor (Tiingo / Polygon / IEX Cloud);
+- alerting on stale data, missing tickers, and changed constituent counts.
+
+None of these are currently implemented. They are blockers for scaling
+beyond small pilot capital.
 
 ## Deployment and usage
 

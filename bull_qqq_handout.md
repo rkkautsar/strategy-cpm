@@ -279,12 +279,14 @@ structurally redundant with the canary. LQD is unsuitable as a canary
 asset because IG corporate bonds rally on rate cuts during equity
 crashes (duration effect), falsely keeping the canary risk-on.
 
-Ablation evidence in Section 4.1 shows `curve OR vol` strictly beats
-the `canary + asset_mom` baseline in all 6 (window x asset) cells
-(avg +0.11 Sharpe). The 4-pillar 2-of-4 alternative is within noise
-(+0.01 Sharpe, -2pp DD); curve OR vol is preferred for parsimony.
-Applying OR to a custom curve/vol composite is not a published Keller
-rule.
+Ablation evidence in Section 4.1.1 shows `curve OR vol` improves Sharpe
+versus the `canary + asset_mom` baseline in 5 of 6 tested (window x asset)
+cells, with the best average Sharpe (+0.10) among the tested composite
+variants. SPY-only configs win 3/3; QQQ-auxiliary configs win 2/3 by
+smaller margins. The 4-pillar 2-of-4 alternative is within noise (+0.01
+Sharpe overall, -2pp DD vs curve|vol); curve OR vol is preferred for
+parsimony. Applying OR to a custom curve/vol composite is not a published
+Keller rule.
 
 ## 3. Empirical Results
 
