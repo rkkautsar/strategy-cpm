@@ -1,14 +1,14 @@
 {
   "scale": 1.0,
   "regime": "NORMAL",
+  "trigger_kind": "VIX_PERCENTILE",
+  "vix": 16.7,
+  "vix_threshold": 30.1,
+  "vix_pct": 0.95,
+  "vix_lb_years": 5,
   "as_of_date": "2026-05-22",
-  "realized_vol_21d_pct": 16.2,
-  "long_avg_252d_pct": 14.14,
-  "current_threshold_pct": 22.0,
-  "abs_floor_pct": 22.0,
-  "lb_short_days": 21,
-  "lb_long_days": 252,
-  "last_check_utc": "2026-05-24T11:01:42.033543+00:00",
+  "vix_asof_date": "2026-05-22",
+  "last_check_utc": "2026-05-24T13:19:02.833053+00:00",
   "last_change_event": null,
   "lifetime_events": 0
 }
