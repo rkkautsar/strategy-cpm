@@ -6,7 +6,7 @@ Spec:
   3. Gate:     BULL-QQQ regime must be BULL_QQQ; else 100% SHV cash.
   4. PIT fallback: when PIT data unavailable (pre-2006), mirror BULL-QQQ
      weights (NDX sleeve acts as extra BULL exposure).
-  5. Selection: top-K=4 by 13612U momentum, equal-weighted 25% each.
+  5. Selection: top-K by 13612U momentum, equal-weighted 1/K each.
   6. Partial fill: if fewer than K positive candidates, take what's there at
      1/K=25% per pick, rest in SHV cash (e.g. 2 positives -> 50% stocks + 50% SHV).
   7. Monthly rebalance, T+1 OPEN execution (next-day MOO), 10bps/side cost.
@@ -27,11 +27,9 @@ ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
 
 # Spec config
-SELECT_K = 8              # top-K by momentum, equal-weighted; K=8 chosen over K=4
-                          # for selection-stage bias mitigation (per-pick weight
-                          # 12.5% within sleeve = 2.5% portfolio at 20% blend;
-                          # halves stress-clustered MaxDD vs K=4 at -0.07 Sh
-                          # edge cost; turnover-bps actually lower than K=4)
+SELECT_K = 8              # top-K by momentum, equal-weighted (12.5% per pick
+                          # within sleeve = 2.5% portfolio at 20% blend weight;
+                          # caps single-name bankruptcy impact at ~2.5% portfolio)
 COST_BPS_PER_SIDE = 10
 
 

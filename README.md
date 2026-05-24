@@ -23,17 +23,10 @@ Blend validation detail (NDX MC, bootstrap, DSR, ablation, hold-buffer) in
   strategy, not equity-or-cash; the defensive sleeve can carry duration risk.
 - **NDX (20%)** — top-8 PIT Nasdaq-100 stocks by 13612U momentum, 12.5% each,
   gated by the BULL-QQQ regime (NDX = SHV cash when BULL flips to safe).
-  K=8 chosen over a smaller K (4-6) for selection-stage bias mitigation: each
-  pick is 12.5% of sleeve = 2.5% of portfolio, so a single-name bankruptcy
-  caps blend damage at ~2.5%. K=8 halves the stress-clustered MaxDD vs K=4
-  (-15.51% vs -25.70% under 1-bankruptcy-per-year stress-period simulation)
-  at a -0.07 Sharpe edge cost. Annual turnover-bps is actually lower at K=8
-  than K=4 (95 vs 100 bps) because per-pick rotation is smaller. Design
-  choice for the regime asymmetry: BULL's macro canary acts as a portfolio-
-  level circuit breaker for the growth sleeve. Individual-stock momentum
-  during credit-stress or vol-blowup regimes is unreliable even when names
-  appear strong, so NDX inherits BULL's regime verdict rather than running
-  an independent macro gate (which would double-count HYG/TIP signal).
+  Each pick = 12.5% of sleeve = 2.5% of portfolio; single-name bankruptcy
+  caps blend damage at ~2.5%. NDX inherits BULL's regime verdict; no
+  independent macro gate (BULL's HYG/TIP signal would otherwise be
+  double-counted).
 
 Monthly rebalance, ETF + individual stocks (NDX), no leverage, 10 bps/side cost,
 T+1 OPEN execution. Total-return prices (yfinance `auto_adjust=True`).
@@ -169,7 +162,7 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 | CPM RISKY (9) | QQQ, IWF, VBR, SPHQ, EFA, EEM, GLD, TLT, DBC |
 | Safe / cash | SHV (BULL also uses IEF as best-of-safe) |
 | CPM canary (3, HAA-style) | HYG_stitched, TIP, GLD |
-| BULL canary (2) | HYG_stitched, TIP (LQD rejected: IG rallies on rate cuts during equity crashes, falsely keeps gate on in dotcom-style regimes) |
+| BULL canary (2) | HYG_stitched (high-yield credit), TIP (inflation-linked bonds) |
 | NDX | point-in-time Nasdaq-100 (top-8 by 13612U, 12.5% each) |
 
 `HYG_stitched` = VWEHX mutual fund pre-2007-04 + live HYG.
@@ -424,26 +417,24 @@ NDX sleeve has documented backtest biases. Two-stage MC bound:
 0.9pp CAGR at worst-case 25% bankruptcy at -80%. The 20% blend weight
 structurally bounds this contribution.
 
-**Selection-stage bias** (Ghost-injection MC v2, missing delisted names
+**Selection-stage bias** (Ghost-injection MC, missing delisted names
 injected into ranking universe with synthetic price paths calibrated to NDX
 distribution): **177 historical NDX-100 members had no panel price data**
-(CELG, BRCM, ATVI, DELL, CERN, etc.). At K=8, ghost selection rate is
-~17-20% of NDX picks (slightly higher than K=4 because more slots are
-filled). Blend impact at K=8 under adversarial cross-validation (50 seeds
-per scenario):
+(CELG, BRCM, ATVI, DELL, CERN, etc.); ghost selection rate ~17-20% of NDX
+picks. Blend impact under adversarial cross-validation (50 seeds per
+scenario):
 
-| Scenario | Sharpe Δ | CAGR Δ | MaxDD (K=8) | vs K=4 |
-|---|---:|---:|---:|---:|
-| Realistic 1.5% bankruptcy rate (random) | -0.019 | -0.25pp | -12.01% | (K=4: -13.17%) |
-| Pessim 3% rate | -0.039 | -0.50pp | -12.12% | (K=4: -13.61%) |
-| **Adversarial 1/yr bankruptcy stress-clustered** | **-0.109** | **-1.40pp** | **-15.51%** | **(K=4: -25.70%)** |
+| Scenario | Sharpe Δ | CAGR Δ | MaxDD |
+|---|---:|---:|---:|
+| Realistic 1.5% bankruptcy rate (random) | -0.019 | -0.25pp | -12.01% |
+| Pessim 3% rate | -0.039 | -0.50pp | -12.12% |
+| **Adversarial 1/yr bankruptcy stress-clustered** | **-0.109** | **-1.40pp** | **-15.51%** |
 
-**K=8 cuts the stress-clustered MaxDD damage in half** (-25.70% → -15.51%)
-because per-pick weight drops from 5% to 2.5% of portfolio. Realistic-case
-damage is small (-0.02 to -0.04 Sharpe). Fully eliminating selection-stage
-bias requires a survivorship-bias-free equity database (CRSP, Norgate,
-Compustat) that includes delisted names in the pre-selection ranking
-universe. The K=8 dilution + 20% sleeve weight are the structural caps.
+Per-pick weight (12.5% within sleeve = 2.5% of portfolio at 20% blend) caps
+single-name bankruptcy blend damage at ~2.5%. Realistic-case Sharpe impact
+is -0.02 to -0.04. Fully eliminating selection-stage bias requires a
+survivorship-bias-free equity database (CRSP, Norgate, Compustat) that
+includes delisted names in the pre-selection ranking universe.
 
 Bias sources:
 
@@ -500,13 +491,8 @@ covariance regime has shifted away from the one CPM was designed for.
   becomes the structural norm rather than a transient regime.
 - **CPM/BULL canary asymmetry**: when CPM is all-cash (HYG+TIP+GLD all
   negative) but BULL canary fires (HYG+TIP positive), the portfolio can hold
-  20% QQQ + 20% NDX with 60% SHV. Intentional. CPM uses GLD as a real-asset
-  diversifier because it has alternative cross-asset rotations available;
-  BULL-QQQ is a binary single-equity gate where a stricter 2-asset canary
-  is preferred (a third asset adds redundant credit-rates signal rather
-  than new structural information). Same-canary symmetry would couple the
-  two sleeves' regime verdicts, reducing the value of running them as
-  independent risk-management overlays.
+  20% QQQ + 20% NDX with 60% SHV. Independent regime verdicts per sleeve;
+  no coupling of defensive triggers across CPM and BULL.
 
 **NDX gate asymmetry + bear-market gap**
 

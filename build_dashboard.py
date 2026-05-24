@@ -2032,7 +2032,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (Keller/HAA canary + custom curve/vol composite + TSMOM trend filter)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
-<li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0 (Keller HAA-style, 2-asset credit/inflation canary). LQD excluded because IG corporate bonds rally on rate cuts during equity crashes (duration effect), which would falsely keep the canary risk-on in dotcom-style regimes.</li>
+<li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0. Two-asset credit (HYG = high-yield) + inflation (TIP) regime check.</li>
 <li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime. Both pillars use natural midpoint cutoffs. Pair ablation showed curve+vol are the only two structurally orthogonal macro signals worth keeping; trend (SPY 200d MA) and credit (HYG 200d MA) pillars were dropped as redundant with asset_mom and canary respectively.</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-1 absolute momentum &gt; 0 (Antonacci GEM standard). Direct observation of the risky asset itself.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
