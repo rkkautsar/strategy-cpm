@@ -78,6 +78,18 @@ PROD_BULL_WEIGHT = 0.30      # BULL weight in 60/30/10 PROD blend
 
 COST_BPS_PER_SIDE = 10
 
+# Rebound bypass (FIXED-5050): when slow gate says DEFENSIVE but fast QQQ
+# momentum is positive (Goulding-Harvey 'Rebound' state -- slow=- / fast=+),
+# blend half QQQ / half safe instead of going 100% cash. Symmetric with the
+# 50% VIX cap dampening on the upside. Zero free parameters: FAST horizon
+# (2mo) is Goulding paper standard; blend weight is fixed 50/50 with no
+# estimator. Predates Goulding's adaptive 4-state estimator -- equivalent
+# to a_Re prior=0.5 with no rolling-window calibration. Empirically captures
+# ~88% of Goulding's CLEAN lift and ~80% of 30y lift with no machinery.
+# CLEAN 18.1y: Sh +0.015, 30y: Sh +0.004, MaxDD unchanged on both windows.
+REBOUND_FAST_MONTHS = 2
+REBOUND_BLEND_WEIGHT = 0.5
+
 
 # ---------- Signal helpers ----------
 
@@ -93,6 +105,21 @@ def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
     if len(sd) < n + 1:
         return float("nan")
     return float(sd.iloc[-1] / sd.iloc[-n - 1] - 1)
+
+
+def _rebound_fast_ok(monthly_qqq: pd.Series, sig_d: pd.Timestamp,
+                     n: int = REBOUND_FAST_MONTHS) -> tuple[bool | None, float]:
+    """Fast QQQ momentum trigger for Rebound-state bypass.
+
+    Returns (signal_on, raw_value):
+      signal_on = True if QQQ n-month TR > 0 (default n=2; Goulding paper).
+      None if insufficient history.
+    """
+    sd = monthly_qqq.loc[:sig_d].dropna()
+    if len(sd) < n + 1:
+        return (None, float("nan"))
+    r = float(sd.iloc[-1] / sd.iloc[-n - 1] - 1)
+    return (r > 0, r)
 
 
 def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
@@ -229,8 +256,19 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
         reason = ('macro_gate_off' if not canary_ok
                   else f"composite_off ({cdiag['composite_n_pos']}/2 pillars positive, need any 1)" if not composite_ok
                   else f"asset_mom_off ({BULL_TICKER} 12mo TR <= 0; circuit breaker on risky asset)")
+        # Rebound bypass: if fast QQQ momentum is positive, blend 50/50 with
+        # QQQ instead of full cash (Goulding-Harvey 'Rebound' state, FIXED-5050).
+        fast_ok, fast_r = _rebound_fast_ok(monthly[BULL_TICKER], sig_d) \
+            if BULL_TICKER in monthly.columns else (None, float("nan"))
+        if fast_ok is True:
+            w = REBOUND_BLEND_WEIGHT
+            weights = {BULL_TICKER: w, safe: 1.0 - w}
+            return (weights, "REBOUND_BLEND",
+                    {**all_diag, "reason": reason, "picked_safe": safe,
+                     "fast_qqq_2mo": fast_r, "rebound_blend_weight": w})
         return ({safe: 1.0}, "CASH",
-                {**all_diag, "reason": reason, "picked_safe": safe})
+                {**all_diag, "reason": reason, "picked_safe": safe,
+                 "fast_qqq_2mo": fast_r})
     # Bull state: 100% QQQ (no state rotation in current spec).
     weights = {BULL_TICKER: 1.0}
     regime_label = f"BULL_{BULL_TICKER}"
@@ -246,9 +284,11 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     """Run BULL-QQQ standalone backtest.
 
     For each signal date (month-end):
-      - If macro canary passes AND binary composite (>=2 of 4 pillars) passes:
+      - If macro canary passes AND binary composite passes AND asset mom > 0:
         hold 100% QQQ
-      - Else: hold 100% SHV cash
+      - Elif Rebound state (slow=defensive but QQQ 2mo TR > 0):
+        hold 50% QQQ + 50% safe (FIXED-5050 bypass, symmetric with VIX cap)
+      - Else: hold 100% best-of-safe (cash/IEF)
     Execution: T+1 OPEN (next trading day MOO). Weights apply from future[0] of signal
     date (first trading day after month-end). Backtest uses close-to-close on
     apply_from day (~5-10bps/yr overestimate vs strict open-to-close).
@@ -277,7 +317,14 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
             month_weights = {BULL_TICKER: 1.0}
         else:
             safe = _pick_safe(mon)
-            month_weights = {safe: 1.0}
+            # Rebound bypass: 50/50 QQQ + safe when fast QQQ momentum positive
+            fast_ok, _ = _rebound_fast_ok(mon[BULL_TICKER], sig_d) \
+                if BULL_TICKER in mon.columns else (None, float("nan"))
+            if fast_ok is True:
+                month_weights = {BULL_TICKER: REBOUND_BLEND_WEIGHT,
+                                  safe: 1.0 - REBOUND_BLEND_WEIGHT}
+            else:
+                month_weights = {safe: 1.0}
 
         future = common[common > sig_d]
         if len(future) < 1:

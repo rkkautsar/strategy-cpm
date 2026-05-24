@@ -48,7 +48,7 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8 + VIX cap** | **1.53** | **16.58%** | **10.41%** | **-11.46%** | **1.45** |
+| **PROD 60/20/20 K=8 + VIX cap + Rebound bypass** | **1.54** | **16.78%** | **10.41%** | **-11.46%** | **1.47** |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
@@ -62,7 +62,7 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/20/20 + VIX cap** | **1.30** | **14.66%** | **-16.59%** |
+| **PROD 60/20/20 + VIX cap + Rebound bypass** | **1.31** | **14.85%** | **-16.59%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
 **Forward expectation** (discount for selection bias + regime dependency + NDX
@@ -124,7 +124,16 @@ if canary_on AND composite_on AND asset_mom_on:
     bull = {QQQ: 1.0}
 else:
     # HAA best-of-safe: SHV in rising-rate regimes, IEF in falling-rate.
-    bull = {argmax({s: mom_13612U(s) for s in [SHV, IEF]}): 1.0}
+    safe = argmax({s: mom_13612U(s) for s in [SHV, IEF]})
+    # Rebound bypass (FIXED-5050): if slow gate says defensive but QQQ 2mo TR > 0
+    # (Goulding-Harvey 'Rebound' state), blend 50/50 instead of full cash.
+    # Symmetric with the 50% VIX cap. Zero free parameters; FIXED-5050 captures
+    # ~88% of Goulding's adaptive a_Re lift with no estimator.
+    fast_qqq_on = mom_2mo(QQQ) > 0
+    if fast_qqq_on:
+        bull = {QQQ: 0.5, safe: 0.5}    # REBOUND_BLEND
+    else:
+        bull = {safe: 1.0}              # CASH
 
 # ====== NDX sleeve (20%) ======
 if BULL-QQQ regime != "BULL_QQQ":
@@ -176,6 +185,7 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 | Faber SMA10m ranker | Faber 2007 SSRN TAA |
 | Min-variance pair (EWMA 504d) | Markowitz + RiskMetrics-family (JPM 1996) |
 | Vol cap (de-risk only) | Moskowitz/Ooi/Pedersen 2012 TSMOM scaling |
+| Rebound bypass (FIXED-5050) | Goulding-Harvey 2022 4-state TSMOM (FAST horizon); Levine-Pedersen 2016 / Hurst-Ooi-Pedersen 2017 (fixed-weight blend pattern) |
 | Canary regime gates | Keller HAA-family multi-asset breadth canaries |
 | Top-K cross-sectional (NDX) | Jegadeesh & Titman 1993 |
 | PIT NDX-100 constituents | `index-constitution` library (≥ 2006-01) |
@@ -403,6 +413,39 @@ Linear Sharpe degradation ~**0.0036 Sh per bps** through full range; CAGR
 drops ~1pp per 25 bps. MaxDD stable to 50 bps, expands materially past
 75 bps. Blend Sharpe stays above 1.05 forward floor up to 100 bps; the
 edge is not thin enough that 2-3x cost overruns destroy it.
+
+**Rebound bypass (FIXED-5050)** addresses BULL gate V-shape reentry lag.
+When slow gate says DEFENSIVE but QQQ 2-month TR is positive (Goulding-Harvey
+2022 Rebound state), BULL holds 50% QQQ + 50% safe instead of 100% cash.
+Symmetric with the 50% VIX cap. Zero free parameters: FAST horizon (2mo) is
+Goulding paper standard, blend weight is fixed 50/50, no estimator. Compared
+head-to-head with Goulding's full 4-state adaptive blend (rolling 12-48mo
+estimator of Rebound→next-month returns), FIXED-5050 captures ~88% of CLEAN
+lift and ~80% of 30y lift with no machinery (Goulding marginal value:
++0.002 Sharpe). Restricted to BULL sleeve only: extending to NDX+CPM blew
+up 30y MaxDD from -16.6% to -26.5% (BMR-trap blast radius).
+
+| Window | PROD Sh | Bypass Sh | Δ | MaxDD |
+|---|---:|---:|---:|---:|
+| CLEAN 18.1y | 1.529 | 1.537 | +0.008 | -11.46% (unchanged) |
+| Extended 30y | 1.304 | 1.307 | +0.003 | -16.59% (unchanged) |
+
+Fire stats (post-cost, shipped logic):
+
+| Stat | CLEAN 18.1y | Extended 30y |
+|---|---:|---:|
+| Fires | 30 (1.67/yr) | 49 (1.62/yr) |
+| Win rate | 63% | 59% |
+| Avg lift on wins | +3.22pp BULL | +3.59pp BULL |
+| Avg lift on losses | -1.60pp BULL | -2.91pp BULL |
+| Win:loss size ratio | 2.0× | 1.23× |
+
+Key wins: 2009-03 GFC bottom (+13% QQQ next mo), 2020-04 COVID V (+13%),
+2023-02/03 banking-crisis pivot (+8-9%). Key losses (30y only): 2000-03,
+2001-01 dotcom bear-market rallies (-24% to -26% QQQ next mo). The 50/50
+dampening capped 2001-01 single-fire loss at -13.7pp BULL (vs -27pp if full
+bypass). Predates Goulding (Levine-Pedersen 2016, Hurst-Ooi-Pedersen 2017
+fixed multi-horizon blends established the no-estimator pattern).
 
 **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
 marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer

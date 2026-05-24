@@ -785,6 +785,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
         "RISK_ON": cpm_regimes.count("RISK_ON"),
         "DEFENSIVE": cpm_regimes.count("DEFENSIVE"),
         "BULL_QQQ": sum(1 for r in bull_regimes if r.startswith("BULL_QQQ")),
+        "BULL_REBOUND": sum(1 for r in bull_regimes if r == "REBOUND_BLEND"),
         "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
     }
 
@@ -812,6 +813,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     bull_colors = []
     for r in bull_regimes:
         if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")
+        elif r == "REBOUND_BLEND": bull_colors.append("#f0a020")  # amber: half-in
         else: bull_colors.append("#808080")
     axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
     axes[1].set_yticks([])
@@ -820,9 +822,10 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     axes[1].legend(
         handles=[
             Patch(facecolor="#00a040", label="BULL_QQQ"),
+            Patch(facecolor="#f0a020", label="REBOUND_BLEND (50/50)"),
             Patch(facecolor="#808080", label="CASH (SHV)"),
         ],
-        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
+        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=3, fontsize=7,
         frameon=False, handlelength=1.2, handleheight=0.7,
     )
     axes[1].xaxis.set_major_locator(mdates.YearLocator(2))
