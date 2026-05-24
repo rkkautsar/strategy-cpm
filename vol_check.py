@@ -1,15 +1,16 @@
-"""Daily vol-cap check (VIX-based).
+"""Daily vol-cap check (VIX-based) -- STATELESS.
 
-Computes the current latched vol-cap scale, compares to prior persisted state,
-and sends a Telegram alert on state change. Updates vol_cap_state.json.
+Computes today's and yesterday's latched vol-cap scale on-the-fly from full
+history; alerts on state change. No persisted state file.
 
-Trigger: VIX > rolling 5y P95 of VIX (latched 50% binary until next monthly signal).
+Trigger: VIX > rolling 5y P95 of VIX (latched 50% binary until next monthly
+signal). The latched scale is fully reconstructible from VIX + signal dates,
+so day-over-day comparison is sufficient for change detection.
 
 Run by GH Actions workflow vol-check.yml (triggered daily by CF Worker cron).
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
 from datetime import datetime, timezone
@@ -30,11 +31,11 @@ from vol_cap import (  # noqa: E402
     load_vix,
     VIX_PCT,
     VIX_LB_YEARS,
-    VIX_LB_DAYS,
+    VIX_SANE_MIN,
+    VIX_SANE_MAX,
 )
 
-STATE_FILE = ROOT / "vol_cap_state.json"
-HISTORY_DAYS = 90  # only need recent blend returns + latch state (VIX has its own history)
+HISTORY_DAYS = 90  # only need recent blend returns; VIX has its own history
 
 
 def send_telegram_alert(prior_scale: float, new_scale: float,
@@ -53,11 +54,11 @@ def send_telegram_alert(prior_scale: float, new_scale: float,
         import requests  # type: ignore
 
     if new_scale < prior_scale:
-        action_line = "🚨 *DEFENSIVE TRIGGER: scale down to 50%*"
+        action_line = "\u26a0\ufe0f *DEFENSIVE TRIGGER: scale down to 50%*"
         order = (f"SELL {(prior_scale - new_scale) * 100:.0f}% of portfolio to cash. "
                  "Distribute across all current holdings proportionally.")
     else:
-        action_line = "✅ *RECOVERY: scale back to 100%*"
+        action_line = "\u2705 *RECOVERY: scale back to 100%*"
         order = (f"BUY {(new_scale - prior_scale) * 100:.0f}% of portfolio back from cash, "
                  "rebalance to current sleeve targets.")
     msg = (
@@ -65,12 +66,12 @@ def send_telegram_alert(prior_scale: float, new_scale: float,
         f"As of: {date.date()}\n"
         f"VIX: {vix:.2f}  (threshold {threshold:.2f} = "
         f"P{int(VIX_PCT * 100)} of rolling {VIX_LB_YEARS}y VIX)\n"
-        f"Scale: {prior_scale:.2f} → {new_scale:.2f}\n\n"
+        f"Scale: {prior_scale:.2f} \u2192 {new_scale:.2f}\n\n"
         f"{order}\n\n"
         f"Latched until next monthly rebalance (or until VIX re-evaluates at signal date)."
     )
     if dashboard_url:
-        msg += f"\n\n📊 Dashboard: {dashboard_url}"
+        msg += f"\n\n\ud83d\udcca Dashboard: {dashboard_url}"
     try:
         r = requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
@@ -105,72 +106,40 @@ def main() -> int:
 
     sig_dates = (pd.date_range(common[0], common[-1], freq="ME")
                  .intersection(common).tolist())
-    scale, events = compute_latched_scale(blend, sig_dates, vix=vix)
+    scale, _events = compute_latched_scale(blend, sig_dates, vix=vix)
+
+    if len(scale) < 2:
+        print(f"[vol-check] insufficient scale history: {len(scale)} bars")
+        return 1
 
     today_scale = float(scale.iloc[-1])
     today_date = scale.index[-1]
+    prior_scale = float(scale.iloc[-2])
     breakdown = current_threshold(vix)
     today_vix = breakdown["vix"]
     today_thresh = breakdown["threshold"]
-    # Sanity-bound check on today's VIX print: drop alert if outside bounds
-    from vol_cap import VIX_SANE_MIN, VIX_SANE_MAX
+
+    # Sanity-bound check on today's VIX print
     if pd.notna(today_vix) and (today_vix < VIX_SANE_MIN or today_vix > VIX_SANE_MAX):
         print(f"[vol-check] ERROR: today's VIX {today_vix:.2f} outside sane "
               f"range [{VIX_SANE_MIN}, {VIX_SANE_MAX}] - likely data error, "
-              f"skipping state update")
+              f"skipping alert")
         return 2
 
-    # Load prior state
-    if STATE_FILE.exists():
-        try:
-            prior = json.loads(STATE_FILE.read_text())
-        except Exception:
-            prior = None
-    else:
-        prior = None
-    prior_scale = float(prior.get("scale", 1.0)) if prior else 1.0
     state_changed = abs(today_scale - prior_scale) > 0.01
 
-    new_state = {
-        "scale": today_scale,
-        "regime": "CAP_ENGAGED" if today_scale < 1.0 else "NORMAL",
-        "trigger_kind": "VIX_PERCENTILE",
-        "vix": round(today_vix, 2) if pd.notna(today_vix) else None,
-        "vix_threshold": round(today_thresh, 2) if pd.notna(today_thresh) else None,
-        "vix_pct": VIX_PCT,
-        "vix_lb_years": VIX_LB_YEARS,
-        "as_of_date": str(today_date.date()),
-        "vix_asof_date": breakdown.get("asof", "n/a"),
-        "last_check_utc": datetime.now(timezone.utc).isoformat(),
-        "last_change_event": (
-            {
-                "from_scale": prior_scale,
-                "to_scale": today_scale,
-                "at_date": str(today_date.date()),
-                "vix_at_change": round(today_vix, 2) if pd.notna(today_vix) else None,
-                "threshold_at_change": round(today_thresh, 2) if pd.notna(today_thresh) else None,
-                "kind": "trigger" if today_scale < prior_scale else "lift",
-            }
-            if state_changed
-            else (prior.get("last_change_event") if prior else None)
-        ),
-        "lifetime_events": (
-            (prior.get("lifetime_events", 0) if prior else 0)
-            + (1 if state_changed else 0)
-        ),
-    }
-    STATE_FILE.write_text(json.dumps(new_state, indent=2) + "\n")
-
     if state_changed:
-        print(f"[vol-check] ⚠ STATE CHANGED: scale {prior_scale:.2f} -> {today_scale:.2f}  "
-              f"VIX={today_vix:.2f}  threshold={today_thresh:.2f}")
+        print(f"[vol-check] \u26a0 STATE CHANGED: scale {prior_scale:.2f} -> "
+              f"{today_scale:.2f}  VIX={today_vix:.2f}  "
+              f"threshold={today_thresh:.2f}")
         dash_url = os.environ.get("DASHBOARD_URL")
         send_telegram_alert(prior_scale, today_scale, today_vix, today_thresh,
                               today_date, dash_url)
     else:
+        cmp = ">" if today_vix > today_thresh else "<"
         print(f"[vol-check] no change: scale={today_scale:.2f}  "
-              f"VIX={today_vix:.2f} {'>'  if today_vix > today_thresh else '<'} "
-              f"threshold={today_thresh:.2f} (P{int(VIX_PCT*100)} of {VIX_LB_YEARS}y VIX)")
+              f"VIX={today_vix:.2f} {cmp} threshold={today_thresh:.2f} "
+              f"(P{int(VIX_PCT * 100)} of {VIX_LB_YEARS}y VIX)")
     return 0
 
 

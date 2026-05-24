@@ -222,7 +222,7 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 - Trade date: T+1 OPEN (next-day MOO).
 - Cost: 10 bps/side on any state change (full A→B switch = 20 bps).
 - Cron: monthly, 10am SGT (first business day after month-end).
-- Typical month: ~16 tickers (9 CPM risky + SHV + QQQ + 8 NDX stocks).
+- Typical month: ~16 tickers (9 CPM risky + SHV/IEF safe pool + QQQ + 8 NDX stocks).
 
 Methodology, sensitivity grids, complexity-layer ablation, and references in
 `cpm_bull_ndx_handout.md`. Key numbers inline. **Note on baseline consistency**:

@@ -1418,30 +1418,41 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
     for t, w in ndx_w.items():
         combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * NDX_WEIGHT
 
-    # Load vol-cap state (from vol_cap_state.json, persisted by daily vol-check)
+    # Vol-cap state: computed on-the-fly from full history (stateless;
+    # no vol_cap_state.json required). Reconstructs latched scale from
+    # panel date index + VIX + signal dates.
+    from vol_cap import (VIX_PCT, VIX_LB_YEARS, VOL_CAP_SCALE,
+                          compute_latched_scale, load_vix)
     try:
-        import json
-        from vol_cap import VIX_PCT, VIX_LB_YEARS, VOL_CAP_SCALE
-        state_file = ROOT / "vol_cap_state.json"
-        if state_file.exists():
-            vc_state = json.loads(state_file.read_text())
-            vc_scale = float(vc_state.get("scale", 1.0))
-            vc_regime = vc_state.get("regime", "NORMAL")
-            vc_vix = vc_state.get("vix", None)
-            vc_threshold = vc_state.get("vix_threshold", None)
-            vc_as_of = vc_state.get("as_of_date", "never")
-            vc_vix_asof = vc_state.get("vix_asof_date", "n/a")
-            vc_last_event = vc_state.get("last_change_event")
-            vc_lifetime = vc_state.get("lifetime_events", 0)
+        # Stub returns series with the right index (values don't affect scale).
+        _idx = panel.index[panel.index <= sig_d]
+        if len(_idx) > 0:
+            _stub = pd.Series(0.0, index=_idx)
+            _vix_for_state = load_vix(end=_idx[-1] + pd.Timedelta(days=2))
+            _sig_dates = (pd.date_range(_idx[0], _idx[-1], freq="ME")
+                           .intersection(_idx).tolist())
+            _scale_series, _events = compute_latched_scale(_stub, _sig_dates, vix=_vix_for_state)
+            vc_scale = float(_scale_series.iloc[-1])
+            vc_regime = "CAP_ENGAGED" if vc_scale < 1.0 else "NORMAL"
+            # VIX breakdown for status panel
+            _vix_clean = _vix_for_state.dropna()
+            if len(_vix_clean) > 0:
+                vc_vix = float(_vix_clean.iloc[-1])
+                _vix_lb_days = int(VIX_LB_YEARS * 252)
+                if len(_vix_clean) >= _vix_lb_days:
+                    vc_threshold = float(_vix_clean.iloc[:-1].tail(_vix_lb_days).quantile(VIX_PCT))
+                else:
+                    vc_threshold = None
+                vc_vix_asof = str(_vix_clean.index[-1].date())
+            else:
+                vc_vix = None
+                vc_threshold = None
+                vc_vix_asof = "n/a"
+            vc_as_of = str(_idx[-1].date())
+            vc_last_event = _events[-1] if _events else None
+            vc_lifetime = len(_events)
         else:
-            vc_scale = 1.0
-            vc_regime = "NORMAL"
-            vc_vix = None
-            vc_threshold = None
-            vc_as_of = "never (vol_cap_state.json missing)"
-            vc_vix_asof = "n/a"
-            vc_last_event = None
-            vc_lifetime = 0
+            raise RuntimeError("empty panel index")
     except Exception as e:
         vc_scale = 1.0
         vc_regime = "ERROR"
@@ -1477,10 +1488,19 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
         vc_status = f"State: {vc_regime}. As-of: {vc_as_of}."
     last_event_str = ""
     if vc_last_event:
-        last_event_str = (f" Last state change: {vc_last_event.get('at_date')} "
-                           f"({vc_last_event.get('kind')}, "
-                           f"VIX={vc_last_event.get('vix_at_change')}, "
-                           f"threshold={vc_last_event.get('threshold_at_change')}).")
+        # Event keys from compute_latched_scale: date, action, scale, vix, threshold
+        _ev_date = vc_last_event.get("date") or vc_last_event.get("at_date")
+        _ev_date_str = str(_ev_date.date()) if hasattr(_ev_date, "date") else str(_ev_date)
+        _ev_action = vc_last_event.get("action") or vc_last_event.get("kind")
+        _ev_vix = vc_last_event.get("vix") or vc_last_event.get("vix_at_change")
+        _ev_thr = vc_last_event.get("threshold") or vc_last_event.get("threshold_at_change")
+        last_event_str = (f" Last state change: {_ev_date_str} "
+                           f"({_ev_action}, "
+                           f"VIX={_ev_vix:.2f}" if isinstance(_ev_vix, (int, float)) else f"VIX={_ev_vix}"
+                           )
+        last_event_str += (f", threshold={_ev_thr:.2f})."
+                            if isinstance(_ev_thr, (int, float))
+                            else f", threshold={_ev_thr}).")
     vol_cap_html = (
         f"<div style='grid-column: 1 / -1; background:#fef9e7; "
         f"border-left: 4px solid {vc_color}; padding:10px 14px; border-radius:4px; "
@@ -1933,7 +1953,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). SHV cash fallback.</li>
+<li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND QQQ 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_QQQ regime.</li>
 </ul>
@@ -2019,13 +2039,13 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>Universe ({len(RISKY_UNIVERSE)}):</strong> US factor + international + diversifier.
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
-<li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (ultra-short Treasury cash, ~0.3y duration)</li>
-<li><strong>Canary:</strong> {' + '.join(CANARY_ASSETS)} -- ANY positive 13612U momentum -&gt; risk-on; all negative -&gt; 100% SHV. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>
+<li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (SHV ~0.3y, IEF ~7y; HAA-style best-of-safe by 13612U momentum)</li>
+<li><strong>Canary:</strong> {' + '.join(CANARY_ASSETS)} -- ANY positive 13612U momentum -&gt; risk-on; all negative -&gt; 100% best-of-safe. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>
 <li><strong>Ranker:</strong> Faber 10-month SMA distance: <code>(price - SMA10) / SMA10</code></li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by ranker (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop negative momentum</li>
 <li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d covariance lookback, ~{CORR_LOOKBACK_DAYS/252:.1f}y)</li>
 <li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep prior pair member unless new candidate exceeds by this margin in cross-sectional z-score). Buffer memory resets when canary breadth crosses majority (HYG/TIP/GLD positive count moves between <2 and >=2), so stale pair memory does not bridge narrow-risk-on vs broad-risk-on regimes.</li>
-<li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% SHV; 0 positive &rarr; 100% SHV</li>
+<li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% best-of-safe; 0 positive &rarr; 100% best-of-safe</li>
 <li><strong>Vol cap:</strong> {TARGET_VOL*100:.0f}% annualized target, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong>. Fires only in crisis regimes (~17% of days).</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
