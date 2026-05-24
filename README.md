@@ -48,7 +48,7 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8 + VIX cap + Rebound bypass** | **1.53** | **16.78%** | **10.41%** | **-11.46%** | **1.47** |
+| **PROD 60/20/20 K=8 + VIX cap + Rebound bypass + CPM HAA-safe** | **1.57** | **17.24%** | **10.41%** | **-11.46%** | **1.50** |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
@@ -62,7 +62,7 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/20/20 + VIX cap + Rebound bypass** | **1.30** | **14.85%** | **-16.59%** |
+| **PROD 60/20/20 + VIX cap + Rebound bypass + CPM HAA-safe** | **1.33** | **15.12%** | **-15.68%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
 **Naive benchmark suite** (CLEAN 18.1y / Extended 30y; post-cost 10bps/side
@@ -91,11 +91,11 @@ biases + tail sequencing not captured by return bootstrap):
 
 | Metric | Backtest (+ vol cap + bypass) | Forward base case |
 |---|---:|---|
-| Raw Sharpe | 1.53 | **1.05-1.35** |
-| Excess Sharpe (over SHV) | 1.41 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
-| CAGR | 16.78% | **11-15%** pre-tax, **5-9%** after-tax |
+| Raw Sharpe | 1.57 | **1.10-1.40** |
+| Excess Sharpe (over SHV) | 1.44 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
+| CAGR | 17.24% | **11-15%** pre-tax, **5-9%** after-tax |
 | MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress** (per-pick weight caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
-| Calmar | 1.47 | **0.55-0.90** |
+| Calmar | 1.50 | **0.55-0.90** |
 
 ## Strategy specification
 
@@ -111,17 +111,20 @@ RISKY = [QQQ, IWF, VBR, SPHQ,                         # US factor (4)
          GLD, TLT, DBC]                                # diversifiers (3)
 canary_on = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0 OR mom_13612U(GLD) > 0
 
+# HAA-style best-of-safe: SHV (~0.3y) or IEF (~7y) by 13612U momentum.
+safe = argmax({s: mom_13612U(s) for s in [SHV, IEF]})
+
 if not canary_on:
-    cpm = {SHV: 1.0}                                  # 100% cash
+    cpm = {safe: 1.0}                                 # 100% HAA-safe
 else:
     candidates = top_5 by faber_score, dropping faber_score <= 0
     if len(candidates) >= 2:
         pair = min_variance_pair(candidates, halflife=504d)  # EWMA cov
         cpm = {pair[0]: 0.5, pair[1]: 0.5}
     elif len(candidates) == 1:
-        cpm = {candidates[0]: 0.5, SHV: 0.5}          # partial-safe fill
+        cpm = {candidates[0]: 0.5, safe: 0.5}          # partial-safe fill
     else:
-        cpm = {SHV: 1.0}
+        cpm = {safe: 1.0}
 
     # Hold buffer: retain prior pair member if cross-sectional z-score
     # is within HOLD_BUFFER=2.0z of worst new pick. Off when < 3 positive.
@@ -191,7 +194,7 @@ portfolio[SHV] += (1 - scale)                             # excess to cash
 | Pool | Tickers |
 |---|---|
 | CPM RISKY (9) | QQQ, IWF, VBR, SPHQ, EFA, EEM, GLD, TLT, DBC |
-| Safe / cash | SHV (BULL also uses IEF as best-of-safe) |
+| Safe pool (HAA best-of by 13612U) | SHV (ultra-short), IEF (7-10y) -- used by both CPM and BULL |
 | CPM canary (3, HAA-style) | HYG_stitched, TIP, GLD |
 | BULL canary (2) | HYG_stitched (high-yield credit), TIP (inflation-linked bonds) |
 | NDX | point-in-time Nasdaq-100 (top-8 by 13612U, 12.5% each) |
@@ -250,20 +253,20 @@ strategy that holds cash in defensive months:
 
 | Strategy | CLEAN raw Sh | CLEAN excess Sh | 30y raw Sh | 30y excess Sh |
 |---|---:|---:|---:|---:|
-| **PROD** | **1.537** | **1.411** (-0.13) | **1.307** | **1.065** (-0.24) |
-| CPM solo | 1.284 | 1.158 | 1.082 | 0.838 |
+| **PROD** | **1.571** | **1.444** (-0.13) | **1.326** | **1.084** (-0.24) |
+| CPM solo | 1.337 | 1.212 | 1.119 | 0.878 |
 | BULL solo | 1.231 | 1.139 | 0.979 | 0.823 |
 | NDX solo | 1.190 | 1.132 | 1.074 | 0.950 |
 | SPY buy-hold | 0.662 | 0.593 | 0.610 | 0.465 |
 | QQQ buy-hold | 0.824 | 0.762 | 0.631 | 0.527 |
 
-T-bill CAGR averaged 1.34% on CLEAN window, 2.74% on 30y. **The 30y
-excess Sharpe of 1.065 sits right at the forward base-case floor (1.05) --
-essentially no margin** once rate income is netted out. CLEAN excess Sharpe
-(1.411) retains real edge but with a -0.13 haircut from raw. PROD still
-clears every benchmark on excess Sharpe in both windows, but the 30y margin
-over SHV is thinner than the raw Sharpe suggests. **Use excess Sharpe for
-any capital-allocation decision; raw Sharpe overstates by 0.1-0.25.**
+T-bill CAGR averaged 1.34% on CLEAN window, 2.74% on 30y. The 30y excess
+Sharpe (1.084) sits ~0.03 above the forward base-case floor (1.05) -- a
+thin margin once rate income is netted out (HAA-safe expansion lifted it
+from 1.065 to 1.084). CLEAN excess Sharpe (1.444) retains real edge with
+a -0.13 haircut from raw. PROD clears every benchmark on excess Sharpe in
+both windows. **Use excess Sharpe for any capital-allocation decision;
+raw Sharpe overstates by 0.1-0.25.**
 
 **Block bootstrap robustness across block lengths** (N=2000 resamples, raw
 Sharpe; addresses external-review concern that 21d blocks may underestimate
@@ -271,29 +274,30 @@ autocorrelation):
 
 | Window | Block | Mean Sh | 95% CI |
 |---|---:|---:|---:|
-| CLEAN 18.1y | 21d (1mo) | 1.525 | [1.095, 1.982] |
-| CLEAN 18.1y | 63d (3mo) | 1.546 | [1.155, 1.913] |
-| CLEAN 18.1y | 126d (6mo) | 1.568 | [1.205, 1.921] |
-| Extended 30y | 21d (1mo) | 1.297 | [0.965, 1.646] |
-| Extended 30y | 63d (3mo) | 1.310 | [1.022, 1.608] |
-| Extended 30y | 126d (6mo) | 1.300 | [1.021, 1.560] |
+| CLEAN 18.1y | 21d (1mo) | 1.558 | [1.119, 2.017] |
+| CLEAN 18.1y | 63d (3mo) | 1.580 | [1.192, 1.942] |
+| CLEAN 18.1y | 126d (6mo) | 1.604 | [1.256, 1.949] |
+| Extended 30y | 21d (1mo) | 1.316 | [0.975, 1.667] |
+| Extended 30y | 63d (3mo) | 1.328 | [1.045, 1.626] |
+| Extended 30y | 126d (6mo) | 1.319 | [1.044, 1.576] |
 
 Block-length robustness is good: mean Sharpe stable across 1mo-6mo blocks
 on both windows; longer blocks narrow CI as expected (less effective
-samples). 30y 21d-block CI lower bound dips to 0.965 -- below 1.0 raw
+samples). 30y 21d-block CI lower bound dips to 0.975 -- below 1.0 raw
 Sharpe -- suggesting the 21d-block default may understate dependence in
-deeper-history data. Use 63-126d blocks for conservative inference.
+deeper-history data. Use 63-126d blocks for conservative inference (lower
+bounds 1.04-1.05).
 
 **Regime-block bootstrap** (SPY 200d-SMA bull/bear buckets, N=2000;
 addresses external-review concern about regime imbalance):
 
 | Window | Regime split | Mean Sh | 95% CI |
 |---|---|---:|---:|
-| CLEAN 18.1y | 79% bull / 21% bear | 1.548 | [1.095, 2.010] |
-| Extended 30y | 74% bull / 26% bear | 1.306 | [0.946, 1.669] |
+| CLEAN 18.1y | 79% bull / 21% bear | 1.581 | [1.129, 2.044] |
+| Extended 30y | 74% bull / 26% bear | 1.324 | [0.963, 1.685] |
 
 Resampling within regime buckets to preserve bull/bear mix. CLEAN CI
-remains positive throughout. **30y regime-block CI lower bound 0.946 falls
+remains positive throughout. **30y regime-block CI lower bound 0.963 sits
 below forward floor 1.05** -- the 30y window's bear-regime weight (26%) is
 historical, but a future regime with >30% bear could push realized Sharpe
 below the forward floor. Treat as a sensitivity warning, not a base case.
@@ -316,17 +320,17 @@ standalone Sharpe survives the multi-comparison haircut comfortably (PSR
 external-review concern about insufficient multi-test haircut). Effective
 trial count includes the full architectural search across sleeves, weight
 blends, gates, hold-buffer parameters, vol-cap variants, Rebound bypass
-variants, and per-component sensitivity grids over the multi-session
-research path:
+variants, safe-pool extension, and per-component sensitivity grids over the
+multi-session research path:
 
 | N trials | CLEAN PSR | 30y PSR |
 |---:|---:|---:|
-| N=20 (composite gate alone) | >99.99% | >99.99% |
-| N=100 | 99.96% | 99.95% |
-| N=200 (this-session variants) | 99.92% | 99.89% |
-| N=500 (cumulative research path) | 99.79% | 99.74% |
-| N=1000 (very conservative) | 99.62% | 99.52% |
-| N=2000 (paranoid upper bound) | 99.35% | 99.18% |
+| N=20 (composite gate alone) | 100.00% | 100.00% |
+| N=100 | 99.98% | 99.97% |
+| N=200 (this-session variants) | 99.95% | 99.93% |
+| N=500 (cumulative research path) | 99.87% | 99.81% |
+| N=1000 (very conservative) | 99.75% | 99.65% |
+| N=2000 (paranoid upper bound) | 99.56% | 99.39% |
 
 PSR survives all reasonable haircut levels for P(true SR > 0). Caveat:
 the "true SR > 0" bar is low at observed SR 1.07-1.41 with 4500-7600

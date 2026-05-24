@@ -50,7 +50,10 @@ INTERNATIONAL = ["EFA", "EEM"]
 # Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities).
 DIVERSIFIERS = ["GLD", "TLT", "DBC"]
 RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 9 risky
-SAFE_POOL = ["SHV"]            # ultra-short Treasury (~0.3y duration)
+SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe: SHV (ultra-short)
+                                 # or IEF (7-10y) by Faber 10m SMA distance.
+                                 # Captures duration alpha in falling-rate eras.
+                                 # Mirrors BULL sleeve's safe pool (was SHV only).
 
 # CPM canary: HYG (credit), TIP (inflation), GLD (real-asset/tail).
 # HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post.
@@ -293,17 +296,30 @@ def zscore(s: pd.Series) -> pd.Series:
 
 
 def best_safe(monthly: pd.DataFrame, sig_d: pd.Timestamp, safe_pool: list) -> str:
-    """Pick the best safe asset by Faber 10m SMA distance."""
+    """Pick the best safe asset by 13612U momentum (HAA canonical, matches BULL).
+
+    13612U = average of 1, 3, 6, 12-month total returns. Robustly identifies
+    short-duration vs intermediate-duration regime preference for the safe leg.
+    """
     sub = monthly.loc[:sig_d]
     available = [s for s in safe_pool if s in sub.columns and sub[s].first_valid_index() is not None]
     if not available:
         return DEFAULT_CASH
-    if len(sub) < 10:
+    if len(sub) < 13:
         return available[0]
-    sma = sub[available].rolling(10).mean().iloc[-1]
-    last = sub[available].iloc[-1]
-    dist = ((last - sma) / sma).dropna()
-    return dist.idxmax() if not dist.empty else available[0]
+    best_t, best_m = available[0], -np.inf
+    for t in available:
+        s = sub[t].dropna()
+        if len(s) < 13:
+            continue
+        r1 = float(s.iloc[-1] / s.iloc[-2] - 1)
+        r3 = float(s.iloc[-1] / s.iloc[-4] - 1)
+        r6 = float(s.iloc[-1] / s.iloc[-7] - 1)
+        r12 = float(s.iloc[-1] / s.iloc[-13] - 1)
+        m = (r1 + r3 + r6 + r12) / 4
+        if m > best_m:
+            best_m, best_t = m, t
+    return best_t
 
 
 # ---------- Allocation logic ----------
