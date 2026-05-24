@@ -54,7 +54,8 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 CPM-BULL-NDX (K=8)** | **1.51** | **17.66%** | **11.17%** | **-12.00%** | **1.47** |
+| **PROD 60/20/20 K=8 + vol cap** | **1.55** | **17.39%** | **10.85%** | **-12.00%** | **1.60** |
+| PROD (no vol cap) | 1.51 | 17.66% | 11.17% | -12.00% | 1.47 |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
@@ -74,12 +75,12 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 **Forward expectation** (discount for selection bias + regime dependency + NDX
 biases + tail sequencing not captured by return bootstrap):
 
-| Metric | Backtest | Forward base case |
+| Metric | Backtest (+ vol cap) | Forward base case |
 |---|---:|---|
-| Sharpe | 1.51 | **1.00-1.30** |
-| CAGR | 17.66% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -12.00% | **-15% to -30%** planning band (K=8 caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%) |
-| Calmar | 1.47 | **0.55-0.90** |
+| Sharpe | 1.55 | **1.05-1.35** |
+| CAGR | 17.39% | **11-15%** pre-tax, **5-9%** after-tax |
+| MaxDD | -12.00% | **-15% to -30%** planning band (K=8 caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; vol cap reduces tail vol but doesn't always reduce MaxDD depth) |
+| Calmar | 1.60 | **0.60-0.90** |
 
 ## Strategy specification
 
@@ -144,7 +145,18 @@ else:
     ndx[SHV] = 1.0 - 0.125 * len(picks)
 
 # ---- Combined ----
-portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
+portfolio_uncapped = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
+
+# ====== Portfolio-level vol cap (latched binary 50% @ 22% trigger) ======
+# Daily check: if blend trailing-21d realized vol > 22%, scale = 0.5; else 1.0.
+# Once triggered, LATCH at 0.5 until next monthly signal date (re-evaluate then).
+blend_vol_21d  = realized_vol_21d(portfolio_uncapped)
+if blend_vol_21d > 0.22 OR vol_cap_latched_from_prior_day:
+    scale = 0.5                                       # halve everything
+else:
+    scale = 1.0
+portfolio = scale * portfolio_uncapped
+portfolio[SHV] += (1 - scale)                         # excess to cash
 ```
 
 **Universe** (all live since 2006-02 = DBC inception):
@@ -235,6 +247,23 @@ driven by canary + asset_mom flips, identical across variants.
 
 **Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
 CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost.
+
+**Portfolio-level vol cap robustness** (latched binary 50% @ 22% trigger):
+
+| Test | Result |
+|---|---|
+| In-sample CLEAN 18.1y | Sharpe 1.554 vs baseline 1.515 (+0.039); Max realized vol 31.5% → 23.4% |
+| Extended 30y (incl. dotcom) | Sharpe 1.311 vs 1.303 (+0.008); Max vol 33.1% → 24.9% |
+| Out-of-window split (first half 2008-2017) | +0.042 Sharpe vs baseline (positive) |
+| Out-of-window split (second half 2017-2026) | +0.032 Sharpe vs baseline (positive) |
+| LB sensitivity (10/21/42/63d) | 21d is the optimum (Sh 1.554); others 1.498-1.510 |
+| Alternative form: MM continuous @ 15% (Moreira-Muir 2017) | Sh 1.535 (worse), MaxDD -10.84% (better), 6 trades/yr |
+| Alternative form: VIX-percentile @ 90th latched | Sh 1.472 (worst), worse on both windows |
+
+Latched binary form empirically beats Moreira-Muir continuous and VIX-percentile
+alternatives by Sharpe in both windows. MaxDD reduction is weaker than continuous
+scaling but tail-vol compression is comparable. 22% threshold is the only one
+positive across both in-sample halves. ~0.9 trades/yr.
 
 **Hold-buffer sensitivity**: HB=2.0z reduces CPM MaxDD by 3.7pp vs HB=0 for
 marginal Sharpe loss; flat plateau across HB ∈ [2, 5]z. Current vetos: buffer
@@ -514,8 +543,13 @@ One-shot setup: `bash deploy/setup.sh`. Details in `deploy/cf-pages/README.md`,
 - `bull_qqq_live.py` — BULL-QQQ sleeve.
 - `ndx_sleeve_live.py` — NDX sleeve (PIT constituent fetch).
 - `build_dashboard.py` — 60/20/20 blend dashboard + peer benchmarks.
+- `vol_cap.py` — portfolio-level latched binary vol cap (50% @ 22% trigger).
+- `vol_check.py` — daily vol-cap check job (state persistence + Telegram alert).
+- `vol_cap_state.json` — persisted vol-cap state (committed by vol-check workflow).
 - `data/` — stitched series; `data/ndx_constituents/prices.parquet` cached.
-- `deploy/` — Cloudflare cron + Pages.
+- `deploy/` — Cloudflare cron + Pages (monthly signal + daily vol-check).
+- `.github/workflows/monthly-signal.yml` — monthly rebalance + dashboard rebuild.
+- `.github/workflows/vol-check.yml` — daily vol-cap check + Telegram alert.
 - `research/` — exploratory analyses (not loaded by live spec).
 
 ```bash

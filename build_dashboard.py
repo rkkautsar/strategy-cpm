@@ -1402,16 +1402,81 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
         ndx_html = "<tr><td colspan='2'>(NDX panel not available)</td></tr>"
         ndx_state = f"NDX panel data unavailable ({e})"
 
-    # Combined 60% CPM + 20% BULL-QQQ + 20% NDX
-    combined = {}
+    # Combined 60% CPM + 20% BULL-QQQ + 20% NDX  (UNSCALED)
+    combined_uncapped = {}
     for t, w in weights.items():
-        combined[t] = combined.get(t, 0.0) + w * CPM_WEIGHT
+        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * CPM_WEIGHT
     for t, w in bq_w.items():
-        combined[t] = combined.get(t, 0.0) + w * BULL_WEIGHT
+        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * BULL_WEIGHT
     for t, w in ndx_w.items():
-        combined[t] = combined.get(t, 0.0) + w * NDX_WEIGHT
+        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * NDX_WEIGHT
+
+    # Load vol-cap state (from vol_cap_state.json, persisted by daily vol-check)
+    try:
+        import json
+        from vol_cap import VOL_CAP_TARGET, VOL_CAP_LOOKBACK, VOL_CAP_SCALE
+        state_file = ROOT / "vol_cap_state.json"
+        if state_file.exists():
+            vc_state = json.loads(state_file.read_text())
+            vc_scale = float(vc_state.get("scale", 1.0))
+            vc_regime = vc_state.get("regime", "NORMAL")
+            vc_rv = vc_state.get("realized_vol_21d_pct", None)
+            vc_as_of = vc_state.get("as_of_date", "never")
+            vc_last_event = vc_state.get("last_change_event")
+            vc_lifetime = vc_state.get("lifetime_events", 0)
+        else:
+            vc_scale = 1.0
+            vc_regime = "NORMAL"
+            vc_rv = None
+            vc_as_of = "never (vol_cap_state.json missing)"
+            vc_last_event = None
+            vc_lifetime = 0
+    except Exception as e:
+        vc_scale = 1.0
+        vc_regime = "ERROR"
+        vc_rv = None
+        vc_as_of = f"error: {e}"
+        vc_last_event = None
+        vc_lifetime = 0
+
+    # Apply scale: combined = vc_scale * uncapped; (1 - vc_scale) -> cash
+    combined = {t: w * vc_scale for t, w in combined_uncapped.items()}
+    if vc_scale < 1.0:
+        cash_extra = 1.0 - vc_scale
+        combined[CASH_TICKER] = combined.get(CASH_TICKER, 0.0) + cash_extra
     combined_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
-                             for t, w in sorted(combined.items(), key=lambda x: -x[1]))
+                             for t, w in sorted(combined.items(), key=lambda x: -x[1])
+                             if abs(w) > 1e-6)
+
+    # Vol-cap status block
+    if vc_regime == "CAP_ENGAGED":
+        vc_color = "#e74c3c"
+        vc_status = (f"⚠️ <strong>CAP ENGAGED</strong> at {int(vc_scale*100)}% scale "
+                      f"(half to cash). Realized 21d vol: {vc_rv:.1f}% &gt; "
+                      f"{VOL_CAP_TARGET*100:.0f}% threshold. Latched until next monthly signal.")
+    elif vc_regime == "NORMAL":
+        vc_rv_str = f"{vc_rv:.1f}%" if vc_rv is not None else "n/a"
+        vc_color = "#27ae60"
+        vc_status = (f"✓ NORMAL: scale 100%. Realized 21d vol: {vc_rv_str} &lt; "
+                      f"{VOL_CAP_TARGET*100:.0f}% threshold.")
+    else:
+        vc_color = "#666"
+        vc_status = f"State: {vc_regime}. As-of: {vc_as_of}."
+    last_event_str = ""
+    if vc_last_event:
+        last_event_str = (f" Last state change: {vc_last_event.get('at_date')} "
+                           f"({vc_last_event.get('kind')}, "
+                           f"vol={vc_last_event.get('realized_vol_at_change')}%).")
+    vol_cap_html = (
+        f"<div style='grid-column: 1 / -1; background:#fef9e7; "
+        f"border-left: 4px solid {vc_color}; padding:10px 14px; border-radius:4px; "
+        f"margin: 8px 0;'>"
+        f"<strong>Portfolio vol cap</strong> (latched binary {int(VOL_CAP_SCALE*100)}% "
+        f"@ {int(VOL_CAP_TARGET*100)}% trigger; "
+        f"{VOL_CAP_LOOKBACK}d trailing realized vol): {vc_status}{last_event_str} "
+        f"State as-of {vc_as_of}. Lifetime events: {vc_lifetime}."
+        f"</div>"
+    )
 
     # Build prior-vs-target trade-delta table (compare to PREVIOUS signal date if available)
     prev_combined = {}
@@ -1425,11 +1490,13 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
         except Exception:
             prev_bq_w, prev_ndx_w = {}, {}
         for t, w in prev_weights.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * CPM_WEIGHT
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * CPM_WEIGHT * vc_scale
         for t, w in prev_bq_w.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * BULL_WEIGHT
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * BULL_WEIGHT * vc_scale
         for t, w in prev_ndx_w.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * NDX_WEIGHT
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * NDX_WEIGHT * vc_scale
+        if vc_scale < 1.0:
+            prev_combined[CASH_TICKER] = prev_combined.get(CASH_TICKER, 0.0) + (1.0 - vc_scale)
     all_keys = set(combined) | set(prev_combined)
     trade_rows = []
     for t in sorted(all_keys, key=lambda k: -(combined.get(k, 0.0))):
@@ -1455,6 +1522,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 
     return f"""
 <div class='alloc-grid'>
+{vol_cap_html}
 <div>
   <h4>CPM sleeve internal ({int(CPM_WEIGHT*100)}% of capital; weights below sum to 100% of sleeve)</h4>
   <p style='font-size:0.85rem'>Regime: <strong>{regime}</strong><br>Best safe: <strong>{safe}</strong><br>Pair: <strong>{pair_str}</strong></p>
@@ -1471,8 +1539,8 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
   <div class='table-scroll'><table class='alloc'>{ndx_html}</table></div>
 </div>
 <div>
-  <h4 style='background:#fff4d6;padding:6px 10px;border-radius:4px'>→ FINAL PORTFOLIO TARGET WEIGHTS {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} (100% of capital) ←</h4>
-  <p style='font-size:0.8rem;color:#555'>This is the actual blended portfolio. Per-name weight = sleeve-internal weight × sleeve allocation.</p>
+  <h4 style='background:#fff4d6;padding:6px 10px;border-radius:4px'>→ FINAL PORTFOLIO TARGET WEIGHTS {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} {('(× vol-cap scale ' + str(vc_scale) + ')') if vc_scale < 1.0 else '(100% of capital)'} ←</h4>
+  <p style='font-size:0.8rem;color:#555'>This is the actual blended portfolio after applying vol-cap scale. Per-name weight = sleeve-internal weight × sleeve allocation × vol-cap scale. Excess (1 - scale) parked in {CASH_TICKER} cash.</p>
   <div class='table-scroll'><table class='alloc'>{combined_html}</table></div>
 </div>
 <div style='grid-column: 1 / -1'>
@@ -1525,8 +1593,15 @@ def main():
     cpm = cpm.reindex(common)
     bull_qqq_rets = bull_qqq_rets.reindex(common)
     ndx_rets = ndx_rets.reindex(common).fillna(0.0)
-    blended = CPM_W * cpm + BULL_W * bull_qqq_rets + NDX_W * ndx_rets
-    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)})"
+    blended_uncapped = CPM_W * cpm + BULL_W * bull_qqq_rets + NDX_W * ndx_rets
+    # Apply portfolio-level vol cap (latched binary 50% @ 22% trigger)
+    from vol_cap import compute_latched_scale, VOL_CAP_TARGET
+    blend_sig_dates = (pd.date_range(blended_uncapped.index[0], blended_uncapped.index[-1],
+                                       freq="ME")
+                       .intersection(blended_uncapped.index).tolist())
+    vol_scale, vol_events = compute_latched_scale(blended_uncapped, blend_sig_dates)
+    blended = vol_scale * blended_uncapped
+    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + vol cap"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)

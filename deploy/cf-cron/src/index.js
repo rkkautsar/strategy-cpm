@@ -1,21 +1,25 @@
 /**
  * CF Workers cron trigger -> fires GH Actions repository_dispatch event.
  *
- * Why this exists: GitHub Actions scheduled workflows are automatically
- * disabled after 60 days of repo inactivity. For a strategy that only
- * commits via its own monthly cron, that breaks after ~2 months.
+ * Two cron schedules (see wrangler.toml):
+ *   1. Monthly signal:    0 2 1 * *     (1st of month, 10am SGT) -> event_type: monthly-signal
+ *   2. Daily vol-check:   30 22 * * 1-5 (weekdays 22:30 UTC, 6:30am SGT) -> event_type: vol-check
  *
- * CF Workers cron triggers have no inactivity penalty. This Worker fires
- * monthly and POSTs to GitHub API to wake up the workflow that does the
- * actual Python compute + CF Pages deploy + Telegram notification.
+ * Why CF Workers cron: GitHub Actions scheduled workflows auto-disable after
+ * 60 days of repo inactivity. CF Workers cron has no inactivity penalty.
  *
- * Timing: cron fires 02:00 UTC on day 1 of every month (10am SGT).
- * Signal date = last biz day of prior month; signal computed from prior
- * month-end close (doesn't change overnight). MOO orders valid for next
- * trading day open.
+ * Daily vol-check: catches latched-binary vol-cap trigger / lift between
+ * monthly rebalances. Sends Telegram alert only on state change (~0.9/yr).
+ * Fires after US market close (4pm ET = 21:00 UTC summer / 22:00 UTC winter);
+ * 22:30 UTC chosen to safely cover both DST regimes with 30min margin.
  */
 
-async function dispatchToGitHub(env, cronStr) {
+const EVENT_BY_CRON = {
+  "0 2 1 * *":   "monthly-signal",
+  "30 22 * * 1-5": "vol-check",
+};
+
+async function dispatchToGitHub(env, cronStr, eventType) {
   const { GH_OWNER, GH_REPO, GH_TOKEN } = env;
   if (!GH_OWNER || !GH_REPO || !GH_TOKEN) {
     throw new Error("Missing GH_OWNER / GH_REPO / GH_TOKEN env vars");
@@ -31,7 +35,7 @@ async function dispatchToGitHub(env, cronStr) {
       "X-GitHub-Api-Version": "2022-11-28",
     },
     body: JSON.stringify({
-      event_type: "monthly-signal",
+      event_type: eventType,
       client_payload: {
         triggered_at: new Date().toISOString(),
         cron: cronStr,
@@ -43,32 +47,40 @@ async function dispatchToGitHub(env, cronStr) {
     const body = await res.text();
     throw new Error(`GH dispatch failed ${res.status}: ${body}`);
   }
-  console.log(`GH dispatch fired for ${GH_OWNER}/${GH_REPO} at ${cronStr}`);
+  console.log(`GH dispatch fired event=${eventType} for ${GH_OWNER}/${GH_REPO} at ${cronStr}`);
 }
 
 export default {
   // Scheduled cron handler (fires on schedule defined in wrangler.toml)
   async scheduled(event, env, ctx) {
+    const eventType = EVENT_BY_CRON[event.cron] || "monthly-signal";
     try {
-      await dispatchToGitHub(env, event.cron);
+      await dispatchToGitHub(env, event.cron, eventType);
     } catch (err) {
       console.error(err.message);
       throw err;
     }
   },
 
-  // HTTP handler for manual testing
+  // HTTP handler for manual testing.
+  // POST / with X-Trigger-Token => monthly-signal (default)
+  // POST /?event=vol-check with X-Trigger-Token => vol-check
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
-      return new Response("POST with X-Trigger-Token header to trigger manually", { status: 405 });
+      return new Response("POST with X-Trigger-Token header to trigger manually\n", { status: 405 });
     }
     const auth = request.headers.get("X-Trigger-Token");
     if (!env.TRIGGER_TOKEN || auth !== env.TRIGGER_TOKEN) {
-      return new Response("Unauthorized", { status: 401 });
+      return new Response("Unauthorized\n", { status: 401 });
+    }
+    const url = new URL(request.url);
+    const eventType = url.searchParams.get("event") || "monthly-signal";
+    if (!["monthly-signal", "vol-check"].includes(eventType)) {
+      return new Response(`Unknown event=${eventType}\n`, { status: 400 });
     }
     try {
-      await dispatchToGitHub(env, "manual");
-      return new Response("Dispatched\n", { status: 200 });
+      await dispatchToGitHub(env, "manual", eventType);
+      return new Response(`Dispatched ${eventType}\n`, { status: 200 });
     } catch (err) {
       return new Response(`Error: ${err.message}\n`, { status: 500 });
     }

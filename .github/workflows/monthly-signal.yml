@@ -13,6 +13,8 @@ on:
   workflow_dispatch:  # allow manual trigger anytime
   push:
     branches: [main]
+    paths-ignore:
+      - 'vol_cap_state.json'  # vol-check workflow commits this; don't re-trigger
 
 permissions:
   contents: read

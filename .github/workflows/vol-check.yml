@@ -1,0 +1,51 @@
+name: Daily vol-cap check
+
+# Triggered daily by Cloudflare Workers cron (see deploy/cf-cron/).
+# Runs the latched-binary vol-cap check, persists state to repo, sends
+# Telegram alert ONLY on state change (~0.9 events/year per backtest).
+
+on:
+  repository_dispatch:
+    types: [vol-check]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # commit vol_cap_state.json on change
+
+jobs:
+  vol-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run vol-cap check
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DASHBOARD_URL: https://cpm-bull-dashboard.pages.dev
+        run: uv run python vol_check.py
+
+      - name: Commit state if changed
+        run: |
+          git config user.name "vol-check-bot"
+          git config user.email "vol-check@noreply.github.com"
+          if [[ -n "$(git status --porcelain vol_cap_state.json)" ]]; then
+            git add vol_cap_state.json
+            git commit -m "vol-cap state update [skip workflow]"
+            git push
+          else
+            echo "no state change"
+          fi
