@@ -767,31 +767,33 @@ BULL gate (HYG_stitched canary + curve/vol composite + QQQ 12mo TR) and
 
 | Scenario | NDX MaxDD | Blend MaxDD impact | Notes |
 |---|---:|---:|---|
-| VWEHX lag=0 (assumed real-time HYG tracking) | -12.35% | minimal | Gate defensive Jan-May 2000 + Oct 2000+ |
-| **VWEHX lag=1-3mo (plausible proxy lag)** | **-29.64%** | **-6pp** from NDX alone | Gate ON during late-bubble peak; bubble names picked |
-| NDX gate forced ON entire period | -63.55% | **-13pp** from NDX alone | Adversarial gate-complete-fail bound |
-| All 3 sleeves gate failure | -78.67% | **-78.67%** | Mirrors QQQ buy-hold |
+| Best (VWEHX exactly tracks real HY) | -12.35% | minimal | Gate defensive Jan-May 2000 + Oct 2000+ |
+| **Central (VWEHX undermarks crises by 2-9pp)** | **-30%** | **-6pp** from NDX alone | Gate-flip effectively delayed 1-2mo; bubble names picked at late peak |
+| Adversarial (gate forced ON entire period) | -63.55% | -13pp from NDX alone | Gate-complete-fail bound |
+| All 3 sleeves gate failure | -78.67% | -78.67% | Mirrors QQQ buy-hold |
 
-**VWEHX (mutual fund proxy for HYG pre-2007) lag sensitivity** is the
-load-bearing assumption, and the cliff is sharper than month-scale --
-it hits at 3 trading days of effective lag:
+**VWEHX vs HYG empirical comparison (live period 2007-2026):** the proxy
+issue is calibration drift, not time lag. VWEHX tracks HYG
+contemporaneously at monthly frequency (correlation +0.906, z-score
+correlation +0.954) but consistently UNDERMARKS crisis severity:
 
-| VWEHX lag (trading days) | NDX MaxDD |
-|---:|---:|
-| 0 (real-time) | -13.28% |
-| 1 (T+1 NAV, mutual fund convention) | -13.28% |
-| 3 (stale OTC bond marks plausible) | **-30.37%** |
-| 5-21 (saturated) | -30.37% |
+| Crisis | HYG cumulative | VWEHX cumulative | Gap (VWEHX less negative) |
+|---|---:|---:|---:|
+| 2008 GFC | -32.87% | -23.48% | +9.38pp |
+| 2011 Eurocrisis | -9.07% | -4.70% | +4.38pp |
+| 2015-16 oil | -11.47% | -7.28% | +4.18pp |
+| 2020 COVID | -21.90% | -19.69% | +2.21pp |
+| 2022 rates | -14.56% | -13.10% | +1.47pp |
 
-Real HYG ETF (post-2007 live, measured across 6 crises 2008/2011/2015/
-2018/2020/2022): leads SPY by ~6 days mean at peaks, coincident at
-troughs, contemporaneous monthly correlation +0.735. That's the target
-behavior. VWEHX would only need to lag real-time HY by 3+ days to land
-in the -30% NDX regime.
+VWEHX higher-quality holdings + smoother pricing understate HY stress
+severity by 2-9pp during crises. This delays the 13612U gate-flip by
+1-2 months effectively, landing the dot-com analog NDX MaxDD in the
+-30% regime (per the earlier lag-shift sensitivity test which
+empirically mapped to the same outcome).
 
-Net effective VWEHX lag in 1999-2000 is uncertain (1-5 days plausible)
-and straddles the cliff. FRED HY OAS direct validation pending (rate-
-limited).
+**Central case: -30% NDX MaxDD, -6pp blend contribution** in dot-com
+analog under realistic VWEHX-vs-real-HY calibration drift. Best case
+(VWEHX exactly tracks real HY): -13%. Adversarial (gate forced ON): -63%.
 
 **Realistic NDX planning band**: -12% (optimistic, gate tracks credit
 real-time) to -30% (plausible 1-3mo proxy lag) to -63% (adversarial
