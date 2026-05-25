@@ -1204,39 +1204,147 @@ def chart_correlations(strategies: dict):
     return fig
 
 
+def chart_equity_dd_combined(strategies: dict, prod_label: str | None = None,
+                                initial_capital: float = 1000):
+    """TT-style integrated equity + drawdown chart.
+    Top panel: log-scale equity curves. Bottom panel: drawdown filled.
+    Shared x-axis.
+    """
+    fig, (ax_eq, ax_dd) = plt.subplots(2, 1, figsize=(9, 6),
+                                          gridspec_kw={"height_ratios": [3, 1.5],
+                                                        "hspace": 0.06},
+                                          sharex=True)
+    for name, daily in _ordered(strategies):
+        eq = (1.0 + daily).cumprod() * initial_capital
+        dd = (eq / eq.cummax() - 1) * 100
+        sty = PROD_STYLE if (prod_label and name == prod_label) else FCP_STYLES.get(name, dict(lw=1.0, zorder=1))
+        color = sty.get("color", "#888")
+        if prod_label and name == prod_label:
+            ax_eq.fill_between(eq.index, initial_capital, eq.values,
+                                 color=color, alpha=0.85, zorder=3)
+            ax_eq.plot(eq.index, eq.values, color=color, lw=1.5, zorder=4, label=name)
+            ax_dd.fill_between(dd.index, dd.values, 0, color=color, alpha=0.85, zorder=3)
+        else:
+            ax_eq.plot(eq.index, eq.values, label=name, **sty)
+            ax_dd.plot(dd.index, dd.values, color=color, lw=sty.get("lw", 1.0),
+                        alpha=sty.get("alpha", 0.7), zorder=sty.get("zorder", 1))
+    ax_eq.set_yscale("log")
+    ax_eq.set_ylabel("Portfolio Value ($)")
+    ax_eq.grid(True, alpha=0.3, which="both")
+    ax_dd.set_ylabel("Drawdown (%)")
+    ax_dd.axhline(0, color="#888", lw=0.6)
+    ax_dd.grid(True, alpha=0.3)
+    ax_dd.xaxis.set_major_locator(mdates.YearLocator(2))
+    ax_dd.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    _legend_below(ax_dd, ncol=3, prod_label=prod_label)
+    ax_eq.set_title("Equity & Drawdown", fontsize=11)
+    return fig
+
+
+def chart_mc_horizon(daily: pd.Series, benchmark: pd.Series | None = None,
+                      prod_label: str = "PROD", bench_label: str = "Benchmark",
+                      max_years: int = 18, n_paths: int = 2000):
+    """TT-style Monte Carlo by investment horizon.
+    For each horizon Y in [1, max_years]:
+      - resample blocks of returns to generate n_paths simulated Y-year tracks
+      - compute CAGR and worst-DD distributions
+      - plot 5th-95th percentile bands
+
+    Two panels: CAGR percentile band (top), worst-DD percentile band (bottom).
+    """
+    rng = np.random.default_rng(42)
+    fig, (ax_c, ax_d) = plt.subplots(2, 1, figsize=(9, 6),
+                                       gridspec_kw={"height_ratios": [1, 1],
+                                                     "hspace": 0.05}, sharex=True)
+
+    def simulate(returns: pd.Series, max_y: int):
+        r = returns.dropna().values
+        n = len(r)
+        if n < 252:
+            return None
+        block = 63  # quarterly blocks
+        cagr_bands = []
+        dd_bands = []
+        for y in range(1, max_y + 1):
+            ndays = int(y * 252)
+            cagrs = np.empty(n_paths)
+            dds = np.empty(n_paths)
+            for k in range(n_paths):
+                n_blocks = ndays // block + 1
+                starts = rng.integers(0, n - block, n_blocks)
+                path = np.concatenate([r[s:s+block] for s in starts])[:ndays]
+                eq = np.cumprod(1 + path)
+                cagrs[k] = eq[-1] ** (252/ndays) - 1
+                peak = np.maximum.accumulate(eq)
+                dds[k] = (eq / peak - 1).min()
+            cagr_bands.append((y, np.percentile(cagrs, [5, 50, 95]) * 100))
+            dd_bands.append((y, np.percentile(dds, [5, 50, 95]) * 100))
+        return cagr_bands, dd_bands
+
+    for series, label, color in [(daily, prod_label, "#0040d0"),
+                                     (benchmark, bench_label, "#f0a020")]:
+        if series is None or series.empty:
+            continue
+        sim = simulate(series, max_years)
+        if sim is None: continue
+        cagr_bands, dd_bands = sim
+        ys = [b[0] for b in cagr_bands]
+        c5 = [b[1][0] for b in cagr_bands]
+        c95 = [b[1][2] for b in cagr_bands]
+        cm = [b[1][1] for b in cagr_bands]
+        d5 = [b[1][0] for b in dd_bands]
+        ax_c.fill_between(ys, c5, c95, color=color, alpha=0.45 if label==prod_label else 0.25,
+                            label=label)
+        ax_c.plot(ys, cm, color=color, lw=1.2)
+        ax_d.fill_between(ys, d5, 0, color=color, alpha=0.45 if label==prod_label else 0.25)
+    ax_c.set_ylabel("CAGR 5-95th pct (%)")
+    ax_c.set_title("Monte Carlo Expected Returns & Drawdowns by Investment Horizon", fontsize=11)
+    ax_c.grid(True, alpha=0.3); ax_c.legend(loc="upper right", fontsize=9)
+    ax_d.set_xlabel("Investment Period (years)")
+    ax_d.set_ylabel("Worst DD 5th pct (%)")
+    ax_d.axhline(0, color="#888", lw=0.6)
+    ax_d.grid(True, alpha=0.3)
+    return fig
+
+
 def chart_risk_return_scatter(strategies: dict, prod_label: str | None = None):
-    """Risk-return scatter: MaxDD on X, CAGR on Y. Pareto frontier visible.
-    PROD highlighted; benchmarks/components plotted alongside."""
-    fig, ax = plt.subplots(figsize=(8, 5.2))
-    points = []
+    """TT-style risk-return scatter: Ulcer Index (X) vs Avg Return (Y).
+    One dot per calendar year per strategy. Shows cloud of yearly snapshots:
+    high return + low Ulcer = top-left quadrant.
+    """
+    fig, ax = plt.subplots(figsize=(9, 5.5))
     for name, daily in strategies.items():
         r = daily.dropna()
-        if len(r) < 20:
+        if len(r) < 252:
             continue
-        eq = (1 + r).cumprod()
-        yrs = (r.index[-1] - r.index[0]).days / 365.25
-        cagr = float(eq.iloc[-1] ** (1/yrs) - 1) * 100
-        dd = float((eq / eq.cummax() - 1).min()) * 100
-        sh = float(r.mean() / r.std() * (252 ** 0.5)) if r.std() else 0
-        points.append((name, abs(dd), cagr, sh))
-    for name, mdd, cagr, sh in points:
         is_prod = (prod_label and name == prod_label)
-        sty = PROD_STYLE if is_prod else FCP_STYLES.get(name, dict(color="#888", lw=1.0))
+        sty = PROD_STYLE if is_prod else FCP_STYLES.get(name, dict(color="#888"))
         color = sty.get("color", "#888")
-        size = 250 if is_prod else 120
-        zorder = 10 if is_prod else 3
+        # Group by calendar year
+        years = sorted(set(r.index.year))
+        xs = []; ys = []
+        for y in years:
+            sub = r[r.index.year == y]
+            if len(sub) < 100: continue
+            eq = (1 + sub).cumprod()
+            avg_ret = float(eq.iloc[-1] - 1) * 100  # year's total return (~CAGR for 1y)
+            # Ulcer Index: sqrt(mean(DD^2)) over year
+            dd = (eq / eq.cummax() - 1) * 100
+            ulcer = float((dd ** 2).mean() ** 0.5)
+            xs.append(ulcer); ys.append(avg_ret)
+        if not xs: continue
+        size = 80 if is_prod else 50
+        alpha = 0.85 if is_prod else 0.55
         edge = "#000" if is_prod else "none"
-        ax.scatter(mdd, cagr, s=size, c=color, alpha=0.85, zorder=zorder,
-                    edgecolors=edge, linewidths=1.2 if is_prod else 0)
-        ax.annotate(f"{name}\nSh {sh:.2f}", (mdd, cagr), xytext=(8, 5),
-                     textcoords="offset points", fontsize=8.5,
-                     fontweight="bold" if is_prod else "normal",
-                     color="#000" if is_prod else "#444")
-    ax.set_xlabel("Max Drawdown (%, abs)")
-    ax.set_ylabel("CAGR (%)")
-    ax.set_title("Risk vs Return: CAGR vs MaxDD")
+        ax.scatter(xs, ys, s=size, c=color, alpha=alpha,
+                    edgecolors=edge, linewidths=0.8 if is_prod else 0,
+                    label=name, zorder=10 if is_prod else 3)
+    ax.axhline(0, color="#444", lw=0.6)
+    ax.set_xlabel("Risk: Ulcer Index (%)")
+    ax.set_ylabel("Reward: Annual Return (%)")
+    ax.set_title("Risk vs Return (per calendar year)")
     ax.grid(True, alpha=0.3)
-    ax.invert_xaxis()  # lower DD (better) on right
+    ax.legend(loc="upper right", fontsize=8.5, framealpha=0.9)
     return fig
 
 
@@ -1719,14 +1827,17 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
 
     return f"""
 <div class='alloc-grid'>
-<div style='grid-column: 1 / -1'>
-  <h4 style='background:#fff4d6;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Final portfolio target {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} {('× ' + str(vc_scale)) if vc_scale < 1.0 else ''}</h4>
-  <p style='font-size:0.78rem;color:#666;margin:2px 0 6px 0'>{vc_summary}</p>
-  <div class='table-scroll'><table class='alloc'>{combined_target_html}</table></div>
-</div>
-<div style='grid-column: 1 / -1'>
-  <h4 style='background:#e8f4fd;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Rebalance trade (vs prior signal)</h4>
-  <div class='table-scroll'>{trade_html}</div>
+<div class='alloc-row' style='grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; gap: 14px;'>
+  <style>@media (min-width: 900px) {{ .alloc-row {{ grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) !important; }} }}</style>
+  <div>
+    <h4 style='background:#fff4d6;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Final portfolio target {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} {('× ' + str(vc_scale)) if vc_scale < 1.0 else ''}</h4>
+    <p style='font-size:0.78rem;color:#666;margin:2px 0 6px 0'>{vc_summary}</p>
+    <div class='table-scroll'><table class='alloc'>{combined_target_html}</table></div>
+  </div>
+  <div>
+    <h4 style='background:#e8f4fd;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Rebalance trade (vs prior signal)</h4>
+    <div class='table-scroll'>{trade_html}</div>
+  </div>
 </div>
 <div style='grid-column: 1 / -1'>
   <details>
@@ -1879,6 +1990,18 @@ def main():
         {k: v for k, v in strategies.items() if k in CORE_CHARTS},
         prod_label=prod_label,
     )
+    # TT-style integrated equity + drawdown chart for headline.
+    # PROD vs closest benchmark (Naive 60/40 PP/QQQ-trend).
+    naive_for_headline = strategies.get("Naive 60/40 PP/QQQ-trend")
+    headline_strats = {prod_label: blended}
+    if naive_for_headline is not None and not naive_for_headline.empty:
+        headline_strats["Naive 60/40 PP/QQQ-trend"] = naive_for_headline
+    fig_eq_dd_headline = chart_equity_dd_combined(headline_strats,
+                                                    prod_label=prod_label)
+    fig_mc = chart_mc_horizon(blended, naive_for_headline,
+                                prod_label=prod_label,
+                                bench_label="Naive 60/40 PP/QQQ-trend",
+                                max_years=18, n_paths=500)
     top_dd_html = topN_drawdowns_html(blended, n=10)
     period_summary = period_summary_html(blended)
 
@@ -2102,6 +2225,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>. Forward base-case Sh 1.00–1.30, CAGR 11–15% pre-tax (5–9% after).</p>
 {perf_table_html(perf_rows, compact=True)}
+{fig_to_html(fig_eq_dd_headline)}
 <details>
   <summary style='font-size:0.85rem;color:#666;cursor:pointer'>Full metrics (Ulcer / Calmar / Martin)</summary>
   {perf_table_html(perf_rows)}
@@ -2109,14 +2233,14 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </div>
 
 <details>
-<summary><strong>Performance detail</strong> (period summary, risk-return scatter, top-10 drawdowns; click to expand)</summary>
+<summary><strong>Performance detail</strong> (period summary, risk-return scatter, top-10 drawdowns, MC horizon; click to expand)</summary>
 
 <h3>Period-over-period</h3>
 <div class='card'>
 {period_summary}
 </div>
 
-<h3>Risk vs Return</h3>
+<h3>Risk vs Return (yearly snapshots)</h3>
 <div class='card'>
 {fig_to_html(fig_riskret)}
 </div>
@@ -2124,6 +2248,11 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <h3>Top 10 worst drawdowns</h3>
 <div class='card'>
 {top_dd_html}
+</div>
+
+<h3>Monte Carlo: expected returns & drawdowns by investment horizon</h3>
+<div class='card'>
+{fig_to_html(fig_mc)}
 </div>
 
 </details>
