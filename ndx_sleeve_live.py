@@ -35,9 +35,14 @@ from bull_qqq_live import (
 # allocate REBOUND_NDX_WEIGHT to the top-K momentum-positive NDX names and
 # the rest to best-of-safe (instead of going 100% cash). Captures V-shape
 # recoveries early via high-beta momentum names that run harder than QQQ
-# index. Empirical lift vs no-rebound: +2.5pp NDX sleeve CAGR, +0.47pp
-# portfolio CAGR, +0.013 portfolio Sortino, same portfolio MaxDD.
+# index.
+#
+# Rebound fast signal is tied to QQQ (NDX universe is Nasdaq-100 tech-heavy,
+# so the natural recovery signal is QQQ 2mo TR), independent of BULL sleeve
+# ticker. When BULL was switched to SPY, NDX rebound stayed on QQQ to keep
+# the tech-recovery semantics intact.
 REBOUND_NDX_WEIGHT = 0.5
+REBOUND_FAST_TICKER = "QQQ"  # tech-recovery signal, decoupled from BULL_TICKER
 
 ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
@@ -97,11 +102,11 @@ def compute_ndx_weights(
     # Step 1: BULL-QQQ gate
     bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
     rebound_on = False
-    if not bq_regime.startswith("BULL_QQQ"):
+    if not bq_regime.startswith("BULL_"):
         # Rebound bypass check: BULL gate off but fast QQQ momentum positive
         cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
-        fast_ok, fast_r = (_rebound_fast_ok(cpm_monthly[BULL_TICKER], sig_d)
-                            if BULL_TICKER in cpm_monthly.columns else (None, float("nan")))
+        fast_ok, fast_r = (_rebound_fast_ok(cpm_monthly[REBOUND_FAST_TICKER], sig_d)
+                            if REBOUND_FAST_TICKER in cpm_monthly.columns else (None, float("nan")))
         if fast_ok is not True:
             safe = _pick_safe(cpm_monthly)
             return ({safe: 1.0}, f"GATE_OFF ({bq_regime})", {

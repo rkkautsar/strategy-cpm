@@ -47,7 +47,16 @@ from cpm_live import (
 
 # ---------- Configuration ----------
 
-BULL_TICKER = "QQQ"           # production sleeve ticker (NDX sleeve depends on this)
+# BULL sleeve risky ticker. SPY chosen over QQQ for diversification: BULL-SPY
+# has corr 0.61 with NDX sleeve vs 0.75 for BULL-QQQ (NDX is dedicated tech
+# pick, so BULL on broad market gives independent equity-beta source).
+# Tradeoffs (CLEAN 2008-04 -> now):
+#   BULL-SPY: Sharpe 1.72, CAGR 16.90%, MaxDD -8.70%, corr-NDX 0.61
+#   BULL-QQQ: Sharpe 1.70, CAGR 17.41%, MaxDD -8.90%, corr-NDX 0.75
+# Slight Sharpe gain (+0.013) + MaxDD improvement (+0.20pp) + diversification
+# at cost of -0.51pp CAGR (tech-led period bias 2010-2024).
+# Cascade: NDX sleeve uses BULL_TICKER for Rebound fast signal (now SPY 2mo TR).
+BULL_TICKER = "SPY"
 CASH_TICKER = "SHV"           # default cash if SAFE_POOL evaluation fails
 SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
 

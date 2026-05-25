@@ -44,7 +44,7 @@ from bull_qqq_live import (
     BULL_TICKER, CASH_TICKER,
 )
 
-# Production blend: 60% CPM + 20% BULL-QQQ + 20% NDX
+# Production blend: 60% CPM + 20% BULL-SPY + 20% NDX
 CPM_W = 0.60
 BULL_W = 0.20
 NDX_W = 0.20
@@ -340,14 +340,14 @@ def cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timesta
 
 # Visual hierarchy (3 tiers):
 #   Tier 1 (most prominent): production blend - bold thick deep blue, drawn last
-#   Tier 2 (component sleeves): CPM green + BULL-QQQ orange, medium weight
+#   Tier 2 (component sleeves): CPM green + BULL-SPY orange, medium weight
 #   Tier 3 (benchmarks): muted grey/colored thin lines, dashed/dotted
 PROD_STYLE = dict(color="#0040d0", lw=2.0, ls="-", alpha=1.0, zorder=10)
 
 FCP_STYLES = {
     # Tier 2: components
     "CPM standalone":       dict(color="#1a9a1a", lw=2.0, ls="-",  alpha=0.95, zorder=8),
-    "BULL-QQQ sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
+    "BULL-SPY sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: 2 benchmarks (apples-to-apples + raw target)
     "Naive 60/40 PP/QQQ-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
@@ -367,7 +367,7 @@ BASE_RENDER_ORDER = [
     "60/40 SPY/IEF", "SPY buy-hold",   # legacy benchmarks
     "NDX sleeve",
     "QQQ buy-hold", "Naive 60/40 PP/QQQ-trend",  # core 2 benchmarks
-    "BULL-QQQ sleeve", "CPM standalone",         # components
+    "BULL-SPY sleeve", "CPM standalone",         # components
 ]
 
 
@@ -518,7 +518,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
-        ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="BULL-QQQ standalone",
+        ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="BULL-SPY standalone",
                 color="#ff8800", lw=1.6, ls="-", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Worst DD in window (%)")
@@ -559,7 +559,7 @@ def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, naive: pd.Seri
         max_fcp_cagr = rolling_cagr(max_fcp.reindex(idx))
         excess_max = (max_fcp_cagr - naive_cagr) * 100
         ax.plot(excess_max.index, excess_max.values,
-                label="BULL-QQQ standalone vs Naive 60/40", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
+                label="BULL-SPY standalone vs Naive 60/40", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Excess CAGR (pp, ann.)")
     ax.set_title(f"Rolling {window_days//21}-Month Excess vs Naive 60/40")
@@ -743,7 +743,7 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
     im = plot_sub(axes[0], cpm_grid, cpm_row_labels, cpm_col_labels,
                    'CPM sleeve - performance by canary state', fontsize=9)
     plot_sub(axes[1], bull_grid, bull_row_labels, bull_col_labels,
-              'BULL-QQQ sleeve - performance by canary AND macro composite state', fontsize=8)
+              'BULL-SPY sleeve - performance by canary AND macro composite state', fontsize=8)
     fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)
     return fig
 
@@ -771,7 +771,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
                 picks[asset] += 1
         if pair and len(pair) == 2:
             pair_counter[tuple(sorted(pair))] += 1
-        # BULL-QQQ canary state
+        # BULL-SPY canary state
         try:
             _bw, bregime, _bdiag = compute_bull_qqq_weights(panel, sd)
             bull_per_date.append((sd, bregime))
@@ -784,7 +784,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     regime_counts = {
         "RISK_ON": cpm_regimes.count("RISK_ON"),
         "DEFENSIVE": cpm_regimes.count("DEFENSIVE"),
-        "BULL_QQQ": sum(1 for r in bull_regimes if r.startswith("BULL_QQQ")),
+        "BULL_SPY": sum(1 for r in bull_regimes if r.startswith("BULL_")),
         "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
     }
 
@@ -808,10 +808,10 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
         frameon=False, handlelength=1.2, handleheight=0.7,
     )
 
-    # Row 2: BULL-QQQ canary (HYG/TIP any-positive + curve/vol OR + asset mom)
+    # Row 2: BULL-SPY canary (HYG/TIP any-positive + curve/vol OR + asset mom)
     bull_colors = []
     for r in bull_regimes:
-        if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")
+        if r.startswith("BULL_"): bull_colors.append("#00a040")
         else: bull_colors.append("#808080")
     axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
     axes[1].set_yticks([])
@@ -819,7 +819,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     axes[1].set_title("BULL canary (HYG/TIP any-positive 13612U)", fontsize=9)
     axes[1].legend(
         handles=[
-            Patch(facecolor="#00a040", label="BULL_QQQ"),
+            Patch(facecolor="#00a040", label="BULL_SPY"),
             Patch(facecolor="#808080", label="CASH (SHV)"),
         ],
         loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
@@ -973,7 +973,7 @@ def chart_sleeve_contribution(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_ret
     # Stacked bars
     width = 0.7
     ax.bar(years, cpm_y * 100, width, label=f'CPM ({int(w_cpm*100)}%)', color='#2e86c1', edgecolor='#1b4f72')
-    ax.bar(years, bull_y * 100, width, bottom=cpm_y * 100, label=f'BULL-QQQ ({int(w_bull*100)}%)', color='#f39c12', edgecolor='#7e5109')
+    ax.bar(years, bull_y * 100, width, bottom=cpm_y * 100, label=f'BULL-SPY ({int(w_bull*100)}%)', color='#f39c12', edgecolor='#7e5109')
     ax.bar(years, ndx_y * 100, width, bottom=(cpm_y + bull_y) * 100, label=f'NDX ({int(w_ndx*100)}%)', color='#c0392b', edgecolor='#641e16')
 
     # Total line marker
@@ -1131,9 +1131,9 @@ def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, bull_rets: pd.Series, 
     roll_bn = bull_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
 
     fig, ax = plt.subplots(figsize=(12, 4.5), constrained_layout=True)
-    ax.plot(roll_cb.index, roll_cb, color='#2e86c1', lw=1.5, label='CPM vs BULL-QQQ')
+    ax.plot(roll_cb.index, roll_cb, color='#2e86c1', lw=1.5, label='CPM vs BULL-SPY')
     ax.plot(roll_cn.index, roll_cn, color='#f39c12', lw=1.5, label='CPM vs NDX')
-    ax.plot(roll_bn.index, roll_bn, color='#c0392b', lw=1.5, label='BULL-QQQ vs NDX')
+    ax.plot(roll_bn.index, roll_bn, color='#c0392b', lw=1.5, label='BULL-SPY vs NDX')
     ax.axhline(0, color='gray', lw=0.5)
     ax.axhline(0.5, color='gray', ls=':', lw=0.5)
     ax.set_ylabel('1y rolling correlation')
@@ -1160,7 +1160,7 @@ def chart_monthly_return_distributions(cpm_rets: pd.Series, bull_rets: pd.Series
     for ax, (name, ser, color) in zip(
         axes.flat,
         [(f'CPM ({int(w_cpm*100)}%)', m_cpm, '#2e86c1'),
-         (f'BULL-QQQ ({int(w_bull*100)}%)', m_bull, '#f39c12'),
+         (f'BULL-SPY ({int(w_bull*100)}%)', m_bull, '#f39c12'),
          (f'NDX ({int(w_ndx*100)}%)', m_ndx, '#c0392b'),
          (f'Blend {int(w_cpm*100)}/{int(w_bull*100)}/{int(w_ndx*100)}', m_blend, '#27ae60')]
     ):
@@ -1498,7 +1498,7 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: p
     df = pd.DataFrame({"Year": yr_b.index.year,
                        "PROD": yr_b.values * 100,
                        "CPM": yr_f.reindex(yr_b.index).values * 100,
-                       "BULL-QQQ": yr_m.reindex(yr_b.index).values * 100,
+                       "BULL-SPY": yr_m.reindex(yr_b.index).values * 100,
                        "Naive 60/40": yr_n.reindex(yr_b.index).values * 100,
                        "QQQ": yr_q.reindex(yr_b.index).values * 100})
     df["Excess vs Naive"] = df["PROD"] - df["Naive 60/40"]
@@ -1510,14 +1510,14 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: p
         exn_class = "pos" if ex_n > 0 else "neg"
         exq_class = "pos" if ex_q > 0 else "neg"
         body += f"<tr><td>{int(r['Year'])}</td>"
-        for col in ["PROD", "CPM", "BULL-QQQ", "Naive 60/40", "QQQ"]:
+        for col in ["PROD", "CPM", "BULL-SPY", "Naive 60/40", "QQQ"]:
             v = r[col]
             cls = "pos" if v > 0 else "neg"
             body += f"<td style='text-align:right' class='{cls}'>{v:+.2f}%</td>"
         body += f"<td style='text-align:right' class='{exn_class}'>{ex_n:+.2f}pp</td>"
         body += f"<td style='text-align:right' class='{exq_class}'>{ex_q:+.2f}pp</td></tr>\n"
     return f"""<div class='table-scroll'><table class='yearly'>
-<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-QQQ only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
+<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-SPY only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
 
@@ -1605,7 +1605,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                         for t, w in sorted(weights.items(), key=lambda x: -x[1]))
     pair_str = f"{pair[0]} + {pair[1]}" if pair else "-"
 
-    # BULL-QQQ sleeve (20%)
+    # BULL-SPY sleeve (20%)
     bq_w, bq_regime, bq_diag = compute_bull_qqq_weights(panel, sig_d)
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
@@ -1625,7 +1625,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     else:
         bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, {comp_str})"
 
-    # NDX sleeve (20%) -- gated by BULL-QQQ regime
+    # NDX sleeve (20%) -- gated by BULL-SPY regime
     try:
         from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel, SELECT_K as NDX_SELECT_K
         ndx_panel_data = load_ndx_panel()
@@ -1648,7 +1648,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         ndx_html = "<tr><td colspan='2'>(NDX panel not available)</td></tr>"
         ndx_state = f"NDX panel data unavailable ({e})"
 
-    # Combined 60% CPM + 20% BULL-QQQ + 20% NDX  (UNSCALED)
+    # Combined 60% CPM + 20% BULL-SPY + 20% NDX  (UNSCALED)
     combined_uncapped = {}
     for t, w in weights.items():
         combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * CPM_WEIGHT
@@ -1872,13 +1872,13 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     <summary style='font-weight:600;cursor:pointer'>Signal diagnostics (sleeves, vol-cap state, selection details)</summary>
     <div style='margin-top:10px'>
     <p style='font-size:0.85rem;margin:6px 0'><strong>CPM</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): pair = <strong>{pair_str}</strong>, safe = {safe}</p>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>BULL-QQQ</strong> ({int(BULL_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{bull_pick}</strong></p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>BULL-SPY</strong> ({int(BULL_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{bull_pick}</strong></p>
     <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' · sectors: ' + sector_str) if sector_str else ''}</p>
     {vol_cap_html}
     <h4 style='margin-top:14px'>Sleeve-internal weights (sum to 100% of each sleeve)</h4>
     <div style='display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px'>
       <div><strong>CPM</strong><div class='table-scroll'><table class='alloc'>{fcp_html}</table></div></div>
-      <div><strong>BULL-QQQ</strong><div class='table-scroll'><table class='alloc'>{bq_html}</table></div></div>
+      <div><strong>BULL-SPY</strong><div class='table-scroll'><table class='alloc'>{bq_html}</table></div></div>
       <div><strong>NDX</strong><div class='table-scroll'><table class='alloc'>{ndx_html}</table></div></div>
     </div>
     </div>
@@ -1905,7 +1905,7 @@ def main():
     start = pd.Timestamp(args.start)
     end = pd.Timestamp(args.end) if args.end else pd.Timestamp.today().normalize()
     
-    # Load with sufficient warmup so CPM signals + BULL-QQQ 12mo TR momentum are stable
+    # Load with sufficient warmup so CPM signals + BULL-SPY 12mo TR momentum are stable
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
     panel = load_panel(start=panel_start, end=end)
@@ -1914,7 +1914,7 @@ def main():
     print(f"Running CPM backtest ...")
     cpm, _ = run_cpm_backtest(panel, start, end)
 
-    print("Computing BULL-QQQ sleeve ...")
+    print("Computing BULL-SPY sleeve ...")
     bull_qqq_rets = run_bull_qqq_backtest(panel, start, end)
 
     print("Computing NDX sleeve ...")
@@ -1926,7 +1926,7 @@ def main():
         print("  NDX panel data not found; skipping NDX sleeve.")
         ndx_rets = pd.Series(0.0, index=bull_qqq_rets.index)
 
-    # Production blend: 60% CPM + 20% BULL-QQQ + 20% NDX
+    # Production blend: 60% CPM + 20% BULL-SPY + 20% NDX
     common = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
     cpm = cpm.reindex(common)
     bull_qqq_rets = bull_qqq_rets.reindex(common)
@@ -1975,7 +1975,7 @@ def main():
     strategies = {
         prod_label: blended,
         "CPM standalone": cpm,
-        "BULL-QQQ sleeve": bull_qqq_rets,
+        "BULL-SPY sleeve": bull_qqq_rets,
         "NDX sleeve": ndx_rets,
         "Naive 60/40 PP/QQQ-trend": naive_pp_qt,
         "QQQ buy-hold": qqq,
@@ -1993,7 +1993,7 @@ def main():
     # Build charts
     print("Building charts ...")
     # Core comparison: PROD + 2 components + 2 apples-to-apples benchmarks
-    CORE_CHARTS = (prod_label, "CPM standalone", "BULL-QQQ sleeve", "NDX sleeve",
+    CORE_CHARTS = (prod_label, "CPM standalone", "BULL-SPY sleeve", "NDX sleeve",
                    "Naive 60/40 PP/QQQ-trend", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                               prod_label=prod_label)
@@ -2086,7 +2086,7 @@ def main():
     sleeve_rows = [
         {"strategy": "CPM-BULL-NDX 60/20/20 + VIX cap (PRODUCTION)", **perf_metrics(blend_capped)},
         {"strategy": "CPM standalone (60% sleeve, uncapped)",        **perf_metrics(cpm)},
-        {"strategy": "BULL-QQQ standalone (20% sleeve, uncapped)",   **perf_metrics(bull_qqq_rets)},
+        {"strategy": "BULL-SPY standalone (20% sleeve, uncapped)",   **perf_metrics(bull_qqq_rets)},
         {"strategy": "NDX standalone (20% sleeve, uncapped)",         **perf_metrics(ndx_c)},
     ]
 
@@ -2101,7 +2101,7 @@ def main():
     #     proxy-heavy (universe-selection contamination concern).
     #   - BULL: QQQ live 1999-03. HYG+TIP canary -- pre-2000 TIP stitched via VIPSX.
     #     pre-2000 TIP nan, falls back to HYG-only canary.
-    #   - NDX: PIT data 2006-01+. Pre-2006 the NDX sleeve mirrors BULL-QQQ
+    #   - NDX: PIT data 2006-01+. Pre-2006 the NDX sleeve mirrors BULL-SPY
     #     (i.e., extra BULL exposure) instead of sitting in cash.
     # Includes 2000-02 dot-com bust, 2008 GFC, 2020 COVID, 2022 stress.
     # ========================================================
@@ -2124,7 +2124,7 @@ def main():
     ext_strategies = {
         prod_label: ext_blended,
         "CPM standalone": ext_fcp_c,
-        "BULL-QQQ sleeve": ext_bull_c,
+        "BULL-SPY sleeve": ext_bull_c,
         "NDX sleeve": ext_ndx_c,
         "Naive 60/40 PP/QQQ-trend": ext_naive,
         "QQQ buy-hold": ext_qqq,
@@ -2297,7 +2297,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
-<li><strong>BULL-QQQ ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND QQQ 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND QQQ 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_QQQ regime.</li>
 </ul>
 </div>
@@ -2357,7 +2357,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </div>
 
 <h3>Extended backtest (~27y, {ext_start.date()} -> {end.date()})</h3>
-<p class='footnote'>NDX sleeve mirrors BULL-QQQ pre-2006 (no PIT data). Pre-2010 uses stitched ETF proxies.</p>
+<p class='footnote'>NDX sleeve mirrors BULL-SPY pre-2006 (no PIT data). Pre-2010 uses stitched ETF proxies.</p>
 <div class='card'>
 {perf_table_html(ext_perf_rows)}
 {fig_to_html(ext_fig_equity)}
@@ -2394,7 +2394,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </ul>
 </details>
 <details>
-<summary>BULL-QQQ Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (Keller/HAA canary + custom curve/vol composite + TSMOM trend filter)</summary>
+<summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (Keller/HAA canary + custom curve/vol composite + TSMOM trend filter)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
 <li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0. Two-asset credit (HYG = high-yield) + inflation (TIP) regime check.</li>
@@ -2412,7 +2412,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
 <li><strong>Signal:</strong> 13612U momentum per stock (same formula as CPM canary, canonical HAA unweighted).</li>
 <li><strong>Selection:</strong> top 8 by momentum (positive only), equal-weighted 12.5% each.</li>
-<li><strong>Gate:</strong> only allocates when BULL-QQQ regime is <code>BULL_QQQ</code> (equity-friendly); cash otherwise.</li>
+<li><strong>Gate:</strong> only allocates when BULL-SPY regime is <code>BULL_QQQ</code> (equity-friendly); cash otherwise.</li>
 <li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> when gate off or fewer than 4 positive-momentum candidates.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
 <li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by 10% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
@@ -2428,7 +2428,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul style='line-height:1.5'>
 <li><strong>In-sample bias.</strong> Tuned on this window. Forward Sharpe ~30-40% below backtest; blend 1.00-1.30, CPM standalone 0.80-1.10.</li>
 <li><strong>NDX survivorship.</strong> Holding-stage MC bounded &lt;0.01 Sh. Selection-stage MC v2 (177 missing delisted tickers): adversarial stress-clustered impact -0.11 Sh / -1.40pp CAGR / MaxDD -15.51% at K=8. CRSP/Norgate validation pending.</li>
-<li><strong>NDX 30y caveat.</strong> Pre-2006 sleeve mirrors BULL-QQQ (no PIT data). 30y window does NOT stress-test live stock-selection sleeve through dotcom.</li>
+<li><strong>NDX 30y caveat.</strong> Pre-2006 sleeve mirrors BULL-SPY (no PIT data). 30y window does NOT stress-test live stock-selection sleeve through dotcom.</li>
 <li><strong>V-shape recovery lag.</strong> 13612U + 12mo TR momentum use trailing 12mo → re-entry delayed 1-3 months after deep selloffs. Lagged SPY ~5-10pp in 2009/2020-Q2/2022-Q4 snap-backs.</li>
 <li><strong>Crisis-concentrated alpha.</strong> CPM defensive edge concentrated in 2008/2002/2020/2022. Non-crisis years lag SPY by design.</li>
 <li><strong>Bull underperformance is structural.</strong> No leverage; gives up bull upside for crisis alpha.</li>
