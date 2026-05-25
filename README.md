@@ -94,7 +94,7 @@ biases + tail sequencing not captured by return bootstrap):
 | Raw Sharpe | 1.57 | **1.10-1.40** |
 | Excess Sharpe (over SHV) | 1.44 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
 | CAGR | 17.24% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress**, **-40 to -50%+ tail** for NDX-specific dot-com analog with gate-cycling + correlated sector collapse + momentum-into-falling-knives (no simulation covers this scenario; see caveats) |
+| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress**, **-78% theoretical worst case** if BULL gate fails across all sleeves (dot-com simulation; if gate works as it did on hybrid replay through 2000-2002, NDX MaxDD limited to -12%) |
 | Calmar | 1.50 | **0.55-0.90** |
 
 ## Strategy specification
@@ -745,8 +745,8 @@ the -22% selection-bias stress band reported under NDX bias.
 | Scenario | Plausibility | MaxDD est | Driver |
 |---|---|---:|---|
 | Adverse signal-cluster failure (3-4 consecutive misses) | ~5-10% over 30y | **-32 to -37%** | BULL gate-miss + NDX selection-bias clustering + CPM canary lag, all coincident |
-| BULL gate misses full Nasdaq bear (eg 2000-2002 -78%) | ~3-5% over 30y | **-35 to -42%** | Sustained risk-on through real bear, VIX cap and bypass insufficient |
-| NDX-specific bubble collapse with momentum-into-falling-knives | ~1-3% over 30y | **-40 to -50%+** | See "NDX dot-com analog gap" below |
+| NDX gate forced ON through Nasdaq bear (eg 2000-2002) | ~3-5% over 30y | **-13pp from NDX alone** | Simulated; NDX MaxDD -63%; CPM/BULL may also fail same regime |
+| All 3 sleeves gate failure simultaneously | ~1-2% over 30y | **-78%** | Theoretical worst case; mirrors QQQ buy-hold (dot-com replay) |
 
 These are stylized upper bounds derived from arithmetic, not simulated
 paths through the actual failure mechanism. Use for position-sizing:
@@ -757,43 +757,51 @@ VIX cap engages during sustained bears and reduces realized MaxDD; cap
 doesn't eliminate protracted-bear gap risk. Numbers above are conservative
 (no cap) upper bounds.
 
-**NDX dot-com analog gap (most material tail risk):**
+**NDX dot-com analog (simulation):**
 
-The NDX top-8 sleeve has **zero backtest evidence through any Nasdaq-
-specific bear**. The 30y window uses BULL-mirror for the entire 2000-2002
-dot-com period (PIT NDX constituents only exist 2006+). NDX has been
-tested only through post-2006 environment: one sharp-fast bear (COVID,
-rescued in weeks) and one rate bear (2022, where the gate partially fired).
+No PIT NDX-100 data pre-2006. Hybrid replay built from 37 survivor names
+(yfinance) plus 35 calibrated bubble-collapse synthetic paths (peak
+2000-03 to 2000-10, troughs -85% to -100% by 2002-09). Run our actual
+BULL gate (HYG_stitched canary + curve/vol composite + QQQ 12mo TR) and
+13612U top-8 selection month-by-month through 2000-2002.
 
-The selection-stage ghost-injection MC (-0.02 to -0.11 Sharpe under
-adversarial clustering, reported in the NDX bias section) measures one
-specific risk: "what if names we couldn't see would have been picked and
-then went bankrupt?" It does **NOT** capture:
+| Scenario | NDX MaxDD | Blend MaxDD impact | Notes |
+|---|---:|---:|---|
+| Realistic (actual gate behavior) | **-12.35%** | minimal | Gate caught Jan-May 2000 + Oct 2000-end 2002 |
+| NDX gate forced ON entire period | **-63.55%** | **-13pp** from NDX alone | Picks during gate-on window 4-5/8 bubble names |
+| All 3 sleeves gate failure | **-78.67%** | **-78.67%** | Mirrors QQQ buy-hold |
 
-- **Correlated sector distress.** Dot-com names, telecom names, all hit
-  simultaneously; bankruptcies cluster by sector and vintage. The MC uses
-  independent/mildly-clustered draws. Real crises are maximally clustered
-  by construction -- momentum selects into the bubble, then the bubble pops.
-- **Joint gate-miss + selection-bias.** The dangerous scenario is both
-  simultaneously: BULL gate cycles in-and-out during a protracted bear AND
-  the names selected during brief risk-on windows are momentum-chasing the
-  exact wrong cohort. Joint distribution not modeled.
-- **Path-dependent momentum degradation.** During a real Nasdaq bear,
-  13612U selects into falling knives during brief recoveries (highest-
-  momentum names are those that bounced hardest off recent lows, not the
-  genuinely recovering ones). Known cross-sectional momentum failure mode
-  in trend-reversing environments; not captured by injecting synthetic
-  bankrupt names into an otherwise-functioning signal.
+Gate behavior empirical findings:
+- BULL gate correctly defensive during Jan-May 2000 dot-com peak (HYG
+  stitched proxy + QQQ 12mo TR caught the macro tape early)
+- Brief 4-month risk-on window Jun-Sep 2000, then defensive Oct 2000
+  through end 2002
+- During the 4mo vulnerability window, top-8 picks were 4-5/8 bubble
+  names (FDRY, AMCC, ARBA, CIEN, BRCD synthetics) -- the momentum signal
+  did select into the bubble cohort as expected
+- Damage limited because gate flipped off Oct 2000 before names
+  fully collapsed
 
-True NDX-specific tail with all three mechanisms active (gate-cycling +
-correlated sector collapse + momentum-into-falling-knives) could plausibly
-exceed -40% at the blend level, possibly -50%+ if NDX sleeve is fully
-engaged at the bubble peak and VIX cap triggers late. **No simulation
-covers this scenario today.**
+If BULL canary fails (gate forced ON, eg HYG_stitched proxy materially
+diverges from real-time 1999-2000 credit market behavior), NDX standalone
+MaxDD reaches -63%, contributing -13pp to blend damage. If all sleeves
+fail simultaneously, blend mirrors QQQ at -79%.
 
-Mitigation requires CRSP/Norgate point-in-time database to replay 13612U
-cross-sectional selection month-by-month through actual 2000-2002 price
-paths of names in NDX-100 at the time. Flagged as production blocker.
+Academic context: cross-sectional momentum crashes are structural, not
+random (Daniel-Moskowitz 2016, Barroso-Santa-Clara 2015). They occur
+contemporaneously with market rebounds following deep bears. WML
+historical magnitudes: 1932 -91% in 3mo, 2009 -73% in 3mo, 2000.12-
+2001.1 -51%. Long-only top-K lacks short-side amplification but the
+mechanism is identical. Real dot-com price action: Qualcomm -88%, Cisco
+-89%, JDS Uniphase ~-99%, Nortel ~-97%, Intel -80%. Bubble-collapse
+synthetic calibration above reflects this empirical pattern.
+
+Limitations of the simulation: (a) only 72 names vs real NDX-100; (b)
+synthetic paths are deterministic with overlaid noise, not draws from
+actual dot-com sector dynamics; (c) HYG_stitched is VWEHX mutual fund
+proxy pre-2007, not real-time HYG ETF behavior. Full replay would
+require CRSP/Norgate PIT data for actual 1999-2003 NDX-100 prices and
+real-time credit-spread data. Flagged as production blocker.
 
 **Pre-2007 backtest reliability**
 
