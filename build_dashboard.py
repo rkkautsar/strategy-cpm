@@ -1671,8 +1671,10 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         if len(_idx) > 0:
             _stub = pd.Series(0.0, index=_idx)
             _vix_for_state = load_vix(end=_idx[-1] + pd.Timedelta(days=2))
-            _sig_dates = (pd.date_range(_idx[0], _idx[-1], freq="ME")
-                           .intersection(_idx).tolist())
+            # Last trading day of each month (handles weekend/holiday
+            # month-ends correctly -- 'ME' alone drops those).
+            _sig_dates = (pd.DataFrame({"x": 1}, index=_idx)
+                           .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
             _scale_series, _events = compute_latched_scale(_stub, _sig_dates, vix=_vix_for_state)
             vc_scale = float(_scale_series.iloc[-1])
             vc_regime = "CAP_ENGAGED" if vc_scale < 1.0 else "NORMAL"
@@ -1932,8 +1934,13 @@ def main():
     # Apply per-sleeve DD circuit breaker on BULL and NDX (TT Market Vane
     # #5 analog). If sleeve DD < threshold mid-month, scale that sleeve
     # to recovery_scale until next monthly signal date. CPM untouched.
-    blend_sig_dates = (pd.date_range(cpm.index[0], cpm.index[-1], freq="ME")
-                        .intersection(cpm.index).tolist())
+    # Last trading day of each month. Using pd.date_range(freq='ME')
+    # alone drops months where calendar month-end falls on a weekend/
+    # holiday (e.g. 2022-04-30 Sat, 2022-07-31 Sun, 2022-12-31 Sat),
+    # causing DD circuit and VIX cap to never reset on those months
+    # and silently inflating drag.
+    blend_sig_dates = (pd.DataFrame({"x": 1}, index=cpm.index)
+                        .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
     from vol_cap import (compute_latched_scale, load_vix,
                           compute_dd_circuit_scale,
                           DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)

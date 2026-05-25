@@ -118,10 +118,10 @@ def main() -> int:
         print(f"[dd-check] insufficient sleeve history")
         return 1
 
-    sig_dates = (pd.date_range(bull_r.index[0], bull_r.index[-1], freq="ME")
-                 .intersection(bull_r.index).tolist())
-    sig_dates_ndx = (pd.date_range(ndx_r.index[0], ndx_r.index[-1], freq="ME")
-                      .intersection(ndx_r.index).tolist())
+    sig_dates = (pd.DataFrame({"x": 1}, index=bull_r.index)
+                 .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
+    sig_dates_ndx = (pd.DataFrame({"x": 1}, index=ndx_r.index)
+                      .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
 
     dash_url = os.environ.get("DASHBOARD_URL")
     n_alerts = 0

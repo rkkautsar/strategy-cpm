@@ -104,8 +104,8 @@ def main() -> int:
     n = ndx_r.reindex(common).fillna(0.0)
     blend = 0.60 * c + 0.20 * b + 0.20 * n
 
-    sig_dates = (pd.date_range(common[0], common[-1], freq="ME")
-                 .intersection(common).tolist())
+    sig_dates = (pd.DataFrame({"x": 1}, index=common)
+                 .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
     scale, _events = compute_latched_scale(blend, sig_dates, vix=vix)
 
     if len(scale) < 2:
