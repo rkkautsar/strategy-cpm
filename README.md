@@ -767,25 +767,32 @@ BULL gate (HYG_stitched canary + curve/vol composite + QQQ 12mo TR) and
 
 | Scenario | NDX MaxDD | Blend MaxDD impact | Notes |
 |---|---:|---:|---|
-| Realistic (actual gate behavior) | **-12.35%** | minimal | Gate caught Jan-May 2000 + Oct 2000-end 2002 |
-| NDX gate forced ON entire period | **-63.55%** | **-13pp** from NDX alone | Picks during gate-on window 4-5/8 bubble names |
-| All 3 sleeves gate failure | **-78.67%** | **-78.67%** | Mirrors QQQ buy-hold |
+| VWEHX lag=0 (assumed real-time HYG tracking) | -12.35% | minimal | Gate defensive Jan-May 2000 + Oct 2000+ |
+| **VWEHX lag=1-3mo (plausible proxy lag)** | **-29.64%** | **-6pp** from NDX alone | Gate ON during late-bubble peak; bubble names picked |
+| NDX gate forced ON entire period | -63.55% | **-13pp** from NDX alone | Adversarial gate-complete-fail bound |
+| All 3 sleeves gate failure | -78.67% | **-78.67%** | Mirrors QQQ buy-hold |
 
-Gate behavior empirical findings:
-- BULL gate correctly defensive during Jan-May 2000 dot-com peak (HYG
-  stitched proxy + QQQ 12mo TR caught the macro tape early)
-- Brief 4-month risk-on window Jun-Sep 2000, then defensive Oct 2000
-  through end 2002
-- During the 4mo vulnerability window, top-8 picks were 4-5/8 bubble
-  names (FDRY, AMCC, ARBA, CIEN, BRCD synthetics) -- the momentum signal
-  did select into the bubble cohort as expected
-- Damage limited because gate flipped off Oct 2000 before names
-  fully collapsed
+**VWEHX (mutual fund proxy for HYG pre-2007) lag sensitivity** is the
+load-bearing assumption. Just 1-month lag doubles NDX MaxDD from -12.57%
+to -29.64%. Real VWEHX vs real-time HYG fidelity unvalidated -- mutual
+fund NAVs have daily-pricing smoothing and different constituent universe
+vs HYG ETF (which launched 2007). FRED HY OAS validation pending
+(rate-limited).
 
-If BULL canary fails (gate forced ON, eg HYG_stitched proxy materially
-diverges from real-time 1999-2000 credit market behavior), NDX standalone
-MaxDD reaches -63%, contributing -13pp to blend damage. If all sleeves
-fail simultaneously, blend mirrors QQQ at -79%.
+At lag=1-3mo: gate stays defensive Jan-Jul 2000 (catches early stress)
+but flips ON Aug-Oct 2000 (late bubble peak / start of crash). Picks
+during that 3-month window would be deep-bubble names at their final
+highs. NDX MaxDD ~-30%.
+
+At lag=0 (baseline simulation): brief 4-month risk-on window Jun-Sep
+2000 with top-8 picks 4-5/8 bubble names (FDRY, AMCC, ARBA, CIEN, BRCD
+synthetics). Damage limited because gate flipped off Oct 2000 before
+names fully collapsed.
+
+**Realistic NDX planning band**: -12% (optimistic, gate tracks credit
+real-time) to -30% (plausible 1-3mo proxy lag) to -63% (adversarial
+gate-completely-fails). Blend impact -3 to -13pp from NDX alone before
+CPM/BULL losses in the same regime.
 
 Academic context: cross-sectional momentum crashes are structural, not
 random (Daniel-Moskowitz 2016, Barroso-Santa-Clara 2015). They occur
