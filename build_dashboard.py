@@ -2108,6 +2108,9 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </details>
 </div>
 
+<details>
+<summary><strong>Performance detail</strong> (period summary, risk-return scatter, top-10 drawdowns; click to expand)</summary>
+
 <h3>Period-over-period</h3>
 <div class='card'>
 {period_summary}
@@ -2122,6 +2125,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 {top_dd_html}
 </div>
+
+</details>
 
 <details>
 <summary><strong>Strategy spec (sleeves)</strong></summary>
