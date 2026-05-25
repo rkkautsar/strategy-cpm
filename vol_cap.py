@@ -257,3 +257,31 @@ def compute_dd_circuit_scale(sleeve_returns: pd.Series,
             current = recovery_scale
         scale.iloc[i] = current
     return scale
+
+
+def current_dd_state(sleeve_returns: pd.Series,
+                       threshold: float = DD_CIRCUIT_THRESHOLD) -> dict:
+    """Get current DD circuit state for a single sleeve.
+
+    Returns dict with: current_dd, peak_date, days_in_dd, triggered,
+    regime ('CIRCUIT_TRIGGERED' or 'NORMAL'), as_of_date.
+    """
+    if sleeve_returns.empty:
+        return dict(current_dd=0.0, triggered=False, regime="NO_DATA",
+                     as_of_date=None)
+    eq = (1.0 + sleeve_returns).cumprod()
+    dd_series = eq / eq.cummax() - 1.0
+    current_dd = float(dd_series.iloc[-1])
+    peak_value = eq.cummax().iloc[-1]
+    peak_date = eq[eq == peak_value].index[-1]
+    triggered = current_dd < threshold
+    days_in_dd = (sleeve_returns.index[-1] - peak_date).days if current_dd < 0 else 0
+    return dict(
+        current_dd=current_dd,
+        peak_date=peak_date,
+        days_in_dd=days_in_dd,
+        triggered=triggered,
+        threshold=threshold,
+        regime="CIRCUIT_TRIGGERED" if triggered else "NORMAL",
+        as_of_date=sleeve_returns.index[-1],
+    )

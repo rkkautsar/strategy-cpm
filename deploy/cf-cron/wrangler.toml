@@ -2,9 +2,10 @@ name = "cpm-bull-cron"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# Two cron schedules:
+# Three cron schedules:
 #   1. Monthly signal:   02:00 UTC, day 1     -> event_type=monthly-signal
 #   2. Daily vol-check:  22:30 UTC, weekdays  -> event_type=vol-check
+#   3. Daily dd-check:   22:35 UTC, weekdays  -> event_type=dd-check
 #
 # Monthly: 02:00 UTC = 10:00 AM SGT (UTC+8). Signal date = last biz day of
 # prior month. Signal close at 4 PM ET does not change over the weekend or
@@ -19,7 +20,7 @@ compatibility_date = "2026-01-01"
 #
 # Weekday-only (1-5) because US market is closed weekends; no new data.
 [triggers]
-crons = ["0 2 1 * *", "30 22 * * 1-5"]
+crons = ["0 2 1 * *", "30 22 * * 1-5", "35 22 * * 1-5"]
 
 [vars]
 GH_OWNER = "rkkautsar"

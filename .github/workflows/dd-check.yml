@@ -1,0 +1,37 @@
+name: Daily DD circuit breaker check
+
+# Triggered daily by Cloudflare Workers cron (see deploy/cf-cron/).
+# STATELESS: computes today's and yesterday's per-sleeve DD circuit
+# state on the fly from full sleeve history. Sends Telegram alert ONLY
+# on day-over-day state change per sleeve (BULL or NDX).
+
+on:
+  schedule:
+    - cron: "0 22 * * *"  # 22:00 UTC daily (post US close)
+  workflow_dispatch:
+  repository_dispatch:
+    types: [dd-check]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dd-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Run DD circuit check
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DASHBOARD_URL: https://cpm-bull-dashboard.pages.dev
+        run: uv run python dd_check.py

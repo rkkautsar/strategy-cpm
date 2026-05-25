@@ -1593,7 +1593,9 @@ def _ndx_sector_summary(picks: list) -> str:
     return " · ".join(parts)
 
 
-def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
+def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
+                         bull_qqq_rets: pd.Series | None = None,
+                         ndx_rets: pd.Series | None = None) -> str:
     records = cpm_signal_records(panel, pd.Timestamp("1900-01-01"), sig_d)
     rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
     weights = rec["weights"]
@@ -1744,6 +1746,28 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
         last_event_str += (f", threshold={_ev_thr:.2f})."
                             if isinstance(_ev_thr, (int, float))
                             else f", threshold={_ev_thr}).")
+    # DD circuit state for BULL and NDX sleeves
+    from vol_cap import current_dd_state, DD_CIRCUIT_THRESHOLD
+    dd_states_html = ""
+    try:
+        for sleeve_name, sleeve_rets in [("BULL", bull_qqq_rets), ("NDX", ndx_rets)]:
+            st = current_dd_state(sleeve_rets, threshold=DD_CIRCUIT_THRESHOLD)
+            triggered = st["triggered"]
+            color = "#e74c3c" if triggered else "#2ecc71"
+            status = "⚠️ CIRCUIT TRIGGERED" if triggered else "✓ Normal"
+            dd_pct = st["current_dd"] * 100
+            dd_states_html += (
+                f"<div style='background:#fafafa;border-left:4px solid {color};"
+                f"padding:8px 12px;margin:6px 0;border-radius:4px;font-size:0.88rem;'>"
+                f"<strong>{sleeve_name} DD circuit</strong>: {status} "
+                f"&middot; current DD <strong>{dd_pct:+.2f}%</strong> "
+                f"(threshold {DD_CIRCUIT_THRESHOLD*100:.0f}%) &middot; "
+                f"{st['days_in_dd']}d since peak"
+                f"</div>"
+            )
+    except Exception as _e:
+        dd_states_html = f"<p style='color:#999'>DD circuit state unavailable: {_e}</p>"
+
     vol_cap_html = (
         f"<div style='grid-column: 1 / -1; background:#fef9e7; "
         f"border-left: 4px solid {vc_color}; padding:10px 14px; border-radius:4px; "
@@ -1753,6 +1777,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp) -> str:
         f"<br><span style='font-size:0.9em;color:#555'>Threshold today = {thresh_str} "
         f"(P{int(VIX_PCT*100)} of last {VIX_LB_YEARS} years of VIX closes).{last_event_str}"
         f" VIX as-of {vc_vix_asof}. State as-of {vc_as_of}. Lifetime events: {vc_lifetime}.</span>"
+        f"{dd_states_html}"
         f"</div>"
     )
 
@@ -2010,7 +2035,9 @@ def main():
     prior_month_end = today.replace(day=1) - pd.Timedelta(days=1)
     candidates = panel.index[panel.index <= prior_month_end]
     sig_d = candidates[-1] if len(candidates) > 0 else today
-    alloc_html = current_alloc_html(panel, sig_d)
+    alloc_html = current_alloc_html(panel, sig_d,
+                                       bull_qqq_rets=bull_qqq_rets,
+                                       ndx_rets=ndx_rets)
 
     # Audit-block values
     import subprocess

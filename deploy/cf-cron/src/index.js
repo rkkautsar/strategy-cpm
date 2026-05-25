@@ -17,6 +17,7 @@
 const EVENT_BY_CRON = {
   "0 2 1 * *":   "monthly-signal",
   "30 22 * * 1-5": "vol-check",
+  "35 22 * * 1-5": "dd-check",
 };
 
 async function dispatchToGitHub(env, cronStr, eventType) {
@@ -75,7 +76,7 @@ export default {
     }
     const url = new URL(request.url);
     const eventType = url.searchParams.get("event") || "monthly-signal";
-    if (!["monthly-signal", "vol-check"].includes(eventType)) {
+    if (!["monthly-signal", "vol-check", "dd-check"].includes(eventType)) {
       return new Response(`Unknown event=${eventType}\n`, { status: 400 });
     }
     try {
