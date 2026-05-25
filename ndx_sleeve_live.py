@@ -3,13 +3,17 @@
 Spec:
   1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)
   2. Signal:   13612U momentum per stock (canonical HAA unweighted average)
-  3. Gate:     BULL-QQQ regime must be BULL_QQQ; else 100% SHV cash.
+  3. Gate:     BULL-QQQ regime must be BULL_QQQ; else best-of-safe (SHV/IEF
+               by 13612U, HAA-style) -- unless Rebound bypass fires.
   4. PIT fallback: when PIT data unavailable (pre-2006), mirror BULL-QQQ
      weights (NDX sleeve acts as extra BULL exposure).
   5. Selection: top-K by 13612U momentum, equal-weighted 1/K each.
   6. Partial fill: if fewer than K positive candidates, take what's there at
-     1/K=25% per pick, rest in SHV cash (e.g. 2 positives -> 50% stocks + 50% SHV).
-  7. Monthly rebalance, T+1 OPEN execution (next-day MOO), 10bps/side cost.
+     1/K=25% per pick, rest in best-of-safe (e.g. 2 positives -> 50% stocks
+     + 50% best-safe).
+  7. Rebound bypass: BULL gate off but fast QQQ 2mo TR > 0 -> 50% top-K
+     names + 50% best-safe (Goulding-Harvey fast-bypass).
+  8. Monthly rebalance, T+1 OPEN execution (next-day MOO), 10bps/side cost.
 """
 from __future__ import annotations
 import sys
@@ -22,7 +26,7 @@ import index_constitution as ic
 
 from cpm_live import sig_13612U
 from bull_qqq_live import (
-    compute_bull_qqq_weights, CASH_TICKER, BULL_TICKER,
+    compute_bull_qqq_weights, CASH_TICKER, BULL_TICKER, SAFE_POOL,
     _rebound_fast_ok, _pick_safe,
 )
 
@@ -99,11 +103,13 @@ def compute_ndx_weights(
         fast_ok, fast_r = (_rebound_fast_ok(cpm_monthly[BULL_TICKER], sig_d)
                             if BULL_TICKER in cpm_monthly.columns else (None, float("nan")))
         if fast_ok is not True:
-            return ({CASH_TICKER: 1.0}, f"GATE_OFF ({bq_regime})", {
+            safe = _pick_safe(cpm_monthly)
+            return ({safe: 1.0}, f"GATE_OFF ({bq_regime})", {
                 "bull_qqq_regime": bq_regime,
                 "selected": [],
                 "reason": "BULL-QQQ off; fast QQQ 2mo TR not positive",
                 "fast_qqq_2mo": fast_r,
+                "picked_safe": safe,
             })
         rebound_on = True
 
@@ -176,7 +182,9 @@ def compute_ndx_weights(
         weights = {t: per_slot for t in selected}
         cash_share = 1.0 - n_pick * per_slot
         if cash_share > 1e-9:
-            weights[CASH_TICKER] = cash_share
+            cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
+            safe = _pick_safe(cpm_monthly)
+            weights[safe] = weights.get(safe, 0.0) + cash_share
         regime = "NDX_ACTIVE" if n_pick == SELECT_K else f"NDX_PARTIAL_{n_pick}"
     return (weights, regime, {
         "bull_qqq_regime": bq_regime,
@@ -259,15 +267,19 @@ def run_ndx_backtest(
                 # cannot know the terminal payoff. Apply conservative
                 # liquidation: one-time -10% haircut on the delisting day
                 # (rough blended estimate across NDX historical delistings)
-                # then convert to SHV cash for the remainder of the period.
+                # then convert proceeds to the period's existing safe asset
+                # (or CASH_TICKER if no safe was held).
                 port_r += w * (-0.10)
                 delisted_w += w
                 del cur_w[asset]
         if delisted_w > 0:
-            cur_w[CASH_TICKER] = cur_w.get(CASH_TICKER, 0.0) + delisted_w
-            if CASH_TICKER in full_panel.columns:
-                t_cash = full_panel.loc[ts, CASH_TICKER]
-                y_cash = full_panel.loc[prev_d, CASH_TICKER]
+            # Prefer existing safe in cur_w (matches the period's best-of-safe
+            # pick); fall back to SHV when NDX was 100% stocks.
+            existing_safe = next((s for s in SAFE_POOL if s in cur_w), CASH_TICKER)
+            cur_w[existing_safe] = cur_w.get(existing_safe, 0.0) + delisted_w
+            if existing_safe in full_panel.columns:
+                t_cash = full_panel.loc[ts, existing_safe]
+                y_cash = full_panel.loc[prev_d, existing_safe]
                 if pd.notna(t_cash) and pd.notna(y_cash) and y_cash > 0:
                     port_r += delisted_w * (t_cash / y_cash - 1)
         daily_rets.loc[ts] += port_r

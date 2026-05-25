@@ -354,7 +354,7 @@ def cmd_allocate(args):
     print(f"BULL-QQQ Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)
     print(f"Bull asset:  {BULL_TICKER}  (100% when macro AND trend both pass)")
-    print(f"Fallback:    {CASH_TICKER}  (100% cash when either filter fails)")
+    print(f"Fallback:    best-of-safe (SHV/IEF by 13612U) when any gate fails")
     print(f"Macro gate:  HYG/TIP any-positive 13612U")
     print(f"Composite:   any 1 of 2 macro pillars positive")
     print(f"             (IEF-TLT curve, SPY low-vol)")
