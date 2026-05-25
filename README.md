@@ -94,7 +94,7 @@ biases + tail sequencing not captured by return bootstrap):
 | Raw Sharpe | 1.57 | **1.10-1.40** |
 | Excess Sharpe (over SHV) | 1.44 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
 | CAGR | 17.24% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress** (per-pick weight caps selection-bias clustering at -22%; protracted Nasdaq bear with BULL gate-miss could reach -30%; VIX cap improves single-event MaxDD but doesn't fully address regime tail) |
+| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress**, **-40 to -50%+ tail** for NDX-specific dot-com analog with gate-cycling + correlated sector collapse + momentum-into-falling-knives (no simulation covers this scenario; see caveats) |
 | Calmar | 1.50 | **0.55-0.90** |
 
 ## Strategy specification
@@ -740,26 +740,60 @@ the lookback rolls. **MaxDD widens from -12% to -30% in that scenario.**
 Plan around -25 to -30% for the deep-bear-protracted case in addition to
 the -22% selection-bias stress band reported under NDX bias.
 
-**Deeper-tail stress sizing (-35% / -40% scenarios).** External review
-asked for explicit planning at -35% and -40%, beyond the -15% to -30%
-base-case planning band. Reconstruction of extreme tail paths:
+**Deeper-tail stress sizing (-35% / -40%+ scenarios):**
 
 | Scenario | Plausibility | MaxDD est | Driver |
 |---|---|---:|---|
 | Adverse signal-cluster failure (3-4 consecutive misses) | ~5-10% over 30y | **-32 to -37%** | BULL gate-miss + NDX selection-bias clustering + CPM canary lag, all coincident |
 | BULL gate misses full Nasdaq bear (eg 2000-2002 -78%) | ~3-5% over 30y | **-35 to -42%** | Sustained risk-on through real bear, VIX cap and bypass insufficient |
-| Adversarial bankruptcy clustering + 2022-style bear concurrent | ~1-2% over 30y | **-40 to -45%** | NDX names blowing up at peak macro stress; live history has not produced this combination |
+| NDX-specific bubble collapse with momentum-into-falling-knives | ~1-3% over 30y | **-40 to -50%+** | See "NDX dot-com analog gap" below |
 
-These are stylized upper bounds, not predictions. Use for position-sizing
-stress: assume the -35% to -40% case can happen and size such that personal
-financial situation absorbs it without forced liquidation or behavioral exit.
+These are stylized upper bounds derived from arithmetic, not simulated
+paths through the actual failure mechanism. Use for position-sizing:
+assume -35% to -40% can happen, plausibly worse for NDX-specific scenarios.
 **Don't size based on backtest -11.46% MaxDD.**
 
-**Stress applied to uncapped variant.** The VIX cap would likely engage
-during a 2022-style sustained bear (VIX consistently above 25-30) and
-reduce realized MaxDD depth, but the cap doesn't fully eliminate
-protracted-bear gap risk. The numbers above are conservative (no cap)
-upper bounds on potential MaxDD.
+VIX cap engages during sustained bears and reduces realized MaxDD; cap
+doesn't eliminate protracted-bear gap risk. Numbers above are conservative
+(no cap) upper bounds.
+
+**NDX dot-com analog gap (most material tail risk):**
+
+The NDX top-8 sleeve has **zero backtest evidence through any Nasdaq-
+specific bear**. The 30y window uses BULL-mirror for the entire 2000-2002
+dot-com period (PIT NDX constituents only exist 2006+). NDX has been
+tested only through post-2006 environment: one sharp-fast bear (COVID,
+rescued in weeks) and one rate bear (2022, where the gate partially fired).
+
+The selection-stage ghost-injection MC (-0.02 to -0.11 Sharpe under
+adversarial clustering, reported in the NDX bias section) measures one
+specific risk: "what if names we couldn't see would have been picked and
+then went bankrupt?" It does **NOT** capture:
+
+- **Correlated sector distress.** Dot-com names, telecom names, all hit
+  simultaneously; bankruptcies cluster by sector and vintage. The MC uses
+  independent/mildly-clustered draws. Real crises are maximally clustered
+  by construction -- momentum selects into the bubble, then the bubble pops.
+- **Joint gate-miss + selection-bias.** The dangerous scenario is both
+  simultaneously: BULL gate cycles in-and-out during a protracted bear AND
+  the names selected during brief risk-on windows are momentum-chasing the
+  exact wrong cohort. Joint distribution not modeled.
+- **Path-dependent momentum degradation.** During a real Nasdaq bear,
+  13612U selects into falling knives during brief recoveries (highest-
+  momentum names are those that bounced hardest off recent lows, not the
+  genuinely recovering ones). Known cross-sectional momentum failure mode
+  in trend-reversing environments; not captured by injecting synthetic
+  bankrupt names into an otherwise-functioning signal.
+
+True NDX-specific tail with all three mechanisms active (gate-cycling +
+correlated sector collapse + momentum-into-falling-knives) could plausibly
+exceed -40% at the blend level, possibly -50%+ if NDX sleeve is fully
+engaged at the bubble peak and VIX cap triggers late. **No simulation
+covers this scenario today.**
+
+Mitigation requires CRSP/Norgate point-in-time database to replay 13612U
+cross-sectional selection month-by-month through actual 2000-2002 price
+paths of names in NDX-100 at the time. Flagged as production blocker.
 
 **Pre-2007 backtest reliability**
 
