@@ -785,7 +785,6 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
         "RISK_ON": cpm_regimes.count("RISK_ON"),
         "DEFENSIVE": cpm_regimes.count("DEFENSIVE"),
         "BULL_QQQ": sum(1 for r in bull_regimes if r.startswith("BULL_QQQ")),
-        "BULL_REBOUND": sum(1 for r in bull_regimes if r == "REBOUND_BLEND"),
         "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
     }
 
@@ -813,7 +812,6 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     bull_colors = []
     for r in bull_regimes:
         if r.startswith("BULL_QQQ"): bull_colors.append("#00a040")
-        elif r == "REBOUND_BLEND": bull_colors.append("#f0a020")  # amber: half-in
         else: bull_colors.append("#808080")
     axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
     axes[1].set_yticks([])
@@ -822,10 +820,9 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     axes[1].legend(
         handles=[
             Patch(facecolor="#00a040", label="BULL_QQQ"),
-            Patch(facecolor="#f0a020", label="REBOUND_BLEND (50/50)"),
             Patch(facecolor="#808080", label="CASH (SHV)"),
         ],
-        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=3, fontsize=7,
+        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
         frameon=False, handlelength=1.2, handleheight=0.7,
     )
     axes[1].xaxis.set_major_locator(mdates.YearLocator(2))
@@ -1635,11 +1632,15 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel_data, sig_d)
         ndx_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                             for t, w in sorted(ndx_w.items(), key=lambda x: -x[1]))
-        if ndx_regime == "NDX_ACTIVE":
+        if (ndx_regime in ("NDX_ACTIVE", "NDX_REBOUND")
+                or ndx_regime.startswith("NDX_PARTIAL")
+                or ndx_regime.startswith("NDX_REBOUND_PARTIAL")):
             sel = ndx_diag.get('selected', [])
             sector_summary = _ndx_sector_summary(sel)
-            ndx_state = (f"NDX_ACTIVE · top-{NDX_SELECT_K} by 13612U: "
-                          f"{', '.join(sel)}<br>Sector mix: {sector_summary}")
+            mode = ("NDX_REBOUND (50% top-K + 50% safe; Goulding fast-bypass)"
+                     if ndx_regime.startswith("NDX_REBOUND") else
+                     f"{ndx_regime} · top-{NDX_SELECT_K} by 13612U")
+            ndx_state = (f"{mode}: {', '.join(sel)}<br>Sector mix: {sector_summary}")
         else:
             ndx_state = f"{ndx_regime} -- {ndx_diag.get('reason', '100% cash')}"
     except (FileNotFoundError, ImportError) as e:

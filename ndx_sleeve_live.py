@@ -21,7 +21,19 @@ import pandas as pd
 import index_constitution as ic
 
 from cpm_live import sig_13612U
-from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
+from bull_qqq_live import (
+    compute_bull_qqq_weights, CASH_TICKER, BULL_TICKER,
+    _rebound_fast_ok, _pick_safe,
+)
+
+# Rebound bypass on the NDX sleeve (Goulding-Harvey 4-state 'Rebound' analog).
+# When the BULL gate is OFF (slow=defensive) but fast QQQ 2mo TR > 0,
+# allocate REBOUND_NDX_WEIGHT to the top-K momentum-positive NDX names and
+# the rest to best-of-safe (instead of going 100% cash). Captures V-shape
+# recoveries early via high-beta momentum names that run harder than QQQ
+# index. Empirical lift vs no-rebound: +2.5pp NDX sleeve CAGR, +0.47pp
+# portfolio CAGR, +0.013 portfolio Sortino, same portfolio MaxDD.
+REBOUND_NDX_WEIGHT = 0.5
 
 ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
@@ -71,15 +83,29 @@ def compute_ndx_weights(
     ndx_panel: pd.DataFrame,
     sig_d: pd.Timestamp,
 ) -> tuple[dict, str, dict]:
-    """Returns (weights, regime_label, diagnostics)."""
-    # Step 1: BULL-QQQ gate -- only allocate when BULL_QQQ regime
+    """Returns (weights, regime_label, diagnostics).
+
+    Flow:
+      - BULL gate ON  -> select top-K NDX names by 13612U > 0 (full weight)
+      - BULL gate OFF + fast QQQ 2mo > 0 -> Rebound bypass (50% top-K, 50% safe)
+      - BULL gate OFF + fast not positive -> 100% safe
+    """
+    # Step 1: BULL-QQQ gate
     bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
+    rebound_on = False
     if not bq_regime.startswith("BULL_QQQ"):
-        return ({CASH_TICKER: 1.0}, f"GATE_OFF ({bq_regime})", {
-            "bull_qqq_regime": bq_regime,
-            "selected": [],
-            "reason": "BULL-QQQ not in QQQ regime",
-        })
+        # Rebound bypass check: BULL gate off but fast QQQ momentum positive
+        cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
+        fast_ok, fast_r = (_rebound_fast_ok(cpm_monthly[BULL_TICKER], sig_d)
+                            if BULL_TICKER in cpm_monthly.columns else (None, float("nan")))
+        if fast_ok is not True:
+            return ({CASH_TICKER: 1.0}, f"GATE_OFF ({bq_regime})", {
+                "bull_qqq_regime": bq_regime,
+                "selected": [],
+                "reason": "BULL-QQQ off; fast QQQ 2mo TR not positive",
+                "fast_qqq_2mo": fast_r,
+            })
+        rebound_on = True
 
     # Step 2: PIT NDX membership at signal date
     # PIT data (index-constitution lib) only covers 2006-01+. For earlier
@@ -88,6 +114,16 @@ def compute_ndx_weights(
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
     if len(pit_tickers) == 0:
+        if rebound_on:
+            # Pre-2006 rebound: fall back to 50/50 QQQ + safe
+            cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
+            safe = _pick_safe(cpm_monthly)
+            return ({BULL_TICKER: REBOUND_NDX_WEIGHT, safe: 1.0 - REBOUND_NDX_WEIGHT},
+                    "NDX_REBOUND_FALLBACK", {
+                        "bull_qqq_regime": bq_regime,
+                        "selected": [BULL_TICKER],
+                        "reason": "PIT pre-2006 + rebound: 50/50 QQQ/safe fallback",
+                    })
         return (bq_weights, "NDX_FALLBACK_BULL_QQQ", {
             "bull_qqq_regime": bq_regime,
             "selected": list(bq_weights.keys()),
@@ -121,23 +157,33 @@ def compute_ndx_weights(
             momenta[t] = m
 
     # Step 4: top SELECT_K by momentum, equal-weight 1/SELECT_K each.
-    # Partial fill if < SELECT_K positive candidates (CPM-style):
-    # take what's there at 1/SELECT_K each, rest in SHV cash.
+    # Rebound mode: scale all stock weights by REBOUND_NDX_WEIGHT (=0.5),
+    # remainder to safe asset. Normal mode: full weight, partial fill if
+    # < SELECT_K positive candidates (CPM-style); rest in SHV cash.
     sorted_by_mom = sorted(momenta.items(), key=lambda x: -x[1])
     n_pick = min(len(sorted_by_mom), SELECT_K)
     selected = [t for t, _ in sorted_by_mom[:n_pick]]
-    per_slot = 1.0 / SELECT_K
-    weights = {t: per_slot for t in selected}
-    cash_share = 1.0 - n_pick * per_slot
-    if cash_share > 1e-9:
-        weights[CASH_TICKER] = cash_share
-    regime = "NDX_ACTIVE" if n_pick == SELECT_K else f"NDX_PARTIAL_{n_pick}"
+    if rebound_on:
+        cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
+        safe = _pick_safe(cpm_monthly)
+        per_slot = REBOUND_NDX_WEIGHT / SELECT_K
+        weights = {t: per_slot for t in selected}
+        weights[safe] = weights.get(safe, 0.0) + (1.0 - n_pick * per_slot)
+        regime = ("NDX_REBOUND" if n_pick == SELECT_K
+                   else f"NDX_REBOUND_PARTIAL_{n_pick}")
+    else:
+        per_slot = 1.0 / SELECT_K
+        weights = {t: per_slot for t in selected}
+        cash_share = 1.0 - n_pick * per_slot
+        if cash_share > 1e-9:
+            weights[CASH_TICKER] = cash_share
+        regime = "NDX_ACTIVE" if n_pick == SELECT_K else f"NDX_PARTIAL_{n_pick}"
     return (weights, regime, {
         "bull_qqq_regime": bq_regime,
         "n_candidates": len(sorted_by_mom),
         "selected": selected,
         "momenta": {t: momenta[t] for t in selected},
-        "cash_share": cash_share,
+        "rebound_active": rebound_on,
     })
 
 
