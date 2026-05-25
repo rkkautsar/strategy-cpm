@@ -94,7 +94,7 @@ biases + tail sequencing not captured by return bootstrap):
 | Raw Sharpe | 1.57 | **1.10-1.40** |
 | Excess Sharpe (over SHV) | 1.44 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
 | CAGR | 17.24% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress**, **-78% theoretical worst case** if BULL gate fails across all sleeves (dot-com simulation; if gate works as it did on hybrid replay through 2000-2002, NDX MaxDD limited to -12%) |
+| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress**, **-78% theoretical worst case** if BULL gate fails across all sleeves (dot-com simulation; under FRED-BAA10Y validated VWEHX behavior, NDX MaxDD limited to -12%) |
 | Calmar | 1.50 | **0.55-0.90** |
 
 ## Strategy specification
@@ -745,7 +745,7 @@ the -22% selection-bias stress band reported under NDX bias.
 | Scenario | Plausibility | MaxDD est | Driver |
 |---|---|---:|---|
 | Adverse signal-cluster failure (3-4 consecutive misses) | ~5-10% over 30y | **-32 to -37%** | BULL gate-miss + NDX selection-bias clustering + CPM canary lag, all coincident |
-| NDX gate forced ON through Nasdaq bear (eg 2000-2002) | ~3-5% over 30y | **-13pp from NDX alone** | Simulated; NDX MaxDD -63%; CPM/BULL may also fail same regime |
+| NDX gate forced ON through Nasdaq bear (adversarial) | ~3-5% over 30y | **-13pp from NDX alone** | Simulated; NDX MaxDD -63%; CPM/BULL may also fail same regime |
 | All 3 sleeves gate failure simultaneously | ~1-2% over 30y | **-78%** | Theoretical worst case; mirrors QQQ buy-hold (dot-com replay) |
 
 These are stylized upper bounds derived from arithmetic, not simulated
@@ -767,33 +767,36 @@ BULL gate (HYG_stitched canary + curve/vol composite + QQQ 12mo TR) and
 
 | Scenario | NDX MaxDD | Blend MaxDD impact | Notes |
 |---|---:|---:|---|
-| Best (VWEHX exactly tracks real HY) | -12.35% | minimal | Gate defensive Jan-May 2000 + Oct 2000+ |
-| **Central (VWEHX undermarks crises by 2-9pp)** | **-30%** | **-6pp** from NDX alone | Gate-flip effectively delayed 1-2mo; bubble names picked at late peak |
+| **Central (validated against BAA10Y + HYG live)** | **-12.35%** | **minimal** | VWEHX caught 2000-03 peak, whipsawed Jun-Sep 2000 |
 | Adversarial (gate forced ON entire period) | -63.55% | -13pp from NDX alone | Gate-complete-fail bound |
 | All 3 sleeves gate failure | -78.67% | -78.67% | Mirrors QQQ buy-hold |
 
-**VWEHX vs HYG empirical comparison (live period 2007-2026):** the proxy
-issue is calibration drift, not time lag. VWEHX tracks HYG
-contemporaneously at monthly frequency (correlation +0.906, z-score
-correlation +0.954) but consistently UNDERMARKS crisis severity:
+**VWEHX proxy validation (FRED BAA10Y + live HYG comparison):** the
+proxy captures direction in real-time. VWEHX tracks HYG monthly with
++0.906 contemporaneous correlation, and tracks BAA10Y credit stress
+with -0.452 dot-com correlation at lag 0 (no systematic lag at any
+other offset). VWEHX 13612U flipped OFF at 2000-03-31, the exact NDX
+peak month, in agreement with BAA z-score crossing +1 that same month.
 
-| Crisis | HYG cumulative | VWEHX cumulative | Gap (VWEHX less negative) |
-|---|---:|---:|---:|
-| 2008 GFC | -32.87% | -23.48% | +9.38pp |
-| 2011 Eurocrisis | -9.07% | -4.70% | +4.38pp |
-| 2015-16 oil | -11.47% | -7.28% | +4.18pp |
-| 2020 COVID | -21.90% | -19.69% | +2.21pp |
-| 2022 rates | -14.56% | -13.10% | +1.47pp |
+VWEHX vs HYG live-period gap (VWEHX undermarks crisis cumulative
+returns by 1-9pp): 2008 GFC -33% vs -23% (+9pp gap), 2011 Eurocrisis
+-9% vs -5%, 2015-16 oil -11% vs -7%, 2020 COVID -22% vs -20%, 2022
+rates -15% vs -13%. The mechanism is higher-quality holdings + smoother
+pricing -- VWEHX captures direction but smaller amplitude.
 
-VWEHX higher-quality holdings + smoother pricing understate HY stress
-severity by 2-9pp during crises. This delays the 13612U gate-flip by
-1-2 months effectively, landing the dot-com analog NDX MaxDD in the
--30% regime (per the earlier lag-shift sensitivity test which
-empirically mapped to the same outcome).
+Real dot-com gate behavior (signal-flip evidence): VWEHX 13612U went
+OFF at 2000-03-31 (peak), ON at 2000-04 (whipsaw), OFF May, ON Jun-Sep,
+OFF Oct 2000+ (sticks). Six gate-flips Apr-Oct 2000 because VWEHX
+magnitudes near zero (-0.005 to +0.042) gave borderline noisy signal.
+The Jun-Sep 2000 ON window is what exposed the simulated NDX sleeve to
+bubble-cohort picks. -12.35% NDX MaxDD is the realistic outcome under
+actual VWEHX behavior.
 
-**Central case: -30% NDX MaxDD, -6pp blend contribution** in dot-com
-analog under realistic VWEHX-vs-real-HY calibration drift. Best case
-(VWEHX exactly tracks real HY): -13%. Adversarial (gate forced ON): -63%.
+**Central case: -13% NDX MaxDD, minimal blend impact** in dot-com
+analog under VWEHX behavior validated against BAA10Y credit data. The
+residual risk is whipsaw amplitude: real HYG (had it existed) may have
+shown larger magnitude signal and stuck OFF earlier, avoiding the
+whipsaw window. Adversarial bound (gate forced ON): -63%.
 
 **Realistic NDX planning band**: -12% (optimistic, gate tracks credit
 real-time) to -30% (plausible 1-3mo proxy lag) to -63% (adversarial
