@@ -217,19 +217,45 @@ def current_scale_state(blend_returns: pd.Series,
 # Symmetric with VIX cap but DD-triggered at the sleeve level.
 # ============================================================================
 
-DD_CIRCUIT_THRESHOLD = -0.15   # -15% drawdown triggers defensive
+# Drawdown threshold: paper-cited, not grid-scanned.
+# Source: Nystrup & Boyd (2019) "Multi-period portfolio selection with
+# drawdown control", Stanford EE/Annals of OR -- Dmax = 10% used as the
+# canonical example throughout. Also matches RustyBT live-trading
+# `DrawdownCircuitBreaker` "moderate" default (max_drawdown_pct=0.10)
+# and QuantMatter TAA playbook "capital defense" trigger (~10-12%).
+# Avoids the prior hand-picked -15% which had no paper citation.
+DD_CIRCUIT_THRESHOLD = -0.10   # -10% drawdown triggers defensive (Nystrup-Boyd)
 DD_CIRCUIT_SCALE = 0.0         # 0 = full cash; could be 0.5 for partial
 DD_CIRCUIT_SLEEVES = ("BULL", "NDX")  # CPM excluded (low standalone DD)
+
+
+# Rolling-peak lookback for DD circuit breaker = 63 trading days (~1
+# calendar quarter, matches the r3 component in the existing 13612U
+# momentum signal so all lookbacks in the strategy are consistent).
+#
+# SOTA precedent: rolling DD lookback is the standard (RustyBT live
+# trading: 30-60d for stable strategies; Yang-Zhong 2013 REDD; Nystrup-
+# Boyd Stanford). All-time peak (infinite memory) is NOT SOTA -- known
+# failure mode where stale peaks suppress legitimate recoveries (e.g.
+# 2021 ATH NDX peak suppressing 2023 H1 recovery).
+DD_CIRCUIT_LOOKBACK_DAYS = 63
 
 
 def compute_dd_circuit_scale(sleeve_returns: pd.Series,
                               sig_dates: list,
                               threshold: float = DD_CIRCUIT_THRESHOLD,
-                              recovery_scale: float = DD_CIRCUIT_SCALE) -> pd.Series:
-    """Daily DD circuit breaker for a single sleeve.
+                              recovery_scale: float = DD_CIRCUIT_SCALE,
+                              lookback_days: int = DD_CIRCUIT_LOOKBACK_DAYS,
+                              ) -> pd.Series:
+    """Daily DD circuit breaker for a single sleeve, rolling-peak scoped.
 
-    Tracks cumulative DD from peak. When DD < threshold, scale sleeve to
-    `recovery_scale` (0 = cash). Reset to 1.0 at next monthly signal date.
+    Measures DD from rolling-window peak (`lookback_days` trading days)
+    instead of all-time equity peak. Avoids the failure mode of inheriting
+    ancient peaks: e.g. if NDX sleeve hit ATH in Nov-2021 and goes to cash
+    for 18 months, an all-time peak DD circuit would never let the sleeve
+    fully re-engage during 2023 recovery because eq is still below the
+    stale 2021 peak. The 90d rolling peak forgets stale peaks after ~1
+    quarter while preserving recent (Feb-2022 style) protection.
 
     Symmetric with `compute_latched_scale` (VIX cap) but DD-triggered and
     applied per-sleeve instead of portfolio-wide.
@@ -239,6 +265,7 @@ def compute_dd_circuit_scale(sleeve_returns: pd.Series,
         sig_dates: list of monthly signal dates (lift events)
         threshold: trigger DD (negative, e.g. -0.15)
         recovery_scale: scale during defensive (0.0 to 1.0)
+        lookback_days: rolling peak window in trading days (default ~90 = 1Q)
 
     Returns:
         scale: pd.Series of daily scale [0, 1] applied to sleeve returns
@@ -246,13 +273,14 @@ def compute_dd_circuit_scale(sleeve_returns: pd.Series,
     if sleeve_returns.empty:
         return pd.Series(dtype=float)
     eq = (1.0 + sleeve_returns).cumprod()
-    dd = eq / eq.cummax() - 1.0
+    rolling_peak = eq.rolling(lookback_days, min_periods=1).max()
+    dd = eq / rolling_peak - 1.0
     scale = pd.Series(1.0, index=sleeve_returns.index)
     sig_set = set(sig_dates)
     current = 1.0
     for i, day in enumerate(sleeve_returns.index):
         if day in sig_set:
-            current = 1.0   # reset at signal date
+            current = 1.0   # reset scale at signal date
         elif dd.iloc[i] < threshold:
             current = recovery_scale
         scale.iloc[i] = current
