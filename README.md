@@ -543,6 +543,35 @@ Ooi-Pedersen 2017 (fixed multi-horizon blend pattern) plus Goulding-Harvey
 candidates, (b) prior asset's faber score <= 0, or (c) canary-state
 transition between months.
 
+**Rejected mitigations (tested, all net-negative on real backtest):**
+The following architectural variants were tested and rejected because they
+hurt Sharpe on at least one window without sufficient MaxDD compensation:
+
+- BULL gate confirmation lag (2- or 3-month) -- delays real recoveries
+- GHM 4-state canary (1mo/12mo or U+W split) -- whipsaw not the dominant issue
+- TIP-stitched (PRRIX) proxy added to canary -- TIP false-positive in pure
+  equity bears (dot-com) breaks the OR logic
+- Clenow slope x R^2 NDX ranking -- late-stage smooth-trend bias hurts
+- Information Ratio / Sharpe / demean ranking for CPM -- cross-asset
+  universe rotation alpha lost
+- CPM sub-sleeve split (equity factors + diversifiers, fixed 50/50) --
+  loses cross-asset rotation
+- CPM 3-asset combo (equal-weight or Markowitz bounded) -- dilutes
+  momentum, sample-covariance instability
+- CPM Sortino pair (downside-vol) -- worsens MaxDD; semi-cov misses
+  structural correlation
+- NDX-only stop-loss (fixed 10-25% or ATR x 2-4) -- aggressive stops kill
+  NDX standalone Sharpe more than they buy MaxDD
+- NDX regime-conditional activation (QQQ TR / breadth thresholds,
+  continuous, fallback to QQQ) -- QQQ has same beta as NDX, fallback
+  doesn't reduce risk while losing alpha
+- Information Ratio for NDX -- custom test backtest underestimated PROD
+  baseline; production backtest showed -0.066 Sh CLEAN regression
+
+Current architecture (single-universe Faber rank for CPM, plain 13612U
+for NDX, 3-AND BULL gate, Rebound bypass, VIX cap) is at the empirical
+optimum for our data.
+
 **Covariance lookback sensitivity** (CPM standalone, CLEAN 18.1y):
 
 | Lookback | CPM Sh | CPM CAGR | CPM MaxDD |
