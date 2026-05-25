@@ -210,3 +210,50 @@ def current_scale_state(blend_returns: pd.Series,
         last_event=events[-1] if events else None,
         n_events_total=len(events),
     )
+
+
+# ============================================================================
+# Per-sleeve drawdown circuit breaker (TT Market Vane #5 analog).
+# Symmetric with VIX cap but DD-triggered at the sleeve level.
+# ============================================================================
+
+DD_CIRCUIT_THRESHOLD = -0.15   # -15% drawdown triggers defensive
+DD_CIRCUIT_SCALE = 0.0         # 0 = full cash; could be 0.5 for partial
+DD_CIRCUIT_SLEEVES = ("BULL", "NDX")  # CPM excluded (low standalone DD)
+
+
+def compute_dd_circuit_scale(sleeve_returns: pd.Series,
+                              sig_dates: list,
+                              threshold: float = DD_CIRCUIT_THRESHOLD,
+                              recovery_scale: float = DD_CIRCUIT_SCALE) -> pd.Series:
+    """Daily DD circuit breaker for a single sleeve.
+
+    Tracks cumulative DD from peak. When DD < threshold, scale sleeve to
+    `recovery_scale` (0 = cash). Reset to 1.0 at next monthly signal date.
+
+    Symmetric with `compute_latched_scale` (VIX cap) but DD-triggered and
+    applied per-sleeve instead of portfolio-wide.
+
+    Args:
+        sleeve_returns: daily sleeve returns
+        sig_dates: list of monthly signal dates (lift events)
+        threshold: trigger DD (negative, e.g. -0.15)
+        recovery_scale: scale during defensive (0.0 to 1.0)
+
+    Returns:
+        scale: pd.Series of daily scale [0, 1] applied to sleeve returns
+    """
+    if sleeve_returns.empty:
+        return pd.Series(dtype=float)
+    eq = (1.0 + sleeve_returns).cumprod()
+    dd = eq / eq.cummax() - 1.0
+    scale = pd.Series(1.0, index=sleeve_returns.index)
+    sig_set = set(sig_dates)
+    current = 1.0
+    for i, day in enumerate(sleeve_returns.index):
+        if day in sig_set:
+            current = 1.0   # reset at signal date
+        elif dd.iloc[i] < threshold:
+            current = recovery_scale
+        scale.iloc[i] = current
+    return scale

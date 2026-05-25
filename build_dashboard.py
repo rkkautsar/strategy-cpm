@@ -1792,13 +1792,25 @@ def main():
     cpm = cpm.reindex(common)
     bull_qqq_rets = bull_qqq_rets.reindex(common)
     ndx_rets = ndx_rets.reindex(common).fillna(0.0)
+    # Apply per-sleeve DD circuit breaker on BULL and NDX (TT Market Vane
+    # #5 analog). If sleeve DD < threshold mid-month, scale that sleeve
+    # to recovery_scale until next monthly signal date. CPM untouched.
+    blend_sig_dates = (pd.date_range(cpm.index[0], cpm.index[-1], freq="ME")
+                        .intersection(cpm.index).tolist())
+    from vol_cap import (compute_latched_scale, load_vix,
+                          compute_dd_circuit_scale,
+                          DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
+    bull_dd_scale = compute_dd_circuit_scale(bull_qqq_rets, blend_sig_dates,
+                                                threshold=DD_CIRCUIT_THRESHOLD,
+                                                recovery_scale=DD_CIRCUIT_SCALE)
+    ndx_dd_scale = compute_dd_circuit_scale(ndx_rets, blend_sig_dates,
+                                              threshold=DD_CIRCUIT_THRESHOLD,
+                                              recovery_scale=DD_CIRCUIT_SCALE)
+    bull_qqq_rets = bull_dd_scale * bull_qqq_rets
+    ndx_rets = ndx_dd_scale * ndx_rets
     blended_uncapped = CPM_W * cpm + BULL_W * bull_qqq_rets + NDX_W * ndx_rets
     # Apply portfolio-level vol cap (latched binary 50%; trigger when
     # VIX > rolling 5y P95 of VIX)
-    from vol_cap import compute_latched_scale, load_vix
-    blend_sig_dates = (pd.date_range(blended_uncapped.index[0], blended_uncapped.index[-1],
-                                       freq="ME")
-                       .intersection(blended_uncapped.index).tolist())
     vix_series = load_vix(
         start=blended_uncapped.index[0] - pd.Timedelta(days=365 * 6),
         end=blended_uncapped.index[-1] + pd.Timedelta(days=2),
@@ -1807,7 +1819,7 @@ def main():
         blended_uncapped, blend_sig_dates, vix=vix_series
     )
     blended = vol_scale * blended_uncapped
-    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + VIX cap"
+    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + VIX cap + DD circuit"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)

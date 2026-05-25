@@ -48,7 +48,7 @@ Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8** | **1.57** | **17.24%** | **10.41%** | **-11.46%** | **1.50** |
+| **PROD 60/20/20 K=8** | **1.63** | **16.84%** | **9.86%** | **-9.12%** | **1.85** |
 | SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
@@ -62,7 +62,7 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/20/20** | **1.33** | **15.12%** | **-15.68%** |
+| **PROD 60/20/20** | **1.47** | **15.33%** | **-16.15%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
 **Naive benchmark suite** (CLEAN 18.1y / Extended 30y; post-cost 10bps/side
@@ -91,9 +91,9 @@ biases + tail sequencing not captured by return bootstrap):
 
 | Metric | Backtest | Forward base case |
 |---|---:|---|
-| Raw Sharpe | 1.57 | **1.10-1.40** |
-| Excess Sharpe (over SHV) | 1.44 | **0.95-1.25** (subtract ~0.10-0.15 for rate income) |
-| CAGR | 17.24% | **11-15%** pre-tax, **5-9%** after-tax |
+| Raw Sharpe | 1.63 | **1.15-1.45** |
+| Excess Sharpe (over SHV) | 1.50 | **1.00-1.30** (subtract ~0.10-0.15 for rate income) |
+| CAGR | 16.84% | **11-15%** pre-tax, **5-9%** after-tax |
 | MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress**, **-78% theoretical worst case** if BULL gate fails across all sleeves (dot-com simulation; under FRED-BAA10Y validated VWEHX behavior, NDX MaxDD limited to -12%) |
 | Calmar | 1.50 | **0.55-0.90** |
 
@@ -173,6 +173,19 @@ else:
 
 # ---- Combined ----
 portfolio_uncapped = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
+
+# ====== Per-sleeve DD circuit breaker (TT Market Vane #5 analog) ======
+# Daily check: if BULL or NDX sleeve cumulative DD from peak < -15%,
+# scale THAT sleeve to 0 (cash) until next monthly signal date.
+# CPM untouched (low standalone DD, doesn't need it).
+# Symmetric with VIX cap but DD-triggered instead of vol-triggered.
+for sleeve in [BULL, NDX]:
+    sleeve_dd = (sleeve_eq / sleeve_eq.cummax() - 1)[T-1]
+    if sleeve_dd < -0.15 OR dd_circuit_latched_from_prior_day:
+        sleeve_scale = 0.0                                # sleeve to cash
+    else:
+        sleeve_scale = 1.0
+    sleeve = sleeve_scale * sleeve
 
 # ====== Portfolio-level vol cap (VIX-based + latched binary 50%) ======
 # Daily check: if VIX > rolling-5y P95 of VIX, scale = 0.5; else 1.0.
@@ -661,6 +674,8 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   mid-month spikes are uncapped). BULL (~14-25% standalone vol) and NDX
   (~23-40% standalone vol) run uncapped at sleeve level. The portfolio-level
   vol cap (latched binary 50% with VIX > rolling-5y P95 trigger; daily check) sits on top
+- Per-sleeve DD circuit breaker: BULL and NDX each get scaled to cash if
+  their individual cumulative DD < -15% mid-month (TT Market Vane #5 analog)
   to address this. Realized blend 21d vol distribution:
 
   | Window | P50 | P75 | P90 | P95 | P97 | P99 | Max |
