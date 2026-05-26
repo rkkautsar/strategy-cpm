@@ -294,12 +294,33 @@ def naive_60_40_pp_qqq_trend(panel, start, end):
     return (0.6 * pp.reindex(common).fillna(0) + 0.4 * qt.reindex(common).fillna(0))
 
 
+# Module-level cache for cpm_signal_records. Several dashboard diagnostics
+# (canary timeline, asset picks, pair archetypes, rolling defensive %, pair
+# timeline) all call cpm_signal_records with the same (start, end). Without
+# caching, this runs the full monthly signal loop 5+ times per build; with
+# caching, it runs once. Keyed by (id(panel), start, end) since panel is
+# unhashable but is the same object across calls within one build_dashboard
+# invocation.
+_CPM_RECORDS_CACHE: dict = {}
+
+
 def cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp | None = None) -> list[dict]:
     """Production-equivalent monthly CPM signal path for dashboard diagnostics.
 
     Mirrors run_cpm_backtest breadth-majority hold-buffer reset so charts/tables
-    do not drift from the live strategy path.
+    do not drift from the live strategy path. Memoized per (panel, start, end)
+    to avoid recomputation across the 5+ diagnostic call sites.
     """
+    cache_key = (id(panel), pd.Timestamp(start), pd.Timestamp(end) if end is not None else None)
+    if cache_key in _CPM_RECORDS_CACHE:
+        return _CPM_RECORDS_CACHE[cache_key]
+    records = _compute_cpm_signal_records(panel, start, end)
+    _CPM_RECORDS_CACHE[cache_key] = records
+    return records
+
+
+def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp | None = None) -> list[dict]:
+    """Actual signal-record computation (cache miss path)."""
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     close = panel[cols]
     monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
@@ -336,6 +357,122 @@ def cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timesta
         prev_pair = new_pair
         prev_risk_state = risk_state
     return records
+
+
+# ============================================================================
+# Per-signal-date records for BULL and NDX sleeves. Same pattern as
+# cpm_signal_records: each diagnostic was previously calling compute_*_weights
+# per signal date (218+ calls, repeated across 5+ chart functions = thousands
+# of redundant signal computations per build). Precomputing once and memoizing
+# eliminates the drift risk and makes builds noticeably faster.
+# ============================================================================
+_BULL_RECORDS_CACHE: dict = {}
+_NDX_RECORDS_CACHE: dict = {}
+
+
+def bull_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
+                          end: pd.Timestamp | None = None) -> list[dict]:
+    """BULL sleeve weights at each monthly signal date. Memoized."""
+    key = (id(panel), pd.Timestamp(start), pd.Timestamp(end) if end else None)
+    if key in _BULL_RECORDS_CACHE:
+        return _BULL_RECORDS_CACHE[key]
+    monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
+    mask = monthly_idx.index >= start
+    if end is not None:
+        mask &= monthly_idx.index <= end
+    sig_dates = monthly_idx.index[mask].tolist()
+    records = []
+    for sd in sig_dates:
+        w, regime, diag = compute_bull_qqq_weights(panel, sd)
+        records.append({"sig_d": sd, "weights": w, "regime": regime, "diag": diag})
+    _BULL_RECORDS_CACHE[key] = records
+    return records
+
+
+def ndx_signal_records(panel: pd.DataFrame, ndx_panel: pd.DataFrame,
+                        start: pd.Timestamp, end: pd.Timestamp | None = None) -> list[dict]:
+    """NDX sleeve weights at each monthly signal date. Memoized."""
+    from ndx_sleeve_live import compute_ndx_weights
+    key = (id(panel), id(ndx_panel), pd.Timestamp(start), pd.Timestamp(end) if end else None)
+    if key in _NDX_RECORDS_CACHE:
+        return _NDX_RECORDS_CACHE[key]
+    monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
+    mask = monthly_idx.index >= start
+    if end is not None:
+        mask &= monthly_idx.index <= end
+    sig_dates = monthly_idx.index[mask].tolist()
+    records = []
+    for sd in sig_dates:
+        w, regime, diag = compute_ndx_weights(panel, ndx_panel, sd)
+        records.append({"sig_d": sd, "weights": w, "regime": regime, "diag": diag})
+    _NDX_RECORDS_CACHE[key] = records
+    return records
+
+
+# ============================================================================
+# build_artifacts: single source of truth for all dashboard inputs.
+# Computes once at start of main(), passed (or available via memoization) to
+# every chart/table function. Eliminates the prior pattern of 20+ scattered
+# compute_*_weights() and run_*_backtest() calls drifting from each other.
+# ============================================================================
+from types import SimpleNamespace
+
+
+def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
+                     start: pd.Timestamp, end: pd.Timestamp) -> SimpleNamespace:
+    """Compute every per-build artifact ONCE.
+
+    Returns SimpleNamespace with:
+      panel, ndx_panel, start, end
+      cpm, bull_raw, ndx_raw          - daily return Series (pre-DD-circuit)
+      bull, ndx                        - daily return Series (post-DD-circuit)
+      bull_dd_scale, ndx_dd_scale      - daily DD-scale Series
+      vol_scale, vol_events            - VIX cap state
+      blend_uncapped, blend            - portfolio daily returns
+      sigs                             - signal dates list
+      cpm_records, bull_records, ndx_records  - per-signal-date weights/regime
+    """
+    from vol_cap import (compute_latched_scale, load_vix,
+                          compute_dd_circuit_scale,
+                          DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
+    cpm, _ = run_cpm_backtest(panel, start, end)
+    bull_raw = run_bull_qqq_backtest(panel, start, end)
+    if ndx_panel is not None:
+        from ndx_sleeve_live import run_ndx_backtest
+        ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
+    else:
+        ndx_raw = pd.Series(0.0, index=bull_raw.index)
+    common = cpm.index.intersection(bull_raw.index).intersection(ndx_raw.index)
+    cpm = cpm.reindex(common)
+    bull_raw = bull_raw.reindex(common)
+    ndx_raw = ndx_raw.reindex(common).fillna(0.0)
+    sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
+             .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
+    bull_dd_scale = compute_dd_circuit_scale(bull_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
+    ndx_dd_scale = compute_dd_circuit_scale(ndx_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
+    bull = bull_dd_scale * bull_raw
+    ndx = ndx_dd_scale * ndx_raw
+    blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
+    vix = load_vix(start=blend_uncapped.index[0] - pd.Timedelta(days=365 * 6),
+                    end=blend_uncapped.index[-1] + pd.Timedelta(days=2))
+    vol_scale, vol_events = compute_latched_scale(blend_uncapped, sigs, vix=vix)
+    blend = vol_scale * blend_uncapped
+    cpm_records = cpm_signal_records(panel, start, end)
+    bull_records = bull_signal_records(panel, start, end)
+    ndx_records = (ndx_signal_records(panel, ndx_panel, start, end)
+                    if ndx_panel is not None else [])
+    return SimpleNamespace(
+        panel=panel, ndx_panel=ndx_panel, start=start, end=end,
+        cpm=cpm, bull_raw=bull_raw, ndx_raw=ndx_raw,
+        bull=bull, ndx=ndx,
+        bull_dd_scale=bull_dd_scale, ndx_dd_scale=ndx_dd_scale,
+        vol_scale=vol_scale, vol_events=vol_events,
+        blend_uncapped=blend_uncapped, blend=blend,
+        sigs=sigs,
+        cpm_records=cpm_records,
+        bull_records=bull_records,
+        ndx_records=ndx_records,
+    )
 
 
 # ---------- Charts ----------
@@ -773,12 +910,13 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
                 picks[asset] += 1
         if pair and len(pair) == 2:
             pair_counter[tuple(sorted(pair))] += 1
-        # BULL-SPY canary state
-        try:
-            _bw, bregime, _bdiag = compute_bull_qqq_weights(panel, sd)
-            bull_per_date.append((sd, bregime))
-        except Exception:
-            bull_per_date.append((sd, "CASH"))
+    # BULL-SPY canary state: pull from precomputed bull_records (memoized) so
+    # we don't recompute compute_bull_qqq_weights for every signal date
+    # (~218 redundant calls each containing a full monthly resample).
+    _bull_by_date = {r["sig_d"]: r["regime"]
+                       for r in bull_signal_records(panel, start)}
+    for sd, _, _, _ in cpm_per_date:
+        bull_per_date.append((sd, _bull_by_date.get(sd, "CASH")))
 
     cpm_regimes = [r for _, r, _, _ in cpm_per_date]
     bull_regimes = [r for _, r in bull_per_date]
@@ -833,25 +971,130 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     return fig, regime_counts, picks, pair_counter
 
 
-def picks_table_html(picks, pair_counter, n_signals):
-    """Render two side-by-side tables: top picks + top pairs."""
+def _period_stats(rets: pd.Series) -> dict:
+    """Sharpe / AnnRet / MaxDD from concatenated daily-return Series."""
+    rets = rets.dropna()
+    if len(rets) < 3:
+        return {'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')}
+    eq = (1 + rets).cumprod()
+    vol = rets.std(ddof=0) * np.sqrt(252)
+    ann = rets.mean() * 252
+    sh = ann / vol if vol > 0 else float('nan')
+    mdd = (eq / eq.cummax() - 1).min()
+    return {'sh': sh, 'ann': ann, 'mdd': mdd}
+
+
+def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
+    """Realized per-asset and per-pair stats from CPM signal records.
+
+    Returns (asset_stats, pair_stats) where each is dict keyed by asset/pair tuple
+    mapping to {picks, sh, ann, mdd} measured over days the asset/pair was held
+    at its actual pair weight.
+    """
+    from collections import defaultdict
+    sig_dates = [r["sig_d"] for r in records]
+    asset_rets = defaultdict(list)
+    pair_rets = defaultdict(list)
+    asset_picks = defaultdict(int)
+    pair_picks = defaultdict(int)
+    for i, rec in enumerate(records):
+        sig_d = rec["sig_d"]
+        weights = {a: w for a, w in rec["weights"].items() if w > 0}
+        pair = rec["pair"]
+        sidx = panel.index.searchsorted(sig_d) + 2
+        eidx = (panel.index.searchsorted(sig_dates[i+1]) + 2
+                 if i+1 < len(sig_dates) else len(panel.index))
+        if sidx >= len(panel.index):
+            continue
+        window = panel.index[sidx:eidx]
+        # Per-asset (counts only assets with w > 0; raw asset returns, NOT
+        # weighted by pair share, so user sees the asset's own behavior).
+        for asset, w in weights.items():
+            asset_picks[asset] += 1
+            if asset not in panel.columns: continue
+            ser = panel[asset].reindex(window).pct_change().dropna()
+            if len(ser): asset_rets[asset].append(ser)
+        # Per-pair (only when this signal date had an actual pair)
+        if pair and len(pair) == 2:
+            pkey = tuple(sorted(pair))
+            pair_picks[pkey] += 1
+            period_ret = pd.Series(0.0, index=window)
+            for a, w in weights.items():
+                if a not in panel.columns: continue
+                ser = panel[a].reindex(window).pct_change().fillna(0)
+                period_ret = period_ret + ser * w
+            pair_rets[pkey].append(period_ret)
+    asset_stats = {}
+    for a, sers in asset_rets.items():
+        merged = pd.concat(sers).groupby(level=0).sum().dropna()
+        s = _period_stats(merged)
+        asset_stats[a] = {'picks': asset_picks[a], **s}
+    # Add zero-return assets (picked but no data) so table count matches
+    for a, n in asset_picks.items():
+        if a not in asset_stats:
+            asset_stats[a] = {'picks': n, 'sh': float('nan'), 'ann': float('nan'),
+                                'mdd': float('nan')}
+    pair_stats = {}
+    for p, sers in pair_rets.items():
+        merged = pd.concat(sers)
+        s = _period_stats(merged)
+        pair_stats[p] = {'picks': pair_picks[p], **s}
+    return asset_stats, pair_stats
+
+
+def _fmt_cell(v, suffix='', neg_class='neg', pos_class='pos'):
+    if pd.isna(v): return "<td style='text-align:right; color:#999'>--</td>"
+    cls = neg_class if v < 0 else pos_class
+    if suffix == '%':
+        return f"<td style='text-align:right' class='{cls}'>{v*100:+.1f}%</td>"
+    return f"<td style='text-align:right' class='{cls}'>{v:+.2f}</td>"
+
+
+def picks_table_html(picks, pair_counter, n_signals, records=None, panel=None):
+    """Render two side-by-side tables: top picks + top pairs.
+
+    When records + panel given, augments tables with realized Sharpe / AnnRet
+    / MaxDD for the periods the asset/pair was held (weighted by pair share).
+    """
+    asset_stats = pair_stats = None
+    if records is not None and panel is not None:
+        asset_stats, pair_stats = compute_pick_pair_stats(records, panel)
+
     # Top picks
     pick_rows = sorted(picks.items(), key=lambda x: -x[1])
-    picks_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Asset</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
+    if asset_stats is not None:
+        picks_html = ("<div class='table-scroll'><table class='yearly'><thead><tr>"
+                      "<th>Asset</th><th>Picks</th><th>% mo</th>"
+                      "<th>Sharpe</th><th>AnnRet</th><th>MaxDD</th></tr></thead><tbody>")
+    else:
+        picks_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Asset</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
     for asset, cnt in pick_rows[:18]:
         pct = cnt / n_signals * 100
         picks_html += f"<tr><td>{asset}</td><td style='text-align:right'>{cnt}</td>" \
-                      f"<td style='text-align:right'>{pct:.1f}%</td></tr>"
+                      f"<td style='text-align:right'>{pct:.1f}%</td>"
+        if asset_stats is not None:
+            st = asset_stats.get(asset, {'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')})
+            picks_html += _fmt_cell(st['sh']) + _fmt_cell(st['ann'], '%') + _fmt_cell(st['mdd'], '%')
+        picks_html += "</tr>"
     picks_html += "</tbody></table></div>"
 
     # Top pairs
     pair_rows = sorted(pair_counter.items(), key=lambda x: -x[1])
-    pairs_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Pair</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
+    if pair_stats is not None:
+        pairs_html = ("<div class='table-scroll'><table class='yearly'><thead><tr>"
+                      "<th>Pair</th><th>Picks</th><th>% mo</th>"
+                      "<th>Sharpe</th><th>AnnRet</th><th>MaxDD</th></tr></thead><tbody>")
+    else:
+        pairs_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Pair</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
     for pair, cnt in pair_rows[:15]:
         pct = cnt / n_signals * 100
         label = f"{pair[0]} + {pair[1]}"
         pairs_html += f"<tr><td>{label}</td><td style='text-align:right'>{cnt}</td>" \
-                      f"<td style='text-align:right'>{pct:.1f}%</td></tr>"
+                      f"<td style='text-align:right'>{pct:.1f}%</td>"
+        if pair_stats is not None:
+            st = pair_stats.get(pair, {'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')})
+            pairs_html += _fmt_cell(st['sh']) + _fmt_cell(st['ann'], '%') + _fmt_cell(st['mdd'], '%')
+        pairs_html += "</tr>"
     pairs_html += "</tbody></table></div>"
 
     return f"""<div style='display:flex; gap:24px; flex-wrap:wrap;'>
@@ -1916,58 +2159,28 @@ def main():
     panel = load_panel(start=panel_start, end=end)
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
-    print(f"Running CPM backtest ...")
-    cpm, _ = run_cpm_backtest(panel, start, end)
-
-    print("Computing BULL-SPY sleeve ...")
-    bull_qqq_rets = run_bull_qqq_backtest(panel, start, end)
-
-    print("Computing NDX sleeve ...")
-    from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel, SELECT_K as NDX_SELECT_K
+    # Compute all sleeves, overlays, and per-signal records ONCE.
+    # Every downstream chart/table pulls from `art` (no more drift between
+    # diagnostic and backtest paths). See `build_artifacts()` definition.
+    print("Computing sleeves + overlays + signal records (single pass) ...")
+    from ndx_sleeve_live import load_ndx_panel, SELECT_K as NDX_SELECT_K
     try:
         ndx_panel = load_ndx_panel()
-        ndx_rets, _ = run_ndx_backtest(panel, ndx_panel, start, end)
     except FileNotFoundError:
         print("  NDX panel data not found; skipping NDX sleeve.")
-        ndx_rets = pd.Series(0.0, index=bull_qqq_rets.index)
-
-    # Production blend: 60% CPM + 20% BULL-SPY + 20% NDX
-    common = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
-    cpm = cpm.reindex(common)
-    bull_qqq_rets = bull_qqq_rets.reindex(common)
-    ndx_rets = ndx_rets.reindex(common).fillna(0.0)
-    # Apply per-sleeve DD circuit breaker on BULL and NDX (TT Market Vane
-    # #5 analog). If sleeve DD < threshold mid-month, scale that sleeve
-    # to recovery_scale until next monthly signal date. CPM untouched.
-    # Last trading day of each month. Using pd.date_range(freq='ME')
-    # alone drops months where calendar month-end falls on a weekend/
-    # holiday (e.g. 2022-04-30 Sat, 2022-07-31 Sun, 2022-12-31 Sat),
-    # causing DD circuit and VIX cap to never reset on those months
-    # and silently inflating drag.
-    blend_sig_dates = (pd.DataFrame({"x": 1}, index=cpm.index)
-                        .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    from vol_cap import (compute_latched_scale, load_vix,
-                          compute_dd_circuit_scale,
-                          DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
-    bull_dd_scale = compute_dd_circuit_scale(bull_qqq_rets, blend_sig_dates,
-                                                threshold=DD_CIRCUIT_THRESHOLD,
-                                                recovery_scale=DD_CIRCUIT_SCALE)
-    ndx_dd_scale = compute_dd_circuit_scale(ndx_rets, blend_sig_dates,
-                                              threshold=DD_CIRCUIT_THRESHOLD,
-                                              recovery_scale=DD_CIRCUIT_SCALE)
-    bull_qqq_rets = bull_dd_scale * bull_qqq_rets
-    ndx_rets = ndx_dd_scale * ndx_rets
-    blended_uncapped = CPM_W * cpm + BULL_W * bull_qqq_rets + NDX_W * ndx_rets
-    # Apply portfolio-level vol cap (latched binary 50%; trigger when
-    # VIX > rolling 5y P95 of VIX)
-    vix_series = load_vix(
-        start=blended_uncapped.index[0] - pd.Timedelta(days=365 * 6),
-        end=blended_uncapped.index[-1] + pd.Timedelta(days=2),
-    )
-    vol_scale, vol_events = compute_latched_scale(
-        blended_uncapped, blend_sig_dates, vix=vix_series
-    )
-    blended = vol_scale * blended_uncapped
+        ndx_panel = None
+    art = build_artifacts(panel, ndx_panel, start, end)
+    # Convenience aliases for downstream legacy code (TODO: pass `art` directly):
+    cpm = art.cpm
+    bull_qqq_rets = art.bull
+    ndx_rets = art.ndx
+    blend_sig_dates = art.sigs
+    bull_dd_scale = art.bull_dd_scale
+    ndx_dd_scale = art.ndx_dd_scale
+    blended_uncapped = art.blend_uncapped
+    vol_scale = art.vol_scale
+    vol_events = art.vol_events
+    blended = art.blend
     prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + VIX cap + DD circuit"
 
     print(f"Running peer strategies ...")
@@ -2020,7 +2233,11 @@ def main():
     fig_distributions = chart_monthly_return_distributions(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W)
     # CPM regimes sum to total months; BULL regimes also sum to total. Use CPM as denominator.
     n_signals = regime_counts["RISK_ON"] + regime_counts["DEFENSIVE"]
-    picks_html = picks_table_html(picks, pair_counter, n_signals)
+    # Pass records + panel so the tables can show realized Sharpe/AnnRet/MaxDD
+    # per asset and per pair (held days only).
+    _signal_records_for_tables = cpm_signal_records(panel, start)
+    picks_html = picks_table_html(picks, pair_counter, n_signals,
+                                    records=_signal_records_for_tables, panel=panel)
     regime_pct_def = regime_counts["DEFENSIVE"] / max(1, n_signals) * 100
     regime_pct_ron = regime_counts["RISK_ON"] / max(1, n_signals) * 100
     fig_corr = chart_correlations({k: v for k, v in strategies.items() if k in CORE_CHARTS})
