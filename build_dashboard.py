@@ -835,22 +835,22 @@ def picks_table_html(picks, pair_counter, n_signals):
     """Render two side-by-side tables: top picks + top pairs."""
     # Top picks
     pick_rows = sorted(picks.items(), key=lambda x: -x[1])
-    picks_html = "<table class='yearly'><thead><tr><th>Asset</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
+    picks_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Asset</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
     for asset, cnt in pick_rows[:18]:
         pct = cnt / n_signals * 100
         picks_html += f"<tr><td>{asset}</td><td style='text-align:right'>{cnt}</td>" \
                       f"<td style='text-align:right'>{pct:.1f}%</td></tr>"
-    picks_html += "</tbody></table>"
+    picks_html += "</tbody></table></div>"
 
     # Top pairs
     pair_rows = sorted(pair_counter.items(), key=lambda x: -x[1])
-    pairs_html = "<table class='yearly'><thead><tr><th>Pair</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
+    pairs_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Pair</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
     for pair, cnt in pair_rows[:15]:
         pct = cnt / n_signals * 100
         label = f"{pair[0]} + {pair[1]}"
         pairs_html += f"<tr><td>{label}</td><td style='text-align:right'>{cnt}</td>" \
                       f"<td style='text-align:right'>{pct:.1f}%</td></tr>"
-    pairs_html += "</tbody></table>"
+    pairs_html += "</tbody></table></div>"
 
     return f"""<div style='display:flex; gap:24px; flex-wrap:wrap;'>
 <div style='flex:1; min-width:280px;'><h3 style='margin-top:0;'>Asset Pick Frequency</h3>{picks_html}</div>
@@ -1046,11 +1046,11 @@ def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: p
                       f"<td style='text-align:right; color:{'#c0392b' if ptd_ndx < 0 else '#27ae60'}'>{ptd_ndx*100:+.2f}%</td>"
                       f"</tr>")
 
-    return f"""<table class='metric-table'><thead><tr>
+    return f"""<div class='table-scroll'><table class='metric-table'><thead><tr>
 <th>Peak date</th><th>Trough date</th><th>Recovery date</th>
 <th>Depth</th><th>To trough</th><th>To recover</th>
 <th>CPM contrib (peak->trough)</th><th>BULL contrib (peak->trough)</th><th>NDX contrib (peak->trough)</th>
-</tr></thead><tbody>{rows_html}</tbody></table>"""
+</tr></thead><tbody>{rows_html}</tbody></table></div>"""
 
 
 def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp):
@@ -1401,13 +1401,13 @@ def topN_drawdowns_html(daily: pd.Series, n: int = 10) -> str:
             f"<td style='text-align:right'>{p['days']}d</td></tr>"
         )
     return (
-        "<table><thead><tr>"
+        "<div class='table-scroll'><table><thead><tr>"
         "<th>Peak start</th><th>Trough</th><th>Recovery</th>"
         "<th style='text-align:right'>Depth</th>"
         "<th style='text-align:right'>Peak→trough</th>"
         "<th style='text-align:right'>Trough→recovery</th>"
         "<th style='text-align:right'>Total duration</th>"
-        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
     )
 
 
@@ -1450,12 +1450,12 @@ def period_summary_html(daily: pd.Series, end_date: pd.Timestamp = None) -> str:
             f"<td style='text-align:right'>{calmar:.2f}</td></tr>"
         )
     return (
-        "<table><thead><tr>"
+        "<div class='table-scroll'><table><thead><tr>"
         "<th>Period</th><th style='text-align:right'>Sharpe</th>"
         "<th style='text-align:right'>CAGR</th>"
         "<th style='text-align:right'>MaxDD</th>"
         "<th style='text-align:right'>Calmar</th>"
-        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
+        "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
     )
 
 
