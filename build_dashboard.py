@@ -247,7 +247,7 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
     """Faber 10mo SMA timing on `ticker`: hold ticker when above SMA, SHV otherwise.
     Simplest possible single-asset timing strategy, used as TAA peer benchmark.
     Default SPY matches the BULL sleeve ticker for apples-to-apples comparison.
-    Function name kept for git-blame continuity (previously QQQ-specific)."""
+    Uses SPY by default for apples-to-apples comparison with BULL-SPY."""
     if ticker not in panel.columns or "SHV" not in panel.columns:
         return pd.Series(dtype=float)
     monthly = panel[ticker].resample("ME").last().dropna()
@@ -373,11 +373,8 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
 
 
 # ============================================================================
-# Per-signal-date records for BULL and NDX sleeves. Same pattern as
-# cpm_signal_records: each diagnostic was previously calling compute_*_weights
-# per signal date (218+ calls, repeated across 5+ chart functions = thousands
-# of redundant signal computations per build). Precomputing once and memoizing
-# eliminates the drift risk and makes builds noticeably faster.
+# Per-signal-date records for BULL and NDX sleeves. Precompute once and memoize
+# so diagnostics reuse one consistent signal path.
 # ============================================================================
 _BULL_RECORDS_CACHE: dict = {}
 _NDX_RECORDS_CACHE: dict = {}
@@ -433,8 +430,8 @@ def ndx_signal_records(panel: pd.DataFrame, ndx_panel: pd.DataFrame,
 # ============================================================================
 # build_artifacts: single source of truth for all dashboard inputs.
 # Computes once at start of main(), passed (or available via memoization) to
-# every chart/table function. Eliminates the prior pattern of 20+ scattered
-# compute_*_weights() and run_*_backtest() calls drifting from each other.
+# every chart/table function. Keeps compute_*_weights() and run_*_backtest()
+# calls consistent across views.
 # ============================================================================
 from types import SimpleNamespace
 
@@ -449,15 +446,14 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
       cpm, bull_raw, ndx_raw          - daily return Series (pre-DD-circuit)
       bull, ndx                        - daily return Series (post-DD-circuit)
       bull_dd_scale, ndx_dd_scale      - daily DD-scale Series
-      vol_scale, vol_events            - VIX cap state
+      vol_scale, vol_events            - portfolio overlay scale/events (identity)
       blend_uncapped, blend            - portfolio daily returns
       sigs                             - signal dates list
       cpm_records, bull_records, ndx_records  - per-signal-date weights/regime
                                                 (only populated when include_records=True;
                                                 EXT 30y window skips these for speed)
     """
-    from vol_cap import (compute_latched_scale, load_vix,
-                          compute_dd_circuit_scale,
+    from vol_cap import (compute_dd_circuit_scale,
                           DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
     cpm, _ = run_cpm_backtest(panel, start, end)
     bull_raw = run_bull_qqq_backtest(panel, start, end)
@@ -472,21 +468,13 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    # DD circuit applies to NDX only. Empirical test (lookback x threshold
-    # x scope grid): BULL DD circuit added negligible benefit (+0.006 Sharpe)
-    # vs NDX-only (+0.113 Sharpe over no-DD baseline). Simpler spec, no
-    # cost: NDX-only is essentially same Sharpe and MaxDD as BULL+NDX.
+    # DD circuit applies to NDX sleeve only.
     bull_dd_scale = pd.Series(1.0, index=bull_raw.index)
     ndx_dd_scale = compute_dd_circuit_scale(ndx_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
     bull = bull_raw  # no DD circuit
     ndx = ndx_dd_scale * ndx_raw
     blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
-    # VIX cap removed (tail-risk test showed marginal Worst21d / %InDD>5%
-    # improvement at the cost of -0.8pp CAGR AND consistently hurt crisis
-    # period returns (-5.54pp GFC 2008, -1.90pp 2022, -0.86pp Aug 2024).
-    # NDX-only DD circuit already provides MaxDD protection; VIX cap was
-    # redundant overlay that suppressed CPM defensive-sleeve gains during
-    # crises when GLD/IEF/TLT were rallying. Removed for cleaner spec.
+    # No additional portfolio-level cap overlay.
     vol_scale = pd.Series(1.0, index=blend_uncapped.index)
     vol_events: list[dict] = []
     blend = blend_uncapped
@@ -524,10 +512,10 @@ FCP_STYLES = {
     "CPM standalone":       dict(color="#1a9a1a", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "BULL-SPY sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
-    # Tier 3: 2 benchmarks (apples-to-apples + raw target)
+    # Tier 3: benchmarks
     "Naive 60/40 PP/SPY-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
     "QQQ buy-hold":         dict(color="#707070", lw=1.2, ls=":",  alpha=0.7,  zorder=3),
-    # Legacy styles (kept in dict for safety but not plotted by default)
+    # Additional benchmark styles
     "SPY buy-hold":         dict(color="#a0a0a0", lw=1.0, ls=":",  alpha=0.65, zorder=3),
     "60/40 SPY/IEF":        dict(color="#b8b8b8", lw=1.0, ls=":",  alpha=0.65, zorder=3),
     "Keller VAA G4":        dict(color="#9966aa", lw=1.0, ls="--", alpha=0.55, zorder=2),
@@ -537,12 +525,12 @@ FCP_STYLES = {
 }
 # Order matters: last drawn = top of pile, but zorder takes precedence.
 BASE_RENDER_ORDER = [
-    "Faber GTAA5", "HAA-Simple",       # bottom (legacy)
-    "Keller VAA G4", "HAA-Balanced",   # middle (legacy)
-    "60/40 SPY/IEF", "SPY buy-hold",   # legacy benchmarks
+    "Faber GTAA5", "HAA-Simple",
+    "Keller VAA G4", "HAA-Balanced",
+    "60/40 SPY/IEF", "SPY buy-hold",
     "NDX sleeve",
-    "QQQ buy-hold", "Naive 60/40 PP/SPY-trend",  # core 2 benchmarks
-    "BULL-SPY sleeve", "CPM standalone",         # components
+    "QQQ buy-hold", "Naive 60/40 PP/SPY-trend",
+    "BULL-SPY sleeve", "CPM standalone",
 ]
 
 
@@ -1413,7 +1401,7 @@ def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp,
         eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
         # Compute realized 1mo return when a future window exists; otherwise
         # this is the most-recent pick with no held period yet -- still show it
-        # in the timeline (so VBR / latest-month picks aren't silently dropped).
+        # in the timeline (so VBR / latest-month picks are not silently omitted).
         port_ret = float('nan')
         if sidx < len(panel.index):
             port_ret = 0.0
@@ -1560,72 +1548,6 @@ def chart_equity_dd_combined(strategies: dict, prod_label: str | None = None,
     ax_dd.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax_dd, ncol=3, prod_label=prod_label)
     ax_eq.set_title("Equity & Drawdown", fontsize=11)
-    return fig
-
-
-def chart_mc_horizon(daily: pd.Series, benchmark: pd.Series | None = None,
-                      prod_label: str = "PROD", bench_label: str = "Benchmark",
-                      max_years: int = 18, n_paths: int = 2000):
-    """TT-style Monte Carlo by investment horizon.
-    For each horizon Y in [1, max_years]:
-      - resample blocks of returns to generate n_paths simulated Y-year tracks
-      - compute CAGR and worst-DD distributions
-      - plot 5th-95th percentile bands
-
-    Two panels: CAGR percentile band (top), worst-DD percentile band (bottom).
-    """
-    rng = np.random.default_rng(42)
-    fig, (ax_c, ax_d) = plt.subplots(2, 1, figsize=(9, 6),
-                                       gridspec_kw={"height_ratios": [1, 1],
-                                                     "hspace": 0.05}, sharex=True)
-
-    def simulate(returns: pd.Series, max_y: int):
-        r = returns.dropna().values
-        n = len(r)
-        if n < 252:
-            return None
-        block = 63  # quarterly blocks
-        cagr_bands = []
-        dd_bands = []
-        for y in range(1, max_y + 1):
-            ndays = int(y * 252)
-            cagrs = np.empty(n_paths)
-            dds = np.empty(n_paths)
-            for k in range(n_paths):
-                n_blocks = ndays // block + 1
-                starts = rng.integers(0, n - block, n_blocks)
-                path = np.concatenate([r[s:s+block] for s in starts])[:ndays]
-                eq = np.cumprod(1 + path)
-                cagrs[k] = eq[-1] ** (252/ndays) - 1
-                peak = np.maximum.accumulate(eq)
-                dds[k] = (eq / peak - 1).min()
-            cagr_bands.append((y, np.percentile(cagrs, [5, 50, 95]) * 100))
-            dd_bands.append((y, np.percentile(dds, [5, 50, 95]) * 100))
-        return cagr_bands, dd_bands
-
-    for series, label, color in [(daily, prod_label, "#0040d0"),
-                                     (benchmark, bench_label, "#f0a020")]:
-        if series is None or series.empty:
-            continue
-        sim = simulate(series, max_years)
-        if sim is None: continue
-        cagr_bands, dd_bands = sim
-        ys = [b[0] for b in cagr_bands]
-        c5 = [b[1][0] for b in cagr_bands]
-        c95 = [b[1][2] for b in cagr_bands]
-        cm = [b[1][1] for b in cagr_bands]
-        d5 = [b[1][0] for b in dd_bands]
-        ax_c.fill_between(ys, c5, c95, color=color, alpha=0.45 if label==prod_label else 0.25,
-                            label=label)
-        ax_c.plot(ys, cm, color=color, lw=1.2)
-        ax_d.fill_between(ys, d5, 0, color=color, alpha=0.45 if label==prod_label else 0.25)
-    ax_c.set_ylabel("CAGR 5-95th pct (%)")
-    ax_c.set_title("Monte Carlo Expected Returns & Drawdowns by Investment Horizon", fontsize=11)
-    ax_c.grid(True, alpha=0.3); ax_c.legend(loc="upper right", fontsize=9)
-    ax_d.set_xlabel("Investment Period (years)")
-    ax_d.set_ylabel("Worst DD 5th pct (%)")
-    ax_d.axhline(0, color="#888", lw=0.6)
-    ax_d.grid(True, alpha=0.3)
     return fig
 
 
@@ -1931,7 +1853,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         bull_rec = bull_records_subset[-1] if bull_records_subset else {"weights": {}, "regime": "CASH", "diag": {}}
         ndx_rec = ndx_records_subset[-1] if ndx_records_subset else None
     else:
-        # Backward-compatible fallback when art not provided.
+        # Fallback when art is not provided.
         records = cpm_signal_records(panel, pd.Timestamp("1900-01-01"), sig_d)
         cpm_rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
         bull_rec = ndx_rec = None
@@ -1978,14 +1900,10 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
             ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel_data, sig_d)
         ndx_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                             for t, w in sorted(ndx_w.items(), key=lambda x: -x[1]))
-        if (ndx_regime in ("NDX_ACTIVE", "NDX_REBOUND")
-                or ndx_regime.startswith("NDX_PARTIAL")
-                or ndx_regime.startswith("NDX_REBOUND_PARTIAL")):
+        if ndx_regime == "NDX_ACTIVE" or ndx_regime.startswith("NDX_PARTIAL"):
             sel = ndx_diag.get('selected', [])
             sector_summary = _ndx_sector_summary(sel)
-            mode = ("NDX_REBOUND (50% top-K + 50% safe; Goulding fast-bypass)"
-                     if ndx_regime.startswith("NDX_REBOUND") else
-                     f"{ndx_regime} · top-{NDX_SELECT_K} by 13612U")
+            mode = f"{ndx_regime} · top-{NDX_SELECT_K} by 13612U"
             ndx_state = (f"{mode}: {', '.join(sel)}<br>Sector mix: {sector_summary}")
         else:
             ndx_state = f"{ndx_regime} -- {ndx_diag.get('reason', '100% cash')}"
@@ -2003,132 +1921,31 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     for t, w in ndx_w.items():
         combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * NDX_WEIGHT
 
-    # Vol-cap state: computed on-the-fly from full history (stateless;
-    # no vol_cap_state.json required). Reconstructs latched scale from
-    # panel date index + VIX + signal dates.
-    # IMPORTANT: read scale at LATEST panel date (not sig_d). The latched
-    # scale on the signal date itself is the prior-period state; the lift/
-    # trigger evaluated at signal date takes effect starting the next day.
-    from vol_cap import (VIX_PCT, VIX_LB_YEARS, VOL_CAP_SCALE,
-                          compute_latched_scale, load_vix)
-    try:
-        # Use entire panel through today (not capped at sig_d).
-        _idx = panel.index
-        if len(_idx) > 0:
-            _stub = pd.Series(0.0, index=_idx)
-            _vix_for_state = load_vix(end=_idx[-1] + pd.Timedelta(days=2))
-            # Last trading day of each month (handles weekend/holiday
-            # month-ends correctly -- 'ME' alone drops those).
-            _sig_dates = (pd.DataFrame({"x": 1}, index=_idx)
-                           .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-            _scale_series, _events = compute_latched_scale(_stub, _sig_dates, vix=_vix_for_state)
-            vc_scale = float(_scale_series.iloc[-1])
-            vc_regime = "CAP_ENGAGED" if vc_scale < 1.0 else "NORMAL"
-            # VIX breakdown for status panel
-            _vix_clean = _vix_for_state.dropna()
-            if len(_vix_clean) > 0:
-                vc_vix = float(_vix_clean.iloc[-1])
-                _vix_lb_days = int(VIX_LB_YEARS * 252)
-                if len(_vix_clean) >= _vix_lb_days:
-                    vc_threshold = float(_vix_clean.iloc[:-1].tail(_vix_lb_days).quantile(VIX_PCT))
-                else:
-                    vc_threshold = None
-                vc_vix_asof = str(_vix_clean.index[-1].date())
-            else:
-                vc_vix = None
-                vc_threshold = None
-                vc_vix_asof = "n/a"
-            vc_as_of = str(_idx[-1].date())
-            vc_last_event = _events[-1] if _events else None
-            vc_lifetime = len(_events)
-        else:
-            raise RuntimeError("empty panel index")
-    except Exception as e:
-        vc_scale = 1.0
-        vc_regime = "ERROR"
-        vc_vix = None
-        vc_threshold = None
-        vc_as_of = f"error: {e}"
-        vc_vix_asof = "n/a"
-        vc_last_event = None
-        vc_lifetime = 0
-
-    # Apply scale: combined = vc_scale * uncapped; (1 - vc_scale) -> cash
-    combined = {t: w * vc_scale for t, w in combined_uncapped.items()}
-    if vc_scale < 1.0:
-        cash_extra = 1.0 - vc_scale
-        combined[CASH_TICKER] = combined.get(CASH_TICKER, 0.0) + cash_extra
+    # Combined target weights (no extra portfolio cap overlay)
+    combined = combined_uncapped
     combined_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                              for t, w in sorted(combined.items(), key=lambda x: -x[1])
                              if abs(w) > 1e-6)
 
-    # Vol-cap status block
-    vix_str = f"{vc_vix:.2f}" if vc_vix is not None else "n/a"
-    thresh_str = f"{vc_threshold:.2f}" if vc_threshold is not None else "n/a"
-    if vc_regime == "CAP_ENGAGED":
-        vc_color = "#e74c3c"
-        # cap could be latched from prior trigger even if today's VIX < threshold
-        _cmp = "&gt;" if (vc_vix is not None and vc_threshold is not None
-                          and vc_vix > vc_threshold) else "&lt;"
-        _latch_note = " (latched from prior trigger; will lift at next signal date if VIX stays below threshold)" if _cmp == "&lt;" else ""
-        vc_status = (f"⚠️ <strong>CAP ENGAGED</strong> at {int(vc_scale*100)}% scale "
-                      f"(half to cash). VIX: {vix_str} {_cmp} threshold {thresh_str}.{_latch_note} "
-                      f"Latched until next monthly signal.")
-    elif vc_regime == "NORMAL":
-        vc_color = "#27ae60"
-        vc_status = (f"✓ NORMAL: scale 100%. VIX: {vix_str} &lt; threshold {thresh_str}.")
-    else:
-        vc_color = "#666"
-        vc_status = f"State: {vc_regime}. As-of: {vc_as_of}."
-    last_event_str = ""
-    if vc_last_event:
-        # Event keys from compute_latched_scale: date, action, scale, vix, threshold
-        _ev_date = vc_last_event.get("date") or vc_last_event.get("at_date")
-        _ev_date_str = str(_ev_date.date()) if hasattr(_ev_date, "date") else str(_ev_date)
-        _ev_action = vc_last_event.get("action") or vc_last_event.get("kind")
-        _ev_vix = vc_last_event.get("vix") or vc_last_event.get("vix_at_change")
-        _ev_thr = vc_last_event.get("threshold") or vc_last_event.get("threshold_at_change")
-        last_event_str = (f" Last state change: {_ev_date_str} "
-                           f"({_ev_action}, "
-                           f"VIX={_ev_vix:.2f}" if isinstance(_ev_vix, (int, float)) else f"VIX={_ev_vix}"
-                           )
-        last_event_str += (f", threshold={_ev_thr:.2f})."
-                            if isinstance(_ev_thr, (int, float))
-                            else f", threshold={_ev_thr}).")
-    # DD circuit state for BULL and NDX sleeves
+    # DD circuit state for NDX sleeve
     from vol_cap import current_dd_state, DD_CIRCUIT_THRESHOLD
-    dd_states_html = ""
     try:
-        for sleeve_name, sleeve_rets in [("BULL", bull_qqq_rets), ("NDX", ndx_rets)]:
-            st = current_dd_state(sleeve_rets, threshold=DD_CIRCUIT_THRESHOLD)
-            triggered = st["triggered"]
-            color = "#e74c3c" if triggered else "#2ecc71"
-            status = "⚠️ CIRCUIT TRIGGERED" if triggered else "✓ Normal"
-            dd_pct = st["current_dd"] * 100
-            dd_states_html += (
-                f"<div style='background:#fafafa;border-left:4px solid {color};"
-                f"padding:8px 12px;margin:6px 0;border-radius:4px;font-size:0.88rem;'>"
-                f"<strong>{sleeve_name} DD circuit</strong>: {status} "
-                f"&middot; current DD <strong>{dd_pct:+.2f}%</strong> "
-                f"(threshold {DD_CIRCUIT_THRESHOLD*100:.0f}%) &middot; "
-                f"{st['days_in_dd']}d since peak"
-                f"</div>"
-            )
+        st = current_dd_state(ndx_rets, threshold=DD_CIRCUIT_THRESHOLD)
+        triggered = st["triggered"]
+        color = "#e74c3c" if triggered else "#2ecc71"
+        status = "⚠️ CIRCUIT TRIGGERED" if triggered else "✓ Normal"
+        dd_pct = st["current_dd"] * 100
+        dd_status_html = (
+            f"<div style='grid-column: 1 / -1; background:#fafafa;border-left:4px solid {color};"
+            f"padding:8px 12px;margin:8px 0;border-radius:4px;font-size:0.88rem;'>"
+            f"<strong>NDX DD circuit</strong>: {status} "
+            f"&middot; current DD <strong>{dd_pct:+.2f}%</strong> "
+            f"(threshold {DD_CIRCUIT_THRESHOLD*100:.0f}%) &middot; "
+            f"{st['days_in_dd']}d since peak"
+            f"</div>"
+        )
     except Exception as _e:
-        dd_states_html = f"<p style='color:#999'>DD circuit state unavailable: {_e}</p>"
-
-    vol_cap_html = (
-        f"<div style='grid-column: 1 / -1; background:#fef9e7; "
-        f"border-left: 4px solid {vc_color}; padding:10px 14px; border-radius:4px; "
-        f"margin: 8px 0;'>"
-        f"<strong>Portfolio vol cap</strong> (latched binary {int(VOL_CAP_SCALE*100)}%; "
-        f"VIX-based trigger: VIX &gt; P{int(VIX_PCT*100)} of rolling {VIX_LB_YEARS}y VIX): {vc_status} "
-        f"<br><span style='font-size:0.9em;color:#555'>Threshold today = {thresh_str} "
-        f"(P{int(VIX_PCT*100)} of last {VIX_LB_YEARS} years of VIX closes).{last_event_str}"
-        f" VIX as-of {vc_vix_asof}. State as-of {vc_as_of}. Lifetime events: {vc_lifetime}.</span>"
-        f"{dd_states_html}"
-        f"</div>"
-    )
+        dd_status_html = f"<p style='color:#999'>NDX DD circuit state unavailable: {_e}</p>"
 
     # Build prior-vs-target trade-delta table (compare to PREVIOUS signal date if available)
     prev_combined = {}
@@ -2149,13 +1966,11 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         except Exception:
             prev_bq_w, prev_ndx_w = {}, {}
         for t, w in prev_weights.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * CPM_WEIGHT * vc_scale
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * CPM_WEIGHT
         for t, w in prev_bq_w.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * BULL_WEIGHT * vc_scale
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * BULL_WEIGHT
         for t, w in prev_ndx_w.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * NDX_WEIGHT * vc_scale
-        if vc_scale < 1.0:
-            prev_combined[CASH_TICKER] = prev_combined.get(CASH_TICKER, 0.0) + (1.0 - vc_scale)
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * NDX_WEIGHT
     all_keys = set(combined) | set(prev_combined)
     trade_rows = []
     hold_count = 0
@@ -2191,16 +2006,6 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         if abs(w) > 1e-6
     )
 
-    # Vol-cap one-line summary for top-of-card
-    if vc_regime == "CAP_ENGAGED":
-        _cmp_sum = "&gt;" if (vc_vix is not None and vc_threshold is not None
-                              and vc_vix > vc_threshold) else "&lt;"
-        vc_summary = f"⚠️ Vol cap engaged ({int(vc_scale*100)}% scale, half to cash) — VIX {vix_str} {_cmp_sum} {thresh_str} threshold"
-    elif vc_regime == "NORMAL":
-        vc_summary = f"✓ Vol cap normal (100% scale) — VIX {vix_str} &lt; {thresh_str} threshold"
-    else:
-        vc_summary = f"Vol cap state: {vc_regime} (as-of {vc_as_of})"
-
     # Bull-QQQ + NDX picks one-liner (for top summary)
     bull_pick = next(iter(bq_w), CASH_TICKER) if bq_w else CASH_TICKER
     ndx_picks_str = ", ".join(ndx_diag.get("selected", [])) if ndx_diag.get("selected") else "(cash)"
@@ -2211,8 +2016,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
 <div class='alloc-row' style='grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; gap: 14px;'>
   <style>@media (min-width: 900px) {{ .alloc-row {{ grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) !important; }} }}</style>
   <div>
-    <h4 style='background:#fff4d6;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Final portfolio target {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)} {('× ' + str(vc_scale)) if vc_scale < 1.0 else ''}</h4>
-    <p style='font-size:0.78rem;color:#666;margin:2px 0 6px 0'>{vc_summary}</p>
+    <h4 style='background:#fff4d6;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Final portfolio target {int(CPM_WEIGHT*100)}/{int(BULL_WEIGHT*100)}/{int(NDX_WEIGHT*100)}</h4>
     <div class='table-scroll'><table class='alloc'>{combined_target_html}</table></div>
   </div>
   <div>
@@ -2222,12 +2026,12 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
 </div>
 <div style='grid-column: 1 / -1'>
   <details>
-    <summary style='font-weight:600;cursor:pointer'>Signal diagnostics (sleeves, vol-cap state, selection details)</summary>
+    <summary style='font-weight:600;cursor:pointer'>Signal diagnostics (sleeves, selection details)</summary>
     <div style='margin-top:10px'>
     <p style='font-size:0.85rem;margin:6px 0'><strong>CPM</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): pair = <strong>{pair_str}</strong>, safe = {safe}</p>
     <p style='font-size:0.85rem;margin:6px 0'><strong>BULL-SPY</strong> ({int(BULL_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{bull_pick}</strong></p>
     <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' · sectors: ' + sector_str) if sector_str else ''}</p>
-    {vol_cap_html}
+    {dd_status_html}
     <h4 style='margin-top:14px'>Sleeve-internal weights (sum to 100% of each sleeve)</h4>
     <div style='display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px'>
       <div><strong>CPM</strong><div class='table-scroll'><table class='alloc'>{fcp_html}</table></div></div>
@@ -2245,11 +2049,8 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
 
 def main():
     ap = argparse.ArgumentParser()
-    # Default to strict live-ETF CLEAN window 18.1y (2008-04-30): ~12
-    # months after HYG live (2007-04-11), giving the BULL canary's 12mo
-    # momentum lookback a full year of real HYG data (not VWEHX stitched).
-    # Matches README CLEAN headline. Override with --start to view earlier
-    # windows that use stitched mutual-fund data for non-live periods.
+    # Default to strict live-ETF CLEAN window 18.1y (2008-04-30).
+    # Matches README CLEAN headline.
     ap.add_argument("--start", default="2008-04-30")
     ap.add_argument("--end", default=None)
     ap.add_argument("--out", default=str(ROOT / "cpm_dashboard.html"))
@@ -2344,10 +2145,6 @@ def main():
         headline_strats["Naive 60/40 PP/SPY-trend"] = naive_for_headline
     fig_eq_dd_headline = chart_equity_dd_combined(headline_strats,
                                                     prod_label=prod_label)
-    fig_mc = chart_mc_horizon(art.blend, naive_for_headline,
-                                prod_label=prod_label,
-                                bench_label="Naive 60/40 PP/SPY-trend",
-                                max_years=18, n_paths=500)
     top_dd_html = topN_drawdowns_html(art.blend, n=10)
     period_summary = period_summary_html(art.blend)
 
@@ -2389,9 +2186,6 @@ def main():
         age_status = f"<span style='color:#c0392b;font-weight:600'>STALE (next signal end of month)</span>"
     
     # Per-sleeve breakdown of the PROD blend.
-    # IMPORTANT: PRODUCTION row uses the VIX-capped blend (matches headline);
-    # standalone sleeve rows are intentionally uncapped because the cap is a
-    # portfolio-level overlay, not a per-sleeve mechanism.
     sleeve_rows = [
         {"strategy": "CPM-BULL-NDX 60/20/20 + NDX DD circuit (PRODUCTION)", **perf_metrics(art.blend)},
         {"strategy": "CPM standalone (60% sleeve, uncapped)",        **perf_metrics(art.cpm)},
@@ -2400,25 +2194,12 @@ def main():
     ]
 
     # ========================================================
-    # EXTENDED ~27y backtest (1999-03 -> present)
-    # QQQ actual inception: 1999-03-10. Earlier dates would require
-    # synthetic QQQ proxies for the BULL sleeve.
-    # Constraints by sleeve:
-    #   - CPM: HYG_stitched (1980+), TIP (2000-06+, nan pre-2000 -> canary
-    #     uses HYG only). GLD (2000-08+). DBC live 2006-02 (stitched pre).
-    #     VBR live 2004-01 (stitched pre). Pre-2004 universe selection is
-    #     proxy-heavy (universe-selection contamination concern).
-    #   - BULL: QQQ live 1999-03. HYG+TIP canary -- pre-2000 TIP stitched via VIPSX.
-    #     pre-2000 TIP nan, falls back to HYG-only canary.
-    #   - NDX: PIT data 2006-01+. Pre-2006 the NDX sleeve mirrors BULL-SPY
-    #     (i.e., extra BULL exposure) instead of sitting in cash.
-    # Includes 2000-02 dot-com bust, 2008 GFC, 2020 COVID, 2022 stress.
+    # Extended backtest from QQQ inception.
     # ========================================================
     ext_start = pd.Timestamp("1999-03-10")
     print(f"Running EXT backtest {ext_start.date()} ...")
-    # EXT window uses the same single-pass artifacts builder. Note: EXT path
-    # does NOT apply DD circuit / VIX cap to remain comparable with earlier
-    # 30y reporting; we use the raw blend (pre-overlay) for EXT charts.
+    # EXT window uses the same single-pass artifacts builder.
+    # EXT charts use the raw blend.
     # EXT only needs daily returns for yearly bars / rolling Sharpe charts;
     # skip records to save ~7s on the deep history pass.
     ext_art = build_artifacts(panel, ndx_panel, ext_start, end, include_records=False)
@@ -2562,7 +2343,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 
 <h2>Headline performance</h2>
 <div class='card'>
-<p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>. Forward base-case Sh 1.00–1.30, CAGR 11–15% pre-tax (5–9% after).</p>
+<p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
 {perf_table_html(perf_rows, compact=True)}
 {fig_to_html(fig_eq_dd_headline)}
 <details>
@@ -2572,7 +2353,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </div>
 
 <details>
-<summary><strong>Performance detail</strong> (period summary, risk-return scatter, top-10 drawdowns, MC horizon; click to expand)</summary>
+<summary><strong>Performance detail</strong> (period summary, risk-return scatter, top-10 drawdowns; click to expand)</summary>
 
 <h3>Period-over-period</h3>
 <div class='card'>
@@ -2589,11 +2370,6 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 {top_dd_html}
 </div>
 
-<h3>Monte Carlo: expected returns & drawdowns by investment horizon</h3>
-<div class='card'>
-{fig_to_html(fig_mc)}
-</div>
-
 </details>
 
 <details>
@@ -2602,7 +2378,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND SPY 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_SPY regime. When BULL gate off + fast QQQ 2mo TR &gt; 0, Rebound bypass: 50% top-K + 50% best-of-safe. Otherwise 100% best-of-safe SHV/IEF.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_SPY regime. When BULL gate is off, allocate 100% best-of-safe SHV/IEF.</li>
 </ul>
 </div>
 </details>
@@ -2660,8 +2436,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 {fig_to_html(fig_corr)}
 </div>
 
-<h3>Extended backtest (~27y, {ext_start.date()} -> {end.date()})</h3>
-<p class='footnote'>NDX sleeve mirrors BULL-SPY pre-2006 (no PIT data). Pre-2010 uses stitched ETF proxies.</p>
+<h3>Extended backtest ({ext_start.date()} -> {end.date()})</h3>
 <div class='card'>
 {perf_table_html(ext_perf_rows)}
 {fig_to_html(ext_fig_equity)}
@@ -2685,14 +2460,14 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>Universe ({len(RISKY_UNIVERSE)}):</strong> US factor + international + diversifier.
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
-<li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (SHV ~0.3y, IEF ~7y; HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>Canary:</strong> {' + '.join(CANARY_ASSETS)} -- ANY positive 13612U momentum -&gt; risk-on; all negative -&gt; 100% best-of-safe. HYG_stitched = VWEHX pre-2007-04 + live HYG.</li>
+<li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
+<li><strong>Canary:</strong> HYG + TIP + GLD -- ANY positive 13612U momentum -&gt; risk-on; all negative -&gt; 100% best-of-safe.</li>
 <li><strong>Ranker:</strong> Faber 10-month SMA distance: <code>(price - SMA10) / SMA10</code></li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by ranker (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop negative momentum</li>
-<li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d covariance lookback, ~{CORR_LOOKBACK_DAYS/252:.1f}y)</li>
-<li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep prior pair member unless new candidate exceeds by this margin in cross-sectional z-score). Buffer memory resets when canary breadth crosses majority (HYG/TIP/GLD positive count moves between <2 and >=2), so stale pair memory does not bridge narrow-risk-on vs broad-risk-on regimes.</li>
+<li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d covariance lookback)</li>
+<li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep previous pair member unless new candidate exceeds by this margin in cross-sectional z-score). Buffer memory resets when canary breadth crosses majority (HYG/TIP/GLD positive count moves between <2 and >=2).</li>
 <li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% best-of-safe; 0 positive &rarr; 100% best-of-safe</li>
-<li><strong>Vol cap:</strong> {TARGET_VOL*100:.0f}% annualized target, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong>. Fires only in crisis regimes (~17% of days).</li>
+<li><strong>Vol cap:</strong> {TARGET_VOL*100:.0f}% annualized target, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong>.</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
@@ -2700,9 +2475,9 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (Keller/HAA canary + custom curve/vol composite + TSMOM trend filter)</summary>
 <ul>
-<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation. Chosen over QQQ for diversification: BULL-SPY corr 0.61 with NDX sleeve vs 0.75 for BULL-QQQ; NDX provides dedicated tech-pick exposure already.</li>
+<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation.</li>
 <li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0. Two-asset credit (HYG = high-yield) + inflation (TIP) regime check.</li>
-<li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime. Both pillars use natural midpoint cutoffs. Pair ablation showed curve+vol are the only two structurally orthogonal macro signals worth keeping; trend (SPY 200d MA) and credit (HYG 200d MA) pillars were dropped as redundant with asset_mom and canary respectively.</li>
+<li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime.</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-month TR absolute momentum &gt; 0 (Antonacci GEM 2014, no skip-month). Direct observation of the risky asset itself.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
@@ -2716,9 +2491,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
 <li><strong>Signal:</strong> 13612U momentum per stock (same formula as CPM canary, canonical HAA unweighted).</li>
 <li><strong>Selection:</strong> top 8 by momentum (positive only), equal-weighted 12.5% each.</li>
-<li><strong>Gate:</strong> only allocates top-K when BULL gate regime is <code>BULL_SPY</code> (equity-friendly); else Rebound or best-of-safe.</li>
-<li><strong>Rebound bypass:</strong> when BULL gate off but fast QQQ 2mo TR &gt; 0 (Goulding-Harvey 4-state analog), allocate 50% to top-K names + 50% best-of-safe instead of full cash. Rebound uses QQQ fast signal (tech-recovery semantics) regardless of BULL_TICKER.</li>
-<li><strong>Fallback:</strong> HAA best-of-safe (SHV/IEF by 13612U) when gate off and Rebound not triggered. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
+<li><strong>Gate:</strong> only allocates top-K when BULL gate regime is <code>BULL_SPY</code> (equity-friendly); otherwise best-of-safe.</li>
+<li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
 <li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
 </ul>
@@ -2728,17 +2502,14 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </details>
 
 <details>
-<summary><strong>Honest caveats</strong> (in-sample bias, NDX survivorship, regime risks; click to expand)</summary>
+<summary><strong>Honest caveats</strong> (click to expand)</summary>
 <div class='card'>
 <ul style='line-height:1.5'>
-<li><strong>In-sample bias.</strong> Tuned on this window. Forward Sharpe ~30-40% below backtest; blend 1.00-1.30, CPM standalone 0.80-1.10.</li>
-<li><strong>NDX survivorship.</strong> Holding-stage MC bounded &lt;0.01 Sh. Selection-stage MC v2 (177 missing delisted tickers): adversarial stress-clustered impact -0.11 Sh / -1.40pp CAGR / MaxDD -15.51% at K=8. CRSP/Norgate validation pending.</li>
-<li><strong>NDX 30y caveat.</strong> Pre-2006 sleeve mirrors BULL-SPY (no PIT data). 30y window does NOT stress-test live stock-selection sleeve through dotcom.</li>
-<li><strong>V-shape recovery lag.</strong> 13612U + 12mo TR momentum use trailing 12mo → re-entry delayed 1-3 months after deep selloffs. Lagged SPY ~5-10pp in 2009/2020-Q2/2022-Q4 snap-backs.</li>
-<li><strong>Crisis-concentrated alpha.</strong> CPM defensive edge concentrated in 2008/2002/2020/2022. Non-crisis years lag SPY by design.</li>
-<li><strong>Bull underperformance is structural.</strong> No leverage; gives up bull upside for crisis alpha.</li>
-<li><strong>2020+ regime favors NDX.</strong> Mega-cap concentration regime massively rewarded top-K. Forward regime may revert.</li>
-<li><strong>Not live-traded.</strong> Bootstrap CI on Sharpe is wide [1.08, 1.94].</li>
+<li><strong>Backtest only.</strong> Strategy is not live-traded.</li>
+<li><strong>Data dependency.</strong> NDX results depend on PIT membership and available price history.</li>
+<li><strong>Regime dependency.</strong> Defensive alpha depends on canary, trend, and diversifier behavior.</li>
+<li><strong>Recovery lag.</strong> Monthly momentum signals can re-enter late after fast recoveries.</li>
+<li><strong>Concentration.</strong> Risk-on regimes can concentrate in growth and Nasdaq exposure.</li>
 </ul>
 </div>
 

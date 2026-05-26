@@ -4,16 +4,14 @@ Spec:
   1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)
   2. Signal:   13612U momentum per stock (canonical HAA unweighted average)
   3. Gate:     BULL gate regime must be BULL_SPY; else best-of-safe (SHV/IEF
-               by 13612U, HAA-style) -- unless Rebound bypass fires.
-  4. PIT fallback: when PIT data unavailable (pre-2006), mirror BULL sleeve
+               by 13612U, HAA-style).
+  4. PIT fallback: when PIT data is unavailable, mirror BULL sleeve
      weights (NDX sleeve acts as extra BULL exposure).
   5. Selection: top-K by 13612U momentum, equal-weighted 1/K each.
   6. Partial fill: if fewer than K positive candidates, take what's there at
      1/K=25% per pick, rest in best-of-safe (e.g. 2 positives -> 50% stocks
      + 50% best-safe).
-  7. Rebound bypass: BULL gate off but fast QQQ 2mo TR > 0 -> 50% top-K
-     names + 50% best-safe (Goulding-Harvey fast-bypass).
-  8. Monthly rebalance, T+1 OPEN execution (next-day MOO), 10bps/side cost.
+  7. Monthly rebalance, T+1 OPEN execution (next-day MOO), 10bps/side cost.
 """
 from __future__ import annotations
 import sys
@@ -29,17 +27,6 @@ from bull_qqq_live import (
     compute_bull_qqq_weights, CASH_TICKER, BULL_TICKER, SAFE_POOL,
     _pick_safe,
 )
-
-# Rebound bypass removed (commit removing it): mechanism was Goulding-Harvey
-# 4-state Rebound analog (BULL gate off + fast QQQ 2mo TR > 0 -> 50% top-K +
-# 50% safe). Empirical contribution: +0.028 portfolio Sharpe, +0.48pp CAGR
-# over no-rebound. Removed because:
-#   - 44 fires / 18y = 2.43/yr was high; 61% win rate plausible noise
-#   - Specific parameters (50/50 fixed weight, 2mo fast horizon, NDX-only
-#     application) were pragmatic calibrations not paper-cited
-#   - Goulding-Harvey supports the MECHANISM (state exists) but recommends
-#     adaptive a_Re estimation, not our fixed 50/50
-#   - Cleaner spec without it; one fewer mechanism to defend
 
 ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
@@ -57,7 +44,7 @@ def load_ndx_panel() -> pd.DataFrame:
 
 
 def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:
-    """Re-download NDX constituent prices for current and historical members.
+    """Re-download NDX constituent prices for full membership coverage.
     Use in live runner to ensure fresh data each month."""
     import yfinance as yf
     h = ic.history("nasdaq100")
@@ -93,7 +80,7 @@ def compute_ndx_weights(
 
     Flow:
       - BULL gate ON  -> select top-K NDX names by 13612U > 0 (full weight)
-      - BULL gate OFF -> 100% best-of-safe (no Rebound bypass; removed)
+      - BULL gate OFF -> 100% best-of-safe
     """
     # Step 1: BULL gate -- defensive if not BULL_*
     bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
@@ -108,8 +95,7 @@ def compute_ndx_weights(
         })
 
     # Step 2: PIT NDX membership at signal date
-    # PIT data (index-constitution lib) only covers 2006-01+. For earlier
-    # signal dates, fall back to mirroring BULL sleeve weights (i.e., the NDX
+    # If PIT data is unavailable, mirror BULL sleeve weights (i.e., the NDX
     # sleeve acts as extra BULL exposure) instead of going to cash.
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
@@ -117,7 +103,7 @@ def compute_ndx_weights(
         return (bq_weights, "NDX_FALLBACK_BULL", {
             "bull_regime": bq_regime,
             "selected": list(bq_weights.keys()),
-            "reason": "PIT NDX data unavailable pre-2006; mirroring BULL sleeve",
+            "reason": "PIT NDX data unavailable; mirroring BULL sleeve",
         })
     # Filter to PIT-listed tickers with usable price at signal date.
     # A ticker that delisted before sig_d may still appear in yearly PIT
