@@ -419,7 +419,8 @@ from types import SimpleNamespace
 
 
 def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
-                     start: pd.Timestamp, end: pd.Timestamp) -> SimpleNamespace:
+                     start: pd.Timestamp, end: pd.Timestamp,
+                     include_records: bool = True) -> SimpleNamespace:
     """Compute every per-build artifact ONCE.
 
     Returns SimpleNamespace with:
@@ -431,6 +432,8 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
       blend_uncapped, blend            - portfolio daily returns
       sigs                             - signal dates list
       cpm_records, bull_records, ndx_records  - per-signal-date weights/regime
+                                                (only populated when include_records=True;
+                                                EXT 30y window skips these for speed)
     """
     from vol_cap import (compute_latched_scale, load_vix,
                           compute_dd_circuit_scale,
@@ -457,10 +460,13 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                     end=blend_uncapped.index[-1] + pd.Timedelta(days=2))
     vol_scale, vol_events = compute_latched_scale(blend_uncapped, sigs, vix=vix)
     blend = vol_scale * blend_uncapped
-    cpm_records = cpm_signal_records(panel, start, end)
-    bull_records = bull_signal_records(panel, start, end)
-    ndx_records = (ndx_signal_records(panel, ndx_panel, start, end)
-                    if ndx_panel is not None else [])
+    if include_records:
+        cpm_records = cpm_signal_records(panel, start, end)
+        bull_records = bull_signal_records(panel, start, end)
+        ndx_records = (ndx_signal_records(panel, ndx_panel, start, end)
+                        if ndx_panel is not None else [])
+    else:
+        cpm_records = bull_records = ndx_records = []
     return SimpleNamespace(
         panel=panel, ndx_panel=ndx_panel, start=start, end=end,
         cpm=cpm, bull_raw=bull_raw, ndx_raw=ndx_raw,
@@ -1014,16 +1020,21 @@ def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
             if asset not in panel.columns: continue
             ser = panel[asset].reindex(window).pct_change().dropna()
             if len(ser): asset_rets[asset].append(ser)
-        # Per-pair (only when this signal date had an actual pair)
+        # Per-pair (only when this signal date had an actual pair).
+        # Use intersection of valid days (BOTH pair assets have a real pct_change).
+        # Avoids the prior bug where fillna(0) made missing-data days look like
+        # zero-return days and inflated period count / depressed std.
         if pair and len(pair) == 2:
             pkey = tuple(sorted(pair))
             pair_picks[pkey] += 1
-            period_ret = pd.Series(0.0, index=window)
-            for a, w in weights.items():
-                if a not in panel.columns: continue
-                ser = panel[a].reindex(window).pct_change().fillna(0)
-                period_ret = period_ret + ser * w
-            pair_rets[pkey].append(period_ret)
+            pair_members = [a for a in weights.keys() if a in panel.columns]
+            if len(pair_members) >= 2:
+                rets_df = pd.concat(
+                    [panel[a].reindex(window).pct_change().rename(a) for a in pair_members],
+                    axis=1).dropna()  # only days where ALL members have valid returns
+                if len(rets_df) >= 3:
+                    period_ret = sum(rets_df[a] * weights[a] for a in pair_members)
+                    pair_rets[pkey].append(period_ret)
     asset_stats = {}
     for a, sers in asset_rets.items():
         merged = pd.concat(sers).groupby(level=0).sum().dropna()
@@ -1039,6 +1050,11 @@ def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
         merged = pd.concat(sers)
         s = _period_stats(merged)
         pair_stats[p] = {'picks': pair_picks[p], **s}
+    # Add pairs with no valid return data so the count still shows
+    for p, n in pair_picks.items():
+        if p not in pair_stats:
+            pair_stats[p] = {'picks': n, 'sh': float('nan'),
+                              'ann': float('nan'), 'mdd': float('nan')}
     return asset_stats, pair_stats
 
 
@@ -1106,50 +1122,45 @@ def picks_table_html(picks, pair_counter, n_signals, records=None, panel=None):
 def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp):
     """Per-asset conditional performance when held in a CPM pair.
 
-    Bars: Sharpe, AnnRet, CumRet per asset. Sorted by Sharpe.
+    Bars: Sharpe, AnnRet, CumRet per asset. Sorted by Sharpe. Uses the same
+    `compute_pick_pair_stats` source as the Asset Pick Frequency table so the
+    counts and metrics MUST match the table (single source of truth).
     """
-    from collections import defaultdict
-    end = panel.index[-1]
     records = cpm_signal_records(panel, start)
-    sig_dates = [r["sig_d"] for r in records]
-
-    asset_returns = defaultdict(list)
-    asset_picks = defaultdict(int)
-    for i, rec in enumerate(records):
-        sig_d = rec["sig_d"]
-        weights = rec["weights"]
-        sidx = panel.index.searchsorted(sig_d) + 2
-        eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
-        if sidx >= len(panel.index):
-            continue
-        window = panel.index[sidx:eidx]
-        for asset in weights.keys():
-            asset_picks[asset] += 1
-            if asset not in panel.columns:
-                continue
-            rs = []
-            for d in window:
-                dpos = panel.index.searchsorted(d)
-                if dpos == 0:
-                    continue
-                p0 = panel[asset].iloc[dpos - 1]
-                p1 = panel[asset].loc[d]
-                if pd.notna(p0) and pd.notna(p1) and p0 > 0:
-                    rs.append((d, p1/p0 - 1))
-            if rs:
-                asset_returns[asset].append(pd.Series([r for _, r in rs], index=[d for d, _ in rs]))
+    asset_stats, _pair_stats = compute_pick_pair_stats(records, panel)
 
     rows = []
-    for a, sers in asset_returns.items():
-        full = pd.concat(sers).sort_index().dropna()
-        if len(full) < 3:
+    for a, st in asset_stats.items():
+        # Skip assets with insufficient data for meaningful stats
+        if pd.isna(st.get('sh')):
             continue
-        eq = (1 + full).cumprod()
-        vol = full.std(ddof=0) * np.sqrt(252)
-        ann_ret = full.mean() * 252
-        sh = ann_ret / vol if vol > 0 else float('nan')
-        cum = eq.iloc[-1] - 1
-        rows.append({'asset': a, 'picks': asset_picks[a], 'sh': sh, 'ann_ret': ann_ret, 'cum': cum})
+        # Cumulative return: recompute from records the same way (raw, unweighted)
+        rows.append({'asset': a, 'picks': st['picks'], 'sh': st['sh'],
+                      'ann_ret': st['ann'], 'cum': st.get('mdd', float('nan'))})
+    # Cum return is informational; recompute properly by concatenating held-period raw returns
+    from collections import defaultdict
+    cum_by_asset = defaultdict(list)
+    sig_dates = [r["sig_d"] for r in records]
+    for i, rec in enumerate(records):
+        sig_d = rec["sig_d"]
+        weights = {a: w for a, w in rec["weights"].items() if w > 0}
+        sidx = panel.index.searchsorted(sig_d) + 2
+        eidx = (panel.index.searchsorted(sig_dates[i+1]) + 2
+                 if i+1 < len(sig_dates) else len(panel.index))
+        if sidx >= len(panel.index): continue
+        window = panel.index[sidx:eidx]
+        for a in weights.keys():
+            if a not in panel.columns: continue
+            ser = panel[a].reindex(window).pct_change().dropna()
+            if len(ser): cum_by_asset[a].append(ser)
+    for r in rows:
+        sers = cum_by_asset.get(r['asset'], [])
+        if sers:
+            full = pd.concat(sers).groupby(level=0).first().dropna()
+            eq = (1 + full).cumprod()
+            r['cum'] = eq.iloc[-1] - 1 if len(eq) else float('nan')
+        else:
+            r['cum'] = float('nan')
     rows.sort(key=lambda r: -r['sh'])
 
     assets = [r['asset'] for r in rows]
@@ -2170,31 +2181,19 @@ def main():
         print("  NDX panel data not found; skipping NDX sleeve.")
         ndx_panel = None
     art = build_artifacts(panel, ndx_panel, start, end)
-    # Convenience aliases for downstream legacy code (TODO: pass `art` directly):
-    cpm = art.cpm
-    bull_qqq_rets = art.bull
-    ndx_rets = art.ndx
-    blend_sig_dates = art.sigs
-    bull_dd_scale = art.bull_dd_scale
-    ndx_dd_scale = art.ndx_dd_scale
-    blended_uncapped = art.blend_uncapped
-    vol_scale = art.vol_scale
-    vol_events = art.vol_events
-    blended = art.blend
     prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + VIX cap + DD circuit"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
     qqq = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     six40 = sixty_forty(panel, start, end)
-    # Core 2 benchmarks for clean comparison
     naive_pp_qt = naive_60_40_pp_qqq_trend(panel, start, end)
 
     strategies = {
-        prod_label: blended,
-        "CPM standalone": cpm,
-        "BULL-SPY sleeve": bull_qqq_rets,
-        "NDX sleeve": ndx_rets,
+        prod_label: art.blend,
+        "CPM standalone": art.cpm,
+        "BULL-SPY sleeve": art.bull,
+        "NDX sleeve": art.ndx,
         "Naive 60/40 PP/SPY-trend": naive_pp_qt,
         "QQQ buy-hold": qqq,
     }
@@ -2217,27 +2216,24 @@ def main():
                               prod_label=prod_label)
     fig_dd = chart_drawdown({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                             prod_label=prod_label)
-    fig_yearly = chart_yearly_bars(blended, qqq, strategies["Naive 60/40 PP/SPY-trend"])
-    fig_monthly_heatmap = chart_monthly_heatmap(blended, title="PROD 60/20/20 Monthly Returns Heatmap")
-    fig_rolling = chart_rolling_sharpe(blended, strategies["Naive 60/40 PP/SPY-trend"])
-    fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 60/40 PP/SPY-trend"], bull_qqq_rets)
-    fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/SPY-trend"], bull_qqq_rets)
+    fig_yearly = chart_yearly_bars(art.blend, qqq, strategies["Naive 60/40 PP/SPY-trend"])
+    fig_monthly_heatmap = chart_monthly_heatmap(art.blend, title="PROD 60/20/20 Monthly Returns Heatmap")
+    fig_rolling = chart_rolling_sharpe(art.blend, strategies["Naive 60/40 PP/SPY-trend"])
+    fig_excess = chart_rolling_excess(art.cpm, art.blend, strategies["Naive 60/40 PP/SPY-trend"], art.bull)
+    fig_roll_dd = chart_rolling_dd(art.cpm, art.blend, strategies["Naive 60/40 PP/SPY-trend"], art.bull)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(panel, start)
-    fig_canary_heatmap = chart_canary_state_heatmap(panel, cpm, bull_qqq_rets, start)
+    fig_canary_heatmap = chart_canary_state_heatmap(panel, art.cpm, art.bull, start)
     fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start)
-    fig_sleeve_contrib = chart_sleeve_contribution(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W)
-    drawdowns_html = table_worst_drawdowns(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W, top_n=10)
+    fig_sleeve_contrib = chart_sleeve_contribution(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
+    drawdowns_html = table_worst_drawdowns(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W, top_n=10)
     fig_def_pct = chart_rolling_defensive_pct(panel, start)
     fig_pair_timeline = chart_pair_pick_timeline(panel, start)
-    fig_sleeve_corr = chart_rolling_sleeve_correlation(cpm, bull_qqq_rets, ndx_rets)
-    fig_distributions = chart_monthly_return_distributions(cpm, bull_qqq_rets, ndx_rets, CPM_W, BULL_W, NDX_W)
-    # CPM regimes sum to total months; BULL regimes also sum to total. Use CPM as denominator.
+    fig_sleeve_corr = chart_rolling_sleeve_correlation(art.cpm, art.bull, art.ndx)
+    fig_distributions = chart_monthly_return_distributions(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
     n_signals = regime_counts["RISK_ON"] + regime_counts["DEFENSIVE"]
-    # Pass records + panel so the tables can show realized Sharpe/AnnRet/MaxDD
-    # per asset and per pair (held days only).
-    _signal_records_for_tables = cpm_signal_records(panel, start)
+    # picks_table reads from precomputed cpm_records (memoized, so 'free' call).
     picks_html = picks_table_html(picks, pair_counter, n_signals,
-                                    records=_signal_records_for_tables, panel=panel)
+                                    records=art.cpm_records, panel=panel)
     regime_pct_def = regime_counts["DEFENSIVE"] / max(1, n_signals) * 100
     regime_pct_ron = regime_counts["RISK_ON"] / max(1, n_signals) * 100
     fig_corr = chart_correlations({k: v for k, v in strategies.items() if k in CORE_CHARTS})
@@ -2248,17 +2244,17 @@ def main():
     # TT-style integrated equity + drawdown chart for headline.
     # PROD vs closest benchmark (Naive 60/40 PP/SPY-trend).
     naive_for_headline = strategies.get("Naive 60/40 PP/SPY-trend")
-    headline_strats = {prod_label: blended}
+    headline_strats = {prod_label: art.blend}
     if naive_for_headline is not None and not naive_for_headline.empty:
         headline_strats["Naive 60/40 PP/SPY-trend"] = naive_for_headline
     fig_eq_dd_headline = chart_equity_dd_combined(headline_strats,
                                                     prod_label=prod_label)
-    fig_mc = chart_mc_horizon(blended, naive_for_headline,
+    fig_mc = chart_mc_horizon(art.blend, naive_for_headline,
                                 prod_label=prod_label,
                                 bench_label="Naive 60/40 PP/SPY-trend",
                                 max_years=18, n_paths=500)
-    top_dd_html = topN_drawdowns_html(blended, n=10)
-    period_summary = period_summary_html(blended)
+    top_dd_html = topN_drawdowns_html(art.blend, n=10)
+    period_summary = period_summary_html(art.blend)
 
     # Current allocation: use last COMPLETED month-end as signal date
     today = panel.index[-1]
@@ -2266,8 +2262,8 @@ def main():
     candidates = panel.index[panel.index <= prior_month_end]
     sig_d = candidates[-1] if len(candidates) > 0 else today
     alloc_html = current_alloc_html(panel, sig_d,
-                                       bull_qqq_rets=bull_qqq_rets,
-                                       ndx_rets=ndx_rets)
+                                       bull_qqq_rets=art.bull,
+                                       ndx_rets=art.ndx)
 
     # Audit-block values
     import subprocess
@@ -2300,16 +2296,11 @@ def main():
     # IMPORTANT: PRODUCTION row uses the VIX-capped blend (matches headline);
     # standalone sleeve rows are intentionally uncapped because the cap is a
     # portfolio-level overlay, not a per-sleeve mechanism.
-    common_idx = cpm.index.intersection(bull_qqq_rets.index).intersection(ndx_rets.index)
-    fcp_c = cpm.loc[common_idx]; mt2_c = bull_qqq_rets.loc[common_idx]
-    ndx_c = ndx_rets.loc[common_idx].fillna(0.0)
-    blend_capped = blended.loc[common_idx]
-
     sleeve_rows = [
-        {"strategy": "CPM-BULL-NDX 60/20/20 + VIX cap (PRODUCTION)", **perf_metrics(blend_capped)},
-        {"strategy": "CPM standalone (60% sleeve, uncapped)",        **perf_metrics(cpm)},
-        {"strategy": "BULL-SPY standalone (20% sleeve, uncapped)",   **perf_metrics(bull_qqq_rets)},
-        {"strategy": "NDX standalone (20% sleeve, uncapped)",         **perf_metrics(ndx_c)},
+        {"strategy": "CPM-BULL-NDX 60/20/20 + VIX cap (PRODUCTION)", **perf_metrics(art.blend)},
+        {"strategy": "CPM standalone (60% sleeve, uncapped)",        **perf_metrics(art.cpm)},
+        {"strategy": "BULL-SPY standalone (20% sleeve, uncapped)",   **perf_metrics(art.bull)},
+        {"strategy": "NDX standalone (20% sleeve, uncapped)",         **perf_metrics(art.ndx)},
     ]
 
     # ========================================================
@@ -2329,25 +2320,20 @@ def main():
     # ========================================================
     ext_start = pd.Timestamp("1999-03-10")
     print(f"Running EXT backtest {ext_start.date()} ...")
-    ext_fcp, _ = run_cpm_backtest(panel, ext_start, end)
-    ext_bull = run_bull_qqq_backtest(panel, ext_start, end)
-    try:
-        ext_ndx, _ = run_ndx_backtest(panel, ndx_panel, ext_start, end)
-    except Exception:
-        ext_ndx = pd.Series(0.0, index=ext_bull.index)
-    ext_common = ext_fcp.index.intersection(ext_bull.index).intersection(ext_ndx.index)
-    ext_fcp_c = ext_fcp.reindex(ext_common)
-    ext_bull_c = ext_bull.reindex(ext_common)
-    ext_ndx_c = ext_ndx.reindex(ext_common).fillna(0.0)
-    ext_blended = CPM_W * ext_fcp_c + BULL_W * ext_bull_c + NDX_W * ext_ndx_c
+    # EXT window uses the same single-pass artifacts builder. Note: EXT path
+    # does NOT apply DD circuit / VIX cap to remain comparable with earlier
+    # 30y reporting; we use the raw blend (pre-overlay) for EXT charts.
+    # EXT only needs daily returns for yearly bars / rolling Sharpe charts;
+    # skip records to save ~7s on the deep history pass.
+    ext_art = build_artifacts(panel, ndx_panel, ext_start, end, include_records=False)
     ext_qqq = panel["QQQ"].ffill().pct_change().loc[ext_start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     ext_naive = naive_60_40_pp_qqq_trend(panel, ext_start, end)
 
     ext_strategies = {
-        prod_label: ext_blended,
-        "CPM standalone": ext_fcp_c,
-        "BULL-SPY sleeve": ext_bull_c,
-        "NDX sleeve": ext_ndx_c,
+        prod_label: ext_art.blend,
+        "CPM standalone": ext_art.cpm,
+        "BULL-SPY sleeve": ext_art.bull,
+        "NDX sleeve": ext_art.ndx,
         "Naive 60/40 PP/SPY-trend": ext_naive,
         "QQQ buy-hold": ext_qqq,
     }
@@ -2362,18 +2348,18 @@ def main():
     print("Building EXT charts ...")
     ext_fig_equity = chart_equity(ext_strategies, prod_label=prod_label)
     ext_fig_dd = chart_drawdown(ext_strategies, prod_label=prod_label)
-    ext_fig_yearly = chart_yearly_bars(ext_blended, ext_qqq, ext_naive)
-    ext_fig_rolling = chart_rolling_sharpe(ext_blended, ext_naive)
-    ext_fig_roll_dd = chart_rolling_dd(ext_fcp_c, ext_blended, ext_naive, ext_bull_c)
+    ext_fig_yearly = chart_yearly_bars(ext_art.blend, ext_qqq, ext_naive)
+    ext_fig_rolling = chart_rolling_sharpe(ext_art.blend, ext_naive)
+    ext_fig_roll_dd = chart_rolling_dd(ext_art.cpm, ext_art.blend, ext_naive, ext_art.bull)
     
     # Compose HTML
     print("Composing HTML ...")
     today = dt.date.today().isoformat()
     window_str = f"{start.date()} to {end.date()}"
     yrs_full = (end - start).days / 365.25
-    prod_metrics = perf_metrics(blended)
-    bull_metrics = perf_metrics(bull_qqq_rets)
-    ndx_metrics = perf_metrics(ndx_rets) if ndx_rets is not None and not ndx_rets.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
+    prod_metrics = perf_metrics(art.blend)
+    bull_metrics = perf_metrics(art.bull)
+    ndx_metrics = perf_metrics(art.ndx) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2546,7 +2532,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 {fig_to_html(fig_yearly)}
 {fig_to_html(fig_monthly_heatmap)}
-{yearly_table_html(blended, qqq, cpm, bull_qqq_rets, ndx_rets, naive_pp_qt)}
+{yearly_table_html(art.blend, qqq, art.cpm, art.bull, art.ndx, naive_pp_qt)}
 </div>
 
 <h3>Rolling metrics (12-month)</h3>
