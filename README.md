@@ -33,6 +33,7 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|---:|
 | **PROD 60/20/20 (BULL-SPY)** | **1.70** | **17.24%** | **9.84%** | **-8.25%** | **2.40%** |
+| Naive 60/40 PP/SPY-trend | 0.99 | 7.70% | 7.79% | -14.41% | 4.08% |
 | SPY buy-hold | 0.66 | 11.76% | 19.79% | -51.48% | -- |
 | QQQ buy-hold | 0.82 | 17.23% | 22.29% | -49.37% | -- |
 
@@ -293,13 +294,11 @@ One-shot setup: `bash deploy/setup.sh`. Details in `deploy/cf-pages/README.md`,
 - `bull_qqq_live.py` — BULL sleeve.
 - `ndx_sleeve_live.py` — NDX sleeve (PIT constituent fetch).
 - `build_dashboard.py` — 60/20/20 blend dashboard + peer benchmarks.
-- `vol_cap.py` — NDX DD circuit breaker (63d rolling peak; -10% Nystrup-Boyd threshold; scale to cash until next monthly signal).
-- `vol_check.py` — daily vol-cap check job (state persistence + Telegram alert).
-- `vol_cap_state.json` — persisted vol-cap state (committed by vol-check workflow).
+- `vol_cap.py` — NDX DD circuit breaker helpers only (63d rolling peak; -10% Nystrup-Boyd threshold; scale to cash until next monthly signal).
 - `data/` — input data; `data/ndx_constituents/prices.parquet` cached.
-- `deploy/` — Cloudflare cron + Pages (monthly signal + daily vol-check).
+- `deploy/` — Cloudflare cron + Pages (monthly signal + daily DD check dispatch).
 - `.github/workflows/monthly-signal.yml` — monthly rebalance + dashboard rebuild.
-- `.github/workflows/vol-check.yml` — daily vol-cap check + Telegram alert.
+- `.github/workflows/dd-check.yml` — daily DD circuit check + Telegram alert.
 - `research/` — exploratory analyses (not loaded by live spec).
 
 ```bash

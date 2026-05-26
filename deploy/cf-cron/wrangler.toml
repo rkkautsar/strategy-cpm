@@ -2,25 +2,18 @@ name = "cpm-bull-cron"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# Three cron schedules:
-#   1. Monthly signal:   02:00 UTC, day 1     -> event_type=monthly-signal
-#   2. Daily vol-check:  22:30 UTC, weekdays  -> event_type=vol-check
-#   3. Daily dd-check:   22:35 UTC, weekdays  -> event_type=dd-check
+# Two cron schedules:
+#   1. Monthly signal:  02:00 UTC, day 1      -> event_type=monthly-signal
+#   2. Daily dd-check:  22:35 UTC, weekdays   -> event_type=dd-check
 #
 # Monthly: 02:00 UTC = 10:00 AM SGT (UTC+8). Signal date = last biz day of
 # prior month. Signal close at 4 PM ET does not change over the weekend or
 # overnight, so notification arriving Mon-Fri 10 AM SGT on day 1 is always
 # valid for that month's signal.
 #
-# Daily vol-check: 22:30 UTC, Mon-Fri = ~6:30 AM SGT next day. Fires AFTER
-# US market close (4 PM ET = 21:00 UTC summer / 22:00 UTC winter; 22:30 UTC
-# safely covers both DST regimes with 30min margin). Reads yesterday's close
-# data, computes latched vol-cap scale, alerts via Telegram if state changes.
-# Expected event rate ~0.9/yr per backtest; most days exit silently.
-#
 # Weekday-only (1-5) because US market is closed weekends; no new data.
 [triggers]
-crons = ["0 2 1 * *", "30 22 * * 1-5", "35 22 * * 1-5"]
+crons = ["0 2 1 * *", "35 22 * * 1-5"]
 
 [vars]
 GH_OWNER = "rkkautsar"

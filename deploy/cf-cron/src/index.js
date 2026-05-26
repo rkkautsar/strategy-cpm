@@ -2,21 +2,15 @@
  * CF Workers cron trigger -> fires GH Actions repository_dispatch event.
  *
  * Two cron schedules (see wrangler.toml):
- *   1. Monthly signal:    0 2 1 * *     (1st of month, 10am SGT) -> event_type: monthly-signal
- *   2. Daily vol-check:   30 22 * * 1-5 (weekdays 22:30 UTC, 6:30am SGT) -> event_type: vol-check
+ *   1. Monthly signal:  0 2 1 * *     (1st of month, 10am SGT) -> event_type: monthly-signal
+ *   2. Daily dd-check:  35 22 * * 1-5 (weekdays 22:35 UTC, 6:35am SGT) -> event_type: dd-check
  *
  * Why CF Workers cron: GitHub Actions scheduled workflows auto-disable after
  * 60 days of repo inactivity. CF Workers cron has no inactivity penalty.
- *
- * Daily vol-check: catches latched-binary vol-cap trigger / lift between
- * monthly rebalances. Sends Telegram alert only on state change (~0.9/yr).
- * Fires after US market close (4pm ET = 21:00 UTC summer / 22:00 UTC winter);
- * 22:30 UTC chosen to safely cover both DST regimes with 30min margin.
  */
 
 const EVENT_BY_CRON = {
-  "0 2 1 * *":   "monthly-signal",
-  "30 22 * * 1-5": "vol-check",
+  "0 2 1 * *": "monthly-signal",
   "35 22 * * 1-5": "dd-check",
 };
 
@@ -65,7 +59,7 @@ export default {
 
   // HTTP handler for manual testing.
   // POST / with X-Trigger-Token => monthly-signal (default)
-  // POST /?event=vol-check with X-Trigger-Token => vol-check
+  // POST /?event=dd-check with X-Trigger-Token => dd-check
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
       return new Response("POST with X-Trigger-Token header to trigger manually\n", { status: 405 });
@@ -76,7 +70,7 @@ export default {
     }
     const url = new URL(request.url);
     const eventType = url.searchParams.get("event") || "monthly-signal";
-    if (!["monthly-signal", "vol-check", "dd-check"].includes(eventType)) {
+    if (!["monthly-signal", "dd-check"].includes(eventType)) {
       return new Response(`Unknown event=${eventType}\n`, { status: 400 });
     }
     try {

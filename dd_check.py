@@ -3,8 +3,7 @@
 Computes today's and yesterday's DD circuit state for BULL and NDX sleeves
 on-the-fly from full history; alerts on state change. No persisted state.
 
-Trigger: per-sleeve cumulative DD from peak < -15% (DD_CIRCUIT_THRESHOLD).
-Symmetric design with vol_check.py (VIX cap).
+Trigger: per-sleeve cumulative DD from peak < -10% (DD_CIRCUIT_THRESHOLD).
 
 Run by GH Actions workflow dd-check.yml (triggered daily by CF Worker cron).
 """
