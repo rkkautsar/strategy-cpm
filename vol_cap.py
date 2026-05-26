@@ -226,7 +226,13 @@ def current_scale_state(blend_returns: pd.Series,
 # Avoids the prior hand-picked -15% which had no paper citation.
 DD_CIRCUIT_THRESHOLD = -0.10   # -10% drawdown triggers defensive (Nystrup-Boyd)
 DD_CIRCUIT_SCALE = 0.0         # 0 = full cash; could be 0.5 for partial
-DD_CIRCUIT_SLEEVES = ("BULL", "NDX")  # CPM excluded (low standalone DD)
+DD_CIRCUIT_SLEEVES = ("NDX",)  # NDX only -- empirical test showed BULL DD
+# circuit added negligible benefit (+0.006 Sh vs no-DD baseline) while NDX-
+# only captured +0.113 Sh of the +0.117 Sh combined benefit. CPM also
+# excluded (low standalone DD); BULL excluded (binary regime gate already
+# self-protects vs sleeve-level drawdowns).
+# (Used for documentation/spec only; the actual application in
+# build_dashboard.build_artifacts() is hard-coded to NDX only.)
 
 
 # Rolling-peak lookback for DD circuit breaker = 63 trading days (~1

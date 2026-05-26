@@ -472,15 +472,24 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    bull_dd_scale = compute_dd_circuit_scale(bull_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
+    # DD circuit applies to NDX only. Empirical test (lookback x threshold
+    # x scope grid): BULL DD circuit added negligible benefit (+0.006 Sharpe)
+    # vs NDX-only (+0.113 Sharpe over no-DD baseline). Simpler spec, no
+    # cost: NDX-only is essentially same Sharpe and MaxDD as BULL+NDX.
+    bull_dd_scale = pd.Series(1.0, index=bull_raw.index)
     ndx_dd_scale = compute_dd_circuit_scale(ndx_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
-    bull = bull_dd_scale * bull_raw
+    bull = bull_raw  # no DD circuit
     ndx = ndx_dd_scale * ndx_raw
     blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
-    vix = load_vix(start=blend_uncapped.index[0] - pd.Timedelta(days=365 * 6),
-                    end=blend_uncapped.index[-1] + pd.Timedelta(days=2))
-    vol_scale, vol_events = compute_latched_scale(blend_uncapped, sigs, vix=vix)
-    blend = vol_scale * blend_uncapped
+    # VIX cap removed (tail-risk test showed marginal Worst21d / %InDD>5%
+    # improvement at the cost of -0.8pp CAGR AND consistently hurt crisis
+    # period returns (-5.54pp GFC 2008, -1.90pp 2022, -0.86pp Aug 2024).
+    # NDX-only DD circuit already provides MaxDD protection; VIX cap was
+    # redundant overlay that suppressed CPM defensive-sleeve gains during
+    # crises when GLD/IEF/TLT were rallying. Removed for cleaner spec.
+    vol_scale = pd.Series(1.0, index=blend_uncapped.index)
+    vol_events: list[dict] = []
+    blend = blend_uncapped
     if include_records:
         cpm_records = cpm_signal_records(panel, start, end)
         bull_records = bull_signal_records(panel, start, end)
@@ -2266,7 +2275,7 @@ def main():
         print("  NDX panel data not found; skipping NDX sleeve.")
         ndx_panel = None
     art = build_artifacts(panel, ndx_panel, start, end)
-    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + VIX cap + DD circuit"
+    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + NDX DD circuit"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
@@ -2384,7 +2393,7 @@ def main():
     # standalone sleeve rows are intentionally uncapped because the cap is a
     # portfolio-level overlay, not a per-sleeve mechanism.
     sleeve_rows = [
-        {"strategy": "CPM-BULL-NDX 60/20/20 + VIX cap (PRODUCTION)", **perf_metrics(art.blend)},
+        {"strategy": "CPM-BULL-NDX 60/20/20 + NDX DD circuit (PRODUCTION)", **perf_metrics(art.blend)},
         {"strategy": "CPM standalone (60% sleeve, uncapped)",        **perf_metrics(art.cpm)},
         {"strategy": "BULL-SPY standalone (20% sleeve, uncapped)",   **perf_metrics(art.bull)},
         {"strategy": "NDX standalone (20% sleeve, uncapped)",         **perf_metrics(art.ndx)},
