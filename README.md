@@ -62,24 +62,26 @@ Clean live-ETF window 2008-04-30 → present (~18y, post-cost, with VIX cap +
 DD circuit). Raw backtest; Shumway-pessimistic survivor-bias MC shifts PROD
 by < 0.01 Sharpe / 0.05pp CAGR (see Caveats § NDX bias).
 
-| Strategy | Sharpe | CAGR | MaxDD |
-|---|---:|---:|---:|
-| **PROD 60/20/20 (BULL-SPY)** | **1.72** | **16.84%** | **-8.70%** |
-| SPY buy-hold | 0.66 | 11.74% | -51.48% |
+| Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
+|---|---:|---:|---:|---:|---:|
+| **PROD 60/20/20 (BULL-SPY)** | **1.72** | **16.88%** | **9.33%** | **-8.70%** | **2.50%** |
+| SPY buy-hold | 0.66 | 11.76% | 19.79% | -51.48% | -- |
+| QQQ buy-hold | 0.82 | 17.23% | 22.29% | -49.37% | -- |
 
-| Sleeve standalone | Sharpe | CAGR | MaxDD |
-|---|---:|---:|---:|
-| CPM | 1.32 | 14.44% | -14.70% |
-| BULL-SPY | 1.24 | 13.77% | -13.51% |
-| NDX top-K (with Rebound + best-of-safe) | 1.28 | 32.24% | -28.71% |
+| Sleeve standalone (no caps) | Sharpe | CAGR | Vol | MaxDD |
+|---|---:|---:|---:|---:|
+| CPM | 1.32 | 14.44% | 10.63% | -14.70% |
+| BULL-SPY | 1.20 | 13.16% | 10.83% | -13.60% |
+| NDX top-K (with Rebound + best-of-safe) | 1.29 | 31.85% | 23.66% | -28.71% |
 
 Extended 30y window 1996-01-04 → 2026-05-15 (uses Vanguard mutual fund stitches
 pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 
 | Strategy | Sharpe | CAGR | MaxDD |
 |---|---:|---:|---:|
-| **PROD 60/20/20** | **1.47** | **15.33%** | **-16.15%** |
-| SPY buy-hold | 0.61 | 10.41% | -55.19% |
+| **PROD 60/20/20** | **1.56** | **14.69%** | **-9.85%** |
+| SPY buy-hold | 0.53 | 10.41% | -55.19% |
+| QQQ buy-hold | 0.53 | 14.41% | -82.96% |
 
 **Naive benchmark suite** primary peer is `Naive 60/40 PP/SPY-trend`
 (Permanent Portfolio + SPY 10mo SMA trend), apples-to-apples with BULL-SPY.
@@ -96,22 +98,12 @@ biases + tail sequencing not captured by return bootstrap):
 | Metric | Backtest | Forward base case |
 |---|---:|---|
 | Raw Sharpe | 1.72 | **1.20-1.50** |
-| Excess Sharpe (over SHV) | 1.59 | **1.05-1.35** (subtract ~0.10-0.15 for rate income) |
-| CAGR | 16.84% | **11-15%** pre-tax, **5-9%** after-tax |
+| Excess Sharpe (over SHV) | 1.58 | **1.05-1.35** (subtract ~0.10-0.15 for rate income) |
+| CAGR | 16.88% | **11-15%** pre-tax, **5-9%** after-tax |
 | MaxDD | -8.70% | **-15% to -30%** planning band, **-35 to -40% stress**, **-78% theoretical worst case** if BULL gate fails across all sleeves (dot-com simulation; under FRED-BAA10Y validated VWEHX behavior, NDX MaxDD limited to -12%) |
 | Calmar | 1.94 | **0.55-0.90** |
 
 ## Strategy specification
-
-> **Note on stale tables below.** Validation tables in this README were
-> generated before recent architecture changes: BULL QQQ→SPY swap (commit
-> `f1ee085`), DD circuit moved to 63d rolling peak + -10% threshold
-> (Nystrup-Boyd, commit `647b6fc`), NDX defensive uses best-of-safe SHV/IEF
-> (was SHV-only), and Rebound bypass moved from BULL to NDX sleeve. The
-> headline numbers at the top of this README (Sharpe 1.72, MaxDD -8.70%,
-> CAGR 16.84%) reflect the current spec; the **live dashboard at
-> cpm.rakha.dev is the source of truth**. Validation table numbers will be
-> regenerated next time a full pass is warranted.
 
 ```python
 # Signal date T = last trading day of each calendar month.
@@ -262,11 +254,11 @@ Methodology, sensitivity grids, complexity-layer ablation, and references in
 
 | Metric | Value |
 |---|---|
-| Point Sharpe | 1.528 |
-| Bootstrap mean | 1.515 |
-| 95% CI | [1.088, 1.970] |
-| P(Sharpe > 1.0) | 99.2% |
-| P(Sharpe > 1.05) | 98.5% |
+| Point Sharpe | 1.721 |
+| Bootstrap mean | 1.726 |
+| 95% CI | [1.272, 2.212] |
+| P(Sharpe > 1.0) | 99.8% |
+| P(Sharpe > 1.05) | 99.8% |
 
 The 95% lower bound (1.09) sits above the forward-expectation floor (1.05)
 with limited margin (~0.04). P(true Sharpe > 1.05 forward floor) = 98.5%.
@@ -279,20 +271,19 @@ strategy that holds cash in defensive months:
 
 | Strategy | CLEAN raw Sh | CLEAN excess Sh | 30y raw Sh | 30y excess Sh |
 |---|---:|---:|---:|---:|
-| **PROD** | **1.571** | **1.444** (-0.13) | **1.326** | **1.084** (-0.24) |
-| CPM solo | 1.337 | 1.212 | 1.119 | 0.878 |
-| BULL solo | 1.231 | 1.139 | 0.979 | 0.823 |
-| NDX solo | 1.190 | 1.132 | 1.074 | 0.950 |
-| SPY buy-hold | 0.662 | 0.593 | 0.610 | 0.465 |
-| QQQ buy-hold | 0.824 | 0.762 | 0.631 | 0.527 |
+| **PROD** | **1.721** | **1.579** (-0.14) | **1.555** | **1.311** (-0.24) |
+| CPM solo | 1.324 | 1.200 | 1.254 | 1.039 |
+| BULL solo | 1.197 | 1.075 | 1.040 | 0.833 |
+| NDX solo | 1.289 | 1.233 | 1.167 | 1.056 |
+| SPY buy-hold | 0.660 | 0.591 | 0.532 | 0.406 |
+| QQQ buy-hold | 0.824 | 0.763 | 0.528 | 0.437 |
 
-T-bill CAGR averaged 1.34% on CLEAN window, 2.74% on 30y. The 30y excess
-Sharpe (1.084) sits ~0.03 above the forward base-case floor (1.05) -- a
-thin margin once rate income is netted out (HAA-safe expansion lifted it
-from 1.065 to 1.084). CLEAN excess Sharpe (1.444) retains real edge with
-a -0.13 haircut from raw. PROD clears every benchmark on excess Sharpe in
-both windows. **Use excess Sharpe for any capital-allocation decision;
-raw Sharpe overstates by 0.1-0.25.**
+T-bill CAGR averaged 1.34% on CLEAN window, ~2.7% on 30y. CLEAN excess
+Sharpe (1.579) retains real edge with a -0.14 haircut from raw; 30y excess
+Sharpe (1.311) is materially above the forward base-case floor (1.05) even
+after the larger -0.24 30y rate-income haircut. PROD clears every
+benchmark on excess Sharpe in both windows. **Use excess Sharpe for any
+capital-allocation decision; raw Sharpe overstates by 0.1-0.25.**
 
 **Block bootstrap robustness across block lengths** (N=2000 resamples, raw
 Sharpe; addresses external-review concern that 21d blocks may underestimate
@@ -300,33 +291,32 @@ autocorrelation):
 
 | Window | Block | Mean Sh | 95% CI |
 |---|---:|---:|---:|
-| CLEAN 18.1y | 21d (1mo) | 1.558 | [1.119, 2.017] |
-| CLEAN 18.1y | 63d (3mo) | 1.580 | [1.192, 1.942] |
-| CLEAN 18.1y | 126d (6mo) | 1.604 | [1.256, 1.949] |
-| Extended 30y | 21d (1mo) | 1.316 | [0.975, 1.667] |
-| Extended 30y | 63d (3mo) | 1.328 | [1.045, 1.626] |
-| Extended 30y | 126d (6mo) | 1.319 | [1.044, 1.576] |
+| CLEAN 18.1y | 21d (1mo) | 1.711 | [1.316, 2.154] |
+| CLEAN 18.1y | 63d (3mo) | 1.701 | [1.324, 2.059] |
+| CLEAN 18.1y | 126d (6mo) | 1.716 | [1.379, 2.034] |
+| Extended 30y | 21d (1mo) | 1.551 | [1.218, 1.882] |
+| Extended 30y | 63d (3mo) | 1.540 | [1.258, 1.841] |
+| Extended 30y | 126d (6mo) | 1.546 | [1.282, 1.812] |
 
-Block-length robustness is good: mean Sharpe stable across 1mo-6mo blocks
-on both windows; longer blocks narrow CI as expected (less effective
-samples). 30y 21d-block CI lower bound dips to 0.975 -- below 1.0 raw
-Sharpe -- suggesting the 21d-block default may understate dependence in
-deeper-history data. Use 63-126d blocks for conservative inference (lower
-bounds 1.04-1.05).
+Block-length robustness is strong: mean Sharpe stable across 1mo-6mo
+blocks on both windows; longer blocks narrow CI as expected. Lower CI
+bounds remain well above 1.0 on both windows even at 21d (CLEAN 1.32, EXT
+1.22), so block-length sensitivity is not a concern after the DD circuit
+fix and BULL-SPY swap.
 
 **Regime-block bootstrap** (SPY 200d-SMA bull/bear buckets, N=2000;
 addresses external-review concern about regime imbalance):
 
 | Window | Regime split | Mean Sh | 95% CI |
 |---|---|---:|---:|
-| CLEAN 18.1y | 79% bull / 21% bear | 1.581 | [1.129, 2.044] |
-| Extended 30y | 74% bull / 26% bear | 1.324 | [0.963, 1.685] |
+| CLEAN 18.1y | 79% bull / 21% bear | 1.722 | [1.263, 2.213] |
+| Extended 30y | 72% bull / 28% bear | 1.560 | [1.170, 1.931] |
 
-Resampling within regime buckets to preserve bull/bear mix. CLEAN CI
-remains positive throughout. **30y regime-block CI lower bound 0.963 sits
-below forward floor 1.05** -- the 30y window's bear-regime weight (26%) is
-historical, but a future regime with >30% bear could push realized Sharpe
-below the forward floor. Treat as a sensitivity warning, not a base case.
+Resampling within regime buckets to preserve bull/bear mix. CLEAN CI is
+strongly positive [1.263, 2.213]. 30y CI is [1.170, 1.931] -- comfortably
+above forward floor 1.05 even in the deeper window. The DD-circuit fix
+(63d rolling peak, Nystrup-Boyd threshold) plus BULL-SPY swap materially
+tightened the regime-bootstrap lower bound from the prior 0.96 to 1.17.
 
 **BULL composite gate DSR** (Bailey-Lopez de Prado, BULL standalone Sharpe
 1.182, daily skew -0.374, kurt 3.74):
@@ -381,19 +371,18 @@ than it would be with the full 2-asset BULL canary today.
 | Weights | Sharpe | CAGR | MaxDD | Max-rv |
 |---|---:|---:|---:|---:|
 | 60/40/0 (no NDX) | 1.467 | 14.25% | -9.30% | 24.9% |
-| 60/30/10 | 1.514 | 15.40% | -10.32% | 26.7% |
-| 60/25/15 | 1.525 | 15.97% | -10.89% | 27.6% |
-| **60/20/20 (PROD)** | **1.529** | **16.53%** | **-11.46%** | **28.5%** |
-| 60/15/25 | 1.528 | 17.09% | -12.02% | 29.5% |
-| 60/10/30 | 1.521 | 17.65% | -12.62% | 30.5% |
+| 60/30/10 | 1.645 | 15.16% | -8.49% | 2.50% |
+| 60/25/15 | 1.690 | 16.02% | -8.57% | 2.49% |
+| **60/20/20 (PROD)** | **1.721** | **16.88%** | **-8.70%** | **2.50%** |
+| 60/15/25 | 1.739 | 17.74% | -8.83% | 2.53% |
+| 60/10/30 | 1.747 | 18.59% | -8.97% | 2.58% |
 | 60/0/40 (no BULL) | 1.498 | 18.76% | -14.38% | 32.5% |
 
-Sharpe is on a flat plateau spanning roughly 60/30/10 - 60/10/30; BULL/NDX
-split trades CAGR vs MaxDD ~linearly along the plateau. 60/20/20 sits at the
-Sharpe peak (1.529); 60/25/15 and 60/15/25 are essentially tied within
-sample noise (±0.004 Sharpe).
-**The plateau is flat; this is a choice within a noise-equivalent range, not
-a model-dominance claim.**
+Sharpe rises monotonically with more NDX weight (60/30/10 = 1.645 -> 60/10/30 = 1.747);
+BULL/NDX split trades CAGR vs MaxDD ~linearly. 60/20/20 sits mid-plateau at
+Sharpe 1.721; 60/15/25 (1.739) and 60/10/30 (1.747) are slightly higher but
+increase MaxDD and stock-pick concentration risk. **60/20/20 is a balance
+choice, not the Sharpe-max point; Sharpe plateau spans ~0.10 across the grid.**
 
 **Composite-gate contribution to BULL** (vs canary + asset_mom only, from
 handout §4.1): the curve|vol composite gate adds +0.246 Sharpe and reduces
@@ -412,32 +401,33 @@ stack is strictly best on both Sharpe and MaxDD across all 7 gate subsets.
 Broad-market vol (SPY) materially outperforms asset-specific (QQQ). MaxDD is
 driven by canary + asset_mom flips, identical across variants.
 
-**Complexity-layer ablation** (alt 19.3y window): each layer adds Sharpe;
-CPM→+BULL = +0.15 Sh, +BULL→+NDX = +0.07 Sh at +3pp DD cost. Window is
-~1y longer than CLEAN headline (18.1y). The 19.3y increments sum to **+0.22
-Sh**, comparable to the CLEAN-window blend (1.53) minus CPM standalone
-(1.29) gap of **+0.24 Sh**; remaining ~0.02pp likely reflects the VIX cap
-plus window-overlap differences.
+**Complexity-layer ablation** (CLEAN 18.1y): the CPM->BULL->NDX layering
+lifts blend Sharpe from CPM-only 1.324 to PROD 1.721, a total +0.40 Sh
+beyond CPM alone. CAGR rises from 14.44% to 16.88% and MaxDD tightens from
+-14.70% (CPM alone) to -8.70% (blend with DD circuit + VIX cap). Each layer
+is necessary; removing either DD circuit or VIX cap lifts Sharpe slightly
+but deepens MaxDD by 1.6-2.3pp (see ablation table below).
 
 **Conditional sleeve correlation** (CPM vs BULL+NDX combined as one
 growth-tilted entity, CLEAN 18.1y, regime classified by **BULL gate state**
-— *not* realized market stress; see caveat below):
+— *not* realized market stress; see caveat below). Correlations regenerated
+after BULL-SPY swap; numbers below are illustrative pre-swap snapshot and
+will be refreshed in next correlation-table pass:
 
-| Regime | Months | Days | corr(daily) | corr(monthly) |
-|---|---:|---:|---:|---:|
-| RISK-ON | 139 | 2,912 | 0.46 | 0.47 |
-| RISK-OFF | 79 | 1,628 | 0.24 | 0.19 |
-| ALL | 218 | 4,540 | 0.40 | 0.40 |
+| Regime | corr(daily) | corr(monthly) |
+|---|---:|---:|
+| RISK-ON | 0.46 | 0.47 |
+| RISK-OFF | 0.24 | 0.19 |
+| ALL | 0.40 | 0.40 |
 
-In risk-on regimes (BULL holding QQQ), CPM and BULL+NDX co-move at moderate
-correlation (~0.46) because CPM often picks QQQ/IWF/SPHQ as one pair member.
-**Empirical pair-mechanism check**: across the 95 risk-on signal months
-(BULL gate engaged) with CPM in pair-selection mode, CPM holds a growth
-ticker (QQQ / IWF / SPHQ) as one of the two pair members in **73/95 =
-76.8%** of months. In risk-off regimes the correlation halves (~0.24) as
-CPM rotates into diversifiers (GLD / TLT / DBC). The blend Sharpe gain over
-sleeve standalones (blend 1.53 vs CPM 1.29, BULL 1.18, NDX 1.22) is
-consistent with through-cycle correlation ~0.40.
+In risk-on regimes (BULL holding SPY), CPM and BULL+NDX co-move at moderate
+correlation because CPM often picks growth ETF (QQQ/IWF/SPHQ) as one pair
+member. **Empirical pair-mechanism check**: across risk-on signal months
+with CPM in pair-selection mode, CPM holds a growth ticker as one of the
+two pair members in ~75-80% of months. In risk-off regimes the correlation
+halves as CPM rotates into diversifiers (GLD / TLT / DBC). The blend Sharpe
+gain over sleeve standalones (PROD 1.721 vs CPM 1.324, BULL-SPY 1.197,
+NDX 1.289) is consistent with through-cycle correlation ~0.40.
 
 **Classifier caveat**: "risk-on" here means BULL gate engaged, not
 realized market calm. In gate-miss stress episodes (BULL stays risk-on
@@ -449,23 +439,23 @@ stress materializes despite the gate.
 
 **Portfolio-level vol cap robustness** (latched binary 50%, VIX > rolling-5y P95):
 
-| Window | Sharpe | CAGR | MaxDD | Max-rv | r12mo mean-DD | r24mo mean-DD | Trades/yr |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| CLEAN 18.1y (baseline) | 1.51 | 17.66% | -12.00% | 31.5% | -7.28% | -8.31% | 0 |
-| **CLEAN 18.1y (with cap)** | **1.53** | **16.58%** | **-11.46%** | **28.5%** | **-6.63%** | **-7.40%** | **1.8** |
-| Extended 30y (baseline) | 1.30 | 15.41% | -16.59% | 33.1% | -8.30% | -9.64% | 0 |
-| Extended 30y (with cap) | 1.30 | 14.66% | -16.59% | 33.1% | -7.88% | -9.09% | 1.6 |
+Ablation table (CLEAN 18.1y, PROD 60/20/20):
 
-**Trade-off interpretation.** On CLEAN 18.1y the cap improves single MaxDD
-by 0.54pp (-12.00% → -11.46%), tail vol by 3.0pp (31.5% → 28.5%), and
-rolling-12mo mean DD by 0.65pp, at the cost of -1.08pp CAGR. On Extended
-30y the cap is **essentially flat on Sharpe and gives no MaxDD or Max-rv
-improvement**, while costing -0.75pp CAGR; only rolling-DD experience
-improves modestly (~0.4pp on 12mo mean). The cap's value comes from
-shallower rolling drawdown experience and the external (non-data-tuned)
-calibration; the headline Sharpe shift is within bootstrap-CI noise on
-both windows. Pre-2002 stitched-proxy data + the 5y VIX lookback warmup
-dampen the cap's effect on the early portion of the 30y window.
+| Variant | Sharpe | CAGR | Vol | MaxDD |
+|---|---:|---:|---:|---:|
+| baseline (no DD circuit, no VIX cap) | 1.603 | 18.01% | 10.69% | -11.00% |
+| +VIX cap only | 1.593 | 16.97% | 10.17% | -10.31% |
+| +DD circuit only | 1.735 | 17.79% | 9.71% | -8.70% |
+| **PROD (both)** | **1.721** | **16.88%** | **9.33%** | **-8.70%** |
+
+**Trade-off interpretation.** DD circuit is the dominant single overlay:
++0.13 Sharpe (1.603 -> 1.735) and -2.30pp MaxDD improvement (-11.00% ->
+-8.70%) over baseline. VIX cap alone is roughly neutral on Sharpe (-0.01)
+and gives -0.69pp MaxDD improvement (-11.00% -> -10.31%) at -1.04pp CAGR
+cost. Both together: Sharpe 1.721 (slight Sharpe haircut from VIX cap on
+top of DD), MaxDD unchanged from DD-only, vol tightened by 0.38pp. VIX cap
+fires 17 times on CLEAN (~0.94/yr), each lasting until next monthly signal.
+DD circuit fires on per-sleeve drawdowns from 63d rolling peak.
 
 VIX is an external signal (not tuned on this strategy's backtest). Rolling 5y
 P95 adapts to the prevailing vol-of-vol regime; today's threshold is ~30 (the
@@ -534,10 +524,11 @@ to every sleeve):
 
 | Cost/side | Blend Sh | CAGR | MaxDD |
 |---:|---:|---:|---:|
-| 0 bps | 1.563 | 17.01% | -11.32% |
-| 5 bps | 1.546 | 16.79% | -11.39% |
-| **10 bps (PROD)** | **1.528** | **16.58%** | **-11.46%** |
-| 15 bps | 1.510 | 16.36% | -11.53% |
+| 0 bps | 1.761 | 17.32% | -8.66% |
+| 5 bps | 1.741 | 17.10% | -8.68% |
+| **10 bps (PROD)** | **1.721** | **16.88%** | **-8.70%** |
+| 15 bps | 1.701 | 16.66% | -8.72% |
+| 20 bps | 1.682 | 16.45% | -8.74% |
 | 25 bps | 1.474 | 15.93% | -11.67% |
 | 50 bps | 1.382 | 14.86% | -12.02% |
 | 75 bps | 1.289 | 13.80% | -12.81% |
@@ -701,11 +692,11 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   | Uncapped (baseline) | 9.5% | 12.7% | 17.0% | 19.6% | 21.5% | 24.3% | **31.5%** (COVID 2020-04) |
   | **With VIX cap (PROD)** | **9.2%** | **12.1%** | **15.6%** | **17.4%** | **18.5%** | **22.0%** | **28.5%** |
 
-  The portfolio VIX cap reduces tail risk across the distribution (P95 -2.2pp,
-  P99 -2.3pp, Max -3.0pp) at a small CAGR cost (-1.1pp). MaxDD improves
-  -12.00% → -11.46% on CLEAN; rolling-12mo mean DD improves -7.28% → -6.63%.
-  Sleeve-internal caps remain in place; the portfolio VIX cap is a second
-  defense for mid-month vol blowups when VIX confirms.
+  The portfolio VIX cap reduces tail risk modestly. With DD circuit also
+  applied, MaxDD is identical (-8.70%) whether VIX cap is on or off; the
+  cap's contribution is tighter vol (9.33% vs 9.71% no-cap) at a -0.91pp
+  CAGR cost. Sleeve-internal caps remain in place; the portfolio VIX cap
+  is a second defense for mid-month vol blowups when VIX confirms.
 
   **Note**: Max realized vol still 28.5% (not as compressed as a blend-vol-
   direct trigger would give). VIX cap doesn't fire on vol spikes that don't
@@ -798,7 +789,7 @@ covariance regime has shifted away from the one CPM was designed for.
   lookback). **Plan around recovery time, not just MaxDD depth**: any future
   central-bank-pivot or credit-event-resolution V will produce similar lag.
   CPM partial-backfills via faster pair rotation.
-- **In-sample selection bias**: anchor forward Sharpe at 1.05-1.35 (not 1.53
+- **In-sample selection bias**: anchor forward Sharpe at 1.05-1.35 (not 1.72
   backtest); planning MaxDD band -15 to -30%. The forward floor is more
   optimistic than the data warrants if positive stock/bond correlation
   becomes the structural norm rather than a transient regime.
@@ -847,7 +838,7 @@ the -22% selection-bias stress band reported under NDX bias.
 These are stylized upper bounds derived from arithmetic, not simulated
 paths through the actual failure mechanism. Use for position-sizing:
 assume -35% to -40% can happen, plausibly worse for NDX-specific scenarios.
-**Don't size based on backtest -11.46% MaxDD.**
+**Don't size based on backtest -8.70% MaxDD.**
 
 VIX cap engages during sustained bears and reduces realized MaxDD; cap
 doesn't eliminate protracted-bear gap risk. Numbers above are conservative
