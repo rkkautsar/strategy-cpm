@@ -950,7 +950,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     axes[0].legend(
         handles=[
             Patch(facecolor="#0040d0", label="RISK_ON (pair)"),
-            Patch(facecolor="#d04000", label="DEFENSIVE (SHV cash)"),
+            Patch(facecolor="#d04000", label="DEFENSIVE (best-of-safe SHV/IEF)"),
         ],
         loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
         frameon=False, handlelength=1.2, handleheight=0.7,
@@ -968,7 +968,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     axes[1].legend(
         handles=[
             Patch(facecolor="#00a040", label="BULL_SPY"),
-            Patch(facecolor="#808080", label="CASH (SHV)"),
+            Patch(facecolor="#808080", label="CASH (best-of-safe SHV/IEF)"),
         ],
         loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
         frameon=False, handlelength=1.2, handleheight=0.7,
@@ -1009,26 +1009,28 @@ def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
         sig_d = rec["sig_d"]
         weights = {a: w for a, w in rec["weights"].items() if w > 0}
         pair = rec["pair"]
+        # Count picks/pairs unconditionally so counts match chart_canary_timeline's
+        # picks Counter (which has no sidx skip). Returns computation skips when
+        # there's no future window, but counts still increment.
+        for asset in weights:
+            asset_picks[asset] += 1
+        if pair and len(pair) == 2:
+            pair_picks[tuple(sorted(pair))] += 1
         sidx = panel.index.searchsorted(sig_d) + 2
         eidx = (panel.index.searchsorted(sig_dates[i+1]) + 2
                  if i+1 < len(sig_dates) else len(panel.index))
         if sidx >= len(panel.index):
             continue
         window = panel.index[sidx:eidx]
-        # Per-asset (counts only assets with w > 0; raw asset returns, NOT
-        # weighted by pair share, so user sees the asset's own behavior).
+        # Per-asset returns (skip if no data column)
         for asset, w in weights.items():
-            asset_picks[asset] += 1
             if asset not in panel.columns: continue
             ser = panel[asset].reindex(window).pct_change().dropna()
             if len(ser): asset_rets[asset].append(ser)
-        # Per-pair (only when this signal date had an actual pair).
-        # Use intersection of valid days (BOTH pair assets have a real pct_change).
-        # Avoids the prior bug where fillna(0) made missing-data days look like
-        # zero-return days and inflated period count / depressed std.
+        # Per-pair returns (use intersection of valid days for BOTH members).
+        # Pair counter already incremented above; this only computes returns.
         if pair and len(pair) == 2:
             pkey = tuple(sorted(pair))
-            pair_picks[pkey] += 1
             pair_members = [a for a in weights.keys() if a in panel.columns]
             if len(pair_members) >= 2:
                 rets_df = pd.concat(
@@ -1327,7 +1329,7 @@ def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp,
     ax.fill_between(rolling_def.index, 0, rolling_def.values, color='#e74c3c', alpha=0.4, label='CPM defensive %')
     ax.plot(rolling_def.index, rolling_def.values, color='#c0392b', lw=1.5)
     ax.axhline(rolling_def.mean(), color='black', ls='--', lw=0.8, label=f'Mean {rolling_def.mean():.1f}%')
-    ax.set_ylabel('% of last 12 months in defensive (SHV cash)')
+    ax.set_ylabel('% of last 12 months in defensive (best-of-safe SHV/IEF)')
     ax.set_ylim(0, 100)
     ax.set_title('CPM Rolling Defensive Activation (12-month window)')
     ax.legend(loc='upper right')
