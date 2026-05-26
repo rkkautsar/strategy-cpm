@@ -242,17 +242,19 @@ def sixty_forty(panel, start, end):
     return out.loc[(out.index>=start)&(out.index<=end)]
 
 
-def qqq_trend_follow(panel, start, end, cost_bps=10.0):
-    """Faber 10mo SMA timing on QQQ: hold QQQ when above SMA, SHV otherwise.
-    Simplest possible QQQ timing strategy, used as benchmark."""
-    if "QQQ" not in panel.columns or "SHV" not in panel.columns:
+def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
+    """Faber 10mo SMA timing on `ticker`: hold ticker when above SMA, SHV otherwise.
+    Simplest possible single-asset timing strategy, used as TAA peer benchmark.
+    Default SPY matches the BULL sleeve ticker for apples-to-apples comparison.
+    Function name kept for git-blame continuity (previously QQQ-specific)."""
+    if ticker not in panel.columns or "SHV" not in panel.columns:
         return pd.Series(dtype=float)
-    monthly = panel["QQQ"].resample("ME").last().dropna()
+    monthly = panel[ticker].resample("ME").last().dropna()
     sma10 = monthly.rolling(10).mean()
     signal = (monthly > sma10).reindex(monthly.index).fillna(False)
-    daily_qqq = panel["QQQ"].ffill().pct_change()
-    daily_shv = panel["SHV"].ffill().pct_change().reindex(daily_qqq.index).fillna(0)
-    common = daily_qqq.loc[start:end].index
+    daily_tkr = panel[ticker].ffill().pct_change()
+    daily_shv = panel["SHV"].ffill().pct_change().reindex(daily_tkr.index).fillna(0)
+    common = daily_tkr.loc[start:end].index
     if len(common) == 0:
         return pd.Series(dtype=float)
     asset_per_day = pd.Series("SHV", index=common)
@@ -268,9 +270,9 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0):
                 end_apply = common[-1]
             # T+1 OPEN execution (next-day MOO)
             mask = (common >= future[0]) & (common < end_apply)
-            asset_per_day.loc[mask] = "QQQ"
+            asset_per_day.loc[mask] = ticker
     trend_rets = pd.Series(0.0, index=common)
-    trend_rets[asset_per_day == "QQQ"] = daily_qqq.reindex(common).fillna(0)[asset_per_day == "QQQ"]
+    trend_rets[asset_per_day == ticker] = daily_tkr.reindex(common).fillna(0)[asset_per_day == ticker]
     trend_rets[asset_per_day == "SHV"] = daily_shv.reindex(common).fillna(0)[asset_per_day == "SHV"]
     import numpy as _np
     flips = (asset_per_day.values[1:] != asset_per_day.values[:-1])
@@ -350,7 +352,7 @@ FCP_STYLES = {
     "BULL-SPY sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: 2 benchmarks (apples-to-apples + raw target)
-    "Naive 60/40 PP/QQQ-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
+    "Naive 60/40 PP/SPY-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
     "QQQ buy-hold":         dict(color="#707070", lw=1.2, ls=":",  alpha=0.7,  zorder=3),
     # Legacy styles (kept in dict for safety but not plotted by default)
     "SPY buy-hold":         dict(color="#a0a0a0", lw=1.0, ls=":",  alpha=0.65, zorder=3),
@@ -366,7 +368,7 @@ BASE_RENDER_ORDER = [
     "Keller VAA G4", "HAA-Balanced",   # middle (legacy)
     "60/40 SPY/IEF", "SPY buy-hold",   # legacy benchmarks
     "NDX sleeve",
-    "QQQ buy-hold", "Naive 60/40 PP/QQQ-trend",  # core 2 benchmarks
+    "QQQ buy-hold", "Naive 60/40 PP/SPY-trend",  # core 2 benchmarks
     "BULL-SPY sleeve", "CPM standalone",         # components
 ]
 
@@ -481,7 +483,7 @@ def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     width = 0.28
     x = np.arange(len(years))
     ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color="#707070")
-    ax.bar(x,         yr_n.values, width, label="Naive 60/40 PP/QQQ-trend", color="#9966aa")
+    ax.bar(x,         yr_n.values, width, label="Naive 60/40 PP/SPY-trend", color="#9966aa")
     ax.bar(x + width, yr_b.values, width, label="CPM-BULL-NDX (PROD)", color="#0040d0")
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45, fontsize=8)
@@ -514,7 +516,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
 
     ax.plot(fcp_dd.index, fcp_dd.values, label="CPM standalone", color="#1a9a1a", lw=1.6)
     ax.plot(blend_dd.index, blend_dd.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
-    ax.plot(naive_dd.index, naive_dd.values, label="Naive 60/40 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(naive_dd.index, naive_dd.values, label="Naive 60/40 PP/SPY-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
@@ -574,7 +576,7 @@ def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
     bench = naive.reindex(blended.index)
     bench_sr = (bench.rolling(window_days).mean() * 252) / (bench.rolling(window_days).std() * np.sqrt(252))
     fcp_sr = (blended.rolling(window_days).mean() * 252) / (blended.rolling(window_days).std() * np.sqrt(252))
-    ax.plot(bench_sr.index, bench_sr.values, label="Naive 60/40 PP/QQQ-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(bench_sr.index, bench_sr.values, label="Naive 60/40 PP/SPY-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
     ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
     ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
@@ -1977,7 +1979,7 @@ def main():
         "CPM standalone": cpm,
         "BULL-SPY sleeve": bull_qqq_rets,
         "NDX sleeve": ndx_rets,
-        "Naive 60/40 PP/QQQ-trend": naive_pp_qt,
+        "Naive 60/40 PP/SPY-trend": naive_pp_qt,
         "QQQ buy-hold": qqq,
     }
     
@@ -1994,16 +1996,16 @@ def main():
     print("Building charts ...")
     # Core comparison: PROD + 2 components + 2 apples-to-apples benchmarks
     CORE_CHARTS = (prod_label, "CPM standalone", "BULL-SPY sleeve", "NDX sleeve",
-                   "Naive 60/40 PP/QQQ-trend", "QQQ buy-hold")
+                   "Naive 60/40 PP/SPY-trend", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                               prod_label=prod_label)
     fig_dd = chart_drawdown({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                             prod_label=prod_label)
-    fig_yearly = chart_yearly_bars(blended, qqq, strategies["Naive 60/40 PP/QQQ-trend"])
+    fig_yearly = chart_yearly_bars(blended, qqq, strategies["Naive 60/40 PP/SPY-trend"])
     fig_monthly_heatmap = chart_monthly_heatmap(blended, title="PROD 60/20/20 Monthly Returns Heatmap")
-    fig_rolling = chart_rolling_sharpe(blended, strategies["Naive 60/40 PP/QQQ-trend"])
-    fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
-    fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/QQQ-trend"], bull_qqq_rets)
+    fig_rolling = chart_rolling_sharpe(blended, strategies["Naive 60/40 PP/SPY-trend"])
+    fig_excess = chart_rolling_excess(cpm, blended, strategies["Naive 60/40 PP/SPY-trend"], bull_qqq_rets)
+    fig_roll_dd = chart_rolling_dd(cpm, blended, strategies["Naive 60/40 PP/SPY-trend"], bull_qqq_rets)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(panel, start)
     fig_canary_heatmap = chart_canary_state_heatmap(panel, cpm, bull_qqq_rets, start)
     fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start)
@@ -2024,16 +2026,16 @@ def main():
         prod_label=prod_label,
     )
     # TT-style integrated equity + drawdown chart for headline.
-    # PROD vs closest benchmark (Naive 60/40 PP/QQQ-trend).
-    naive_for_headline = strategies.get("Naive 60/40 PP/QQQ-trend")
+    # PROD vs closest benchmark (Naive 60/40 PP/SPY-trend).
+    naive_for_headline = strategies.get("Naive 60/40 PP/SPY-trend")
     headline_strats = {prod_label: blended}
     if naive_for_headline is not None and not naive_for_headline.empty:
-        headline_strats["Naive 60/40 PP/QQQ-trend"] = naive_for_headline
+        headline_strats["Naive 60/40 PP/SPY-trend"] = naive_for_headline
     fig_eq_dd_headline = chart_equity_dd_combined(headline_strats,
                                                     prod_label=prod_label)
     fig_mc = chart_mc_horizon(blended, naive_for_headline,
                                 prod_label=prod_label,
-                                bench_label="Naive 60/40 PP/QQQ-trend",
+                                bench_label="Naive 60/40 PP/SPY-trend",
                                 max_years=18, n_paths=500)
     top_dd_html = topN_drawdowns_html(blended, n=10)
     period_summary = period_summary_html(blended)
@@ -2126,7 +2128,7 @@ def main():
         "CPM standalone": ext_fcp_c,
         "BULL-SPY sleeve": ext_bull_c,
         "NDX sleeve": ext_ndx_c,
-        "Naive 60/40 PP/QQQ-trend": ext_naive,
+        "Naive 60/40 PP/SPY-trend": ext_naive,
         "QQQ buy-hold": ext_qqq,
     }
     ext_perf_rows = []
