@@ -893,12 +893,14 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
     return fig
 
 
-def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
+def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
+                            records: list | None = None,
+                            bull_records: list | None = None) -> tuple:
     """Run signal dates and collect (sig_d, cpm_regime, bull_regime, pair, safe).
     Plot two stacked rows: CPM canary (HYG/TIP/GLD) + BULL canary (HYG/TIP).
     Returns (fig, regime_counts dict, picks Counter, pair_counter Counter)."""
     from collections import Counter
-    records = cpm_signal_records(panel, start)
+    records = records if records is not None else cpm_signal_records(panel, start)
 
     cpm_per_date = []
     bull_per_date = []
@@ -919,8 +921,8 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp) -> tuple:
     # BULL-SPY canary state: pull from precomputed bull_records (memoized) so
     # we don't recompute compute_bull_qqq_weights for every signal date
     # (~218 redundant calls each containing a full monthly resample).
-    _bull_by_date = {r["sig_d"]: r["regime"]
-                       for r in bull_signal_records(panel, start)}
+    _br = bull_records if bull_records is not None else bull_signal_records(panel, start)
+    _bull_by_date = {r["sig_d"]: r["regime"] for r in _br}
     for sd, _, _, _ in cpm_per_date:
         bull_per_date.append((sd, _bull_by_date.get(sd, "CASH")))
 
@@ -1119,14 +1121,15 @@ def picks_table_html(picks, pair_counter, n_signals, records=None, panel=None):
 </div>"""
 
 
-def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp):
+def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp,
+                              records: list | None = None):
     """Per-asset conditional performance when held in a CPM pair.
 
     Bars: Sharpe, AnnRet, CumRet per asset. Sorted by Sharpe. Uses the same
     `compute_pick_pair_stats` source as the Asset Pick Frequency table so the
     counts and metrics MUST match the table (single source of truth).
     """
-    records = cpm_signal_records(panel, start)
+    records = records if records is not None else cpm_signal_records(panel, start)
     asset_stats, _pair_stats = compute_pick_pair_stats(records, panel)
 
     rows = []
@@ -1309,9 +1312,10 @@ def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: p
 </tr></thead><tbody>{rows_html}</tbody></table></div>"""
 
 
-def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp):
+def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp,
+                                  records: list | None = None):
     """Rolling 12-month % of months the CPM canary was defensive."""
-    records = cpm_signal_records(panel, start)
+    records = records if records is not None else cpm_signal_records(panel, start)
     defensive_per_month = []
     for rec in records:
         is_def = 1.0 if rec["regime"] == "DEFENSIVE" else (0.5 if rec["pair"] is None else 0.0)
@@ -1333,9 +1337,10 @@ def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp):
     return fig
 
 
-def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp):
+def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp,
+                                records: list | None = None):
     """Gantt-style pair-pick timeline colored by realized 1mo return."""
-    records = cpm_signal_records(panel, start)
+    records = records if records is not None else cpm_signal_records(panel, start)
     sig_dates = [r["sig_d"] for r in records]
     timeline = []
     for i, rec in enumerate(records):
@@ -1851,21 +1856,36 @@ def _ndx_sector_summary(picks: list) -> str:
 
 def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                          bull_qqq_rets: pd.Series | None = None,
-                         ndx_rets: pd.Series | None = None) -> str:
-    records = cpm_signal_records(panel, pd.Timestamp("1900-01-01"), sig_d)
-    rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
-    weights = rec["weights"]
-    pair = rec["pair"]
-    regime = rec["regime"]
-    safe = rec["safe"]
+                         ndx_rets: pd.Series | None = None,
+                         art = None) -> str:
+    # Pull current allocation from precomputed records (no recomputation).
+    if art is not None:
+        records = [r for r in art.cpm_records if r["sig_d"] <= sig_d]
+        bull_records_subset = [r for r in art.bull_records if r["sig_d"] <= sig_d]
+        ndx_records_subset = [r for r in art.ndx_records if r["sig_d"] <= sig_d] if art.ndx_records else []
+        cpm_rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
+        bull_rec = bull_records_subset[-1] if bull_records_subset else {"weights": {}, "regime": "CASH", "diag": {}}
+        ndx_rec = ndx_records_subset[-1] if ndx_records_subset else None
+    else:
+        # Backward-compatible fallback when art not provided.
+        records = cpm_signal_records(panel, pd.Timestamp("1900-01-01"), sig_d)
+        cpm_rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
+        bull_rec = ndx_rec = None
+    weights = cpm_rec["weights"]
+    pair = cpm_rec["pair"]
+    regime = cpm_rec["regime"]
+    safe = cpm_rec["safe"]
 
     # CPM sleeve (60%)
     fcp_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(weights.items(), key=lambda x: -x[1]))
     pair_str = f"{pair[0]} + {pair[1]}" if pair else "-"
 
-    # BULL-SPY sleeve (20%)
-    bq_w, bq_regime, bq_diag = compute_bull_qqq_weights(panel, sig_d)
+    # BULL-SPY sleeve (20%) -- from precomputed record if available
+    if bull_rec is not None:
+        bq_w, bq_regime, bq_diag = bull_rec["weights"], bull_rec["regime"], bull_rec["diag"]
+    else:
+        bq_w, bq_regime, bq_diag = compute_bull_qqq_weights(panel, sig_d)
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
     cstate = bq_diag.get("state", "---")
@@ -1887,8 +1907,11 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     # NDX sleeve (20%) -- gated by BULL-SPY regime
     try:
         from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel, SELECT_K as NDX_SELECT_K
-        ndx_panel_data = load_ndx_panel()
-        ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel_data, sig_d)
+        if ndx_rec is not None:
+            ndx_w, ndx_regime, ndx_diag = ndx_rec["weights"], ndx_rec["regime"], ndx_rec["diag"]
+        else:
+            ndx_panel_data = load_ndx_panel()
+            ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel_data, sig_d)
         ndx_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                             for t, w in sorted(ndx_w.items(), key=lambda x: -x[1]))
         if (ndx_regime in ("NDX_ACTIVE", "NDX_REBOUND")
@@ -2050,8 +2073,15 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         prev_weights = prev_rec.get("weights", {})
         try:
             prev_sd = prev_rec.get("sig_d", None)
-            prev_bq_w, _, _ = compute_bull_qqq_weights(panel, prev_sd) if prev_sd is not None else ({}, None, {})
-            prev_ndx_w, _, _ = compute_ndx_weights(panel, ndx_panel_data, prev_sd) if prev_sd is not None else ({}, None, {})
+            # Prefer precomputed bull/ndx records (no recomputation)
+            if art is not None and prev_sd is not None:
+                prev_bull_rec = next((r for r in reversed(art.bull_records) if r["sig_d"] == prev_sd), None)
+                prev_ndx_rec = next((r for r in reversed(art.ndx_records) if r["sig_d"] == prev_sd), None) if art.ndx_records else None
+                prev_bq_w = prev_bull_rec["weights"] if prev_bull_rec else {}
+                prev_ndx_w = prev_ndx_rec["weights"] if prev_ndx_rec else {}
+            else:
+                prev_bq_w, _, _ = compute_bull_qqq_weights(panel, prev_sd) if prev_sd is not None else ({}, None, {})
+                prev_ndx_w, _, _ = compute_ndx_weights(panel, ndx_panel_data, prev_sd) if prev_sd is not None else ({}, None, {})
         except Exception:
             prev_bq_w, prev_ndx_w = {}, {}
         for t, w in prev_weights.items():
@@ -2221,13 +2251,14 @@ def main():
     fig_rolling = chart_rolling_sharpe(art.blend, strategies["Naive 60/40 PP/SPY-trend"])
     fig_excess = chart_rolling_excess(art.cpm, art.blend, strategies["Naive 60/40 PP/SPY-trend"], art.bull)
     fig_roll_dd = chart_rolling_dd(art.cpm, art.blend, strategies["Naive 60/40 PP/SPY-trend"], art.bull)
-    fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(panel, start)
+    fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(
+        panel, start, records=art.cpm_records, bull_records=art.bull_records)
     fig_canary_heatmap = chart_canary_state_heatmap(panel, art.cpm, art.bull, start)
-    fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start)
+    fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start, records=art.cpm_records)
     fig_sleeve_contrib = chart_sleeve_contribution(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
     drawdowns_html = table_worst_drawdowns(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W, top_n=10)
-    fig_def_pct = chart_rolling_defensive_pct(panel, start)
-    fig_pair_timeline = chart_pair_pick_timeline(panel, start)
+    fig_def_pct = chart_rolling_defensive_pct(panel, start, records=art.cpm_records)
+    fig_pair_timeline = chart_pair_pick_timeline(panel, start, records=art.cpm_records)
     fig_sleeve_corr = chart_rolling_sleeve_correlation(art.cpm, art.bull, art.ndx)
     fig_distributions = chart_monthly_return_distributions(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
     n_signals = regime_counts["RISK_ON"] + regime_counts["DEFENSIVE"]
@@ -2263,7 +2294,8 @@ def main():
     sig_d = candidates[-1] if len(candidates) > 0 else today
     alloc_html = current_alloc_html(panel, sig_d,
                                        bull_qqq_rets=art.bull,
-                                       ndx_rets=art.ndx)
+                                       ndx_rets=art.ndx,
+                                       art=art)
 
     # Audit-block values
     import subprocess
