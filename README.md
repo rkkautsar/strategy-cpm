@@ -93,7 +93,10 @@ below may show older numbers; current dashboard is the source of truth.
 
 
 **Forward expectation** (discount for selection bias + regime dependency + NDX
-biases + tail sequencing not captured by return bootstrap):
+biases + tail sequencing not captured by return bootstrap + DD-circuit
+implementation risk -- DD circuit and BULL-SPY swap have zero live-trading
+track record so their +0.13 Sharpe contribution carries extra forward
+uncertainty):
 
 | Metric | Backtest | Forward base case |
 |---|---:|---|
@@ -368,15 +371,15 @@ than it would be with the full 2-asset BULL canary today.
 
 (All numbers include the VIX cap.)
 
-| Weights | Sharpe | CAGR | MaxDD | Max-rv |
-|---|---:|---:|---:|---:|
-| 60/40/0 (no NDX) | 1.467 | 14.25% | -9.30% | 24.9% |
-| 60/30/10 | 1.645 | 15.16% | -8.49% | 2.50% |
-| 60/25/15 | 1.690 | 16.02% | -8.57% | 2.49% |
-| **60/20/20 (PROD)** | **1.721** | **16.88%** | **-8.70%** | **2.50%** |
-| 60/15/25 | 1.739 | 17.74% | -8.83% | 2.53% |
-| 60/10/30 | 1.747 | 18.59% | -8.97% | 2.58% |
-| 60/0/40 (no BULL) | 1.498 | 18.76% | -14.38% | 32.5% |
+| Weights | Sharpe | CAGR | MaxDD | Max-rv (63d) | Ulcer |
+|---|---:|---:|---:|---:|---:|
+| 60/40/0 (no NDX) | 1.510 | 13.45% | -8.34% | 14.81% | 2.61% |
+| 60/30/10 | 1.645 | 15.18% | -8.49% | 14.85% | 2.50% |
+| 60/25/15 | 1.690 | 16.04% | -8.57% | 15.48% | 2.49% |
+| **60/20/20 (PROD)** | **1.721** | **16.90%** | **-8.70%** | **16.35%** | **2.50%** |
+| 60/15/25 | 1.739 | 17.76% | -8.83% | 17.32% | 2.53% |
+| 60/10/30 | 1.747 | 18.62% | -8.97% | 18.55% | 2.58% |
+| 60/0/40 (no BULL) | 1.739 | 20.33% | -9.24% | 21.15% | 2.75% |
 
 Sharpe rises monotonically with more NDX weight (60/30/10 = 1.645 -> 60/10/30 = 1.747);
 BULL/NDX split trades CAGR vs MaxDD ~linearly. 60/20/20 sits mid-plateau at
@@ -438,6 +441,42 @@ lower bound on realized correlation when the BULL gate is engaged AND
 stress materializes despite the gate.
 
 **Portfolio-level vol cap robustness** (latched binary 50%, VIX > rolling-5y P95):
+
+**Sharpe reconciliation: where did current Sharpe 1.72 come from?**
+
+Stepwise from prior-version baseline (BULL-QQQ, no DD circuit, no VIX cap):
+
+| Step | Sharpe | CAGR | MaxDD |
+|---|---:|---:|---:|
+| baseline (BULL-QQQ, no DD, no VIX) | 1.591 | 18.78% | -11.93% |
+| + VIX cap (latched 50% at VIX > P95) | 1.582 | 17.68% | -11.75% |
+| + DD circuit (-10% from 63d peak, Nystrup-Boyd) | 1.711 | 17.41% | -8.54% |
+| **+ BULL QQQ→SPY swap (current PROD)** | **1.721** | **16.88%** | **-8.70%** |
+| Delta from baseline | +0.130 | -1.90pp | +3.23pp |
+
+DD circuit is the dominant Sharpe contributor (+0.129); VIX cap is
+basically neutral on Sharpe but compresses tail vol; BULL-SPY swap adds
++0.010 Sharpe with -0.53pp CAGR cost (diversification benefit vs NDX).
+MaxDD improvement from -11.93% to -8.70% is mostly DD circuit (-3.39pp).
+Note BULL-SPY swap costs -0.53pp CAGR vs BULL-QQQ; that's the tech-led
+period bias 2010-2024.
+
+**DD circuit threshold sensitivity** (PROD 60/20/20 with VIX cap):
+
+| Threshold | Sharpe | CAGR | MaxDD | BULL DD-days | NDX DD-days |
+|---:|---:|---:|---:|---:|---:|
+| -7.5% | **1.806** | 17.00% | -8.24% | 306 | 1,204 |
+| **-10.0% (PROD, Nystrup-Boyd)** | **1.721** | **16.88%** | **-8.70%** | **61** | **772** |
+| -12.5% | 1.729 | 17.48% | -8.82% | 21 | 521 |
+| -15.0% | 1.686 | 17.40% | -8.91% | 0 | 349 |
+| -20.0% | 1.657 | 17.21% | -8.77% | 0 | 179 |
+
+Threshold robustness check: tighter trigger (-7.5%) gives best Sharpe but
+3-4x more trigger days (overfires on noise); -10% Nystrup-Boyd is the
+paper-cited choice and sits at a smooth knee. -12.5% and -10% within ~0.01
+Sharpe of each other so result is not sensitive to a tight choice in that
+range. The -7.5% Sharpe peak is a tail-of-thresholds artifact and not used
+(too noisy in live trading).
 
 Ablation table (CLEAN 18.1y, PROD 60/20/20):
 
@@ -539,27 +578,28 @@ drops ~1pp per 25 bps. MaxDD stable to 50 bps, expands materially past
 75 bps. Blend Sharpe stays above 1.05 forward floor up to 100 bps; the
 edge is not thin enough that 2-3x cost overruns destroy it.
 
-**Rebound bypass (FIXED-5050)** applies in Rebound state (slow gate says
-DEFENSIVE but QQQ 2mo TR > 0). BULL holds 50% QQQ + 50% safe instead of
-100% cash. FAST 2mo from Goulding-Harvey 2022; blend weight fixed 50/50.
-BULL sleeve only.
+**Rebound bypass (NDX_REBOUND)** applies on the NDX sleeve when the BULL
+gate is off but fast QQQ 2mo TR > 0 (Goulding-Harvey 2022 'Rebound' state).
+NDX allocates 50% to top-K momentum-positive Nasdaq names + 50% best-of-safe
+instead of 100% cash. Moved from BULL to NDX (commit `f1ee085` / `d0b82c4`):
+NDX's high-beta stock picks capture V-recoveries harder than BULL's broad
+ETF. Fast signal stays on QQQ (tech-recovery semantics) regardless of
+BULL_TICKER.
 
-Fire behavior (post-cost):
+Fire behavior (NDX sleeve, CLEAN 18.1y, post-cost; regenerated after
+migration from BULL):
 
-| Stat | CLEAN 18.1y | Extended 30y |
-|---|---:|---:|
-| Fires | 30 (1.67/yr) | 49 (1.62/yr) |
-| Win rate | 63% | 59% |
-| Avg lift on wins | +3.22pp BULL | +3.59pp BULL |
-| Avg lift on losses | -1.60pp BULL | -2.91pp BULL |
-| Win:loss size ratio | 2.0× | 1.23× |
+| Stat | CLEAN 18.1y |
+|---|---:|
+| Fires | 44 (2.43/yr) |
+| Win rate | 61.4% (27/44) |
+| Mean per-fire NDX return | +1.25% |
+| Best fire | +9.86% (Apr-2020 COVID V) |
+| Worst fire | -8.54% (Aug-2022 bear-rally false alarm) |
 
-Wins: 2009-03 GFC bottom (+13% QQQ next mo), 2020-04 COVID V (+13%),
-2023-02/03 banking-crisis pivot (+8-9%). Losses (30y only): 2000-03,
-2001-01 dotcom bear-market rallies (-24% to -26% QQQ next mo, BULL sleeve
-hit -12 to -14pp). Architectural lineage: Levine-Pedersen 2016 / Hurst-
-Ooi-Pedersen 2017 (fixed multi-horizon blend pattern) plus Goulding-Harvey
-2022 4-state model (FAST horizon definition).
+Architectural lineage: Levine-Pedersen 2016 / Hurst-Ooi-Pedersen 2017
+(fixed multi-horizon blend pattern) plus Goulding-Harvey 2022 4-state model
+(FAST horizon definition).
 
 **Hold-buffer**: HB=2.0z. Disabled when (a) fewer than 3 positive
 candidates, (b) prior asset's faber score <= 0, or (c) canary-state
@@ -683,17 +723,23 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   mid-month spikes are uncapped). BULL (~14-25% standalone vol) and NDX
   (~23-40% standalone vol) run uncapped at sleeve level. The portfolio-level
   vol cap (latched binary 50% with VIX > rolling-5y P95 trigger; daily check) sits on top
-- Per-sleeve DD circuit breaker: BULL and NDX each get scaled to cash if
-  their individual cumulative DD < -15% mid-month (TT Market Vane #5 analog)
-  to address this. Realized blend 21d vol distribution:
+- Per-sleeve DD circuit breaker: BULL and NDX each get scaled to cash when
+  their DD from 63d rolling peak < -10% (Nystrup-Boyd Dmax = 10% paper
+  standard; 63d window matches r3 in 13612U) to address this. Realized
+  blend 63d vol distribution (CLEAN 18.1y):
 
-  | Window | P50 | P75 | P90 | P95 | P97 | P99 | Max |
-  |---|---:|---:|---:|---:|---:|---:|---:|
-  | Uncapped (baseline) | 9.5% | 12.7% | 17.0% | 19.6% | 21.5% | 24.3% | **31.5%** (COVID 2020-04) |
-  | **With VIX cap (PROD)** | **9.2%** | **12.1%** | **15.6%** | **17.4%** | **18.5%** | **22.0%** | **28.5%** |
+  | Variant | P50 | P75 | P90 | P95 | P99 | Max |
+  |---|---:|---:|---:|---:|---:|---:|
+  | Uncapped baseline (no DD, no VIX) | 9.68% | 12.32% | 14.93% | 16.40% | 19.54% | 20.78% |
+  | + VIX cap only | 9.20% | 11.74% | 13.89% | 15.46% | 18.74% | 20.44% |
+  | + DD circuit only | 9.25% | 11.20% | 12.74% | 13.88% | 15.84% | 17.48% |
+  | **PROD (DD + VIX cap)** | **8.79%** | **10.76%** | **12.47%** | **13.22%** | **15.60%** | **16.35%** |
 
-  The portfolio VIX cap reduces tail risk modestly. With DD circuit also
-  applied, MaxDD is identical (-8.70%) whether VIX cap is on or off; the
+  DD circuit is the dominant tail-vol compressor: P99 vol drops 19.54% ->
+  15.84% (cap-only path gets only to 18.74%). Combined PROD pulls max
+  realized vol to 16.35%. The portfolio VIX cap reduces tail risk further.
+  With DD circuit also applied, MaxDD is identical (-8.70%) whether VIX
+  cap is on or off; the
   cap's contribution is tighter vol (9.33% vs 9.71% no-cap) at a -0.91pp
   CAGR cost. Sleeve-internal caps remain in place; the portfolio VIX cap
   is a second defense for mid-month vol blowups when VIX confirms.
