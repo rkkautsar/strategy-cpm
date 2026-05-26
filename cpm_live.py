@@ -60,7 +60,7 @@ SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe: SHV (ultra-short)
 CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
-# BULL-QQQ canary: HYG+TIP. LQD removed (was HYG+LQD+TIP) because IG corporate
+# BULL-SPY canary: HYG+TIP. LQD removed because IG corporate
 # bonds rally on rate cuts during equity crashes (duration effect), making
 # "any positive" rule falsely permissive during dotcom-style crashes. LQD
 # data still loaded for research/dashboard display but excluded from canary.
@@ -79,8 +79,8 @@ VOL_LOOKBACK_DAYS = 63      # ~3mo realized vol
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
 
-# Benchmark-only constants for Naive 60/40 PP/QQQ-trend in build_dashboard.py.
-# PRODUCTION strategy is 60% CPM + 20% BULL-QQQ + 20% NDX (no PP buffer).
+# Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
+# PRODUCTION strategy is 60% CPM + 20% BULL-SPY + 20% NDX.
 PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
 PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
 
@@ -709,7 +709,7 @@ def cmd_backtest(args):
     print(f"\nRunning CPM-only backtest from {start.date()} to {end.date()} ...")
     print(f"Execution model: T+1 OPEN (next-day MOO after month-end signal at T)")
     print(f"NOTE: This is CPM sleeve only (60% of PROD). For full PROD blend")
-    print(f"      (60% CPM + 30% BULL-QQQ + 10% NDX) use build_dashboard.py.")
+    print(f"      (60% CPM + 20% BULL-SPY + 20% NDX) use build_dashboard.py.")
     
     kwargs = dict(
         apply_vol_target=not args.no_vol_target,

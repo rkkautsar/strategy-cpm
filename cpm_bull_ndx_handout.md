@@ -3,8 +3,7 @@
 **Companion to `README.md` and `bull_qqq_handout.md`.**
 This handout holds the long-form validation tables, NDX survivor-bias Monte
 Carlo, complexity ablation, hold-buffer sensitivity, and references that the
-README defers. BULL-QQQ academic memo is `bull_qqq_handout.md` (untouched);
-CPM and NDX sleeves are described inline below.
+README defers. CPM and NDX sleeves are described inline below.
 
 **Windows used here:**
 
@@ -41,7 +40,7 @@ structurally bounded.
   outcomes) and converts the position to SHV cash for the remainder of the
   holding period. Market-holiday detection prevents false triggers on days
   when all panel tickers are NaN.
-- **Pre-2006 fallback**: PIT data starts 2006-01; the sleeve mirrors BULL-QQQ
+- **Pre-2006 fallback**: PIT data starts 2006-01; the sleeve mirrors BULL-SPY
   weights before then, so 1996-2005 NDX is not a real selection.
 
 ### Survivor-bias Monte Carlo stress (CLEAN 18.1y, 1000 sims)
@@ -148,7 +147,7 @@ the validated 2-5z plateau, exact value is not sensitive.
 1996-01-04 → 2026-05-15. Includes dot-com bust (2000-02), GFC (2008), COVID
 (2020), 2022 inflation spike.
 
-- Pre-2006 the NDX sleeve mirrors BULL-QQQ (PIT constituent data unavailable).
+- Pre-2006 the NDX sleeve mirrors BULL-SPY (PIT constituent data unavailable).
 - Pre-2001-06 the BULL canary reduces to HYG-only (VIPSX/TIP 12-month warm-up
   not complete).
 - SHV/IEF/TLT pre-live use VFISX/VFITX/VUSTX Vanguard mutual fund stitches.
@@ -179,8 +178,6 @@ not as confirmation.
   Losers. *Journal of Finance* 48(1), 65-91.
 - Markowitz, H. (1952). Portfolio Selection. *Journal of Finance* 7(1), 77-91.
 - JPMorgan (1996). *RiskMetrics — Technical Document*, 4th ed.
-- BULL-QQQ-specific design and Jobson-Korkie/Memmel Sharpe-difference test:
-  see `bull_qqq_handout.md` §3-4.
 
 ---
 

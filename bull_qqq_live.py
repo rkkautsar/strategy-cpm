@@ -47,17 +47,8 @@ from cpm_live import (
 
 # ---------- Configuration ----------
 
-# BULL sleeve risky ticker. SPY chosen over QQQ for diversification: BULL-SPY
-# has corr 0.61 with NDX sleeve vs 0.75 for BULL-QQQ (NDX is dedicated tech
-# pick, so BULL on broad market gives independent equity-beta source).
-# Tradeoffs (CLEAN 2008-04 -> now):
-#   BULL-SPY: Sharpe 1.72, CAGR 16.90%, MaxDD -8.70%, corr-NDX 0.61
-#   BULL-QQQ: Sharpe 1.70, CAGR 17.41%, MaxDD -8.90%, corr-NDX 0.75
-# Slight Sharpe gain (+0.013) + MaxDD improvement (+0.20pp) + diversification
-# at cost of -0.51pp CAGR (tech-led period bias 2010-2024).
-# Note: NDX sleeve Rebound fast signal stays on QQQ (REBOUND_FAST_TICKER in
-# ndx_sleeve_live.py), independent of BULL_TICKER, because NDX picks Nasdaq
-# tech names so the recovery signal stays tech-specific.
+# BULL sleeve risky ticker. SPY chosen for broad-market exposure; the NDX
+# sleeve owns concentrated Nasdaq exposure.
 BULL_TICKER = "SPY"
 CASH_TICKER = "SHV"           # default cash if SAFE_POOL evaluation fails
 SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
@@ -89,17 +80,6 @@ PROD_BULL_WEIGHT = 0.20      # BULL weight in 60/20/20 PROD blend
 
 COST_BPS_PER_SIDE = 10
 
-# Rebound bypass moved to NDX sleeve (see ndx_sleeve_live.py). BULL is now
-# a clean regime gate: 100% SPY when all 3 gates pass, 100% safe otherwise.
-# Earlier FIXED-5050 bypass on BULL deepened sleeve MaxDD (-14% -> -20%)
-# for marginal portfolio Sharpe (+0.018). Same fast signal applied to NDX
-# top-K names gives bigger CAGR lift (+2.5pp sleeve, +0.47pp portfolio)
-# because momentum-selected NDX names run harder than QQQ index in
-# V-recoveries. Helpers (_rebound_fast_ok, REBOUND_FAST_MONTHS) kept for
-# re-use by NDX sleeve.
-REBOUND_FAST_MONTHS = 2
-
-
 # ---------- Signal helpers ----------
 
 def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
@@ -114,21 +94,6 @@ def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
     if len(sd) < n + 1:
         return float("nan")
     return float(sd.iloc[-1] / sd.iloc[-n - 1] - 1)
-
-
-def _rebound_fast_ok(monthly_qqq: pd.Series, sig_d: pd.Timestamp,
-                     n: int = REBOUND_FAST_MONTHS) -> tuple[bool | None, float]:
-    """Fast QQQ momentum trigger for Rebound-state bypass.
-
-    Returns (signal_on, raw_value):
-      signal_on = True if QQQ n-month TR > 0 (default n=2; Goulding paper).
-      None if insufficient history.
-    """
-    sd = monthly_qqq.loc[:sig_d].dropna()
-    if len(sd) < n + 1:
-        return (None, float("nan"))
-    r = float(sd.iloc[-1] / sd.iloc[-n - 1] - 1)
-    return (r > 0, r)
 
 
 def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
@@ -285,7 +250,6 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
       - If macro canary passes AND binary composite passes AND asset mom > 0:
         hold 100% SPY
       - Else: hold 100% best-of-safe (cash/IEF)
-    Rebound bypass lives in the NDX sleeve (see ndx_sleeve_live.py).
     Execution: T+1 OPEN (next trading day MOO). Weights apply from future[0] of signal
     date (first trading day after month-end). Backtest uses close-to-close on
     apply_from day (~5-10bps/yr overestimate vs strict open-to-close).

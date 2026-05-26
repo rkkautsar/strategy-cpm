@@ -59,13 +59,13 @@ def main() -> None:
     parts.append("")
     parts.append(fmt_alloc(cpm_w, "CPM sleeve (60%)", 0.6))
     parts.append("")
-    parts.append(fmt_alloc(bull_w, "BULL-QQQ sleeve (20%)", 0.2))
+    parts.append(fmt_alloc(bull_w, "BULL-SPY sleeve (20%)", 0.2))
     parts.append("")
     parts.append(fmt_alloc(ndx_w, "NDX sleeve (20%)", 0.2))
     parts.append("")
     parts.append(fmt_alloc(combined, "Combined portfolio (100%)"))
     parts.append("")
-    parts.append("⚠️ Forward Sh 1.05-1.35 (not 1.58 canonical) · MaxDD -15-25% expected")
+    parts.append("⚠️ Backtest only · see dashboard caveats before trading")
 
     print("\n".join(parts))
 
