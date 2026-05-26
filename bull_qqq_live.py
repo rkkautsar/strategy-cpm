@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-BULL-QQQ - Regime-gated QQQ overlay with SHV cash fallback.
+BULL-SPY - Regime-gated SPY overlay with SHV cash fallback.
 
-30% sleeve in the 60/30/10 CPM-BULL-NDX production blend.
+20% sleeve in the 60/20/20 CPM-BULL-NDX production blend.
 
 Spec:
   Risk-on when ALL THREE gates pass (each using 'any positive' rule):
@@ -19,7 +19,7 @@ Spec:
   macro signals worth adding. Trend (SPY 200d MA) was dropped as redundant
   with asset_mom; credit (HYG 200d MA) was dropped as redundant with canary.
 
-  Risk-on  -> 100% QQQ
+  Risk-on  -> 100% SPY
   Else     -> 100% SHV (ultra-short Treasury cash)
 
 Usage:
@@ -55,7 +55,9 @@ from cpm_live import (
 #   BULL-QQQ: Sharpe 1.70, CAGR 17.41%, MaxDD -8.90%, corr-NDX 0.75
 # Slight Sharpe gain (+0.013) + MaxDD improvement (+0.20pp) + diversification
 # at cost of -0.51pp CAGR (tech-led period bias 2010-2024).
-# Cascade: NDX sleeve uses BULL_TICKER for Rebound fast signal (now SPY 2mo TR).
+# Note: NDX sleeve Rebound fast signal stays on QQQ (REBOUND_FAST_TICKER in
+# ndx_sleeve_live.py), independent of BULL_TICKER, because NDX picks Nasdaq
+# tech names so the recovery signal stays tech-specific.
 BULL_TICKER = "SPY"
 CASH_TICKER = "SHV"           # default cash if SAFE_POOL evaluation fails
 SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
@@ -83,12 +85,12 @@ COMPOSITE_CURVE_WINDOW = 63       # days for IEF-TLT return spread (3m)
 COMPOSITE_VOL_SHORT = 63          # days for short vol estimate (3m)
 COMPOSITE_VOL_LONG  = 252         # days for long vol comparison (1y)
 
-PROD_BULL_WEIGHT = 0.30      # BULL weight in 60/30/10 PROD blend
+PROD_BULL_WEIGHT = 0.20      # BULL weight in 60/20/20 PROD blend
 
 COST_BPS_PER_SIDE = 10
 
 # Rebound bypass moved to NDX sleeve (see ndx_sleeve_live.py). BULL is now
-# a clean regime gate: 100% QQQ when all 3 gates pass, 100% safe otherwise.
+# a clean regime gate: 100% SPY when all 3 gates pass, 100% safe otherwise.
 # Earlier FIXED-5050 bypass on BULL deepened sleeve MaxDD (-14% -> -20%)
 # for marginal portfolio Sharpe (+0.018). Same fast signal applied to NDX
 # top-K names gives bigger CAGR lift (+2.5pp sleeve, +0.47pp portfolio)
@@ -265,7 +267,7 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
                   else f"asset_mom_off ({BULL_TICKER} 12mo TR <= 0; circuit breaker on risky asset)")
         return ({safe: 1.0}, "CASH",
                 {**all_diag, "reason": reason, "picked_safe": safe})
-    # Bull state: 100% QQQ (no state rotation in current spec).
+    # Bull state: 100% SPY (no state rotation in current spec).
     weights = {BULL_TICKER: 1.0}
     regime_label = f"BULL_{BULL_TICKER}"
     return (weights, regime_label,
@@ -277,11 +279,11 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
 
 def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp,
                            cost_bps: float = COST_BPS_PER_SIDE) -> pd.Series:
-    """Run BULL-QQQ standalone backtest.
+    """Run BULL-SPY standalone backtest.
 
     For each signal date (month-end):
       - If macro canary passes AND binary composite passes AND asset mom > 0:
-        hold 100% QQQ
+        hold 100% SPY
       - Else: hold 100% best-of-safe (cash/IEF)
     Rebound bypass lives in the NDX sleeve (see ndx_sleeve_live.py).
     Execution: T+1 OPEN (next trading day MOO). Weights apply from future[0] of signal
@@ -360,7 +362,7 @@ def cmd_allocate(args):
         candidates = panel.index[panel.index <= prior_month_end]
         sig_d = candidates[-1] if len(candidates) > 0 else today
 
-    print(f"BULL-QQQ Allocation @ {sig_d.date()} (signal date)")
+    print(f"BULL-SPY Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)
     print(f"Bull asset:  {BULL_TICKER}  (100% when macro AND trend both pass)")
     print(f"Fallback:    best-of-safe (SHV/IEF by 13612U) when any gate fails")
@@ -399,7 +401,7 @@ def cmd_allocate(args):
     else:
         print(f"Regime: CASH ({diag.get('reason','unknown')}; canary state {state})")
 
-    print(f"\n[BULL-QQQ sleeve target weights]")
+    print(f"\n[BULL sleeve target weights]")
     for t, w in sorted(weights.items(), key=lambda x: -x[1]):
         print(f"  {t:8s} {w*100:5.1f}%")
 
@@ -412,7 +414,7 @@ def cmd_backtest(args):
     panel = load_panel(start=panel_start, end=end)
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
 
-    print(f"\nRunning BULL-QQQ backtest {start.date()} -> {end.date()} ...")
+    print(f"\nRunning BULL backtest {start.date()} -> {end.date()} ...")
     cost_bps = 0 if args.no_cost else COST_BPS_PER_SIDE
 
     bull_qqq = run_bull_qqq_backtest(panel, start, end, cost_bps=cost_bps)
@@ -424,12 +426,12 @@ def cmd_backtest(args):
     w_b = PROD_BULL_WEIGHT
     w_f = 1 - w_b
     blend = w_f * fcp_rets.loc[common] + w_b * bull_qqq.loc[common]
-    prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL-QQQ (2-sleeve historical)"
-    print("Note: actual PROD is 60/30/10 CPM-BULL-NDX (see build_dashboard.py); this CLI prints 2-sleeve comparison.")
+    prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL (2-sleeve historical)"
+    print("Note: actual PROD is 60/20/20 CPM-BULL-NDX (see build_dashboard.py); this CLI prints 2-sleeve comparison.")
 
     strategies = [
         (prod_label, blend),
-        ("BULL-QQQ standalone", bull_qqq),
+        ("BULL standalone", bull_qqq),
         ("CPM-9 standalone", fcp_rets),
         ("QQQ buy-hold", qqq),
         ("SPY buy-hold", spy),

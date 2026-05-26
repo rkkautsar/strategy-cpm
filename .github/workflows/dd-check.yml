@@ -29,6 +29,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
+      - name: Refresh NDX constituent panel
+        # NDX panel is gitignored (~70 MB); refresh from yfinance each run.
+        # ~30s for ~100 active tickers.
+        run: uv run python -c "from ndx_sleeve_live import refresh_ndx_panel; refresh_ndx_panel()"
+
       - name: Run DD circuit check
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}

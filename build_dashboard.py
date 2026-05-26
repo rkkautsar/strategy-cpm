@@ -1491,16 +1491,19 @@ def perf_table_html(rows: list[dict], compact: bool = False) -> str:
 <tbody>{body}</tbody></table></div>"""
 
 
-def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: pd.Series, naive: pd.Series) -> str:
+def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series,
+                       bull: pd.Series, ndx: pd.Series, naive: pd.Series) -> str:
     yr_b = ((1 + blended).resample("YE").prod() - 1)
     yr_f = ((1 + cpm).resample("YE").prod() - 1)
-    yr_m = ((1 + mt2).resample("YE").prod() - 1)
+    yr_bu = ((1 + bull).resample("YE").prod() - 1)
+    yr_nd = ((1 + ndx).resample("YE").prod() - 1)
     yr_q = ((1 + qqq.reindex(blended.index)).resample("YE").prod() - 1)
     yr_n = ((1 + naive.reindex(blended.index)).resample("YE").prod() - 1)
     df = pd.DataFrame({"Year": yr_b.index.year,
                        "PROD": yr_b.values * 100,
                        "CPM": yr_f.reindex(yr_b.index).values * 100,
-                       "BULL-SPY": yr_m.reindex(yr_b.index).values * 100,
+                       "BULL-SPY": yr_bu.reindex(yr_b.index).values * 100,
+                       "NDX": yr_nd.reindex(yr_b.index).values * 100,
                        "Naive 60/40": yr_n.reindex(yr_b.index).values * 100,
                        "QQQ": yr_q.reindex(yr_b.index).values * 100})
     df["Excess vs Naive"] = df["PROD"] - df["Naive 60/40"]
@@ -1512,14 +1515,14 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series, mt2: p
         exn_class = "pos" if ex_n > 0 else "neg"
         exq_class = "pos" if ex_q > 0 else "neg"
         body += f"<tr><td>{int(r['Year'])}</td>"
-        for col in ["PROD", "CPM", "BULL-SPY", "Naive 60/40", "QQQ"]:
+        for col in ["PROD", "CPM", "BULL-SPY", "NDX", "Naive 60/40", "QQQ"]:
             v = r[col]
             cls = "pos" if v > 0 else "neg"
             body += f"<td style='text-align:right' class='{cls}'>{v:+.2f}%</td>"
         body += f"<td style='text-align:right' class='{exn_class}'>{ex_n:+.2f}pp</td>"
         body += f"<td style='text-align:right' class='{exq_class}'>{ex_q:+.2f}pp</td></tr>\n"
     return f"""<div class='table-scroll'><table class='yearly'>
-<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-SPY only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
+<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-SPY only</th><th>NDX only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
 
@@ -2299,8 +2302,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% QQQ when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND QQQ 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_QQQ regime.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND SPY 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_SPY regime. When BULL gate off + fast QQQ 2mo TR &gt; 0, Rebound bypass: 50% top-K + 50% best-of-safe. Otherwise 100% best-of-safe SHV/IEF.</li>
 </ul>
 </div>
 </details>
@@ -2326,7 +2329,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 {fig_to_html(fig_yearly)}
 {fig_to_html(fig_monthly_heatmap)}
-{yearly_table_html(blended, qqq, cpm, bull_qqq_rets, naive_pp_qt)}
+{yearly_table_html(blended, qqq, cpm, bull_qqq_rets, ndx_rets, naive_pp_qt)}
 </div>
 
 <h3>Rolling metrics (12-month)</h3>
@@ -2398,7 +2401,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (Keller/HAA canary + custom curve/vol composite + TSMOM trend filter)</summary>
 <ul>
-<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (Nasdaq-100). No state-conditional rotation.</li>
+<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation. Chosen over QQQ for diversification: BULL-SPY corr 0.61 with NDX sleeve vs 0.75 for BULL-QQQ; NDX provides dedicated tech-pick exposure already.</li>
 <li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0. Two-asset credit (HYG = high-yield) + inflation (TIP) regime check.</li>
 <li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime. Both pillars use natural midpoint cutoffs. Pair ablation showed curve+vol are the only two structurally orthogonal macro signals worth keeping; trend (SPY 200d MA) and credit (HYG 200d MA) pillars were dropped as redundant with asset_mom and canary respectively.</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-month TR absolute momentum &gt; 0 (Antonacci GEM 2014, no skip-month). Direct observation of the risky asset itself.</li>
@@ -2414,10 +2417,11 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
 <li><strong>Signal:</strong> 13612U momentum per stock (same formula as CPM canary, canonical HAA unweighted).</li>
 <li><strong>Selection:</strong> top 8 by momentum (positive only), equal-weighted 12.5% each.</li>
-<li><strong>Gate:</strong> only allocates when BULL-SPY regime is <code>BULL_QQQ</code> (equity-friendly); cash otherwise.</li>
-<li><strong>Fallback:</strong> 100% <code>{CASH_TICKER}</code> when gate off or fewer than 4 positive-momentum candidates.</li>
+<li><strong>Gate:</strong> only allocates top-K when BULL gate regime is <code>BULL_SPY</code> (equity-friendly); else Rebound or best-of-safe.</li>
+<li><strong>Rebound bypass:</strong> when BULL gate off but fast QQQ 2mo TR &gt; 0 (Goulding-Harvey 4-state analog), allocate 50% to top-K names + 50% best-of-safe instead of full cash. Rebound uses QQQ fast signal (tech-recovery semantics) regardless of BULL_TICKER.</li>
+<li><strong>Fallback:</strong> HAA best-of-safe (SHV/IEF by 13612U) when gate off and Rebound not triggered. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
-<li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by 10% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
+<li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
 </ul>
 </details>
 </div>

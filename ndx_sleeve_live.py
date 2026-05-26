@@ -3,9 +3,9 @@
 Spec:
   1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)
   2. Signal:   13612U momentum per stock (canonical HAA unweighted average)
-  3. Gate:     BULL-QQQ regime must be BULL_QQQ; else best-of-safe (SHV/IEF
+  3. Gate:     BULL gate regime must be BULL_SPY; else best-of-safe (SHV/IEF
                by 13612U, HAA-style) -- unless Rebound bypass fires.
-  4. PIT fallback: when PIT data unavailable (pre-2006), mirror BULL-QQQ
+  4. PIT fallback: when PIT data unavailable (pre-2006), mirror BULL sleeve
      weights (NDX sleeve acts as extra BULL exposure).
   5. Selection: top-K by 13612U momentum, equal-weighted 1/K each.
   6. Partial fill: if fewer than K positive candidates, take what's there at
@@ -99,7 +99,7 @@ def compute_ndx_weights(
       - BULL gate OFF + fast QQQ 2mo > 0 -> Rebound bypass (50% top-K, 50% safe)
       - BULL gate OFF + fast not positive -> 100% safe
     """
-    # Step 1: BULL-QQQ gate
+    # Step 1: BULL gate
     bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
     rebound_on = False
     if not bq_regime.startswith("BULL_"):
@@ -110,9 +110,9 @@ def compute_ndx_weights(
         if fast_ok is not True:
             safe = _pick_safe(cpm_monthly)
             return ({safe: 1.0}, f"GATE_OFF ({bq_regime})", {
-                "bull_qqq_regime": bq_regime,
+                "bull_regime": bq_regime,
                 "selected": [],
-                "reason": "BULL-QQQ off; fast QQQ 2mo TR not positive",
+                "reason": "BULL gate off; fast QQQ 2mo TR not positive",
                 "fast_qqq_2mo": fast_r,
                 "picked_safe": safe,
             })
@@ -120,7 +120,7 @@ def compute_ndx_weights(
 
     # Step 2: PIT NDX membership at signal date
     # PIT data (index-constitution lib) only covers 2006-01+. For earlier
-    # signal dates, fall back to mirroring BULL-QQQ weights (i.e., the NDX
+    # signal dates, fall back to mirroring BULL sleeve weights (i.e., the NDX
     # sleeve acts as extra BULL exposure) instead of going to cash.
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
@@ -131,14 +131,14 @@ def compute_ndx_weights(
             safe = _pick_safe(cpm_monthly)
             return ({BULL_TICKER: REBOUND_NDX_WEIGHT, safe: 1.0 - REBOUND_NDX_WEIGHT},
                     "NDX_REBOUND_FALLBACK", {
-                        "bull_qqq_regime": bq_regime,
+                        "bull_regime": bq_regime,
                         "selected": [BULL_TICKER],
                         "reason": "PIT pre-2006 + rebound: 50/50 QQQ/safe fallback",
                     })
-        return (bq_weights, "NDX_FALLBACK_BULL_QQQ", {
-            "bull_qqq_regime": bq_regime,
+        return (bq_weights, "NDX_FALLBACK_BULL", {
+            "bull_regime": bq_regime,
             "selected": list(bq_weights.keys()),
-            "reason": "PIT NDX data unavailable pre-2006; mirroring BULL-QQQ",
+            "reason": "PIT NDX data unavailable pre-2006; mirroring BULL sleeve",
         })
     # Filter to PIT-listed tickers with usable price at signal date.
     # A ticker that delisted before sig_d may still appear in yearly PIT
@@ -192,7 +192,7 @@ def compute_ndx_weights(
             weights[safe] = weights.get(safe, 0.0) + cash_share
         regime = "NDX_ACTIVE" if n_pick == SELECT_K else f"NDX_PARTIAL_{n_pick}"
     return (weights, regime, {
-        "bull_qqq_regime": bq_regime,
+        "bull_regime": bq_regime,
         "n_candidates": len(sorted_by_mom),
         "selected": selected,
         "momenta": {t: momenta[t] for t in selected},
@@ -321,7 +321,7 @@ if __name__ == "__main__":
     print(f"\nNDX sleeve allocation (signal date: {sig_d.date()})")
     print(f"Regime: {regime}")
     if regime == "NDX_ACTIVE":
-        print(f"BULL-QQQ gate state: {diag.get('bull_qqq_regime')}")
+        print(f"BULL gate state: {diag.get('bull_regime')}")
         print(f"\nTop-{SELECT_K} by 13612U momentum:")
         for t in diag["selected"]:
             mom = diag["momenta"][t]

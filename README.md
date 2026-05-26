@@ -8,26 +8,42 @@ registers; in calm bull regimes the portfolio runs as concentrated growth
 beta.
 
 Blend validation detail (NDX MC, bootstrap, DSR, ablation, hold-buffer) in
-`cpm_bull_ndx_handout.md`. BULL-QQQ academic memo in `bull_qqq_handout.md`.
+`cpm_bull_ndx_handout.md`. BULL sleeve academic memo in `bull_qqq_handout.md`
+(legacy filename retained; current sleeve is BULL-SPY).
 
 - **CPM (60%)** — canary-gated momentum + min-variance pair selection on a
-  9-asset ETF universe (US factors + international + diversifiers).
-- **BULL-QQQ (20%)** — 100% QQQ when three gates all pass: (1) Keller/HAA-
+  9-asset ETF universe (US factors + international + diversifiers). HYG+TIP+GLD
+  any-positive 13612U canary. HAA best-of-safe (SHV/IEF) on defensive.
+- **BULL-SPY (20%)** — 100% SPY when three gates all pass: (1) Keller/HAA-
   inspired HYG OR TIP 13612U > 0 canary, (2) a custom curve OR vol regime
-  composite (curve from rates, vol from broad market), (3) QQQ 12mo TR
+  composite (curve from rates, vol from broad market), (3) SPY 12mo TR
   absolute momentum (Antonacci GEM 2014 / TSMOM-style trend filter).
-  Antonacci GEM uses simple 12-month total return (no skip-month). Only the canary is
-  Keller-canonical; the composite and trend gates are extensions. In risk-off
-  periods, BULL selects between SHV and IEF by 13612U momentum (HAA-style
-  best-of-safe): IEF in falling-rate regimes (captures bond rally), SHV when
-  rates are rising or stable. BULL is therefore an equity-or-defensive-sleeve
-  strategy, not equity-or-cash; the defensive sleeve can carry duration risk.
+  Antonacci GEM uses simple 12-month total return (no skip-month). Only the
+  canary is Keller-canonical; the composite and trend gates are extensions.
+  Clean binary gate: 100% SPY or 100% best-of-safe (no Rebound or partial
+  exposure on this sleeve). In risk-off periods, BULL selects between SHV
+  and IEF by 13612U momentum (HAA-style best-of-safe): IEF in falling-rate
+  regimes (captures bond rally), SHV when rates are rising or stable. SPY
+  chosen over QQQ for diversification: BULL-SPY corr +0.61 with NDX sleeve
+  vs +0.75 for BULL-QQQ (NDX provides dedicated tech-pick exposure).
 - **NDX (20%)** — top-8 PIT Nasdaq-100 stocks by 13612U momentum, 12.5% each,
-  gated by the BULL-QQQ regime (NDX = SHV cash when BULL flips to safe).
+  gated by the BULL gate (NDX_ACTIVE only when BULL_SPY regime fires).
   Each pick = 12.5% of sleeve = 2.5% of portfolio; single-name bankruptcy
-  caps blend damage at ~2.5%. NDX inherits BULL's regime verdict; no
-  independent macro gate (BULL's HYG/TIP signal would otherwise be
-  double-counted).
+  caps blend damage at ~2.5%. **Rebound bypass (NDX_REBOUND):** when BULL
+  gate off but fast QQQ 2mo TR > 0 (Goulding-Harvey 4-state analog), NDX
+  takes 50% top-K names + 50% best-of-safe instead of full cash. Rebound
+  fast signal stays on QQQ (tech-recovery semantics) regardless of
+  BULL_TICKER. Defensive paths (gate-off + slow recovery, partial-fill,
+  mid-period delisting) use HAA best-of-safe (SHV/IEF), not SHV-only.
+  NDX inherits BULL's regime verdict; no independent macro gate (BULL's
+  HYG/TIP signal would otherwise be double-counted).
+
+**Risk overlays (portfolio-level):**
+- **DD circuit (per-sleeve, BULL/NDX):** 63d rolling-peak DD < -10% → scale
+  sleeve to cash until next monthly signal. Nystrup-Boyd (Stanford 2019)
+  threshold; 63d window matches the r3 component in 13612U for consistency.
+- **VIX cap (portfolio):** when VIX > rolling P95 threshold, scale entire
+  portfolio to 50% (latched until next signal date).
 
 Monthly rebalance, ETF + individual stocks (NDX), no leverage, 10 bps/side cost,
 T+1 OPEN execution. Total-return prices (yfinance `auto_adjust=True`).
@@ -42,20 +58,20 @@ T+1 OPEN execution. Total-return prices (yfinance `auto_adjust=True`).
 
 ## Expected performance
 
-Clean live-ETF window 2008-04-30 → 2026-05-15 (18.1y, post-cost). Raw backtest;
-Shumway-pessimistic survivor-bias MC shifts PROD by < 0.01 Sharpe / 0.05pp CAGR
-(see Caveats § NDX bias).
+Clean live-ETF window 2008-04-30 → present (~18y, post-cost, with VIX cap +
+DD circuit). Raw backtest; Shumway-pessimistic survivor-bias MC shifts PROD
+by < 0.01 Sharpe / 0.05pp CAGR (see Caveats § NDX bias).
 
-| Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
-|---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 K=8** | **1.63** | **16.84%** | **9.86%** | **-9.12%** | **1.85** |
-| SPY buy-hold | 0.66 | 11.74% | 19.81% | -51.48% | 0.23 |
+| Strategy | Sharpe | CAGR | MaxDD |
+|---|---:|---:|---:|
+| **PROD 60/20/20 (BULL-SPY)** | **1.72** | **16.84%** | **-8.70%** |
+| SPY buy-hold | 0.66 | 11.74% | -51.48% |
 
-| Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
-|---|---:|---:|---:|---:|
-| CPM | 1.29 | 13.83% | 10.49% | -11.30% |
-| BULL-QQQ | 1.18 | 16.88% | 14.06% | -14.31% |
-| NDX top-8 (K=8) | 1.19 | 28.02% | 23.03% | -29.51% |
+| Sleeve standalone | Sharpe | CAGR | MaxDD |
+|---|---:|---:|---:|
+| CPM | 1.32 | 14.44% | -14.70% |
+| BULL-SPY | 1.24 | 13.77% | -13.51% |
+| NDX top-K (with Rebound + best-of-safe) | 1.28 | 32.24% | -28.71% |
 
 Extended 30y window 1996-01-04 → 2026-05-15 (uses Vanguard mutual fund stitches
 pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
@@ -65,25 +81,13 @@ pre-live for non-live ETFs; HYG-only canary pre-2001-06; directional only):
 | **PROD 60/20/20** | **1.47** | **15.33%** | **-16.15%** |
 | SPY buy-hold | 0.61 | 10.41% | -55.19% |
 
-**Naive benchmark suite** (CLEAN 18.1y / Extended 30y; post-cost 10bps/side
-where applicable). PROD vs single-asset buy-hold and naive QQQ-trend strategies:
-
-| Benchmark | CLEAN Sh | CLEAN CAGR | CLEAN MaxDD | 30y Sh | 30y CAGR | 30y MaxDD |
-|---|---:|---:|---:|---:|---:|---:|
-| **PROD** | **1.53** | **16.78%** | **-11.46%** | **1.30** | **14.85%** | **-16.59%** |
-| SPY buy-hold | 0.66 | 11.78% | -51.48% | 0.61 | 10.41% | -55.19% |
-| QQQ buy-hold | 0.82 | 17.17% | -49.37% | 0.63 | 14.41% | -82.96% |
-| QQQ + 10mo SMA (Faber) | 0.82 | 13.02% | -28.56% | 0.78 | 14.26% | -41.73% |
-| QQQ + 12mo TR>0 (GEM-equiv) | 0.91 | 16.38% | -28.56% | 0.83 | 16.72% | -46.72% |
-| SPY + 12mo TR>0 (GEM-equiv) | 0.74 | 10.62% | -33.72% | 0.79 | 11.21% | -33.72% |
-
-Reading: QQQ-buy-hold matches PROD's CLEAN CAGR but loses ~5x on MaxDD. Naive
-QQQ + 12mo TR (closest one-asset benchmark) has comparable CAGR but ~2.5x
-worse MaxDD and 0.5-0.7 Sharpe gap. PROD's risk-adjusted edge over the best
-naive single-asset trend benchmark is +0.5-0.7 Sharpe and 2-5× MaxDD
-compression on both windows. Even after the forward base-case haircut
-(Sh 1.05-1.35), PROD remains above QQQ+12mo-TR (Sh 0.83-0.91). The blend
-architecture is doing real risk-adjusted work, not just QQQ regime-riding.
+**Naive benchmark suite** primary peer is `Naive 60/40 PP/SPY-trend`
+(Permanent Portfolio + SPY 10mo SMA trend), apples-to-apples with BULL-SPY.
+QQQ buy-and-hold remains as upper-bound tech reference. Most validation tables
+below predate the BULL QQQ→SPY swap (commit `f1ee085`) and DD circuit change
+to 63d-rolling/-10% threshold (commit `647b6fc`); the headline PROD numbers
+above (Sharpe 1.72, MaxDD -8.70%) reflect the current spec. Validation tables
+below may show older numbers; current dashboard is the source of truth.
 
 
 **Forward expectation** (discount for selection bias + regime dependency + NDX
@@ -91,13 +95,23 @@ biases + tail sequencing not captured by return bootstrap):
 
 | Metric | Backtest | Forward base case |
 |---|---:|---|
-| Raw Sharpe | 1.63 | **1.15-1.45** |
-| Excess Sharpe (over SHV) | 1.50 | **1.00-1.30** (subtract ~0.10-0.15 for rate income) |
+| Raw Sharpe | 1.72 | **1.20-1.50** |
+| Excess Sharpe (over SHV) | 1.59 | **1.05-1.35** (subtract ~0.10-0.15 for rate income) |
 | CAGR | 16.84% | **11-15%** pre-tax, **5-9%** after-tax |
-| MaxDD | -11.46% | **-15% to -30%** planning band, **-35 to -40% stress**, **-78% theoretical worst case** if BULL gate fails across all sleeves (dot-com simulation; under FRED-BAA10Y validated VWEHX behavior, NDX MaxDD limited to -12%) |
-| Calmar | 1.50 | **0.55-0.90** |
+| MaxDD | -8.70% | **-15% to -30%** planning band, **-35 to -40% stress**, **-78% theoretical worst case** if BULL gate fails across all sleeves (dot-com simulation; under FRED-BAA10Y validated VWEHX behavior, NDX MaxDD limited to -12%) |
+| Calmar | 1.94 | **0.55-0.90** |
 
 ## Strategy specification
+
+> **Note on stale tables below.** Validation tables in this README were
+> generated before recent architecture changes: BULL QQQ→SPY swap (commit
+> `f1ee085`), DD circuit moved to 63d rolling peak + -10% threshold
+> (Nystrup-Boyd, commit `647b6fc`), NDX defensive uses best-of-safe SHV/IEF
+> (was SHV-only), and Rebound bypass moved from BULL to NDX sleeve. The
+> headline numbers at the top of this README (Sharpe 1.72, MaxDD -8.70%,
+> CAGR 16.84%) reflect the current spec; the **live dashboard at
+> cpm.rakha.dev is the source of truth**. Validation table numbers will be
+> regenerated next time a full pass is warranted.
 
 ```python
 # Signal date T = last trading day of each calendar month.
@@ -134,57 +148,61 @@ scale = min(1.0, 0.12 / realized_vol_63d(cpm))   # 12% vol cap (de-risk only)
 cpm   = {a: w * scale for a, w in cpm.items()}
 cpm[SHV] += 1.0 - sum(cpm.values())
 
-# ====== BULL-QQQ sleeve (20%) ======
+# ====== BULL sleeve (20%) ======
 canary_on    = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0
 p_curve      = sum(IEF[T-63d:T] ret) > sum(TLT[T-63d:T] ret)   # curve steepening
 # Broad-MARKET vol pillar, intentionally SPY not QQQ.
 # Empirical test (see Validation): QQQ-vol gives BULL Sh 1.09 vs SPY-vol
 # 1.18, so the broad-market vol regime is a stronger filter for the BULL
-# sleeve than asset-specific Nasdaq vol despite QQQ being the held asset.
+# sleeve than asset-specific Nasdaq vol despite SPY being the held asset.
 p_market_vol = realized_vol_63d(SPY) < avg(rolling_63d_vol over 252d, SPY)
 composite_on = p_curve OR p_market_vol
-asset_mom_on = mom_12mo(QQQ) > 0
+asset_mom_on = mom_12mo(SPY) > 0
+
+# HAA best-of-safe: SHV in rising-rate regimes, IEF in falling-rate.
+safe = argmax({s: mom_13612U(s) for s in [SHV, IEF]})
 
 if canary_on AND composite_on AND asset_mom_on:
-    bull = {QQQ: 1.0}
+    bull = {SPY: 1.0}
 else:
-    # HAA best-of-safe: SHV in rising-rate regimes, IEF in falling-rate.
-    safe = argmax({s: mom_13612U(s) for s in [SHV, IEF]})
-    # Rebound bypass (FIXED-5050): if slow gate says defensive but QQQ 2mo TR > 0
-    # (Goulding-Harvey 'Rebound' state), blend 50/50 instead of full cash.
-    # Symmetric with the 50% VIX cap. Zero free parameters; FIXED-5050 captures
-    # ~88% of Goulding's adaptive a_Re lift with no estimator.
-    fast_qqq_on = mom_2mo(QQQ) > 0
-    if fast_qqq_on:
-        bull = {QQQ: 0.5, safe: 0.5}    # REBOUND_BLEND
-    else:
-        bull = {safe: 1.0}              # CASH
+    # Clean binary gate: full risk-on or full safe. No Rebound on BULL
+    # (moved to NDX sleeve, see below).
+    bull = {safe: 1.0}                  # CASH
 
 # ====== NDX sleeve (20%) ======
-if BULL-QQQ regime != "BULL_QQQ":
-    ndx = {SHV: 1.0}
-elif PIT NDX-100 data unavailable (pre-2006):
-    ndx = bull                                        # mirror BULL-QQQ
-else:
+if BULL gate regime startswith "BULL_":     # gate ON -> top-K stock pick
     momenta = {t: mom_13612U(t) for t in PIT_NDX100(T)}
     picks   = [t for t, m in sorted(momenta, by=-m) if m > 0][:8]
     ndx     = {t: 0.125 for t in picks}                # 1/K=12.5% per pick
-    ndx[SHV] = 1.0 - 0.125 * len(picks)
+    ndx[safe] = 1.0 - 0.125 * len(picks)               # partial-fill -> best-of-safe
+elif mom_2mo(QQQ) > 0:
+    # NDX Rebound bypass (Goulding-Harvey 4-state analog): BULL gate off but
+    # fast QQQ 2mo > 0 -> 50% top-K + 50% best-of-safe. Fast signal is QQQ
+    # specifically (tech-recovery semantics), independent of BULL_TICKER.
+    momenta = {t: mom_13612U(t) for t in PIT_NDX100(T)}
+    picks   = [t for t, m in sorted(momenta, by=-m) if m > 0][:8]
+    ndx     = {t: 0.0625 for t in picks}               # 0.5/K=6.25% per pick
+    ndx[safe] = 1.0 - 0.0625 * len(picks)
+else:
+    ndx = {safe: 1.0}                                  # 100% best-of-safe
 
 # ---- Combined ----
 portfolio_uncapped = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
-# ====== Per-sleeve DD circuit breaker (TT Market Vane #5 analog) ======
-# Daily check: if BULL or NDX sleeve cumulative DD from peak < -15%,
+# ====== Per-sleeve DD circuit breaker (Nystrup-Boyd 2019) ======
+# Daily check: if BULL or NDX sleeve DD from 63d rolling peak < -10%,
 # scale THAT sleeve to 0 (cash) until next monthly signal date.
+# Nystrup-Boyd Dmax = 10% paper standard. 63d rolling peak (1 quarter,
+# matches r3 component in 13612U) avoids the stale-peak failure mode
+# where ancient peaks suppress legitimate multi-month recoveries.
 # CPM untouched (low standalone DD, doesn't need it).
-# Symmetric with VIX cap but DD-triggered instead of vol-triggered.
 for sleeve in [BULL, NDX]:
-    sleeve_dd = (sleeve_eq / sleeve_eq.cummax() - 1)[T-1]
-    if sleeve_dd < -0.15 OR dd_circuit_latched_from_prior_day:
+    rolling_peak = sleeve_eq.rolling(63).max()
+    sleeve_dd = (sleeve_eq / rolling_peak - 1)[T-1]
+    if sleeve_dd < -0.10:
         sleeve_scale = 0.0                                # sleeve to cash
     else:
-        sleeve_scale = 1.0
+        sleeve_scale = 1.0                                # resets at signal date
     sleeve = sleeve_scale * sleeve
 
 # ====== Portfolio-level vol cap (VIX-based + latched binary 50%) ======
@@ -701,7 +719,7 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   both QQQ AND IWF as the pair).
 - NDX sleeve standalone MaxDD ~ -30% (K=8 raw). Mega-cap concentration alpha
   is regime-dependent; 2000-2010-style tech lost decade would likely
-  underperform vs BULL-QQQ alone.
+  underperform vs BULL alone.
 
 **NDX bias**
 
@@ -972,7 +990,7 @@ One-shot setup: `bash deploy/setup.sh`. Details in `deploy/cf-pages/README.md`,
 **Entry points:**
 
 - `cpm_live.py` — CPM sleeve (allocate + backtest CLI, panel loader).
-- `bull_qqq_live.py` — BULL-QQQ sleeve.
+- `bull_qqq_live.py` — BULL sleeve (legacy filename retained).
 - `ndx_sleeve_live.py` — NDX sleeve (PIT constituent fetch).
 - `build_dashboard.py` — 60/20/20 blend dashboard + peer benchmarks.
 - `vol_cap.py` — portfolio-level latched binary vol cap (50% scale; VIX > rolling-5y P95 trigger). Includes VIX fetcher with local parquet cache.
