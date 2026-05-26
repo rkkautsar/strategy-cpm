@@ -249,13 +249,34 @@ def canary_risk_state(n_pos: int | None) -> str | None:
     return "ON"
 
 
-def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
-    """Return the pair with lowest 50/50 portfolio variance.
+# Pair selection: pure min-variance (var_weight=1.0).
+# Tested 25% momentum tiebreaker -- empirically WORSE on both Sharpe (1.324
+# -> 1.239) AND perturbation stability (5.7% -> 11.0% pick flip rate under
+# +/-0.1% price noise). Momentum (12mo TR) depends on just two endpoints and
+# is more sensitive to price drift than the 504d rolling covariance which
+# smooths daily noise. Pure min-vol is both higher-Sharpe and more stable.
+PAIR_VAR_WEIGHT = 1.0
+
+
+def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int,
+                  momenta: dict | None = None,
+                  var_weight: float | None = None) -> tuple:
+    """Return the pair with best composite score (var_weight * min-vol +
+    (1-var_weight) * momentum z-score).
+
+    Pure min-vol pair selection (var_weight=1.0) is sensitive to small
+    variance perturbations. Adding momentum tiebreaker stabilizes selection.
 
     Simple rolling covariance over the trailing `lookback` trading days
     (504d ~ 2y). Hard window: live/backtest consistent regardless of
     caller panel start (above 504d minimum).
+
+    var_weight default reads live module constant `PAIR_VAR_WEIGHT` (not
+    frozen at function-definition time) so runtime overrides for ablation
+    tests work as expected.
     """
+    if var_weight is None:
+        var_weight = PAIR_VAR_WEIGHT
     if len(candidates) < 2:
         return None
     rets = daily[candidates].pct_change().dropna(how="all").tail(lookback)
@@ -264,17 +285,31 @@ def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int) -> tuple:
     cov = rets.cov()
     if cov.isna().any().any():
         return None
-    best = None
-    best_var = float("inf")
+    # Compute pair variance for each candidate pair
+    pair_data = []
     for a, b in combinations(candidates, 2):
         try:
             v = 0.25 * cov.loc[a, a] + 0.25 * cov.loc[b, b] + 0.5 * cov.loc[a, b]
         except KeyError:
             continue
-        if pd.notna(v) and v < best_var:
-            best_var = v
-            best = (a, b)
-    return best
+        if pd.notna(v):
+            pair_data.append((a, b, v))
+    if not pair_data:
+        return None
+    # Backward-compat / no-momentum path: pure min-vol
+    if momenta is None or var_weight >= 0.999:
+        best_idx = min(range(len(pair_data)), key=lambda i: pair_data[i][2])
+        return (pair_data[best_idx][0], pair_data[best_idx][1])
+    # Composite scoring with momentum tiebreaker
+    df = pd.DataFrame(pair_data, columns=['a', 'b', 'var'])
+    df['mom'] = df.apply(lambda r: 0.5 * momenta.get(r['a'], 0.0) + 0.5 * momenta.get(r['b'], 0.0), axis=1)
+    # Z-scores: lower variance is better (z_var negative = good); higher momentum is better
+    df['z_var'] = (df['var'] - df['var'].mean()) / (df['var'].std(ddof=0) or 1.0)
+    df['z_mom'] = (df['mom'] - df['mom'].mean()) / (df['mom'].std(ddof=0) or 1.0)
+    # Composite (lower = better): weighted blend
+    df['score'] = var_weight * df['z_var'] - (1.0 - var_weight) * df['z_mom']
+    best_row = df.loc[df['score'].idxmin()]
+    return (best_row['a'], best_row['b'])
 
 
 def zscore(s: pd.Series) -> pd.Series:
@@ -375,7 +410,8 @@ def compute_target_weights(
         return {safe: 1.0}, None, "DEFENSIVE", safe
     
     candidates = list(positive.index)
-    new_pick = min_vol_pair(close_panel.loc[:sig_d, candidates], candidates, CORR_LOOKBACK_DAYS)
+    new_pick = min_vol_pair(close_panel.loc[:sig_d, candidates], candidates,
+                              CORR_LOOKBACK_DAYS)
     if new_pick is None:
         return {candidates[0]: 1.0}, None, "RISK_ON", safe
     

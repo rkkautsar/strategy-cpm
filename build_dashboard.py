@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
 import datetime as dt
 import sys
 from itertools import combinations
@@ -1005,6 +1006,8 @@ def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
     pair_rets = defaultdict(list)
     asset_picks = defaultdict(int)
     pair_picks = defaultdict(int)
+    pair_dates = defaultdict(list)  # diagnostic: per-pair signal dates
+    pair_diag = defaultdict(list)   # diagnostic: per-pair (sig_d, len_rets_df, reason)
     for i, rec in enumerate(records):
         sig_d = rec["sig_d"]
         weights = {a: w for a, w in rec["weights"].items() if w > 0}
@@ -1015,7 +1018,9 @@ def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
         for asset in weights:
             asset_picks[asset] += 1
         if pair and len(pair) == 2:
-            pair_picks[tuple(sorted(pair))] += 1
+            pkey = tuple(sorted(pair))
+            pair_picks[pkey] += 1
+            pair_dates[pkey].append(sig_d)
         sidx = panel.index.searchsorted(sig_d) + 2
         eidx = (panel.index.searchsorted(sig_dates[i+1]) + 2
                  if i+1 < len(sig_dates) else len(panel.index))
@@ -1032,11 +1037,20 @@ def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
         if pair and len(pair) == 2:
             pkey = tuple(sorted(pair))
             pair_members = [a for a in weights.keys() if a in panel.columns]
-            if len(pair_members) >= 2:
+            if len(pair_members) < 2:
+                pair_diag[pkey].append((sig_d, 0, f"only {len(pair_members)} members in panel"))
+            else:
                 rets_df = pd.concat(
                     [panel[a].reindex(window).pct_change().rename(a) for a in pair_members],
                     axis=1).dropna()  # only days where ALL members have valid returns
-                if len(rets_df) >= 3:
+                if len(rets_df) < 3:
+                    # Diagnose which member had data gaps
+                    per_member = {a: panel[a].reindex(window).pct_change().dropna().shape[0]
+                                   for a in pair_members}
+                    pair_diag[pkey].append((sig_d, len(rets_df),
+                                             f"joint <3 days; window={len(window)}d; "
+                                             f"per_member_valid={per_member}"))
+                else:
                     period_ret = sum(rets_df[a] * weights[a] for a in pair_members)
                     pair_rets[pkey].append(period_ret)
     asset_stats = {}
@@ -1053,12 +1067,14 @@ def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
     for p, sers in pair_rets.items():
         merged = pd.concat(sers)
         s = _period_stats(merged)
-        pair_stats[p] = {'picks': pair_picks[p], **s}
+        pair_stats[p] = {'picks': pair_picks[p], 'dates': pair_dates[p],
+                          'diag': pair_diag.get(p, []), **s}
     # Add pairs with no valid return data so the count still shows
     for p, n in pair_picks.items():
         if p not in pair_stats:
-            pair_stats[p] = {'picks': n, 'sh': float('nan'),
-                              'ann': float('nan'), 'mdd': float('nan')}
+            pair_stats[p] = {'picks': n, 'dates': pair_dates[p],
+                              'diag': pair_diag.get(p, []),
+                              'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')}
     return asset_stats, pair_stats
 
 
@@ -1109,10 +1125,24 @@ def picks_table_html(picks, pair_counter, n_signals, records=None, panel=None):
     for pair, cnt in pair_rows[:15]:
         pct = cnt / n_signals * 100
         label = f"{pair[0]} + {pair[1]}"
-        pairs_html += f"<tr><td>{label}</td><td style='text-align:right'>{cnt}</td>" \
+        # Build tooltip with signal dates + NaN diagnostics so the user can
+        # hover any pair row to see when it was picked and why stats are NaN.
+        tooltip = ""
+        if pair_stats is not None:
+            st = pair_stats.get(pair, {'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan'),
+                                          'dates': [], 'diag': []})
+            dates = st.get('dates', [])
+            diag = st.get('diag', [])
+            parts = []
+            if dates:
+                parts.append('Picks: ' + ', '.join(d.strftime('%Y-%m-%d') for d in dates))
+            if diag:
+                parts.append('NaN: ' + '; '.join(f'{d.strftime("%Y-%m-%d")} {r}' for d, _, r in diag))
+            tooltip = ' | '.join(parts)
+        tr_attr = f' title="{tooltip}"' if tooltip else ''
+        pairs_html += f"<tr{tr_attr}><td>{label}</td><td style='text-align:right'>{cnt}</td>" \
                       f"<td style='text-align:right'>{pct:.1f}%</td>"
         if pair_stats is not None:
-            st = pair_stats.get(pair, {'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')})
             pairs_html += _fmt_cell(st['sh']) + _fmt_cell(st['ann'], '%') + _fmt_cell(st['mdd'], '%')
         pairs_html += "</tr>"
     pairs_html += "</tbody></table></div>"
