@@ -321,13 +321,25 @@ def cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timesta
 
 
 def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp | None = None) -> list[dict]:
-    """Actual signal-record computation (cache miss path)."""
+    """Actual signal-record computation (cache miss path).
+
+    Excludes the current in-progress calendar month: pd.Grouper(freq='ME')
+    picks 'last trading day per month bucket', which for the current month is
+    just today (or the latest panel day), NOT the actual month-end signal
+    date. PROD doesn't execute on mid-month signals, so including them creates
+    phantom records in the pair table / records list (e.g. a 'signal' on
+    2026-05-22 when the actual May signal would be computed on 2026-05-29).
+    """
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     close = panel[cols]
     monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
     mask = monthly_idx.index >= start
     if end is not None:
         mask &= monthly_idx.index <= end
+    # Drop in-progress current calendar month: signal is only real once its
+    # month-end has actually arrived.
+    this_month_start = pd.Timestamp.today().normalize().replace(day=1)
+    mask &= monthly_idx.index < this_month_start
     sig_dates = monthly_idx.index[mask].tolist()
 
     records = []
@@ -373,7 +385,9 @@ _NDX_RECORDS_CACHE: dict = {}
 
 def bull_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
                           end: pd.Timestamp | None = None) -> list[dict]:
-    """BULL sleeve weights at each monthly signal date. Memoized."""
+    """BULL sleeve weights at each monthly signal date. Memoized.
+    Excludes in-progress current calendar month (see cpm_signal_records).
+    """
     key = (id(panel), pd.Timestamp(start), pd.Timestamp(end) if end else None)
     if key in _BULL_RECORDS_CACHE:
         return _BULL_RECORDS_CACHE[key]
@@ -381,6 +395,8 @@ def bull_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
     mask = monthly_idx.index >= start
     if end is not None:
         mask &= monthly_idx.index <= end
+    this_month_start = pd.Timestamp.today().normalize().replace(day=1)
+    mask &= monthly_idx.index < this_month_start
     sig_dates = monthly_idx.index[mask].tolist()
     records = []
     for sd in sig_dates:
@@ -392,7 +408,9 @@ def bull_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
 
 def ndx_signal_records(panel: pd.DataFrame, ndx_panel: pd.DataFrame,
                         start: pd.Timestamp, end: pd.Timestamp | None = None) -> list[dict]:
-    """NDX sleeve weights at each monthly signal date. Memoized."""
+    """NDX sleeve weights at each monthly signal date. Memoized.
+    Excludes in-progress current calendar month (see cpm_signal_records).
+    """
     from ndx_sleeve_live import compute_ndx_weights
     key = (id(panel), id(ndx_panel), pd.Timestamp(start), pd.Timestamp(end) if end else None)
     if key in _NDX_RECORDS_CACHE:
@@ -401,6 +419,8 @@ def ndx_signal_records(panel: pd.DataFrame, ndx_panel: pd.DataFrame,
     mask = monthly_idx.index >= start
     if end is not None:
         mask &= monthly_idx.index <= end
+    this_month_start = pd.Timestamp.today().normalize().replace(day=1)
+    mask &= monthly_idx.index < this_month_start
     sig_dates = monthly_idx.index[mask].tolist()
     records = []
     for sd in sig_dates:
