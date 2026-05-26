@@ -1352,15 +1352,18 @@ def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp,
         regime = rec["regime"]
         sidx = panel.index.searchsorted(sig_d) + 2
         eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
-        if sidx >= len(panel.index):
-            continue
-        port_ret = 0.0
-        for a, w in weights.items():
-            if a in panel.columns:
-                p0 = panel[a].iloc[sidx - 1]
-                p1 = panel[a].iloc[eidx - 1] if eidx - 1 < len(panel.index) else None
-                if p1 is not None and pd.notna(p0) and pd.notna(p1) and p0 > 0:
-                    port_ret += w * (p1 / p0 - 1)
+        # Compute realized 1mo return when a future window exists; otherwise
+        # this is the most-recent pick with no held period yet -- still show it
+        # in the timeline (so VBR / latest-month picks aren't silently dropped).
+        port_ret = float('nan')
+        if sidx < len(panel.index):
+            port_ret = 0.0
+            for a, w in weights.items():
+                if a in panel.columns:
+                    p0 = panel[a].iloc[sidx - 1]
+                    p1 = panel[a].iloc[eidx - 1] if eidx - 1 < len(panel.index) else None
+                    if p1 is not None and pd.notna(p0) and pd.notna(p1) and p0 > 0:
+                        port_ret += w * (p1 / p0 - 1)
         label = ' + '.join(sorted(new_pair)) if new_pair else ('DEFENSIVE' if regime == 'DEFENSIVE' else 'PARTIAL')
         timeline.append({'date': sig_d, 'label': label, 'ret': port_ret})
     df_tl = pd.DataFrame(timeline)
