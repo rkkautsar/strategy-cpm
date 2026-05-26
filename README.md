@@ -263,8 +263,8 @@ Methodology, sensitivity grids, complexity-layer ablation, and references in
 | P(Sharpe > 1.0) | 99.8% |
 | P(Sharpe > 1.05) | 99.8% |
 
-The 95% lower bound (1.09) sits above the forward-expectation floor (1.05)
-with limited margin (~0.04). P(true Sharpe > 1.05 forward floor) = 98.5%.
+The 95% lower bound (1.272) sits well above the forward-expectation floor
+(1.05) with comfortable margin (~0.22). P(true Sharpe > 1.05 forward floor) = 99.8%.
 Deflated Sharpe on the blend is P(Sh > 0) = 99.5% at N=1000 trial haircut
 (Bailey-Lopez de Prado); sensitive to assumed effective trial count.
 
@@ -380,6 +380,13 @@ than it would be with the full 2-asset BULL canary today.
 | 60/15/25 | 1.739 | 17.76% | -8.83% | 17.32% | 2.53% |
 | 60/10/30 | 1.747 | 18.62% | -8.97% | 18.55% | 2.58% |
 | 60/0/40 (no BULL) | 1.739 | 20.33% | -9.24% | 21.15% | 2.75% |
+
+**Note on 60/0/40 row**: 60/0/40 MaxDD (-9.24%) is materially tighter than
+prior version (-14.38%) because the DD circuit applies to the NDX sleeve
+with full 40% weight (vs 20% in PROD). DD circuit is doing more work in
+this variant -- a sleeve-only ablation isn't a like-for-like comparison
+with prior pre-DD-circuit grid. All rows in this table include DD circuit
++ VIX cap; the comparison across rows is internally consistent.
 
 Sharpe rises monotonically with more NDX weight (60/30/10 = 1.645 -> 60/10/30 = 1.747);
 BULL/NDX split trades CAGR vs MaxDD ~linearly. 60/20/20 sits mid-plateau at
@@ -744,10 +751,10 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
   CAGR cost. Sleeve-internal caps remain in place; the portfolio VIX cap
   is a second defense for mid-month vol blowups when VIX confirms.
 
-  **Note**: Max realized vol still 28.5% (not as compressed as a blend-vol-
-  direct trigger would give). VIX cap doesn't fire on vol spikes that don't
-  move equity options (e.g., bond/commodity shocks). Trade-off accepted in
-  exchange for external calibration-free signal.
+  **Note**: Max realized 63d vol now compressed to 16.35% (PROD with DD
+  circuit + VIX cap) vs uncapped baseline 20.78%. VIX cap doesn't fire on
+  vol spikes that don't move equity options (e.g., bond/commodity shocks).
+  Trade-off accepted in exchange for external calibration-free signal.
 - **Effective Nasdaq/growth concentration**: in risk-on regimes CPM can hold
   QQQ/IWF while BULL holds QQQ and NDX holds top Nasdaq names. Realized growth
   exposure: mean 44%, median 40%, **max ~70%**, ≥70% in 34.6% of months. Not a
