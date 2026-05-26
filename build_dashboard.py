@@ -581,7 +581,7 @@ def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
     ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
     ax.set_ylabel("Sharpe")
-    ax.set_title(f"Rolling {window_days//21}-Month Sharpe (vs Naive 60/40)")
+    ax.set_title(f"Rolling {window_days//21}-Month Sharpe: PROD vs Naive 60/40 PP/SPY-trend")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax, ncol=2)
