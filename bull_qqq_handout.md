@@ -18,20 +18,16 @@ risk-adjusted return than buy-and-hold. The active design uses two
 binary gates:
 
 1. **Canary gate:** HYG OR TIP 13612U momentum > 0 (HAA-simple TIP plus credit-breadth extension).
-2. **Asset momentum gate:** risky asset 12-month TR absolute momentum > 0 (Antonacci GEM).
+2. **Asset momentum gate:** SPY 13612U momentum > 0 (HAA canonical).
 
-Both gates must pass for risk-on (100% in risky asset). Any gate
-failure flips to 100% SHV cash.
-
-Historical curve/vol composite variants are retained in Section 4 as
-sensitivity evidence only; they are not part of the active live rule.
+Both gates must pass for risk-on (100% in SPY). Any gate failure flips to 100% best_safe (SHV/IEF).
 
 **Headline trade-off: Bull-SPY improves risk-adjusted return versus SPY buy-hold, but still carries equity drawdown risk.**
-Over the clean window (18.1y, 10 bps/side cost), Bull-SPY CAGR is 12.65%
-vs SPY buy-hold 11.76%, with lower vol (14.55% vs 19.79%) and shallower
-max drawdown (-33.72% vs -51.48%), giving Sharpe 0.89 vs 0.66.
-Over the documented 30y window, Bull-SPY is 12.97% CAGR vs SPY 10.40%,
-Sharpe 0.92 vs 0.61, MaxDD -33.72% vs -55.19%.
+Over the clean window (18.1y, 10 bps/side cost), Bull-SPY CAGR is 12.96%
+vs SPY buy-hold 11.76%, with lower vol (12.73% vs 19.79%) and shallower
+max drawdown (-20.28% vs -51.48%), giving Sharpe 1.02 vs 0.66.
+Over the documented 30y window, Bull-SPY is 13.05% CAGR vs SPY 10.40%,
+Sharpe 1.11 vs 0.61, MaxDD -16.97% vs -55.19%.
 
 Paired JK/Memmel and DSR values in Section 4 were computed on older
 specification variants and are sensitivity-history evidence, not current
@@ -164,23 +160,19 @@ month-end close prices.
 
 ### 2.5 Gate 2: Asset momentum
 
-Compute 12-month TR absolute momentum on the risky asset itself:
+Compute 13612U unweighted momentum on the risky asset itself:
 
 ```
-mom_12_1 = price(t-1m) / price(t-13m) - 1
+mom_13612U = (r1 + r3 + r6 + r12) / 4
 ```
 
-**Gate passes** if `mom_12_1 > 0`. The skip-most-recent-month convention
-(Moskowitz, Ooi, Pedersen 2012) is the standard academic TSMOM form;
-related to but not exact Antonacci GEM (2014, which uses 12-month total
-return without skip). The skip avoids microstructure / reversal noise
-in the most recent month.
+**Gate passes** if `mom_13612U > 0`. This is the canonical HAA-Simple style unweighted momentum filter (Keller & Keuning 2022). It is highly responsive and avoids the slow 12-month trend lag of legacy models.
 
 ### 2.6 Allocation rule
 
 ```
 If Gate-1 AND Gate-2 both pass: 100% SPY
-Else:                           100% in SHV cash
+Else:                           100% in best_safe (SHV/IEF)
 ```
 
 There is no partial scaling, no continuous tilt, no leverage.
@@ -215,7 +207,7 @@ live rule.
 | Strategy                  |  Sharpe |   CAGR   |    Vol   |   Max DD | Calmar | Martin | Ulcer |
 |---------------------------|--------:|---------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold              |    0.66 |   11.78% |   19.81% |  -51.48% |   0.23 |   1.03 | 11.4% |
-| **Bull-SPY**              |    0.89 |   12.65% |   14.55% |  -33.72% |   0.38 |   2.43 |  5.2% |
+| **Bull-SPY**              |    1.02 |   12.96% |   12.73% |  -20.28% |   0.64 |   2.69 |  4.81% |
 | PP-IEF standalone         |    1.00 |    6.96% |    6.98% |  -15.34% |   0.45 |   2.22 |  3.1% |
 
 In this active-rule run, Bull-SPY shows higher CAGR and Sharpe than SPY
@@ -234,7 +226,7 @@ forward-filled to daily.
 | Strategy                   |  Sharpe |   CAGR   |   Max DD | Calmar | Martin | Ulcer |
 |----------------------------|--------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold               |    0.61 |   10.41% |  -55.19% |   0.19 |   0.69 | 15.1% |
-| **Bull-SPY**               |    0.92 |   12.97% |  -33.72% |   0.38 |   2.17 |  6.0% |
+| **Bull-SPY**               |    1.11 |   13.05% |  -16.97% |   0.77 |   2.58 |  5.05% |
 | PP-IEF standalone          |    1.05 |    7.00% |  -15.53% |   0.45 |   2.61 |  2.7% |
 | PP-TLT standalone          |    1.01 |    7.16% |  -17.45% |   0.41 |   2.11 |  3.4% |
 

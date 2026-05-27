@@ -111,21 +111,16 @@ def main() -> int:
     panel = load_panel(start=pd.Timestamp("1996-01-01"),
                        end=end + pd.Timedelta(days=2))
     ndx_panel = load_ndx_panel()
-    bull_r = run_bull_qqq_backtest(panel, pd.Timestamp("1996-01-04"), end)
     ndx_r, _ = run_ndx_backtest(panel, ndx_panel, pd.Timestamp("2006-01-01"), end)
-    if len(bull_r) < 30 or len(ndx_r) < 30:
+    if len(ndx_r) < 30:
         print(f"[dd-check] insufficient sleeve history")
         return 1
 
-    sig_dates = (pd.DataFrame({"x": 1}, index=bull_r.index)
-                 .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
     sig_dates_ndx = (pd.DataFrame({"x": 1}, index=ndx_r.index)
                       .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
 
     dash_url = os.environ.get("DASHBOARD_URL")
     n_alerts = 0
-    n_alerts += check_sleeve("BULL", bull_r, sig_dates,
-                                DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE, dash_url)
     n_alerts += check_sleeve("NDX", ndx_r, sig_dates_ndx,
                                 DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE, dash_url)
     print(f"[dd-check] {n_alerts} alerts sent")

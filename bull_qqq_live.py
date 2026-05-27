@@ -43,9 +43,6 @@ BULL_TICKER = "SPY"
 CASH_TICKER = "SHV"           # default cash if SAFE_POOL evaluation fails
 SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
 
-MOMENTUM_LOOKBACK = 12       # months: 12-month total return (Antonacci GEM / TSMOM standard;
-                             # NOT skip-month -- absolute momentum gates include latest month)
-
 # Macro canary: HYG credit + TIP real-rate/inflation breadth extension.
 # Risk-on when either canary asset has positive 13612U momentum.
 CANARY_ASSETS = ["HYG_stitched", "TIP"]
@@ -56,20 +53,6 @@ PROD_BULL_WEIGHT = 0.20      # BULL weight in 60/20/20 PROD blend
 COST_BPS_PER_SIDE = 10
 
 # ---------- Signal helpers ----------
-
-def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
-                       n: int = MOMENTUM_LOOKBACK) -> float:
-    """N-month absolute total return (Antonacci GEM 2014 / Moskowitz-Ooi-
-    Pedersen TSMOM 2012). For default n=12: price_today / price_12mo_ago - 1,
-    no skip-month (latest month included). Skip-month form is for cross-
-    sectional ranking (Jegadeesh-Titman 1993); not standard for absolute
-    momentum regime gates. Slow anchor signal -- stays negative throughout
-    sustained bears, avoiding whipsaws. `s` should be MONTHLY resampled prices.
-    Note: s is already sliced to sig_d, do not re-slice with loc[:sig_d]."""
-    sd = s.dropna()
-    if len(sd) < n + 1:
-        return float("nan")
-    return float(sd.iloc[-1] / sd.iloc[-n - 1] - 1)
 
 
 def _trend_signal(monthly_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
@@ -257,7 +240,7 @@ def cmd_allocate(args):
     print(f"Bull asset:  {BULL_TICKER}  (100% when canary AND asset momentum both pass)")
     print(f"Fallback:    best-of-safe (SHV/IEF by 13612U) when any gate fails")
     print(f"Canary:      (HYG_stitched OR TIP) 13612U > 0")
-    print(f"Asset mom:   {BULL_TICKER} 12mo TR absolute momentum > 0 (Antonacci GEM, circuit breaker)")
+    print(f"Asset mom:   {BULL_TICKER} 13612U momentum > 0 (HAA standard, circuit breaker)")
     print()
 
     weights, regime, diag = compute_bull_qqq_weights(panel, sig_d)
@@ -266,9 +249,9 @@ def cmd_allocate(args):
     print(f"  HYG 13612U = {diag['hyg_sig']:+.4f} ({'+' if diag['hyg_sig']>0 else '-'})")
     print(f"  TIP 13612U = {diag['tip_sig']:+.4f} ({'+' if diag['tip_sig']>0 else '-'})")
     print(f"  Canary (HYG OR TIP > 0): {'YES' if diag['canary_ok'] else 'NO'}")
-    if pd.notna(diag.get('mom_12_1', float('nan'))):
+    if pd.notna(diag.get('sig_13612U', float('nan'))):
         print(f"\nAsset mom diagnostics:")
-        print(f"  {BULL_TICKER} 12mo TR = {diag['mom_12_1']*100:+7.2f}%  "
+        print(f"  {BULL_TICKER} 13612U = {diag['sig_13612U']*100:+7.2f}%  "
               f"(> 0: {'YES' if diag['mom_ok'] else 'NO'})  [circuit breaker]")
     print()
 
