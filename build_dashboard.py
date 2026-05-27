@@ -830,7 +830,7 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
 
     def build_grid(daily_returns, canary_assets, include_macro=False):
         """CPM 3-asset canary: 2x4 grid (rows=HYG, cols=last two canary bits).
-        BULL 2-asset canary + macro: 4x4 grid (rows=HYG/TIP, cols=curve/vol)."""
+        BULL 2-asset canary: 2x2 grid (rows=HYG, cols=TIP)."""
         state_ser = compute_states(canary_assets, include_macro=include_macro)
         state_per_day = attribute(daily_returns, state_ser)
         n_assets = len(canary_assets)
@@ -838,8 +838,12 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
             # CPM: rows = HYG (first canary), cols = TIP x GLD
             row_order = [(True,), (False,)]
             col_order = [(True, True), (True, False), (False, True), (False, False)]
+        elif not include_macro and n_assets == 2:
+            # BULL: rows = HYG, cols = TIP
+            row_order = [(True,), (False,)]
+            col_order = [(True,), (False,)]
         elif include_macro and n_assets == 2:
-            # BULL: rows = HYG x TIP, cols = curve x vol
+            # BULL legacy: rows = HYG x TIP, cols = curve x vol
             row_order = [(True, True), (True, False), (False, True), (False, False)]
             col_order = [(True, True), (True, False), (False, True), (False, False)]
         else:
@@ -894,19 +898,19 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
     bull_canary = ['HYG_stitched', 'TIP']
 
     cpm_grid = build_grid(cpm_rets, cpm_canary, include_macro=False)
-    bull_grid = build_grid(bull_rets, bull_canary, include_macro=True)
+    bull_grid = build_grid(bull_rets, bull_canary, include_macro=False)
 
     cpm_col_labels = [f"TIP{a}\nGLD{b}" for a, b in [('+','+'),('+','-'),('-','+'),('-','-')]]
     cpm_row_labels = ['HYG+', 'HYG-']
-    bull_col_labels = [f"curve{a}\nvol{b}" for a, b in [('+','+'),('+','-'),('-','+'),('-','-')]]
-    bull_row_labels = [f"HYG{a}\nTIP{b}" for a, b in [('+','+'),('+','-'),('-','+'),('-','-')]]
+    bull_col_labels = ['TIP+', 'TIP-']
+    bull_row_labels = ['HYG+', 'HYG-']
 
-    fig, axes = plt.subplots(2, 1, figsize=(11, 11), constrained_layout=True,
-                              gridspec_kw={'height_ratios':[1, 2]})
+    fig, axes = plt.subplots(2, 1, figsize=(11, 8.5), constrained_layout=True,
+                              gridspec_kw={'height_ratios':[1, 1]})
     im = plot_sub(axes[0], cpm_grid, cpm_row_labels, cpm_col_labels,
                    'CPM sleeve - performance by canary state', fontsize=9)
     plot_sub(axes[1], bull_grid, bull_row_labels, bull_col_labels,
-              'BULL-SPY sleeve - performance by canary AND macro composite state', fontsize=8)
+              'BULL-SPY sleeve - performance by canary state', fontsize=9)
     fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)
     return fig
 
@@ -2488,8 +2492,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary>NDX Sleeve ({int(NDX_W*100)}%) -- concentrated Nasdaq-100 momentum</summary>
 <ul>
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
-<li><strong>Signal:</strong> 13612U momentum per stock (same formula as CPM canary, canonical HAA unweighted).</li>
-<li><strong>Selection:</strong> top 8 by momentum (positive only), equal-weighted 12.5% each.</li>
+<li><strong>Signal:</strong> GPM score = 13612U momentum penalized by 260d correlation to equal-weighted NDX basket.</li>
+<li><strong>Selection:</strong> top {NDX_SELECT_K} by GPM score (positive only), equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
 <li><strong>Gate:</strong> only allocates top-K when BULL gate regime is <code>BULL_SPY</code> (equity-friendly); otherwise best-of-safe.</li>
 <li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
