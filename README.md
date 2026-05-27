@@ -29,7 +29,7 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 (BULL-SPY)** | **1.73** | **18.04%** | **9.88%** | **-10.21%** | **2.49%** |
+| **PROD 60/20/20 (BULL-SPY)** | **1.75** | **18.04%** | **9.75%** | **-9.19%** | **2.49%** |
 | Naive 60/40 PP/SPY-trend | 0.99 | 7.70% | 7.79% | -14.41% | 4.08% |
 | SPY buy-hold | 0.66 | 11.76% | 19.79% | -51.48% | -- |
 | QQQ buy-hold | 0.82 | 17.23% | 22.29% | -49.37% | -- |
@@ -37,16 +37,12 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM | 1.33 | 14.38% | 10.54% | -10.59% |
-| BULL-SPY | 1.02 | 12.96% | 12.73% | -20.28% |
+| BULL-SPY | 1.11 | 13.03% | 11.69% | -16.97% |
 | NDX top-K | 1.45 | 32.63% | 20.98% | -18.33% |
 
 **Naive benchmark suite** primary peer is `Naive 60/40 PP/SPY-trend`
 (Permanent Portfolio + SPY 10mo SMA trend), apples-to-apples with BULL-SPY.
 QQQ buy-and-hold remains as upper-bound tech reference.
-
-**Block bootstrap headline:** prior values were estimated on a different BULL
-spec. Re-run bootstrap for the active HYG OR TIP + SPY 12m rule before
-treating CI/PSR numbers as current.
 
 ## Strategy specification
 

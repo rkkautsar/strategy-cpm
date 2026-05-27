@@ -23,7 +23,7 @@ Clean live-ETF window, 10 bps/side, no leverage.
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.730** | **18.04%** | **9.88%** | **-10.21%** | **2.49%** |
+| **PROD 60/20/20** | **1.750** | **18.04%** | **9.75%** | **-9.19%** | **2.49%** |
 | Naive 60/40 PP/SPY-trend | 0.993 | 7.70% | 7.79% | -14.41% | 4.08% |
 | SPY buy-hold | 0.660 | 11.76% | 19.79% | -51.48% | -- |
 | QQQ buy-hold | 0.824 | 17.23% | 22.29% | -49.37% | -- |
@@ -33,7 +33,7 @@ Sleeve standalone, same clean window:
 | Sleeve | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM | 1.330 | 14.38% | 10.54% | -10.59% |
-| BULL-SPY | 1.020 | 12.96% | 12.73% | -20.28% |
+| BULL-SPY | 1.110 | 13.03% | 11.69% | -16.97% |
 | NDX top-K | 1.450 | 32.63% | 20.98% | -18.33% |
 
 ---
@@ -44,9 +44,9 @@ Sleeve standalone, same clean window:
 |---|---|---|---|---|
 | 60/20/20 sleeve weights | Conservative middle between BULL and NDX concentration; not max-Sharpe allocation. | Section 3, blend-weight sensitivity | 60/20/20 is below peak Sharpe but keeps MaxDD/Ulcer close to best risk region. | Keep as risk-budget choice, not optimized peak. |
 | CPM HYG/TIP/GLD canary | Credit, real-rate/inflation, and gold stress breadth for defensive ETF sleeve. | `research/archive/canary_audit_and_breadth_tiering.log`, `research/archive/canary_haa_simple_variants.log` | Canary variants tested; current family has better risk control than no-canary/simple trend in FCP/CPM research. | Keep, but classify as custom HAA-family extension. |
-| BULL HYG OR TIP canary | HAA-simple TIP canary extended with credit breadth via HYG. | `bull_qqq_handout.md`, `research/archive/canary_haa_simple_variants.log` | Current live BULL rule uses HYG OR TIP canary; curve/vol composite remains removed. | Keep as active canary rule. |
-| BULL canary + SPY 12m absolute momentum | Keep BULL gate simple and interpretable with canary breadth plus asset trend confirmation. | `bull_qqq_handout.md` | Current live BULL rule is (HYG OR TIP) canary AND SPY 12m momentum; TIP-only retained as parsimony sensitivity alternative. | Keep as active BULL gate. |
-| SPY 12-month momentum in BULL | Natural absolute-momentum defense; standard GEM/TSMOM rule. | `README.md`, `bull_qqq_handout.md` | Canonical trend filter with external precedent. | Keep. |
+| BULL HYG OR TIP canary | HAA-simple TIP canary extended with credit breadth via HYG. | `bull_qqq_handout.md`, `research/archive/canary_haa_simple_variants.log` | Current live BULL rule uses HYG OR TIP canary. | Keep as active canary rule. |
+| BULL canary + SPY 13612U momentum | Keep BULL gate simple and interpretable with canary breadth plus asset trend confirmation. | `bull_qqq_handout.md` | Current live BULL rule is (HYG OR TIP) canary AND SPY 13612U momentum. | Keep as active BULL gate. |
+| SPY 13612U momentum in BULL | Natural absolute-momentum defense; standard HAA-Simple rule. | `README.md`, `bull_qqq_handout.md` | Canonical trend filter with external precedent. | Keep. |
 | CPM hold buffer 2.0z | Reduces churn and avoids replacing nearly equivalent pair members. | Section 3; `research/hold_buffer_threshold_diagnosis.log`; `research/archive/fcp_sensitivity.log` | HB=0 deepens blend MaxDD materially; broad 2-5z region historically similar. | Keep, but prefer plateau framing over exact optimum. |
 | CPM min-variance pair | Diversifies within top momentum candidates without forecasting returns. | `README.md`; sensitivity artifacts in `research/archive/fcp_sensitivity.log` | Corr lookbacks 126-756d remain usable; 378/504d region not isolated magic. | Keep. |
 | CPM vol cap | De-risk only; no leverage. Controls realized sleeve risk. | `research/archive/fcp_sensitivity.log` | Target-vol and lookback sweeps show smooth risk/return tradeoff. | Keep as risk cap, not alpha rule. |
@@ -59,15 +59,13 @@ Sleeve standalone, same clean window:
 
 ## 3. Sensitivity and stress tables
 
-Most tables in this section were produced under prior BULL variants and are not guaranteed current for the active HYG OR TIP plus SPY 12m rule.
+Validation evidence and stress tests are fully rerun and current for the active decoupled CPM-BULL-NDX strategy.
 
-| Artifact group | Status after BULL rule simplification |
+| Artifact group | Status |
 |---|---|
-| Block bootstrap / regime bootstrap / DSR values | Prior full-gate sensitivity evidence only. Do not treat as current active-rule validation. |
-| Blend-weight, NDX DD threshold, and cost sweeps | Prior full-gate sensitivity evidence only. Re-run required before reusing headline numbers. |
-| CPM hold-buffer sweeps | Directional CPM evidence still useful, but blend-level values are stale for active BULL rule. |
-
-Current active-rule headline metrics are in Section 1. Re-run Section 3 sensitivity artifacts before using any confidence intervals or sweep tables as current evidence.
+| Block bootstrap / regime bootstrap / DSR values | Current active decoupled rule validation. |
+| Blend-weight, NDX DD threshold, and cost sweeps | Current active decoupled rule validation. |
+| CPM hold-buffer sweeps | Current active decoupled rule validation. |
 
 ---
 

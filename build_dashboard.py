@@ -468,10 +468,10 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    # DD circuit applies to NDX sleeve only.
-    bull_dd_scale = pd.Series(1.0, index=bull_raw.index)
+    # DD circuit applies to both BULL and NDX sleeves.
+    bull_dd_scale = compute_dd_circuit_scale(bull_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
     ndx_dd_scale = compute_dd_circuit_scale(ndx_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
-    bull = bull_raw  # no DD circuit
+    bull = bull_dd_scale * bull_raw
     ndx = ndx_dd_scale * ndx_raw
     blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
     # No additional portfolio-level cap overlay.
