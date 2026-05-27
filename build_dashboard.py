@@ -2381,8 +2381,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_SPY regime. When BULL gate is off, allocate 100% best-of-safe SHV/IEF.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 13612U momentum &gt; 0. Fallback: HAA best-of-safe (SHV / IEF) by 13612U. Both BULL-SPY and NDX sleeves are protected by daily -10% drawdown circuit breakers.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on decoupled TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF.</li>
 </ul>
 </div>
 </details>
@@ -2481,7 +2481,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation.</li>
 <li><strong>Canary gate:</strong> (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
-<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-month TR absolute momentum &gt; 0 (Antonacci GEM 2014, no skip-month). Direct observation of the risky asset itself.</li>
+<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical). Fast and responsive (no slow 12mo lag).</li>
+<li><strong>Daily overlay:</strong> -10% daily drawdown circuit breaker from 63d rolling-peak. Scale to cash (0.0) on breach, resets monthly.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 
@@ -2494,7 +2495,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
 <li><strong>Signal:</strong> GPM score = 13612U momentum penalized by 260d correlation to equal-weighted NDX basket.</li>
 <li><strong>Selection:</strong> top {NDX_SELECT_K} by GPM score (positive only), equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
-<li><strong>Gate:</strong> only allocates top-K when BULL gate regime is <code>BULL_SPY</code> (equity-friendly); otherwise best-of-safe.</li>
+<li><strong>Gate:</strong> Gated strictly on decoupled TIP 13612U canary &gt; 0 (no SPY trend filter check, allowing stock-level momentum to run undisturbed).</li>
+<li><strong>Daily overlay:</strong> -10% daily drawdown circuit breaker from 63d rolling-peak. Scale to cash (0.0) on breach, resets monthly.</li>
 <li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
 <li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
