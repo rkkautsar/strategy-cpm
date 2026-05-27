@@ -7,8 +7,8 @@ This document is the current validation ledger for the 60/20/20 CPM-BULL-NDX str
 **Current production candidate**
 
 - **60% CPM**: 9-asset ETF momentum/min-variance sleeve with HYG/TIP/GLD canary, best-of-safe SHV/IEF, hold buffer, and de-risk-only vol cap.
-- **20% BULL-SPY**: SPY risk-on sleeve gated by HYG OR TIP canary and SPY 12-month momentum.
-- **20% NDX**: PIT Nasdaq-100 top-5 GPM score (13612U momentum penalized by 260d correlation) stocks, 20% each, partial-fill to best safe, with NDX-only drawdown circuit.
+- **20% BULL-SPY**: SPY risk-on sleeve gated by HYG OR TIP canary and SPY 13612U momentum.
+- **20% NDX**: PIT Nasdaq-100 top-5 GPM score (13612U momentum penalized by 260d correlation) stocks, 20% each, active strictly when the TIP canary passes, with NDX-only drawdown circuit.
 
 **Primary windows**
 
@@ -23,7 +23,7 @@ Clean live-ETF window, 10 bps/side, no leverage.
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.710** | **17.95%** | **9.99%** | **-9.35%** | **2.65%** |
+| **PROD 60/20/20** | **1.730** | **18.04%** | **9.88%** | **-10.21%** | **2.49%** |
 | Naive 60/40 PP/SPY-trend | 0.993 | 7.70% | 7.79% | -14.41% | 4.08% |
 | SPY buy-hold | 0.660 | 11.76% | 19.79% | -51.48% | -- |
 | QQQ buy-hold | 0.824 | 17.23% | 22.29% | -49.37% | -- |
@@ -33,8 +33,8 @@ Sleeve standalone, same clean window:
 | Sleeve | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM | 1.330 | 14.38% | 10.54% | -10.59% |
-| BULL-SPY | 0.890 | 12.64% | 14.55% | -33.72% |
-| NDX top-K | 1.440 | 32.23% | 20.93% | -14.40% |
+| BULL-SPY | 1.020 | 12.96% | 12.73% | -20.28% |
+| NDX top-K | 1.450 | 32.63% | 20.98% | -18.33% |
 
 ---
 

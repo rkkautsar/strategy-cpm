@@ -64,33 +64,37 @@ def _absolute_momentum(s: pd.Series, sig_d: pd.Timestamp,
     no skip-month (latest month included). Skip-month form is for cross-
     sectional ranking (Jegadeesh-Titman 1993); not standard for absolute
     momentum regime gates. Slow anchor signal -- stays negative throughout
-    sustained bears, avoiding whipsaws. `s` should be MONTHLY resampled prices."""
-    sd = s.loc[:sig_d].dropna()
+    sustained bears, avoiding whipsaws. `s` should be MONTHLY resampled prices.
+    Note: s is already sliced to sig_d, do not re-slice with loc[:sig_d]."""
+    sd = s.dropna()
     if len(sd) < n + 1:
         return float("nan")
     return float(sd.iloc[-1] / sd.iloc[-n - 1] - 1)
 
 
-def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Trend filter: QQQ 12-month TR absolute momentum > 0 (Antonacci GEM 2014).
+def _trend_signal(monthly_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
+    """Trend filter: SPY 13612U momentum > 0 (HAA canonical).
 
     Returns (signal_on, diagnostics):
-      signal_on = True if 12mo absolute TR is positive.
-      Slow anchor (anti-whipsaw, GEM standard), no skip-month.
+      signal_on = True if 13612U momentum is positive.
+      Fast and responsive (HAA standard), no slow 12mo lag.
+      Note: monthly_spy is already sliced to sig_d, do not re-slice.
     """
-    mom_12_1 = _absolute_momentum(monthly_qqq, sig_d)
-    mom_ok = pd.notna(mom_12_1) and mom_12_1 > 0
+    spy_13612 = sig_13612U(monthly_spy)
+    mom_ok = pd.notna(spy_13612) and spy_13612 > 0
     return (mom_ok, dict(
-        mom_12_1=mom_12_1, sig_13612U=float("nan"),
-        mom_ok=mom_ok, w13_ok=False,
+        mom_12_1=float("nan"), sig_13612U=spy_13612,
+        mom_ok=mom_ok, w13_ok=mom_ok,
     ))
 
 
 def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Macro risk-on gate: HYG OR TIP 13612U canary."""
+    """Macro risk-on gate: HYG OR TIP 13612U canary.
+    Note: monthly is already sliced up to sig_d, do not re-slice with .loc[:sig_d]
+    as calendar month-end index labels will drop the current month."""
     sigs = {}
     for asset in CANARY_ASSETS:
-        sigs[asset] = sig_13612U(monthly[asset].loc[:sig_d]) if asset in monthly.columns else float("nan")
+        sigs[asset] = sig_13612U(monthly[asset]) if asset in monthly.columns else float("nan")
     positives = [(pd.notna(v) and v > 0) for v in sigs.values()]
     if CANARY_RULE == "all_positive":
         canary_ok = all(positives)

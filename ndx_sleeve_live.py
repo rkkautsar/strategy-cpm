@@ -2,15 +2,15 @@
 
 Spec:
   1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)
-  2. Signal:   13612U momentum per stock (canonical HAA unweighted average)
-  3. Gate:     BULL gate regime must be BULL_SPY; else best-of-safe (SHV/IEF
-               by 13612U, HAA-style).
+  2. Signal:   GPM score (13612U momentum * (1 - 260d correlation)) per stock
+  3. Gate:     Decoupled. Gated strictly on TIP 13612U > 0; else best-of-safe
+               (SHV/IEF by 13612U, HAA-style). No SPY trend gate check.
   4. PIT fallback: when PIT data is unavailable, mirror BULL sleeve
      weights (NDX sleeve acts as extra BULL exposure).
-  5. Selection: top-K by 13612U momentum, equal-weighted 1/K each.
+  5. Selection: top-K by GPM score, equal-weighted 1/K each.
   6. Partial fill: if fewer than K positive candidates, take what's there at
-     1/K=25% per pick, rest in best-of-safe (e.g. 2 positives -> 50% stocks
-     + 50% best-safe).
+     1/K=20% per pick, rest in best-of-safe (e.g. 2 positives -> 40% stocks
+     + 60% best-safe).
   7. Monthly rebalance, T+1 OPEN execution (next-day MOO), 10bps/side cost.
 """
 from __future__ import annotations
@@ -79,18 +79,20 @@ def compute_ndx_weights(
     """Returns (weights, regime_label, diagnostics).
 
     Flow:
-      - BULL gate ON  -> select top-K NDX names by 13612U > 0 (full weight)
-      - BULL gate OFF -> 100% best-of-safe
+      - TIP canary ON  -> select top-K NDX names by GPM score (full weight)
+      - TIP canary OFF -> 100% best-of-safe (SHV/IEF)
     """
-    # Step 1: BULL gate -- defensive if not BULL_*
-    bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
-    if not bq_regime.startswith("BULL_"):
-        cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
+    # Step 1: Decoupled Gating -- defensive if TIP canary is negative
+    cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
+    tip_sig = sig_13612U(cpm_monthly["TIP"]) if "TIP" in cpm_monthly.columns else float("nan")
+    ndx_active = bool(pd.notna(tip_sig) and tip_sig > 0)
+    
+    if not ndx_active:
         safe = _pick_safe(cpm_monthly)
-        return ({safe: 1.0}, f"GATE_OFF ({bq_regime})", {
-            "bull_regime": bq_regime,
+        return ({safe: 1.0}, "GATE_OFF (TIP_mom <= 0)", {
+            "tip_sig": tip_sig,
             "selected": [],
-            "reason": "BULL gate off",
+            "reason": "TIP canary negative",
             "picked_safe": safe,
         })
 
@@ -100,6 +102,7 @@ def compute_ndx_weights(
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
     if len(pit_tickers) == 0:
+        bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
         return (bq_weights, "NDX_FALLBACK_BULL", {
             "bull_regime": bq_regime,
             "selected": list(bq_weights.keys()),
@@ -154,7 +157,7 @@ def compute_ndx_weights(
         weights[safe] = weights.get(safe, 0.0) + cash_share
     regime = "NDX_ACTIVE" if n_pick == SELECT_K else f"NDX_PARTIAL_{n_pick}"
     return (weights, regime, {
-        "bull_regime": bq_regime,
+        "bull_regime": "decoupled",
         "n_candidates": len(sorted_by_mom),
         "selected": selected,
         "momenta": {t: momenta[t] for t in selected},

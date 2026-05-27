@@ -11,12 +11,8 @@ Research detail lives in `cpm_bull_ndx_handout.md` and `bull_qqq_handout.md`.
   9-asset ETF universe (US factors + international + diversifiers). HYG+TIP+GLD
   canary is a triple-negative stress veto: CPM is defensive only when all three
   are negative; otherwise CPM can run normally. HAA best-of-safe (SHV/IEF) on defensive.
-- **BULL-SPY (20%)** — 100% SPY when HYG OR TIP canary and SPY 12mo total-return
-  momentum both pass. Otherwise, HAA best-of-safe (SHV/IEF). SPY chosen over QQQ
-  for lower overlap with NDX.
-- **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by GPM score (13612U momentum penalized by 260d correlation), 20% each,
-  active only when the BULL-SPY gate is on. Each pick is 4.0% of the portfolio.
-  Defensive paths use HAA best-of-safe (SHV/IEF).
+- **BULL-SPY (20%)** — 100% SPY when HYG OR TIP canary and SPY 13612U momentum both pass. Otherwise, HAA best-of-safe (SHV/IEF). SPY chosen over QQQ for lower overlap with NDX.
+- **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by GPM score (13612U momentum penalized by 260d correlation), 20% each, active strictly when the TIP canary passes. Each pick is 4.0% of the portfolio. Defensive paths use HAA best-of-safe (SHV/IEF).
 
 **Risk overlay:** NDX DD circuit scales NDX to cash when NDX sleeve DD from its
 63d rolling peak is below -10%, until the next monthly signal date.
@@ -33,7 +29,7 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 (BULL-SPY)** | **1.71** | **17.95%** | **9.99%** | **-9.35%** | **2.65%** |
+| **PROD 60/20/20 (BULL-SPY)** | **1.73** | **18.04%** | **9.88%** | **-10.21%** | **2.49%** |
 | Naive 60/40 PP/SPY-trend | 0.99 | 7.70% | 7.79% | -14.41% | 4.08% |
 | SPY buy-hold | 0.66 | 11.76% | 19.79% | -51.48% | -- |
 | QQQ buy-hold | 0.82 | 17.23% | 22.29% | -49.37% | -- |
@@ -41,8 +37,8 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM | 1.33 | 14.38% | 10.54% | -10.59% |
-| BULL-SPY | 0.89 | 12.64% | 14.55% | -33.72% |
-| NDX top-K | 1.44 | 32.23% | 20.93% | -14.40% |
+| BULL-SPY | 1.02 | 12.96% | 12.73% | -20.28% |
+| NDX top-K | 1.45 | 32.63% | 20.98% | -18.33% |
 
 **Naive benchmark suite** primary peer is `Naive 60/40 PP/SPY-trend`
 (Permanent Portfolio + SPY 10mo SMA trend), apples-to-apples with BULL-SPY.
@@ -91,7 +87,7 @@ cpm[SHV] += 1.0 - sum(cpm.values())
 
 # ====== BULL sleeve (20%) ======
 canary_on    = (mom_13612U(HYG_stitched) > 0) OR (mom_13612U(TIP) > 0)
-asset_mom_on = mom_12mo(SPY) > 0
+asset_mom_on = mom_13612U(SPY) > 0
 
 # HAA best-of-safe: SHV in rising-rate regimes, IEF in falling-rate.
 safe = argmax({s: mom_13612U(s) for s in [SHV, IEF]})
@@ -103,11 +99,14 @@ else:
     bull = {safe: 1.0}                  # CASH
 
 # ====== NDX sleeve (20%) ======
-if BULL gate regime startswith "BULL_":     # gate ON -> top-K stock pick
-    momenta = {t: mom_13612U(t) for t in PIT_NDX100(T)}
-    picks   = [t for t, m in sorted(momenta, by=-m) if m > 0][:8]
-    ndx     = {t: 0.125 for t in picks}                # 1/K=12.5% per pick
-    ndx[safe] = 1.0 - 0.125 * len(picks)               # partial-fill -> best-of-safe
+ndx_active = mom_13612U(TIP) > 0  # Decoupled macro gating: TIP-only canary
+
+if ndx_active:
+    # Top-5 by GPM score: 13612U momentum penalized by 260d correlation
+    scores = {t: mom_13612U(t) * (1.0 - corr_260d(t)) for t in PIT_NDX100(T)}
+    picks  = [t for t, s in sorted(scores, by=-s) if mom_13612U(t) > 0][:5]
+    ndx    = {t: 0.20 for t in picks}                  # 1/K=20.0% per pick
+    ndx[safe] = 1.0 - 0.20 * len(picks)                # partial-fill -> best-of-safe
 else:
     ndx = {safe: 1.0}                                  # 100% best-of-safe
 
@@ -193,7 +192,7 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
 
 - Effective Nasdaq/growth exposure: mean 44%, median 40%, max 70%, at least
   70% in 34.6% of months.
-- NDX sleeve standalone MaxDD is -31.52% in the clean live-ETF window.
+- NDX sleeve standalone MaxDD is -18.33% in the clean live-ETF window (with the daily -10% circuit breaker).
 
 **NDX data caveat**
 
