@@ -16,8 +16,10 @@ import pandas as pd
 # Avoids the prior hand-picked -15% which had no paper citation.
 DD_CIRCUIT_THRESHOLD = -0.10   # -10% drawdown triggers defensive (Nystrup-Boyd)
 DD_CIRCUIT_SCALE = 0.0         # 0 = full cash; could be 0.5 for partial
-DD_CIRCUIT_SLEEVES = ("NDX", "BULL")  # Both sleeves use the daily drawdown circuit
-# breaker. CPM is excluded (low standalone DD).
+DD_CIRCUIT_SLEEVES = ("NDX",)  # NDX only -- empirical test showed BULL DD
+# circuit added negligible benefit (+0.004 Sh vs no-DD baseline) while NDX-
+# only captured the bulk of the benefit. CPM also excluded (low standalone DD);
+# BULL excluded (13612U trend gate already self-protects vs drawdowns).
 
 
 # Rolling-peak lookback for DD circuit breaker = 63 trading days (~1

@@ -468,10 +468,10 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    # DD circuit applies to both BULL and NDX sleeves.
-    bull_dd_scale = compute_dd_circuit_scale(bull_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
+    # DD circuit applies to NDX sleeve only.
+    bull_dd_scale = pd.Series(1.0, index=bull_raw.index)
     ndx_dd_scale = compute_dd_circuit_scale(ndx_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
-    bull = bull_dd_scale * bull_raw
+    bull = bull_raw  # no DD circuit
     ndx = ndx_dd_scale * ndx_raw
     blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
     # No additional portfolio-level cap overlay.
@@ -2459,7 +2459,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Ranker:</strong> Faber 10-month SMA distance: <code>(price - SMA10) / SMA10</code></li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by ranker (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop negative momentum</li>
 <li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d covariance lookback)</li>
-<li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep previous pair member unless new candidate exceeds by this margin in cross-sectional z-score). Buffer memory resets when canary breadth crosses majority (HYG/TIP/GLD positive count moves between <2 and >=2).</li>
+<li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep previous pair member unless new candidate exceeds by this margin in cross-sectional z-score). Buffer memory resets across any 3-level canary risk state transition (OFF <-> WEAK <-> ON).</li>
 <li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% best-of-safe; 0 positive &rarr; 100% best-of-safe</li>
 <li><strong>Vol cap:</strong> {TARGET_VOL*100:.0f}% annualized target, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong>.</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>

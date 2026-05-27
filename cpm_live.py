@@ -70,7 +70,7 @@ TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
 HOLD_BUFFER = 2.0           # z-score units; retain prior pair member unless
                             # new candidate exceeds by this margin
 CORR_LOOKBACK_DAYS = 504    # EWMA covariance half-life for min-var pair (~2y)
-TARGET_VOL = 0.12           # annualized vol cap (de-risk only)
+TARGET_VOL = 0.15           # annualized vol cap (de-risk only)
 VOL_LOOKBACK_DAYS = 63      # ~3mo realized vol
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
@@ -455,7 +455,7 @@ def compute_live_weights(
     """STATELESS production-correct allocation at sig_d.
 
     Walks forward from (sig_d - walk_months) with prev_pair propagation +
-    hold-buffer reset on canary breadth-majority crossings, matching
+    hold-buffer reset on canary risk state transitions (OFF <-> WEAK <-> ON), matching
     `run_cpm_backtest` behavior. No state file needed -- the walk
     reconstructs hold-buffer state from scratch each call.
 

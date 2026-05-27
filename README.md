@@ -29,15 +29,15 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 (BULL-SPY)** | **1.75** | **18.04%** | **9.75%** | **-9.19%** | **2.49%** |
+| **PROD 60/20/20 (BULL-SPY)** | **1.71** | **18.58%** | **10.32%** | **-10.89%** | **2.60%** |
 | Naive 60/40 PP/SPY-trend | 0.99 | 7.70% | 7.79% | -14.41% | 4.08% |
 | SPY buy-hold | 0.66 | 11.76% | 19.79% | -51.48% | -- |
 | QQQ buy-hold | 0.82 | 17.23% | 22.29% | -49.37% | -- |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM | 1.33 | 14.38% | 10.54% | -10.59% |
-| BULL-SPY | 1.11 | 13.03% | 11.69% | -16.97% |
+| CPM | 1.30 | 15.22% | 11.41% | -12.35% |
+| BULL-SPY | 1.02 | 12.96% | 12.73% | -20.28% |
 | NDX top-K | 1.45 | 32.63% | 20.98% | -18.33% |
 
 **Naive benchmark suite** primary peer is `Naive 60/40 PP/SPY-trend`
@@ -77,7 +77,7 @@ else:
     # is within HOLD_BUFFER=2.0z of worst new pick. Off when < 3 positive.
 
 # Vol cap (de-risk only, scale <= 1.0)
-scale = min(1.0, 0.12 / realized_vol_63d(cpm))   # 12% vol cap (de-risk only)
+scale = min(1.0, 0.15 / realized_vol_63d(cpm))   # 15% vol cap (de-risk only)
 cpm   = {a: w * scale for a, w in cpm.items()}
 cpm[SHV] += 1.0 - sum(cpm.values())
 
@@ -95,7 +95,7 @@ else:
     bull = {safe: 1.0}                  # CASH
 
 # ====== NDX sleeve (20%) ======
-ndx_active = mom_13612U(TIP) > 0  # Decoupled macro gating: TIP-only canary
+ndx_active = mom_13612U(TIP) > 0  # Gating: TIP-only canary
 
 if ndx_active:
     # Top-5 by GPM score: 13612U momentum penalized by 260d correlation
@@ -177,7 +177,7 @@ ddof=0. MaxDD = trough below highest prior peak. Calmar = CAGR / |MaxDD|.
 
 **Vol & concentration**
 
-- CPM is vol-targeted at 12% sleeve-internal. BULL and NDX are not
+- CPM is vol-targeted at 15% sleeve-internal. BULL and NDX are not
   sleeve-vol-targeted. NDX DD circuit is the sole portfolio-level tail overlay.
 - Realized blend 63d vol distribution (CLEAN 18.1y):
 
