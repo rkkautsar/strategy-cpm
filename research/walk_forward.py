@@ -14,18 +14,18 @@ Two tests:
 Goal: do (3.0, 378) survive OOS, or was it in-sample fit?
 """
 import sys
-sys.path.insert(0, "/Users/rkautsar/personal/scripts/strategy_cam")
+sys.path.insert(0, "/Users/rkautsar/personal/scripts/strategy_cpm")
 
 import numpy as np
 import pandas as pd
 from itertools import combinations
 
-PANEL_PATH = "/Users/rkautsar/personal/scripts/artifacts/cpa-1997-exact-core-proxy-research/proxy_adjusted_close_daily.csv"
+PANEL_PATH = "/Users/rkautsar/personal/scripts/strategy_cpm/data/proxy_adjusted_close_daily.csv"
 panel = pd.read_csv(PANEL_PATH, parse_dates=["Date"], index_col="Date").sort_index()
-gld = pd.read_csv("/tmp/gld_stitched_daily_clean.csv", parse_dates=[0], index_col=0); gld.columns=["GLD"]
-kmlm = pd.read_csv("/tmp/kmlm_stitched_daily.csv", parse_dates=[0], index_col=0); kmlm.columns=["KMLM_stitched"]
-agg = pd.read_csv("/tmp/agg_stitched_daily.csv", parse_dates=[0], index_col=0); agg.columns=["AGG_stitched"]
-tip_clean = pd.read_csv("/tmp/tip_stitched_daily.csv", parse_dates=[0], index_col=0); tip_clean.columns=["TIP_clean"]
+gld = pd.read_csv("/Users/rkautsar/personal/scripts/strategy_cpm/data/gld_stitched_daily_clean.csv", parse_dates=[0], index_col=0); gld.columns=["GLD"]
+kmlm = pd.read_csv("/Users/rkautsar/personal/scripts/strategy_cpm/data/kmlm_stitched_daily.csv", parse_dates=[0], index_col=0); kmlm.columns=["KMLM_stitched"]
+agg = pd.read_csv("/Users/rkautsar/personal/scripts/strategy_cpm/data/agg_stitched_daily.csv", parse_dates=[0], index_col=0); agg.columns=["AGG_stitched"]
+tip_clean = pd.read_csv("/Users/rkautsar/personal/scripts/strategy_cpm/data/tip_stitched_daily.csv", parse_dates=[0], index_col=0); tip_clean.columns=["TIP_clean"]
 panel = panel.join(gld, how="outer").join(kmlm, how="outer").join(agg, how="outer").join(tip_clean, how="outer").sort_index()
 panel["TIP"] = panel["TIP_clean"]
 

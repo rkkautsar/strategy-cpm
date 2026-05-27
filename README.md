@@ -9,12 +9,13 @@ Research detail lives in `cpm_bull_ndx_handout.md` and `bull_qqq_handout.md`.
 
 - **CPM (60%)** — canary-gated momentum + min-variance pair selection on a
   9-asset ETF universe (US factors + international + diversifiers). HYG+TIP+GLD
-  any-positive 13612U canary. HAA best-of-safe (SHV/IEF) on defensive.
-- **BULL-SPY (20%)** — 100% SPY when HYG OR TIP canary, curve OR vol macro
-  composite, and SPY 12mo total-return momentum all pass. Otherwise, HAA
-  best-of-safe (SHV/IEF). SPY chosen over QQQ for lower overlap with NDX.
-- **NDX (20%)** — top-8 PIT Nasdaq-100 stocks by 13612U momentum, 12.5% each,
-  active only when the BULL-SPY gate is on. Each pick is 2.5% of the portfolio.
+  canary is a triple-negative stress veto: CPM is defensive only when all three
+  are negative; otherwise CPM can run normally. HAA best-of-safe (SHV/IEF) on defensive.
+- **BULL-SPY (20%)** — 100% SPY when HYG OR TIP canary and SPY 12mo total-return
+  momentum both pass. Otherwise, HAA best-of-safe (SHV/IEF). SPY chosen over QQQ
+  for lower overlap with NDX.
+- **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by GPM score (13612U momentum penalized by 260d correlation), 20% each,
+  active only when the BULL-SPY gate is on. Each pick is 4.0% of the portfolio.
   Defensive paths use HAA best-of-safe (SHV/IEF).
 
 **Risk overlay:** NDX DD circuit scales NDX to cash when NDX sleeve DD from its
@@ -32,25 +33,24 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Ulcer |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20 (BULL-SPY)** | **1.70** | **17.24%** | **9.84%** | **-8.25%** | **2.40%** |
+| **PROD 60/20/20 (BULL-SPY)** | **1.71** | **17.95%** | **9.99%** | **-9.35%** | **2.65%** |
 | Naive 60/40 PP/SPY-trend | 0.99 | 7.70% | 7.79% | -14.41% | 4.08% |
 | SPY buy-hold | 0.66 | 11.76% | 19.79% | -51.48% | -- |
 | QQQ buy-hold | 0.82 | 17.23% | 22.29% | -49.37% | -- |
 
 | Sleeve standalone | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM | 1.32 | 14.44% | 10.63% | -14.70% |
-| BULL-SPY | 1.20 | 13.16% | 10.83% | -13.60% |
-| NDX top-K | 1.24 | 29.25% | 23.66% | -31.52% |
+| CPM | 1.33 | 14.38% | 10.54% | -10.59% |
+| BULL-SPY | 0.89 | 12.64% | 14.55% | -33.72% |
+| NDX top-K | 1.44 | 32.23% | 20.93% | -14.40% |
 
 **Naive benchmark suite** primary peer is `Naive 60/40 PP/SPY-trend`
 (Permanent Portfolio + SPY 10mo SMA trend), apples-to-apples with BULL-SPY.
 QQQ buy-and-hold remains as upper-bound tech reference.
 
-**Block bootstrap headline** (paired 21-trading-day blocks, B=5000): PROD
-Sharpe 95% CI **[1.29, 2.12]**. Versus `Naive 60/40 PP/SPY-trend`
-(Sharpe 0.99), paired Sharpe-difference CI is **[+0.34, +1.07]** and
-P(PROD Sharpe > benchmark Sharpe) is **100.0%**.
+**Block bootstrap headline:** prior values were estimated on a different BULL
+spec. Re-run bootstrap for the active HYG OR TIP + SPY 12m rule before
+treating CI/PSR numbers as current.
 
 ## Strategy specification
 
@@ -90,20 +90,13 @@ cpm   = {a: w * scale for a, w in cpm.items()}
 cpm[SHV] += 1.0 - sum(cpm.values())
 
 # ====== BULL sleeve (20%) ======
-canary_on    = mom_13612U(HYG) > 0 OR mom_13612U(TIP) > 0
-p_curve      = sum(IEF[T-63d:T] ret) > sum(TLT[T-63d:T] ret)   # curve steepening
-# Broad-MARKET vol pillar, intentionally SPY not QQQ.
-# Empirical test (see Validation): QQQ-vol gives BULL Sh 1.09 vs SPY-vol
-# 1.18, so the broad-market vol regime is a stronger filter for the BULL
-# sleeve than asset-specific Nasdaq vol despite SPY being the held asset.
-p_market_vol = realized_vol_63d(SPY) < avg(rolling_63d_vol over 252d, SPY)
-composite_on = p_curve OR p_market_vol
+canary_on    = (mom_13612U(HYG_stitched) > 0) OR (mom_13612U(TIP) > 0)
 asset_mom_on = mom_12mo(SPY) > 0
 
 # HAA best-of-safe: SHV in rising-rate regimes, IEF in falling-rate.
 safe = argmax({s: mom_13612U(s) for s in [SHV, IEF]})
 
-if canary_on AND composite_on AND asset_mom_on:
+if canary_on AND asset_mom_on:
     bull = {SPY: 1.0}
 else:
     # Clean binary gate: full risk-on or full safe.
@@ -139,10 +132,10 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | CPM RISKY (9) | QQQ, IWF, VBR, SPHQ, EFA, EEM, GLD, TLT, DBC |
 | Safe pool (HAA best-of by 13612U) | SHV (ultra-short), IEF (7-10y) -- used by both CPM and BULL |
 | CPM canary (3, HAA-style) | HYG, TIP, GLD |
-| BULL canary (2) | HYG (high-yield credit), TIP (inflation-linked bonds) |
-| NDX | point-in-time Nasdaq-100 (top-8 by 13612U, 12.5% each) |
+| BULL canary (2, OR) | HYG_stitched, TIP |
+| NDX | point-in-time Nasdaq-100 (top-5 by GPM score, 20% each) |
 
-**Method lineage** (full citations in `cpm_bull_ndx_handout.md` §7):
+**Method lineage** (full citations in `cpm_bull_ndx_handout.md`):
 
 | Component | Source |
 |---|---|
@@ -164,7 +157,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 - Cron: monthly, 10am SGT (first business day after month-end).
 - Typical month: 16 tickers (9 CPM risky + SHV/IEF safe pool + QQQ + 8 NDX stocks).
 
-Methodology, sensitivity grids, and references live in
+Methodology, robustness ledger, sensitivity grids, and references live in
 `cpm_bull_ndx_handout.md`.
 
 **Hold-buffer**: HB=2.0z. Disabled when (a) fewer than 3 positive
@@ -172,7 +165,8 @@ candidates, (b) held asset's faber score <= 0, or (c) canary-state
 transition between months.
 
 Current architecture (single-universe Faber rank for CPM, plain 13612U
-for NDX, 3-AND BULL gate) is the active configuration.
+for NDX, HYG OR TIP canary plus SPY 12m momentum for BULL) is the active
+configuration.
 
 **Performance-stat conventions:** CAGR = `eq[-1] ** (1/years) - 1`,
 years = calendar_days / 365.25. Sharpe = annualized at 0% rf

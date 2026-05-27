@@ -1,4 +1,4 @@
-# Bull-SPY: A Three-Layer Regime Gate for SPY (hold equity when bullish, else cash)
+# Bull-SPY: A Two-Layer Regime Gate for SPY (hold equity when bullish, else cash)
 
 **Author:** Rakha Kanz Kautsar
 **Date:** 2026-05-23
@@ -14,36 +14,28 @@
 
 Bull-SPY is a monthly-rebalanced regime gate that converts SPY into a
 long-equity-or-cash strategy with materially lower drawdown and higher
-risk-adjusted return than buy-and-hold. The design uses three
-structurally distinct binary gates. The canary uses the Keller HAA-style
-"any positive" rule; the regime composite applies the same simple OR
-convention to two non-credit regime pillars (one external rates signal,
-one endogenous SPY-vol signal):
+risk-adjusted return than buy-and-hold. The active design uses two
+binary gates:
 
-1. **Canary gate:** HYG OR TIP 13612U momentum > 0 (Keller HAA convention,
-   2-asset credit + inflation signal).
-2. **Regime composite gate:** curve OR vol pillar positive, where curve
-   = `IEF 63d ret > TLT 63d ret` (external rates-regime signal) and vol
-   = `SPY 63d realized vol < 252d avg vol` (endogenous SPY-derived
-   variance regime). Both pillars use natural sign-test cutoffs.
-3. **Asset momentum gate:** risky asset 12-month TR absolute momentum > 0 (Antonacci GEM)
-   (skip-month form, common in academic momentum / TSMOM practice). See
-   Section 2.6 for the formula and relation to Antonacci GEM.
+1. **Canary gate:** HYG OR TIP 13612U momentum > 0 (HAA-simple TIP plus credit-breadth extension).
+2. **Asset momentum gate:** risky asset 12-month TR absolute momentum > 0 (Antonacci GEM).
 
-All three gates must pass for risk-on (100% in risky asset). Any gate
+Both gates must pass for risk-on (100% in risky asset). Any gate
 failure flips to 100% SHV cash.
 
-**Headline trade-off: Bull-SPY trades raw return for drawdown reduction.**
-Over the clean window (18.1y, 10 bps/side cost), Bull-SPY CAGR (11.2%) is
-*below* SPY buy-hold (11.8%), but vol is roughly halved (10.0% vs 19.8%) and
-max drawdown is cut to -12.6% vs -51.5%, giving Sharpe 1.11 vs 0.66. The 30y
-window shows the same pattern (CAGR 10.00% vs SPY 10.41%; MaxDD -19.4% vs
--55.2%). The value proposition is risk reduction, not return generation.
+Historical curve/vol composite variants are retained in Section 4 as
+sensitivity evidence only; they are not part of the active live rule.
 
-Paired Jobson-Korkie/Memmel Sharpe-difference test: Bull-SPY's Sharpe
-advantage over SPY buy-hold is statistically significant at the 5% level
-(p=0.028 one-sided). The standalone DSR null check (Section 4.10) also passes
-(PSR > 99% at N=50 specification trials).
+**Headline trade-off: Bull-SPY improves risk-adjusted return versus SPY buy-hold, but still carries equity drawdown risk.**
+Over the clean window (18.1y, 10 bps/side cost), Bull-SPY CAGR is 12.65%
+vs SPY buy-hold 11.76%, with lower vol (14.55% vs 19.79%) and shallower
+max drawdown (-33.72% vs -51.48%), giving Sharpe 0.89 vs 0.66.
+Over the documented 30y window, Bull-SPY is 12.97% CAGR vs SPY 10.40%,
+Sharpe 0.92 vs 0.61, MaxDD -33.72% vs -55.19%.
+
+Paired JK/Memmel and DSR values in Section 4 were computed on older
+specification variants and are sensitivity-history evidence, not current
+active-rule inference.
 
 A 60% Permanent Portfolio + 40% Bull-SPY blend produces Sharpe 1.28 with max
 drawdown -10.3% in the clean window — both blend metrics are **better than
@@ -64,11 +56,9 @@ multiple-testing risk.
 Secondary supporting evidence: a 30-year backtest from 1996-01 to 2026-05
 using documented stitches for all non-live data (HYG/TIP/SHV/IEF/TLT
 from Vanguard mutual funds; GLD from World Bank monthly). Standalone
-Bull-SPY Sharpe 0.96, blended 60/40 PP-IEF +
-Bull-SPY Sharpe 1.20 over the 30y window including the dotcom bust, GFC,
-COVID, and the 2022-2023 inflation regime. The full HYG+TIP canary is
-not available before 2001-06 (TIP/VIPSX warm-up); the canary reduces to
-HYG-only before then. Section 6.11 documents each data source. The
+Bull-SPY metrics under the active rule are Sharpe 0.92, CAGR 12.97%,
+MaxDD -33.72%. The canary reduces to HYG-only before 2001-06
+(TIP/VIPSX warm-up). Section 6.11 documents each data source. The
 clean 2008+ live-ETF window remains the primary evidence.
 
 ## 1. Motivation
@@ -96,8 +86,8 @@ The design goal of this strategy is:
 
 ### 2.1 Risky asset
 
-The risky asset is **SPY**. The strategy holds 100% SPY only when all
-three gates pass; otherwise 100% SHV cash. The "Bull-SPY" name
+The risky asset is **SPY**. The strategy holds 100% SPY only when both
+active gates pass; otherwise 100% SHV cash. The "Bull-SPY" name
 reflects this: hold SPY only when the regime is bullish per gate
 verdict, otherwise step out of equity entirely.
 
@@ -155,9 +145,9 @@ excess 0.591; ordering preserved). PP-blend excess-Sharpe is outside the reporte
 ### 2.4 Gate 1: Canary
 
 Following Keller's Hybrid Asset Allocation (HAA) family of strategies,
-the canary uses two credit/inflation-sensitive assets:
+the active canary uses a simple two-signal breadth check:
 
-- **HYG** (iShares iBoxx $ High Yield Corporate Bond ETF)
+- **HYG** (credit stress canary; stitched pre-ETF via VWEHX)
 - **TIP** (iShares TIPS Bond ETF)
 
 For each asset, compute the 13612U momentum score (Keller normalized
@@ -170,61 +160,9 @@ score(asset) = ( r_1m + r_3m + r_6m + r_12m ) / 4
 where `r_Nm` is the total return over the trailing N months computed from
 month-end close prices.
 
-**Gate passes** if at least one of HYG, TIP has a positive score
-("any-positive" rule, Keller HAA convention).
+**Gate passes** if either canary has a positive score (`mom_13612U(HYG_stitched) > 0 OR mom_13612U(TIP) > 0`).
 
-### 2.5 Gate 2: Regime composite
-
-Two binary regime pillars are evaluated at each signal date. The curve
-pillar is an external rates-regime signal; the vol pillar is an
-endogenous SPY-derived variance-regime signal (see signal-source
-taxonomy below):
-
-| Pillar  | Test                                                        |
-|---------|-------------------------------------------------------------|
-| curve   | IEF total return (63d) > TLT total return (63d)             |
-| vol     | SPY 63d realized vol < 252d average of 63d rolling vol      |
-
-**Gate passes** if at least one pillar is positive ("any-positive" rule).
-
-Each pillar uses a natural sign-test cutoff:
-- `IEF 63d return > TLT 63d return` is the sign of the curve-shape
-  spread. Because bond price moves are approximately `-duration x
-  delta_yield`, the return spread captures duration-weighted yield-
-  change dynamics: it is a directional measure of how the curve is
-  REACTING, not a level test of curve inversion. IEF outperforming TLT
-  indicates long-duration Treasuries are underperforming intermediate
-  (long rates rising faster, no flight-to-quality bid), historically
-  aligned with fewer deflationary/recession-scare dynamics. It can
-  also occur during inflationary rate selloffs where equities sell off
-  too; the canary and asset-momentum gates filter those cases.
-- `63d vol < 252d avg vol` is a mean-centered volatility regime test:
-  current realized volatility is below its trailing one-year average
-  (this is a sign test against the rolling-vol mean, not a z-score).
-
-**Why OR between curve and vol (rather than AND):** the two pillars
-are different regime signals (rates vs price-variance) that can
-decouple in normal periods. A 3-month bond-market reaction may flip
-risk-off briefly while equity vol stays calm, or vice versa. OR
-follows the same Keller-style "any positive" convention as the canary:
-at least one regime indicator positive => composite open. Requiring
-both simultaneously (AND) collapses time-in-equity (Section 4.1.2
-U1: 27% on, CAGR 4.7%). The OR rule means risk-off requires
-confluence of curve stress AND vol stress, a high-conviction macro
-signal. Multi-source agreement is enforced at the BETWEEN-gate level
-(canary AND composite AND asset_mom must all pass), not within each
-gate.
-
-**The vol pillar is endogenous.** It is computed on the risky asset
-(SPY) itself, so when SPY breaks down, its realized 63d vol
-mechanically rises and the pillar trips. The vol pillar therefore
-functions as a fast endogenous risk-off filter rather than an external
-macroeconomic signal -- this is partly why the macro
-composite is the first-to-flip gate in observed drawdowns (Section
-4.6). The curve pillar (IEF vs TLT) IS exogenous to equity prices and
-functions as a true rates-regime signal.
-
-### 2.6 Gate 3: Asset momentum
+### 2.5 Gate 2: Asset momentum
 
 Compute 12-month TR absolute momentum on the risky asset itself:
 
@@ -238,55 +176,37 @@ related to but not exact Antonacci GEM (2014, which uses 12-month total
 return without skip). The skip avoids microstructure / reversal noise
 in the most recent month.
 
-### 2.7 Allocation rule
+### 2.6 Allocation rule
 
 ```
-If Gate-1 AND Gate-2 AND Gate-3 all pass: 100% SPY
-Else:                                      100% in SHV cash
+If Gate-1 AND Gate-2 both pass: 100% SPY
+Else:                           100% in SHV cash
 ```
 
 There is no partial scaling, no continuous tilt, no leverage.
 
-### 2.7.1 Signal-source taxonomy
+### 2.6.1 Signal-source taxonomy
 
-The five individual signals used across the three gates fall into two
-structurally distinct source types:
+The active live rule uses two signals:
 
-| Signal           | Input asset(s)     | Source type             |
-|------------------|--------------------|-------------------------|
-| HYG canary       | HYG (or VWEHX)     | External (credit)       |
-| TIP canary       | TIP (or VIPSX)     | External (inflation)    |
-| Curve pillar     | IEF vs TLT         | External (rates curve)  |
-| Vol pillar       | SPY                | **Endogenous SPY** (variance regime) |
-| Asset momentum   | SPY                | **Endogenous SPY** (price trend) |
+| Signal           | Input asset(s)           | Source type                        |
+|------------------|--------------------------|------------------------------------|
+| Canary breadth   | HYG_stitched OR TIP      | External (credit + inflation)      |
+| Asset momentum   | SPY                      | **Endogenous SPY** (price trend)   |
 
-Only the curve pillar is external macro. The vol pillar is computed on
-SPY itself and functions as a fast endogenous risk-off filter;
-structurally it is the same source type as the asset-momentum gate,
-measuring variance regime instead of price-trend sign. The regime
-composite groups one external (curve) and one endogenous (vol) signal
-under OR. Section 4.1.2 reports performance under alternative source-
-grouped rules.
+Historical curve/vol composites remain in Section 4 as sensitivity tests only.
+TIP-only remains a parsimony sensitivity alternative; it is not the active rule.
 
-### 2.8 Gate rationale
+### 2.7 Gate rationale
 
-The canary (Gate 1) is HAA-inspired (Keller "any positive" rule on
-credit/inflation proxies). The regime composite (Gate 2) uses curve
-and vol as the two pillars least redundant with the canary
-(credit/inflation) and asset_mom (price/trend). Trend (SPY 200d MA) is
-structurally redundant with asset_mom. Credit (HYG 200d MA) is
-structurally redundant with the canary. LQD is unsuitable as a canary
-asset because IG corporate bonds rally on rate cuts during equity
-crashes (duration effect), falsely keeping the canary risk-on.
+The active gate is intentionally minimal: one two-signal canary breadth
+check (`HYG OR TIP` on 13612U) plus one endogenous trend check (SPY
+12-month momentum > 0). This keeps the live verdict interpretable while
+preserving a stress veto and a direct risky-asset confirmation.
 
-Ablation evidence in Section 4.1.1 shows `curve OR vol` improves Sharpe
-versus the `canary + asset_mom` baseline in 5 of 6 tested (window x asset)
-cells, with the best average Sharpe (+0.10) among the tested composite
-variants. SPY-only configs win 3/3; QQQ-auxiliary configs win 2/3 by
-smaller margins. The 4-pillar 2-of-4 alternative is within noise (+0.01
-Sharpe overall, -2pp DD vs curve|vol); curve OR vol is preferred for
-parsimony. Applying OR to a custom curve/vol composite is not a published
-Keller rule.
+Section 4 keeps curve/vol variants as specification-history evidence only.
+TIP-only is retained as a parsimony sensitivity alternative, not current
+live rule.
 
 ## 3. Empirical Results
 
@@ -295,32 +215,13 @@ Keller rule.
 | Strategy                  |  Sharpe |   CAGR   |    Vol   |   Max DD | Calmar | Martin | Ulcer |
 |---------------------------|--------:|---------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold              |    0.66 |   11.78% |   19.81% |  -51.48% |   0.23 |   1.03 | 11.4% |
-| **Bull-SPY**              |    1.11 |   11.19% |    9.98% |  -12.58% |   0.89 |   2.99 |  3.7% |
+| **Bull-SPY**              |    0.89 |   12.65% |   14.55% |  -33.72% |   0.38 |   2.43 |  5.2% |
 | PP-IEF standalone         |    1.00 |    6.96% |    6.98% |  -15.34% |   0.45 |   2.22 |  3.1% |
 
-Note the CAGR trade-off: Bull-SPY's 11.19% trails SPY buy-hold's 11.78%. The
-risk-adjusted advantage comes entirely from vol-halving and drawdown reduction
-(see Abstract). Section 4.9 reports a strict open-fill comparator at Sharpe
-1.136; the ~0.02 offset vs the canonical 1.114 is startup-edge handling and is
-documented in 4.9 only.
-
-Per-regime Sharpe (clean window). GFC label is **partial** since clean window
-starts 2008-04-30, missing the pre-crisis peak and early decline (Oct 2007 to
-Apr 2008).
-
-| Regime                       | SPY BH | Bull-SPY |
-|------------------------------|-------:|---------:|
-| GFC partial (2008-04 to 2009)|  -0.11 |    +1.34 |
-| Disinfl (2010-2019)          |   0.93 |    +1.01 |
-| COVID (2020)                 |   0.67 |    +0.91 |
-| InflRt (2021-2023)           |   0.63 |    +1.29 |
-| Post (2024+)                 |   1.33 |    +1.68 |
-
-Risk-on percentage and turnover (clean window):
-
-| Variant   | Months risk-on | Approx flips | Approx flips/year |
-|-----------|---------------:|-------------:|------------------:|
-| Bull-SPY  |            61% |           33 |               1.8 |
+In this active-rule run, Bull-SPY shows higher CAGR and Sharpe than SPY
+buy-hold while retaining materially lower max drawdown. Detailed per-regime,
+turnover, and strict open-fill diagnostics in Section 4 were computed on prior
+spec variants and should be treated as sensitivity-history evidence until rerun.
 
 ### 3.2 Standalone performance — documented 30y window (1996-01-04 to 2026-05-15)
 
@@ -333,33 +234,19 @@ forward-filled to daily.
 | Strategy                   |  Sharpe |   CAGR   |   Max DD | Calmar | Martin | Ulcer |
 |----------------------------|--------:|---------:|---------:|-------:|-------:|------:|
 | SPY buy-hold               |    0.61 |   10.41% |  -55.19% |   0.19 |   0.69 | 15.1% |
-| **Bull-SPY**               |    0.96 |   10.00% |  -19.35% |   0.52 |   2.23 |  4.5% |
+| **Bull-SPY**               |    0.92 |   12.97% |  -33.72% |   0.38 |   2.17 |  6.0% |
 | PP-IEF standalone          |    1.05 |    7.00% |  -15.53% |   0.45 |   2.61 |  2.7% |
 | PP-TLT standalone          |    1.01 |    7.16% |  -17.45% |   0.41 |   2.11 |  3.4% |
 
-Per-regime Sharpe (30y):
+Per-regime 30y breakdown tables in Section 4 are legacy sensitivity outputs
+from prior spec variants and need rerun for the current active rule.
+Bull-SPY worst drawdown over the current 30y active-rule run is -33.72%.
 
-| Regime              | SPY BH | Bull-SPY |
-|---------------------|-------:|---------:|
-| Pre2000 (1996-1999) |  +1.39 |    +0.98 |
-| Dotcom (2000-2002)  |  -0.53 |    +0.57 |
-| GFC (2007-2009)     |  -0.05 |    +0.55 |
-| Disinfl (2010-2019) |  +0.93 |    +1.01 |
-| COVID (2020)        |  +0.67 |    +0.91 |
-| InflRt (2021-2023)  |  +0.63 |    +1.29 |
-| Post (2024+)        |  +1.33 |    +1.68 |
-
-Bull-SPY reports positive Sharpe in every regime, including dotcom
-(+0.57 vs SPY buy-hold -0.53). The Pre2000 (1996-1999) regime was a
-strong bull where buy-hold dominates (+1.39) while the gated strategy
-gives up some upside (+0.98) -- consistent with the strategy's design
-to forgo bull-market alpha in exchange for limiting DD. Bull-SPY's
-worst DD over the 30y window is -19.35% (1998 Russian/LTCM crisis).
-
-### 3.3 60% PP + 40% Bull-equity blend — clean window (18.1y)
+### 3.3 60% PP + 40% Bull-equity blend — clean window (18.1y, legacy sensitivity table)
 
 The Permanent Portfolio (PP-IEF) is 25% SPY + 25% IEF + 25% GLD + 25% SHV,
-equal-weight monthly. Blending 60% PP + 40% Bull-equity:
+equal-weight monthly. The table below is retained as prior-spec sensitivity
+history and is not current evidence for the active HYG OR TIP rule until rerun:
 
 | Variant                     | Sharpe |   CAGR   |  Max DD  | Calmar | Martin |
 |-----------------------------|-------:|---------:|---------:|-------:|-------:|
@@ -1020,7 +907,7 @@ consistent with this design intent (Section 3.2 per-regime table).
    small premium, not a large one.
 
 6. **Sample window bias.** 1999-2026 includes one major bond bull market
-   (1999-2020) and one bond bear market (2020-2023). The curve pillar's
+   (1999-2020) and one bond bear market (2020-2023). TIP and SPY trend
    behavior in a future regime that does not resemble either may differ.
 
 7. **Documented-stitch 30y window.** Pre-live data sources are
@@ -1043,24 +930,18 @@ consistent with this design intent (Section 3.2 per-regime table).
 
 9. **Missing data policy (single explicit rule).** Each gate input is
    evaluated against whatever data is in the panel at the signal date,
-   regardless of whether that data is live-ETF or proxy-stitched. Each
-   canary asset contributes to the "any positive" rule only when its
-   13612U momentum can be computed (12-month lookback available). If
-   neither HYG nor TIP has 12-month data, the canary gate fails
-   (defensive default). Each composite pillar (curve, vol) contributes
-   to the OR rule only when its underlying inputs are available
-   (IEF/TLT 63d returns for curve; SPY 252d rolling-vol history for vol).
-   If neither pillar is evaluable, the composite gate fails. The asset-
-   momentum gate fails if 13 months of risky-asset price history are
-   unavailable. This is the available-assets variant of the "any
-   positive" rule; gates fail-closed when inputs are missing.
+   regardless of whether that data is live-ETF or proxy-stitched. The
+   canary uses `HYG_stitched OR TIP` and passes when at least one 13612U
+   score is computable and positive; otherwise the canary gate fails
+   (defensive default). The asset-momentum gate fails if 13 months of
+   risky-asset price history are unavailable. Gates fail-closed when
+   required inputs are missing.
 
-   In the 30y window, all gate inputs use documented stitches (Section
-   6.11): SHV/IEF/TLT from Vanguard mutual funds (VFISX/VFITX/VUSTX),
-   HYG from VWEHX, TIP from VIPSX (after 2000-06; HYG-only canary
-   before then), GLD pre-2004-11 (live ETF inception) from World Bank
-   monthly gold forward-filled to daily (only affects PP gold sleeve
-   at daily granularity).
+   In the 30y window, gate inputs use documented stitches (Section
+   6.11): TIP from VIPSX after 2000-06 and HYG from VWEHX; SHV/IEF/TLT
+   from Vanguard mutual funds (VFISX/VFITX/VUSTX); GLD pre-2004-11 from
+   World Bank monthly gold forward-filled to daily (affects PP gold
+   sleeve at daily granularity).
 
 10. **Gates are diversified but not statistically independent.** They
     observe structurally different signals (credit, macro, price), but
@@ -1132,10 +1013,6 @@ consistent with this design intent (Section 3.2 per-regime table).
 | HYG    | HYG      | 2007-04-04 | VWEHX (Vanguard High-Yield mutual fund)                | 1980-01-02     | canary, credit   | Well-established HY fund                         |
 | TIP    | TIP      | 2003-12-04 | VIPSX (Vanguard Inflation-Protected Securities)        | 2000-06-29     | canary           | Pre-2001-06 canary reduces to HYG-only           |
 | GLD    | GLD      | 2004-11-18 | World Bank monthly gold (freegoldapi.com), ffill->daily| 1995-01-02     | PP gold sleeve   | Monthly granularity; affects daily metrics only  |
-
-Research-only: LQD was tested as an additional canary asset, with
-VFICX (Vanguard Intermediate-Term IG Corporate Bond, 1993-10+) as the
-pre-live proxy. LQD is not part of the Bull-SPY rule (see Section 2.8).
 
 Each stitch anchors to the live ETF and rescales the pre-live proxy so
 the splice date matches the live value. Load order is in

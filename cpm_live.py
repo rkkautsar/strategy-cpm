@@ -60,13 +60,9 @@ SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe: SHV (ultra-short)
 CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
-# BULL-SPY canary: HYG+TIP. LQD removed because IG corporate
-# bonds rally on rate cuts during equity crashes (duration effect), making
-# "any positive" rule falsely permissive during dotcom-style crashes. LQD
-# data still loaded for research/dashboard display but excluded from canary.
+# BULL-SPY canary: TIP (real-rate/inflation) + HYG (credit-risk).
+# Risk-on when either canary is positive.
 BULL_CANARY_ASSETS = ["HYG_stitched", "TIP"]
-# Kept loaded for context but not used in gate:
-BULL_CANARY_LEGACY = ["LQD"]
 DEFAULT_CASH = "SHV"
 
 # Engine parameters
@@ -100,11 +96,9 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     
     # Stitched series from data/ (overwrites same-named column in proxy panel).
     # HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post.
-    # LQD = VFICX (intermediate IG bond fund) pre-2002-07 + live LQD post.
     # GLD/TIP: clean stitches for canary usage pre-live-ETF.
     # Audited stitches (each replaces same-named column from proxy file):
     # - HYG <- VWEHX (Vanguard HY mutual fund), 1980-01+, auditable
-    # - LQD <- VFICX (Vanguard Intermediate IG), 1993-10+, auditable
     # - TIP <- VIPSX (Vanguard TIPS), 2000-06+, auditable
     # - SHV <- VFISX (Vanguard Short-Term Treasury), 1991-10+, auditable
     # - IEF <- VFITX (Vanguard Intermediate-Term Treasury), 1991-10+, auditable
@@ -114,7 +108,6 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         ("gld_stitched_extended_daily.csv", "GLD"),  # World Bank monthly pre-2000-08
         ("tip_stitched_daily.csv", "TIP"),
         ("hyg_stitched_daily.csv", "HYG_stitched"),
-        ("lqd_stitched_daily.csv", "LQD"),
         ("shv_stitched_daily.csv", "SHV"),
         ("ief_stitched_daily.csv", "IEF"),
         ("tlt_stitched_daily.csv", "TLT"),
@@ -134,7 +127,7 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     
     # Live yfinance pulls for ETFs not in proxy panel
     needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS
-                  + BULL_CANARY_ASSETS + BULL_CANARY_LEGACY
+                  + BULL_CANARY_ASSETS
                   + PP_ASSETS + [DEFAULT_CASH])
     missing = sorted(needed - set(panel.columns))
     

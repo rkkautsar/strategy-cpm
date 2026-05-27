@@ -974,7 +974,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
         frameon=False, handlelength=1.2, handleheight=0.7,
     )
 
-    # Row 2: BULL-SPY canary (HYG/TIP any-positive + curve/vol OR + asset mom)
+    # Row 2: BULL-SPY canary (HYG/TIP any-positive + asset mom)
     bull_colors = []
     for r in bull_regimes:
         if r.startswith("BULL_"): bull_colors.append("#00a040")
@@ -1903,7 +1903,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         if ndx_regime == "NDX_ACTIVE" or ndx_regime.startswith("NDX_PARTIAL"):
             sel = ndx_diag.get('selected', [])
             sector_summary = _ndx_sector_summary(sel)
-            mode = f"{ndx_regime} · top-{NDX_SELECT_K} by 13612U"
+            mode = f"{ndx_regime} · top-{NDX_SELECT_K} by GPM"
             ndx_state = (f"{mode}: {', '.join(sel)}<br>Sector mix: {sector_summary}")
         else:
             ndx_state = f"{ndx_regime} -- {ndx_diag.get('reason', '100% cash')}"
@@ -2377,8 +2377,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when all three gates pass: HYG OR TIP 13612U &gt; 0 (Keller/HAA canary) AND curve OR vol macro composite AND SPY 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by 13612U momentum, equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_SPY regime. When BULL gate is off, allocate 100% best-of-safe SHV/IEF.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 12mo TR absolute momentum &gt; 0 (Antonacci GEM). Fallback: HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated by BULL_SPY regime. When BULL gate is off, allocate 100% best-of-safe SHV/IEF.</li>
 </ul>
 </div>
 </details>
@@ -2473,11 +2473,10 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </ul>
 </details>
 <details>
-<summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (Keller/HAA canary + custom curve/vol composite + TSMOM trend filter)</summary>
+<summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 2-layer regime gate (Keller/HAA canary + TSMOM trend filter)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation.</li>
-<li><strong>Canary gate:</strong> HYG OR TIP 13612U &gt; 0. Two-asset credit (HYG = high-yield) + inflation (TIP) regime check.</li>
-<li><strong>Macro composite gate:</strong> curve OR vol pillar positive: (curve) IEF 63d ret &gt; TLT 63d ret = yield-curve steepening; (vol) SPY 63d vol &lt; 252d avg of 63d rolling vol = low-vol regime.</li>
+<li><strong>Canary gate:</strong> (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 12-month TR absolute momentum &gt; 0 (Antonacci GEM 2014, no skip-month). Direct observation of the risky asset itself.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>

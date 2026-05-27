@@ -32,9 +32,9 @@ ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
 
 # Spec config
-SELECT_K = 8              # top-K by momentum, equal-weighted (12.5% per pick
-                          # within sleeve = 2.5% portfolio at 20% blend weight;
-                          # caps single-name bankruptcy impact at ~2.5% portfolio)
+SELECT_K = 5              # top-K by GPM score, equal-weighted (20% per pick
+                          # within sleeve = 4% portfolio at 20% blend weight;
+                          # caps single-name bankruptcy impact at ~4% portfolio)
 COST_BPS_PER_SIDE = 10
 
 
@@ -122,7 +122,11 @@ def compute_ndx_weights(
             continue
         available.append(t)
 
-    # Step 3: 13612U momentum on each available member
+    # Step 3: Compute GPM scores (13612U momentum * (1 - correlation-to-basket))
+    # Daily returns lookback over last 260 trading days (~1 year)
+    daily_rets_lookback = ndx_panel[available].ffill().pct_change().loc[:sig_d].tail(260)
+    ew_ret = daily_rets_lookback.mean(axis=1)
+
     momenta = {}
     for t in available:
         s = monthly[t].dropna()
@@ -130,9 +134,13 @@ def compute_ndx_weights(
             continue
         m = sig_13612U(s)
         if pd.notna(m) and m > 0:
-            momenta[t] = m
+            corr = daily_rets_lookback[t].corr(ew_ret)
+            if pd.isna(corr):
+                corr = 0.0
+            score = m * (1.0 - corr)
+            momenta[t] = score
 
-    # Step 4: top SELECT_K by momentum, equal-weight 1/SELECT_K each.
+    # Step 4: top SELECT_K by GPM score, equal-weight 1/SELECT_K each.
     # Partial fill (CPM-style) if < SELECT_K positive candidates; rest in safe.
     sorted_by_mom = sorted(momenta.items(), key=lambda x: -x[1])
     n_pick = min(len(sorted_by_mom), SELECT_K)
@@ -273,12 +281,13 @@ if __name__ == "__main__":
     weights, regime, diag = compute_ndx_weights(cpm_panel, ndx_panel, sig_d)
     print(f"\nNDX sleeve allocation (signal date: {sig_d.date()})")
     print(f"Regime: {regime}")
-    if regime == "NDX_ACTIVE":
+    if regime == "NDX_ACTIVE" or regime.startswith("NDX_PARTIAL"):
         print(f"BULL gate state: {diag.get('bull_regime')}")
-        print(f"\nTop-{SELECT_K} by 13612U momentum:")
+        print(f"\nTop-{SELECT_K} by GPM (13612U x (1-corr)) score:")
         for t in diag["selected"]:
-            mom = diag["momenta"][t]
-            print(f"  {t:<6} weight 25%  momentum {mom*100:+.2f}%")
+            score = diag["momenta"][t]
+            weight_pct = weights[t] * 100
+            print(f"  {t:<6} weight {weight_pct:.0f}%  GPM score {score*100:+.2f}%")
     else:
         print(f"  100% {CASH_TICKER} cash")
         print(f"  Reason: {diag.get('reason', '-')}")

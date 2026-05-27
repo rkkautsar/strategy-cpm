@@ -5,19 +5,9 @@ BULL-SPY - Regime-gated SPY overlay with SHV cash fallback.
 20% sleeve in the 60/20/20 CPM-BULL-NDX production blend.
 
 Spec:
-  Risk-on when ALL THREE gates pass (each using 'any positive' rule):
-    1. Canary:    HYG OR TIP 13612U > 0     (Keller HAA-style credit/inflation)
-    2. Macro:     curve OR vol pillar > 0   (2 orthogonal macro indicators)
-         - curve:  IEF 63d ret > TLT 63d ret  (yield-curve steepening)
-         - vol:    SPY 63d vol < 252d avg     (low-vol regime)
-    3. Asset mom: <BULL_TICKER> 12-month TR absolute momentum > 0 (Antonacci GEM)
-                  (Antonacci dual momentum on the risky asset)
-
-  All three layers use Keller-canonical 'any positive' rule.
-  Pillars are limited to factors not already covered by canary (credit)
-  or asset_mom (price/trend), so curve+vol are the only two orthogonal
-  macro signals worth adding. Trend (SPY 200d MA) was dropped as redundant
-  with asset_mom; credit (HYG 200d MA) was dropped as redundant with canary.
+  Risk-on when BOTH gates pass:
+    1. Canary:    (HYG_stitched OR TIP) 13612U > 0   (HAA-simple + credit breadth extension)
+    2. Asset mom: <BULL_TICKER> 12-month TR absolute momentum > 0 (Antonacci GEM)
 
   Risk-on  -> 100% SPY
   Else     -> 100% SHV (ultra-short Treasury cash)
@@ -56,25 +46,10 @@ SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
 MOMENTUM_LOOKBACK = 12       # months: 12-month total return (Antonacci GEM / TSMOM standard;
                              # NOT skip-month -- absolute momentum gates include latest month)
 
-# Macro canary: HYG OR TIP 13612U > 0 (Keller HAA-family, simplified).
-# LQD removed (was HYG+LQD+TIP) because IG corporate bonds rally on rate cuts
-# during equity crashes (duration effect), making "any positive" rule falsely
-# permissive in dotcom-style regimes. EXT backtest (1999-2026) showed LQD
-# inclusion costs ~0.20 Sharpe and pushes Bull-QQQ DD to -57% vs -27% without.
-# GLD or BND as additional OR is harmful (flight-to-safety bias).
+# Macro canary: HYG credit + TIP real-rate/inflation breadth extension.
+# Risk-on when either canary asset has positive 13612U momentum.
 CANARY_ASSETS = ["HYG_stitched", "TIP"]
 CANARY_RULE = "any_positive"
-
-# Binary composite gate: 4 yes/no pillars, threshold count.
-# Two truly orthogonal macro indicators -- the only pillars not redundant with
-# the canary (credit) or asset_mom (price/trend). Pair ablation across 6
-# (window x asset) combos showed curve+vol OR strictly dominates 4-pillar
-# 2-of-4 on avg Sharpe and DD. Both use natural midpoint cutoffs and
-# Keller-style 'any positive' rule (no tuned threshold).
-COMPOSITE_VOL_ASSET = "SPY"       # interchangeable with QQQ within noise
-COMPOSITE_CURVE_WINDOW = 63       # days for IEF-TLT return spread (3m)
-COMPOSITE_VOL_SHORT = 63          # days for short vol estimate (3m)
-COMPOSITE_VOL_LONG  = 252         # days for long vol comparison (1y)
 
 PROD_BULL_WEIGHT = 0.20      # BULL weight in 60/20/20 PROD blend
 
@@ -112,7 +87,7 @@ def _trend_signal(monthly_qqq: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, di
 
 
 def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Macro risk-on gate: HYG/TIP "any positive" 13612U canary."""
+    """Macro risk-on gate: HYG OR TIP 13612U canary."""
     sigs = {}
     for asset in CANARY_ASSETS:
         sigs[asset] = sig_13612U(monthly[asset].loc[:sig_d]) if asset in monthly.columns else float("nan")
@@ -123,7 +98,6 @@ def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]
         canary_ok = any(positives)
     diag = dict(
         hyg_sig=sigs.get("HYG_stitched", float("nan")),
-        lqd_sig=sigs.get("LQD", float("nan")),
         tip_sig=sigs.get("TIP", float("nan")),
         canary_ok=canary_ok,
     )
@@ -139,59 +113,10 @@ def _qqq_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dic
     return _trend_signal(monthly[BULL_TICKER], sig_d)
 
 
-def _binary_pillars(close_panel: pd.DataFrame, sig_d: pd.Timestamp) -> dict:
-    """Evaluate the 2 binary macro pillars at sig_d.
-    Returns dict {name: 0|1, ...} with only pillars whose inputs are available.
-    Missing pillars are omitted (not counted as negative)."""
-    sub = close_panel.loc[:sig_d].ffill()
-    if len(sub) < COMPOSITE_VOL_LONG:
-        return {}
-    pillars = {}
-
-    # curve: IEF 63d ret > TLT 63d ret (yield-curve steepening signal)
-    if "TLT" in sub.columns and "IEF" in sub.columns:
-        ief_r = sub["IEF"].pct_change().tail(COMPOSITE_CURVE_WINDOW).sum()
-        tlt_r = sub["TLT"].pct_change().tail(COMPOSITE_CURVE_WINDOW).sum()
-        if pd.notna(ief_r) and pd.notna(tlt_r):
-            pillars["curve"] = 1 if ief_r > tlt_r else 0
-
-    # vol: SPY 63d vol < 252d avg of 63d rolling vol
-    if COMPOSITE_VOL_ASSET in sub.columns:
-        rets = sub[COMPOSITE_VOL_ASSET].pct_change().dropna()
-        if len(rets) >= COMPOSITE_VOL_LONG:
-            v_short = rets.tail(COMPOSITE_VOL_SHORT).std() * np.sqrt(252)
-            v_long_avg = (rets.tail(COMPOSITE_VOL_LONG)
-                          .rolling(COMPOSITE_VOL_SHORT).std().dropna()
-                          * np.sqrt(252)).mean()
-            if pd.notna(v_short) and pd.notna(v_long_avg):
-                pillars["vol"] = 1 if v_short < v_long_avg else 0
-
-    return pillars
-
-
-def _composite_gate(close_panel: pd.DataFrame, sig_d: pd.Timestamp
-                     ) -> tuple[bool, dict]:
-    """Binary 2-pillar composite gate using 'any positive' (Keller-canonical) rule.
-    Returns (gate_open, diag). Open when >= 1 pillar positive AND both evaluable.
-    If fewer than 2 pillars evaluable (data missing), gate closes."""
-    pillars = _binary_pillars(close_panel, sig_d)
-    n_pos = sum(pillars.values()) if pillars else 0
-    n_eval = len(pillars)
-    gate_open = (n_eval >= 2) and (n_pos >= 1)
-    diag = dict(
-        pillar_curve=pillars.get("curve"),
-        pillar_vol=pillars.get("vol"),
-        composite_n_pos=n_pos,
-        composite_n_eval=n_eval,
-        composite_ok=gate_open,
-    )
-    return (gate_open, diag)
-
-
 # ---------- Allocation ----------
 
 def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
-    """Returns canary state string '+-' etc. based on HYG/TIP 13612U signs."""
+    """Returns canary state string based on configured canary 13612U signs."""
     chars = []
     for asset in CANARY_ASSETS:
         if asset not in monthly.columns:
@@ -222,13 +147,11 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
     monthly = close_panel.loc[:sig_d].resample("ME").last()
     canary_ok, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)
-    composite_ok, cdiag = _composite_gate(close_panel, sig_d)
     asset_mom_ok, tdiag = _qqq_trend_ok(monthly, sig_d)
-    all_diag = {**mdiag, **cdiag, **tdiag, "state": state}
-    if not (canary_ok and composite_ok and asset_mom_ok):
+    all_diag = {**mdiag, **tdiag, "state": state}
+    if not (canary_ok and asset_mom_ok):
         safe = _pick_safe(monthly)
         reason = ('macro_gate_off' if not canary_ok
-                  else f"composite_off ({cdiag['composite_n_pos']}/2 pillars positive, need any 1)" if not composite_ok
                   else f"asset_mom_off ({BULL_TICKER} 12mo TR <= 0; circuit breaker on risky asset)")
         return ({safe: 1.0}, "CASH",
                 {**all_diag, "reason": reason, "picked_safe": safe})
@@ -247,8 +170,7 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     """Run BULL-SPY standalone backtest.
 
     For each signal date (month-end):
-      - If macro canary passes AND binary composite passes AND asset mom > 0:
-        hold 100% SPY
+      - If macro canary passes AND asset mom > 0: hold 100% SPY
       - Else: hold 100% best-of-safe (cash/IEF)
     Execution: T+1 OPEN (next trading day MOO). Weights apply from future[0] of signal
     date (first trading day after month-end). Backtest uses close-to-close on
@@ -272,9 +194,8 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     for i, sig_d in enumerate(sigs):
         mon = panel.loc[:sig_d].resample("ME").last()
         canary_ok, _ = _macro_gate(mon, sig_d)
-        composite_ok, _ = _composite_gate(panel, sig_d)
         asset_mom_ok, _ = _qqq_trend_ok(mon, sig_d)
-        if canary_ok and composite_ok and asset_mom_ok:
+        if canary_ok and asset_mom_ok:
             month_weights = {BULL_TICKER: 1.0}
         else:
             safe = _pick_safe(mon)
@@ -328,11 +249,9 @@ def cmd_allocate(args):
 
     print(f"BULL-SPY Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)
-    print(f"Bull asset:  {BULL_TICKER}  (100% when macro AND trend both pass)")
+    print(f"Bull asset:  {BULL_TICKER}  (100% when canary AND asset momentum both pass)")
     print(f"Fallback:    best-of-safe (SHV/IEF by 13612U) when any gate fails")
-    print(f"Macro gate:  HYG/TIP any-positive 13612U")
-    print(f"Composite:   any 1 of 2 macro pillars positive")
-    print(f"             (IEF-TLT curve, SPY low-vol)")
+    print(f"Canary:      (HYG_stitched OR TIP) 13612U > 0")
     print(f"Asset mom:   {BULL_TICKER} 12mo TR absolute momentum > 0 (Antonacci GEM, circuit breaker)")
     print()
 
@@ -340,19 +259,8 @@ def cmd_allocate(args):
 
     print(f"Macro gate diagnostics:")
     print(f"  HYG 13612U = {diag['hyg_sig']:+.4f} ({'+' if diag['hyg_sig']>0 else '-'})")
-
     print(f"  TIP 13612U = {diag['tip_sig']:+.4f} ({'+' if diag['tip_sig']>0 else '-'})")
-    print(f"  Canary any-positive: {'YES' if diag['canary_ok'] else 'NO'}")
-    print(f"\nComposite pillar diagnostics:")
-    def _show_pillar(name, val):
-        if val is None:
-            print(f"  {name:8s} = N/A")
-        else:
-            print(f"  {name:8s} = {'+' if val == 1 else '-'}")
-    _show_pillar("curve",  diag.get("pillar_curve"))
-    _show_pillar("vol",    diag.get("pillar_vol"))
-    print(f"  Composite: {diag.get('composite_n_pos',0)}/2 positive  "
-          f"(any 1 needed: {'YES' if diag.get('composite_ok') else 'NO'})")
+    print(f"  Canary (HYG OR TIP > 0): {'YES' if diag['canary_ok'] else 'NO'}")
     if pd.notna(diag.get('mom_12_1', float('nan'))):
         print(f"\nAsset mom diagnostics:")
         print(f"  {BULL_TICKER} 12mo TR = {diag['mom_12_1']*100:+7.2f}%  "
