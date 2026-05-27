@@ -1879,20 +1879,10 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
     cstate = bq_diag.get("state", "---")
-    n_pos = bq_diag.get("composite_n_pos", 0)
-    n_eval = bq_diag.get("composite_n_eval", 0)
-    def _pillar_str(name, val):
-        if val is None: return f"{name}=?"
-        return f"{name}={'+' if val else '-'}"
-    pillar_str = " ".join([
-        _pillar_str("curve",  bq_diag.get("pillar_curve")),
-        _pillar_str("vol",    bq_diag.get("pillar_vol")),
-    ])
-    comp_str = f"composite {n_pos}/{n_eval} [{pillar_str}]"
     if bq_regime.startswith("BULL_"):
-        bq_state = f"{bq_regime} (canary {cstate}, {comp_str})"
+        bq_state = f"{bq_regime} (canary {cstate})"
     else:
-        bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate}, {comp_str})"
+        bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate})"
 
     # NDX sleeve (20%) -- gated by BULL-SPY regime
     try:
@@ -2191,10 +2181,10 @@ def main():
     
     # Per-sleeve breakdown of the PROD blend.
     sleeve_rows = [
-        {"strategy": "CPM-BULL-NDX 60/20/20 + NDX DD circuit (PRODUCTION)", **perf_metrics(art.blend)},
-        {"strategy": "CPM standalone (60% sleeve, uncapped)",        **perf_metrics(art.cpm)},
-        {"strategy": "BULL-SPY standalone (20% sleeve, uncapped)",   **perf_metrics(art.bull)},
-        {"strategy": "NDX standalone (20% sleeve, uncapped)",         **perf_metrics(art.ndx)},
+        {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend)},
+        {"strategy": "CPM standalone (60% weight)",                   **perf_metrics(art.cpm)},
+        {"strategy": "BULL-SPY standalone (20% weight)",              **perf_metrics(art.bull)},
+        {"strategy": "NDX standalone (20% weight)",                   **perf_metrics(art.ndx)},
     ]
 
     # ========================================================

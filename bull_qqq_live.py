@@ -108,9 +108,10 @@ def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]
     return (canary_ok, diag)
 
 
-def _qqq_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """DEPRECATED: legacy QQQ 12mo momentum filter, no longer used by gate.
-    Kept for research imports / backward compat in diagnostics only."""
+def _spy_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]:
+    """Asset trend filter: BULL_TICKER (SPY) 13612U momentum > 0.
+    Active trend-following gate for BULL-SPY.
+    """
     if BULL_TICKER not in monthly.columns:
         return (False, dict(mom_12_1=float("nan"), sig_13612U=float("nan"),
                              mom_ok=False, w13_ok=False))
@@ -151,12 +152,12 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
     monthly = close_panel.loc[:sig_d].resample("ME").last()
     canary_ok, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)
-    asset_mom_ok, tdiag = _qqq_trend_ok(monthly, sig_d)
+    asset_mom_ok, tdiag = _spy_trend_ok(monthly, sig_d)
     all_diag = {**mdiag, **tdiag, "state": state}
     if not (canary_ok and asset_mom_ok):
         safe = _pick_safe(monthly)
         reason = ('macro_gate_off' if not canary_ok
-                  else f"asset_mom_off ({BULL_TICKER} 12mo TR <= 0; circuit breaker on risky asset)")
+                  else f"asset_mom_off ({BULL_TICKER} 13612U <= 0; circuit breaker on risky asset)")
         return ({safe: 1.0}, "CASH",
                 {**all_diag, "reason": reason, "picked_safe": safe})
     # Bull state: 100% SPY (no state rotation in current spec).
@@ -198,7 +199,7 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     for i, sig_d in enumerate(sigs):
         mon = panel.loc[:sig_d].resample("ME").last()
         canary_ok, _ = _macro_gate(mon, sig_d)
-        asset_mom_ok, _ = _qqq_trend_ok(mon, sig_d)
+        asset_mom_ok, _ = _spy_trend_ok(mon, sig_d)
         if canary_ok and asset_mom_ok:
             month_weights = {BULL_TICKER: 1.0}
         else:
