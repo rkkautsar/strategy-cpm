@@ -5,7 +5,7 @@ canaries plus a daily LQD/IEF credit-spread intramonth circuit on the NDX
 sleeve are the defensive machinery.
 
 - **CPM (60%)** — AAA Pair-EW Extension over the 9-asset risky universe with
-  Faber 10-month SMA ranker, HYG OR TIP canary (BULL-style breadth), and
+  EAA-style Vol-Adj (Faber/Vol) ranker, HYG OR TIP canary (BULL-style breadth), and
   504d simple daily covariance for min-variance pair selection. Top-K = ceil(9/2)
   = 5 candidates. Equal-weighted 50/50 on the chosen pair.
 - **BULL (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
@@ -80,6 +80,8 @@ Numbers refreshed 2026-05-28 against current locked spec; see
 # ------------------------------------------------------------------------
 mom_13612U(A)     = (r1 + r3 + r6 + r12) / 4                # Keller HAA canonical
 faber_score(A)    = (price[T] - SMA_10mo) / SMA_10mo        # Faber 2007
+vol_252d(A)       = annualized daily standard deviation of A over last 252d
+eaa_score(A)      = faber_score(A) / vol_252d(A)            # EAA Vol-Adj (CPM sleeve)
 corr_260d(A, U)   = daily Pearson corr of A's returns over last 260d to the
                     equal-weighted basket return of universe U
 gpm_score(A, U)   = mom_13612U(A) * (1 - corr_260d(A, U))   # GPM penalty (NDX sleeve)
@@ -96,7 +98,7 @@ if not canary_ok:
     cpm = {best_safe: 1.0}                            # any-positive canary defensive
 else:
     cands = [A in CPM_UNIVERSE if faber_score(A) > 0] # positive-trend filter
-    top   = top_K(cands, key=faber_score, K=ceil(N/2)=5)
+    top   = top_K(cands, key=eaa_score, K=ceil(N/2)=5)
     if   len(top) == 0: cpm = {best_safe: 1.0}
     elif len(top) == 1: cpm = {top[0]: 0.5, best_safe: 0.5}    # partial-safe
     else:
@@ -173,7 +175,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | 13612U momentum | Keller & Keuning 2022 HAA canonical |
 | TIP canary | Keller & Keuning 2022 HAA canonical |
 | HAA-Simple skeleton (N=1) | AllocateSmartly summary of Keller HAA |
-| Faber SMA10m ranker | Faber 2007 SSRN TAA |
+| EAA Vol-Adj (Faber/Vol) ranker | Elastic Asset Allocation (Keller & Butler 2014) |
 | GPM correlation penalty (1 - corr) | Generalized Protective Momentum (Keller 2017) |
 | US factor-ETF universe extension (QQQ, SPHQ) | This work (best Sharpe + Calmar in factor add-back sweep, see `research/cpm_universe_factor_addback_2026_05_28.py`) |
 | HYG breadth canary extension | Keller HAA-extension family |

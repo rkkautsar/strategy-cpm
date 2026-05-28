@@ -362,10 +362,10 @@ def compute_target_weights(
         if n_pos <= len(canary_scores) // 2:
             return {safe: 1.0}, None, "DEFENSIVE", safe
     
-    # Faber ranker (AAA Pair-EW Extension spec):
-    #   score(A) = faber_score(A)
-    # where score is the 10-month SMA score used for ranking.
-    # Positive-momentum filter applies (Faber score > 0).
+    # Volatility-adjusted Faber ranker (EAA adoption):
+    #   score(A) = faber_score(A) / vol_252d(A)
+    # Penalizes high-volatility "junk momentum" to select stable trend leaders.
+    # Volatility computed over trailing 252 trading days.
     faber = faber_sma_xs(monthly)
     avail = [t for t in universe
              if t in faber.index and pd.notna(faber[t])
@@ -373,12 +373,19 @@ def compute_target_weights(
     if not avail:
         return {safe: 1.0}, None, "DEFENSIVE", safe
     
-    sa = faber.loc[avail]  # Faber score used for ranking
+    daily_rets = close_panel[avail].ffill().pct_change()
+    scores = {}
+    for t in avail:
+        v = daily_rets[t].loc[:sig_d].tail(252).std() * np.sqrt(252)
+        if pd.isna(v) or v < 1e-9:
+            v = 1.0
+        scores[t] = float(faber[t]) / v
+    sa = pd.Series(scores)  # Vol-adjusted Faber score used for ranking
     ranked = sa.sort_values(ascending=False)
     top_k = max(2, min(TOP_K_CANDIDATES, len(ranked)))  # See TOP_K_CANDIDATES at top of file.
     top = ranked.iloc[:top_k]
-    # Positive-momentum filter on raw faber score.
-    positive = top[top > 0]
+    # Positive-momentum filter on raw faber score (not volatility-adjusted).
+    positive = top[top.index.map(lambda t: faber.get(t, -np.inf) > 0)]
     
     # Partial-safe fill if <2 positive
     if len(positive) < 2:
