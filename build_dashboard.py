@@ -2585,7 +2585,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG AND TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
+<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG OR TIP) 13612U &gt; 0 AND SPY 13612U &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on QQQ 13612U trend (asset-class trend filter: the NDX universe is Nasdaq-100, QQQ is its ETF). When QQQ trend is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
 </ul>
@@ -2677,7 +2677,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> US equity (SPY) + US factor (QQQ, SPHQ) + international (EFA, EEM) + real estate (VNQ) + diversifiers (GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>Canary:</strong> (HYG AND TIP) 13612U &gt; 0 -- all positive -&gt; risk-on; negative -&gt; 100% best-of-safe (dual-confirmation breadth).</li>
+<li><strong>Canary:</strong> (HYG OR TIP) 13612U &gt; 0 -- any positive -&gt; risk-on; negative -&gt; 100% best-of-safe (dual-confirmation breadth).</li>
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop assets with raw Faber &le; 0</li>
 <li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d simple daily covariance lookback)</li>
