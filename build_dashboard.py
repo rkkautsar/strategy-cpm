@@ -935,7 +935,7 @@ def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
 def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_rets: pd.Series, start: pd.Timestamp):
     """Truth-table heatmap of CPM and BULL sleeve performance by state.
 
-    CPM (2x4): rows = HYG canary bit; cols = TIP/GLD combinations.
+    CPM (2x2): rows = HYG, cols = TIP.
     BULL (4x4): rows = HYG/TIP canary combinations; cols = curve/vol macro combinations.
     Cell: Sharpe (color) + AnnRet + MaxDD + n_months.
     """
@@ -1078,13 +1078,13 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
         ax.set_title(title, fontsize=11, fontweight='bold', pad=36)
         return im
 
-    cpm_canary = ['HYG_stitched', 'TIP', 'GLD']
+    cpm_canary = ['HYG_stitched', 'TIP']
     bull_canary = ['HYG_stitched', 'TIP']
 
     cpm_grid = build_grid(cpm_rets, cpm_canary, include_macro=False)
     bull_grid = build_grid(bull_rets, bull_canary, include_macro=False)
 
-    cpm_col_labels = [f"TIP{a}\nGLD{b}" for a, b in [('+','+'),('+','-'),('-','+'),('-','-')]]
+    cpm_col_labels = ['TIP+', 'TIP-']
     cpm_row_labels = ['HYG+', 'HYG-']
     bull_col_labels = ['TIP+', 'TIP-']
     bull_row_labels = ['HYG+', 'HYG-']
@@ -1103,7 +1103,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
                             records: list | None = None,
                             bull_records: list | None = None) -> tuple:
     """Run signal dates and collect (sig_d, cpm_regime, bull_regime, pair, safe).
-    Plot two stacked rows: CPM canary (HYG/TIP/GLD) + BULL canary (HYG/TIP).
+    Plot two stacked rows: CPM canary (HYG/TIP) + BULL canary (HYG/TIP).
     Returns (fig, regime_counts dict, picks Counter, pair_counter Counter)."""
     from collections import Counter
     records = records if records is not None else cpm_signal_records(panel, start)
@@ -1147,12 +1147,12 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
                              gridspec_kw={"hspace": 0.55})
     dates = [d for d, _, _, _ in cpm_per_date]
 
-    # Row 1: CPM canary (HYG/TIP/GLD any-positive)
+    # Row 1: CPM canary (HYG/TIP any-positive)
     cpm_colors = ["#d04000" if r == "DEFENSIVE" else "#0040d0" for r in cpm_regimes]
     axes[0].bar(dates, [1] * len(dates), color=cpm_colors, width=25, alpha=0.85, edgecolor="none")
     axes[0].set_yticks([])
     axes[0].set_ylim(0, 1)
-    axes[0].set_title("CPM canary (HYG / TIP / GLD any-positive 13612U)", fontsize=9)
+    axes[0].set_title("CPM canary (HYG / TIP any-positive 13612U)", fontsize=9)
     axes[0].legend(
         handles=[
             Patch(facecolor="#0040d0", label="RISK_ON (pair)"),
