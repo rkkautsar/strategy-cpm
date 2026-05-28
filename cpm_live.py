@@ -31,20 +31,19 @@ ARTIFACTS_PROXY = ROOT.parent / "artifacts" / "cpa-1997-exact-core-proxy-researc
 PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 
 # ---------- Configuration ----------
-# CPM-9 universe (9 risky ETFs): US factor + international + diversifiers.
+# CPM risky universe (8 risky ETFs): US factor + international + diversifiers.
 # Universe binding: DBC (live 2006-02-03). Canonical backtest 2007-02-28
 # (DBC live + 12mo signal warmup, 19.3y).
 # HYG canary uses VWEHX mutual fund pre-2007-04 + live HYG post.
 #
-# CPM risky universe (9 assets, all live since 2006-02; DBC inception is the
+# CPM risky universe (8 assets, all live since 2006-02; DBC inception is the
 # binding constraint).
-#   US equity (1):     SPY
 #   US factor (2):     QQQ, SPHQ
 #   International (2): EFA, EEM
 #   Real estate (1):   VNQ
 #   Diversifiers (3):  GLD, TLT, DBC
-# Top-K candidates = ceil(N/2) = 5.
-US_EQUITY = ["SPY"]
+# Top-K candidates = ceil(N/2) = 4.
+US_EQUITY = []
 US_FACTOR = ["QQQ", "SPHQ"]
 INTERNATIONAL = ["EFA", "EEM"]
 REAL_ESTATE = ["VNQ"]
@@ -66,7 +65,7 @@ DEFAULT_CASH = "SHV"
 NDX_INTRAMONTH_CANARY_ASSETS = ["LQD"]   # IEF is already in SAFE_POOL
 
 # Engine parameters
-TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
+TOP_K_CANDIDATES = 4        # top-half of 8-asset universe (ceil(8/2))
 CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)
 COST_BPS_PER_SIDE = 10
 

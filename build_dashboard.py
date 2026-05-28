@@ -2563,7 +2563,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
+<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on (HYG OR TIP) 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_20d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on monthly BULL active state (when BULL is off, NDX is off; no daily circuit breaker applied).</li>
 </ul>
@@ -2652,16 +2652,16 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary>CPM Sleeve ({int(CPM_W*100)}%) -- AAA Pair-EW Extension</summary>
 <ul>
-<li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> US equity (SPY) + US factor (QQQ, SPHQ) + international (EFA, EEM) + real estate (VNQ) + diversifiers (GLD, TLT, DBC).
+<li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
 <li><strong>Canary:</strong> (HYG OR TIP) 13612U &gt; 0 -- any positive -&gt; risk-on; negative -&gt; 100% best-of-safe (dual-confirmation breadth).</li>
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop assets with raw Faber &le; 0</li>
 <li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d simple daily covariance lookback)</li>
-<li><strong>Hold buffer:</strong> DISABLED (HB = 0). Was an overlay on the prior 9-asset spec; the AAA Pair-EW Extension does not use it.</li>
+<li><strong>Hold buffer:</strong> DISABLED (HB = 0). Was an overlay on the prior CPM spec; the AAA Pair-EW Extension does not use it.</li>
 <li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% best-of-safe; 0 positive &rarr; 100% best-of-safe</li>
-<li><strong>Vol cap:</strong> DISABLED. Was an overlay on the prior 9-asset spec; the AAA Pair-EW Extension already delivers shallow MaxDD without it.</li>
+<li><strong>Vol cap:</strong> DISABLED. Was an overlay on the prior CPM spec; the AAA Pair-EW Extension already delivers shallow MaxDD without it.</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>

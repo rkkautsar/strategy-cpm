@@ -1,23 +1,20 @@
 # CPM-BULL-NDX
 
 **60% CPM + 20% BULL + 20% NDX.** Personal runbook. Sleeve-level
-canaries plus a daily LQD/IEF credit-spread intramonth circuit on the NDX
-sleeve are the defensive machinery.
+canaries plus monthly sleeve-state gating are the defensive machinery.
 
-- **CPM (60%)** — AAA Pair-EW Extension over the 9-asset risky universe with
-  EAA-style Vol-Adj (Faber/Vol) ranker, HYG OR TIP canary (BULL-style breadth), and
-  504d simple daily covariance for min-variance pair selection. Top-K = ceil(9/2)
-  = 5 candidates. Equal-weighted 50/50 on the chosen pair.
+- **CPM (60%)** — AAA Pair-EW Extension over the 8-asset risky universe
+  (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC) with EAA-style Vol-Adj
+  (Faber/Vol) ranker, HYG OR TIP canary (BULL-style breadth), and 504d simple
+  daily covariance for min-variance pair selection. Top-K = ceil(8/2) = 4
+  candidates. Equal-weighted 50/50 on the chosen pair.
 - **BULL (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
   Either fully invested in SPY (when canary AND SPY mom_13612U > 0 both pass)
   or fully in HAA best-of-safe (SHV/IEF).
 - **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by GPM score (13612U momentum
-  penalized by 260d correlation), 20% each, gated on QQQ 13612U trend (asset-class self-trend filter). Daily LQD/IEF
-  intramonth circuit latches defensive (to best_safe) when ratio LQD/IEF falls
-  below its 50-day EMA; releases at next monthly signal. The ratio is
-  duration-cancelled (LQD ~8y, IEF ~7y), making the signal an approximate pure
-  credit-spread proxy: falling LQD/IEF = IG corporates underperforming
-  Treasuries = credit-spread widening = risk-off.
+  penalized by 260d correlation), 20% each, strictly gated on monthly BULL
+  active state. If BULL is active, NDX runs equal-weight top-5; if BULL is
+  defensive, NDX allocates 100% best_safe (SHV/IEF). No daily circuit breaker.
 
 Monthly rebalance on the last trading day of each calendar month, ETF +
 individual stocks, no leverage, 10 bps/side cost. Total-return prices
@@ -49,12 +46,10 @@ Sleeve standalone (clean window, post-cost):
 |---|---:|---:|---:|---:|
 | CPM | 1.266 | 14.37% | 10.41% | -15.41% |
 | BULL | 1.034 | 13.14% | 12.75% | -20.28% |
-| NDX + LQD/IEF circuit | 1.077 | 20.42% | 18.93% | -21.08% |
-| NDX raw (no circuit, reference) | 0.975 | 27.06% | 28.90% | -42.48% |
+| NDX (monthly BULL-gated, no daily circuit) | 1.10 | 26.26% | 23.83% | -34.51% |
 
-NDX LQD/IEF circuit is Sharpe-positive vs raw (1.077 vs 0.975) and cuts
-standalone MaxDD from -42.48% to -21.08%; selected for tail-risk reduction
-at near-zero Sharpe cost, not for Sharpe lift.
+NDX remains the high-beta growth sleeve; risk is controlled at portfolio level
+via 20% blend weight plus strict monthly BULL-state gating.
 
 ## Alpha decomposition
 
@@ -68,7 +63,7 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 | PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +5.65 | 0.780 | 0.783 |
 | PROD 60/20/20 | SPY buy-hold | +11.72 | 0.182 | 0.374 |
 | PROD 60/20/20 | QQQ buy-hold | +10.84 | 0.179 | 0.416 |
-| NDX (with LQD/IEF circuit) | QQQ buy-hold | +15.74 | 0.257 | 0.302 |
+| NDX (monthly BULL-gated) | QQQ buy-hold | +15.74 | 0.257 | 0.302 |
 
 Numbers refreshed 2026-05-28 against current locked spec; see
 `research/alpha_beta_refresh_2026_05_28.log`.
@@ -91,7 +86,7 @@ best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
 # ------------------------------------------------------------------------
 # CPM (60%) -- AAA Pair-EW Extension
 # ------------------------------------------------------------------------
-CPM_UNIVERSE = [SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC]    # N=9
+CPM_UNIVERSE = [QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC]         # N=8
 
 canary_ok = (mom_13612U(HYG) > 0) OR (mom_13612U(TIP) > 0)
 
@@ -99,7 +94,7 @@ if not canary_ok:
     cpm = {best_safe: 1.0}                            # any-positive canary defensive
 else:
     cands = [A in CPM_UNIVERSE if faber_score(A) > 0] # positive-trend filter
-    top   = top_K(cands, key=eaa_score, K=ceil(N/2)=5)
+    top   = top_K(cands, key=eaa_score, K=ceil(N/2)=4)
     if   len(top) == 0: cpm = {best_safe: 1.0}
     elif len(top) == 1: cpm = {top[0]: 0.5, best_safe: 0.5}    # partial-safe
     else:
@@ -120,33 +115,21 @@ else:
     bull = {best_safe: 1.0}
 
 # ------------------------------------------------------------------------
-# NDX (20%) -- top-K PIT Nasdaq-100 stock momentum
+# NDX (20%) -- Option B monthly BULL-gated top-K PIT Nasdaq-100 momentum
 # ------------------------------------------------------------------------
-if mom_13612U(QQQ) <= 0:
+bull_active = (bull.get(SPY, 0.0) > 0)
+
+if not bull_active:
     ndx = {best_safe: 1.0}
 else:
     pool   = PIT_NDX100_constituents(T)
     scores = {t: mom_13612U(t) * (1 - corr_260d(t, pool)) for t in pool}
-    picks  = top_5(t for t, s in scores if mom_13612U(t) > 0)
+    picks  = top_5(t for t, s in scores.items() if mom_13612U(t) > 0)
     ndx    = {t: 0.20 for t in picks}                 # 20% each, K=5
     if len(picks) < 5:                                # partial-fill -> safe
         ndx[best_safe] = 1.0 - 0.20 * len(picks)
 
-# Daily LQD/IEF credit-spread intramonth circuit on NDX:
-#   ratio = LQD_close / IEF_close      # duration-cancelled credit-spread proxy
-#   evaluated EVERY trading day d (not just at monthly T):
-#     if ratio[d] < ratio.ewm(span=50)[d] -> latch defensive starting d+1
-#     state stays defensive until next monthly signal date resets to 1.0
-#   t+1 MOO honest: scale on day d is set BEFORE day-d trigger evaluation
-ratio = LQD_close / IEF_close
-ema50 = ratio.ewm(span=50, adjust=False).mean()
-state = 1.0                              # 1.0 = NDX holds picks, 0.0 = defensive
-for d in trading_days(T_prev_signal+1, T_next_signal):
-    if d == T_next_signal:               # monthly reset
-        state = 1.0
-    apply scale[d] = state to NDX sleeve_return[d]
-    if ratio[d] < ema50[d]:              # trigger fires for tomorrow
-        state = 0.0                      # defensive starting day d+1
+# No daily intramonth circuit breaker.
 
 # ------------------------------------------------------------------------
 # Blend
@@ -158,13 +141,12 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
 | Pool | Tickers |
 |---|---|
-| CPM (9) | SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC |
+| CPM (8) | QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC |
 | BULL (1) | SPY |
 | Safe pool (HAA best-of by 13612U) | SHV (ultra-short), IEF (7-10y) |
 | CPM canary (2, OR) | HYG, TIP |
 | BULL canary (2, OR) | HYG, TIP |
-| NDX canary (1) | QQQ |
-| NDX intramonth circuit (2) | LQD, IEF (duration-cancelled ratio; IEF supplied via SAFE_POOL) |
+| NDX gate | monthly BULL active state (BULL_SPY) |
 | NDX pool | point-in-time Nasdaq-100 (top-5 by GPM score, 20% each) |
 
 **Method lineage:**
@@ -180,8 +162,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | GPM correlation penalty (1 - corr) | Generalized Protective Momentum (Keller 2017) |
 | US factor-ETF universe extension (QQQ, SPHQ) | This work (best Sharpe + Calmar in factor add-back sweep, see `research/cpm_universe_factor_addback_2026_05_28.py`) |
 | HYG breadth canary extension | Keller HAA-extension family |
-| LQD/IEF credit-spread (duration-cancelled ratio) | Practitioner macro standard |
-| EMA crossover trigger (50-day) | Practitioner technical-analysis family (Faber TAA precedent) |
+| Monthly sleeve-state gate (NDX follows BULL active state) | This work (Option B) |
 | Top-K cross-sectional (NDX) | Jegadeesh & Titman 1993 |
 | PIT NDX-100 constituents | `index-constitution` library (≥ 2006-01) |
 | Deflated Sharpe | Bailey & Lopez de Prado 2012 |
@@ -190,8 +171,8 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
 - Signal date: last trading day of each calendar month (close).
 - Trade date: T+1 OPEN (next-day MOO).
-- Accounting: close-to-close on apply day; t+1 MOO honest for intramonth
-  circuits (defensive scale applies starting day after trigger fires).
+- Accounting: close-to-close on apply day; t+1 MOO honest monthly sleeve
+  updates (weights chosen at signal date apply from next trading day open).
 - Cost: 10 bps/side on any state change (full A→B switch = 20 bps).
 - Cron: monthly, 10am SGT (first business day after month-end).
 
@@ -259,10 +240,7 @@ P(PROD > BB4 on Sharpe) = 98.76%. Script + log + JSON in
   **1.00-1.20** on the 60/40 (CPM+BULL only, no NDX); **1.30-1.60** on the
   60/20/20 PROD blend (with NDX). Anchors: bootstrap 95% CI on PROD Sharpe is
   [1.074, 1.914] with point 1.483; subtract ~0.05-0.15 for typical retail-data
-  reproduction drift to get a forward range. The LQD/IEF intramonth circuit
-  depends on credit spreads being a regime-shift signal for equity stress; in
-  a low-credit-vol regime the circuit fires less, but downside floor is
-  bounded by NDX-raw Sharpe (~1.0).
+  reproduction drift to get a forward range.
 - **P(PROD beats BB4 on Sharpe) = 98.76%** by paired block bootstrap (B=5000,
   block=21d); P(beats by ≥0.10 Sharpe) = 93.20%, P(beats by ≥0.20) = 74.98%,
   P(shallower MaxDD than BB4) = 63.44%.
@@ -276,7 +254,7 @@ P(PROD > BB4 on Sharpe) = 98.76%. Script + log + JSON in
 
 - No vol targeting / leverage (max weight = 1.0 per sleeve).
 - No factor tilts, sector caps, or sleeve-level rebalance bands.
-- No earnings/macro overlay beyond the LQD/IEF credit-spread circuit.
+- No daily intramonth circuit breaker; NDX risk gate is monthly BULL-state only.
 - NDX stock picking depends on continuous PIT Nasdaq-100 constituent data;
   any data outage forces NDX to safe.
 
@@ -285,8 +263,6 @@ P(PROD > BB4 on Sharpe) = 98.76%. Script + log + JSON in
 - `cpm_live.py` — CPM sleeve engine + monthly rebalance signal.
 - `bull_qqq_live.py` — BULL sleeve engine.
 - `ndx_sleeve_live.py` — NDX stock-picking sleeve engine.
-- `circuit_breaker.py` — LQD/IEF credit-spread intramonth circuit (NDX sleeve).
 - `build_dashboard.py` — daily blend assembly + dashboard generation.
-- `circuit_check.py` — daily LQD/IEF circuit canary (cron-monitored).
 - `cpm_dashboard.html` — generated dashboard.
 - `research/` — research scripts, audit logs, archived spec versions.
