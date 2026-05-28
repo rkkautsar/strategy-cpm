@@ -259,8 +259,11 @@ in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
   bounded by NDX-raw Sharpe (~1.0).
 - **P(PROD beats BB4 on Sharpe) ≈ 96.9%** by paired block bootstrap (B=5000,
   block=21d); P(beats by ≥0.10 Sharpe) ≈ 88.4%, P(beats by ≥0.20) ≈ 68.9%.
-  P(shallower MaxDD than BB4) ≈ 72.6%. Vs SPY/QQQ buy-hold: P(higher Sharpe)
-  >99%. Details in `research/prod_vs_bb4_pwin_2026_05_28.log`.
+  P(shallower MaxDD than BB4) ≈ 72.6%.
+- **P(PROD beats Static 80/20 on Sharpe) ≈ 97.9%** by same bootstrap; P(beats
+  by ≥0.10 Sharpe) ≈ 94.2%, P(beats by ≥0.20) ≈ 86.6%, P(shallower MaxDD)
+  ≈ 82.8%. Vs SPY/QQQ buy-hold: P(higher Sharpe) >99%. Details in
+  `research/prod_vs_bb4_pwin_2026_05_28.log`.
 
 **What this strategy does NOT do**
 
