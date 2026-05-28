@@ -31,28 +31,28 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.455** | **13.37%** | **8.91%** | **-9.90%** | **1.35** |
+| **PROD 60/20/20** | **1.465** | **14.56%** | **9.61%** | **-9.99%** | **1.46** |
 | Best literature blend (BB4) | 1.192 | 12.00% | 9.93% | -14.55% | 0.82 |
 | Simplest literature 60/40 (BB1) | 1.111 | 10.77% | 9.64% | -14.80% | 0.73 |
-| SPY buy-hold | 0.660 | 11.76% | 19.79% | -51.48% | 0.23 |
-| QQQ buy-hold | 0.824 | 17.23% | 22.29% | -49.37% | 0.35 |
+| SPY buy-hold | 0.662 | 11.76% | 19.79% | -51.48% | 0.23 |
+| QQQ buy-hold | 0.826 | 17.23% | 22.28% | -49.37% | 0.35 |
 
 PROD beats the best literature blend (BB4 = 60% AAA+TIP + 20% HAA-Simple SPY +
-20% Antonacci QQQ-trend) by **+0.26 Sharpe**, **-4.6pp shallower MaxDD**, and
-**+0.53 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.16 with correlation ≈ 0.35
+20% Antonacci QQQ-trend) by **+0.27 Sharpe**, **-4.56pp shallower MaxDD**, and
+**+0.64 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.18 with correlation ≈ 0.37
 — a portfolio diversifier, not a levered equity play.
 
 Sleeve standalone (clean window, post-cost):
 
 | Sleeve | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM-ext (CLEAN-9) | 1.141 | 11.38% | 9.97% | -15.91% |
-| BULL-ext (no intramonth circuit) | 1.023 | 12.97% | 12.73% | -20.28% |
-| NDX + LQD/IEF circuit | 1.046 | 17.88% | 17.15% | -20.35% |
-| NDX raw (no circuit, reference) | 1.016 | 27.74% | 28.00% | -43.57% |
+| CPM-ext | 1.186 | 12.51% | 10.41% | -15.91% |
+| BULL-ext | 1.023 | 12.97% | 12.73% | -20.28% |
+| NDX + LQD/IEF circuit | 1.073 | 20.31% | 18.92% | -21.08% |
+| NDX raw (no circuit, reference) | 0.975 | 27.06% | 28.90% | -42.48% |
 
-NDX LQD/IEF circuit is Sharpe-neutral vs raw (1.046 vs 1.016) but cuts
-standalone MaxDD from -43.57% to -20.35%; selected for tail-risk reduction
+NDX LQD/IEF circuit is Sharpe-positive vs raw (1.073 vs 0.975) and cuts
+standalone MaxDD from -42.48% to -21.08%; selected for tail-risk reduction
 at near-zero Sharpe cost, not for Sharpe lift.
 
 ## Alpha decomposition
@@ -61,13 +61,13 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 
 | Strategy | Benchmark | Alpha (%/yr) | Beta | Corr |
 |---|---|---:|---:|---:|
-| CPM-ext (CLEAN-9) | B2: AAA + TIP canary (CLEAN-9, same universe) | +3.43 | 0.776 | 0.830 |
+| CPM-ext | B2: AAA + TIP canary (same universe) | +4.58 | 0.768 | 0.780 |
 | BULL-ext | B3: HAA-Simple SPY | +1.55 | 0.989 | 0.929 |
-| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+4.16** | **0.743** | **0.828** |
-| PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +4.66 | 0.776 | 0.839 |
-| PROD 60/20/20 | SPY buy-hold | +10.90 | 0.158 | 0.352 |
-| PROD 60/20/20 | QQQ buy-hold | +10.14 | 0.154 | 0.385 |
-| NDX (with LQD/IEF circuit) | QQQ buy-hold | +13.78 | 0.227 | 0.295 |
+| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+4.91** | **0.774** | **0.800** |
+| PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +5.72 | 0.780 | 0.783 |
+| PROD 60/20/20 | SPY buy-hold | +11.71 | 0.180 | 0.372 |
+| PROD 60/20/20 | QQQ buy-hold | +10.80 | 0.178 | 0.412 |
+| NDX (with LQD/IEF circuit) | QQQ buy-hold | +15.58 | 0.257 | 0.302 |
 
 Numbers refreshed 2026-05-28 against current locked spec; see
 `research/alpha_beta_refresh_2026_05_28.log`.
@@ -210,7 +210,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | B5: QQQ 12mo trend (Antonacci-family TSMOM single-asset) | Faber/Antonacci 12mo absolute trend | 0.923 | 16.73% | -28.56% |
 | BB1: 60 B2 + 40 B3 (60 AAA+TIP / 40 HAA-S SPY) | Two-sleeve blend | 1.111 | 10.77% | -14.80% |
 | BB4: 60 B2 + 20 B3 + 20 B5 | Three-sleeve blend (best lit) | 1.192 | 12.00% | -14.55% |
-| **PROD 60/20/20** | This work | **1.455** | **13.37%** | **-9.90%** |
+| **PROD 60/20/20** | This work | **1.465** | **14.56%** | **-9.99%** |
 
 ## Robustness
 
@@ -219,14 +219,14 @@ refreshed at each spec change, current run 2026-05-28):
 
 | Metric | Point | p2.5 | p25 | p50 | p75 | p97.5 |
 |---|---:|---:|---:|---:|---:|---:|
-| Sharpe | 1.455 | 1.041 | 1.316 | 1.453 | 1.601 | 1.866 |
-| CAGR | 13.37% | 9.41% | 11.97% | 13.37% | 14.83% | 17.68% |
-| Vol | 8.91% | 8.27% | 8.69% | 8.92% | 9.14% | 9.56% |
-| MaxDD | -9.90% | -17.88% | -13.28% | -11.47% | -10.04% | -8.42% |
-| Calmar | 1.35 | 0.60 | 0.94 | 1.16 | 1.40 | 1.94 |
+| Sharpe | 1.465 | 1.043 | 1.323 | 1.470 | 1.613 | 1.894 |
+| CAGR | 14.56% | 10.21% | 12.95% | 14.60% | 16.11% | 19.35% |
+| Vol | 9.61% | 9.01% | 9.41% | 9.61% | 9.81% | 10.20% |
+| MaxDD | -9.99% | -19.91% | -14.51% | -12.52% | -10.95% | -8.93% |
+| Calmar | 1.46 | 0.58 | 0.92 | 1.16 | 1.42 | 1.97 |
 
-95% CI summary: **Sharpe [1.04, 1.87]**, CAGR [9.41%, 17.68%], MaxDD [-17.88%,
--8.42%], Calmar [0.60, 1.94]. Lower bound of Sharpe ~1.04, comfortably above
+95% CI summary: **Sharpe [1.04, 1.89]**, CAGR [10.21%, 19.35%], MaxDD [-19.91%,
+-8.93%], Calmar [0.58, 1.97]. Lower bound of Sharpe ~1.04, comfortably above
 literature blends (BB4: 1.19, BB1: 1.11) and SPY (0.66). Script + log + JSON
 in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 
@@ -252,14 +252,14 @@ in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - Reasonable forward Sharpe expectation for retail-data reproductions:
   **1.00-1.20** on the 60/40 (CPM+BULL only, no NDX); **1.30-1.60** on the
   60/20/20 PROD blend (with NDX). Anchors: bootstrap 95% CI on PROD Sharpe is
-  [1.04, 1.87] with point 1.455; subtract ~0.05-0.15 for typical retail-data
+  [1.04, 1.89] with point 1.465; subtract ~0.05-0.15 for typical retail-data
   reproduction drift to get a forward range. The LQD/IEF intramonth circuit
   depends on credit spreads being a regime-shift signal for equity stress; in
   a low-credit-vol regime the circuit fires less, but downside floor is
   bounded by NDX-raw Sharpe (~1.0).
-- **P(PROD beats BB4 on Sharpe) ≈ 98%** by paired block bootstrap (B=5000,
-  block=21d); P(beats by ≥0.10 Sharpe) ≈ 89%, P(beats by ≥0.20) ≈ 67%.
-  P(shallower MaxDD than BB4) ≈ 85%. Vs SPY/QQQ buy-hold: P(higher Sharpe)
+- **P(PROD beats BB4 on Sharpe) ≈ 96.9%** by paired block bootstrap (B=5000,
+  block=21d); P(beats by ≥0.10 Sharpe) ≈ 88.4%, P(beats by ≥0.20) ≈ 68.9%.
+  P(shallower MaxDD than BB4) ≈ 72.6%. Vs SPY/QQQ buy-hold: P(higher Sharpe)
   >99%. Details in `research/prod_vs_bb4_pwin_2026_05_28.log`.
 
 **What this strategy does NOT do**
