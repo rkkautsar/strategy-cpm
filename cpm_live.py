@@ -68,7 +68,6 @@ NDX_INTRAMONTH_CANARY_ASSETS = ["LQD"]   # IEF is already in SAFE_POOL
 # Engine parameters
 TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
 CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)
-CORR_PENALTY_LOOKBACK_DAYS = 260  # GPM correlation penalty lookback (~1y)
 COST_BPS_PER_SIDE = 10
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
@@ -363,35 +362,23 @@ def compute_target_weights(
         if n_pos <= len(canary_scores) // 2:
             return {safe: 1.0}, None, "DEFENSIVE", safe
     
-    # GPM-penalized Faber ranker (AAA Pair-EW Extension spec):
-    #   gpm_score(A) = faber_score(A) * (1 - corr_260d(A, basket))
-    # where corr_260d is the daily Pearson correlation of A's returns over the
-    # last 260 trading days to the equal-weighted return of the universe.
-    # Faber sign is preserved (positive-momentum filter applies to raw faber).
+    # Faber ranker (AAA Pair-EW Extension spec):
+    #   score(A) = faber_score(A)
+    # where score is the 10-month SMA score used for ranking.
+    # Positive-momentum filter applies (Faber score > 0).
     faber = faber_sma_xs(monthly)
     avail = [t for t in universe
              if t in faber.index and pd.notna(faber[t])
              and pd.notna(close_panel.loc[sig_d].get(t, np.nan) if sig_d in close_panel.index else np.nan)]
     if not avail:
         return {safe: 1.0}, None, "DEFENSIVE", safe
-    daily_rets_full = close_panel[avail].ffill().pct_change()
-    daily_rets_lb = daily_rets_full.loc[:sig_d].tail(CORR_PENALTY_LOOKBACK_DAYS)
-    ew_ret = daily_rets_lb.mean(axis=1)
-    gpm_scores = {}
-    for t in avail:
-        c = daily_rets_lb[t].corr(ew_ret)
-        if pd.isna(c):
-            c = 0.0
-        gpm_scores[t] = float(faber[t]) * (1.0 - float(c))
-    score = pd.Series(gpm_scores)
-    sa = score              # GPM-penalized score used for ranking
-    sa_raw = faber.loc[avail]  # raw faber used for positive-momentum filter
-    za = zscore(sa)
+    
+    sa = faber.loc[avail]  # Faber score used for ranking
     ranked = sa.sort_values(ascending=False)
     top_k = max(2, min(TOP_K_CANDIDATES, len(ranked)))  # See TOP_K_CANDIDATES at top of file.
     top = ranked.iloc[:top_k]
-    # Positive-momentum filter on raw faber (not GPM-penalized score).
-    positive = top[top.index.map(lambda t: sa_raw.get(t, -np.inf) > 0)]
+    # Positive-momentum filter on raw faber score.
+    positive = top[top > 0]
     
     # Partial-safe fill if <2 positive
     if len(positive) < 2:

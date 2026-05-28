@@ -5,7 +5,7 @@ canaries plus a daily LQD/IEF credit-spread intramonth circuit on the NDX
 sleeve are the defensive machinery.
 
 - **CPM-ext (60%)** — AAA Pair-EW Extension over the 9-asset risky universe with
-  Faber × (1 - corr_260d) GPM-penalized ranker, HYG OR TIP canary (BULL-style breadth), and
+  13612U momentum (Faber) ranker, HYG OR TIP canary (BULL-style breadth), and
   504d simple daily covariance for min-variance pair selection. Top-K = ceil(9/2)
   = 5 candidates. Equal-weighted 50/50 on the chosen pair.
 - **BULL-ext (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
@@ -31,22 +31,22 @@ Clean live-ETF window 2008-05-30 → 2026-05-22 (18.0y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.466** | **14.57%** | **9.61%** | **-9.94%** | **1.47** |
+| **PROD 60/20/20** | **1.440** | **15.42%** | **10.33%** | **-11.04%** | **1.40** |
 | Best literature blend (BB4) | 1.194 | 12.03% | 9.94% | -14.55% | 0.83 |
 | Simplest literature 60/40 (BB1) | 1.122 | 10.90% | 9.65% | -14.80% | 0.74 |
 | SPY buy-hold | 0.660 | 11.73% | 19.82% | -50.70% | 0.23 |
 | QQQ buy-hold | 0.815 | 16.94% | 22.30% | -49.37% | 0.34 |
 
 PROD beats the best literature blend (BB4 = 60% AAA+TIP + 20% HAA-Simple SPY +
-20% Antonacci QQQ-trend) by **+0.27 Sharpe**, **-4.61pp shallower MaxDD**, and
-**+0.64 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.18 with correlation ≈ 0.37
+20% Antonacci QQQ-trend) by **+0.25 Sharpe**, **-3.50pp shallower MaxDD**, and
+**+0.57 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.18 with correlation ≈ 0.37
 — a portfolio diversifier, not a levered equity play.
 
 Sleeve standalone (clean window, post-cost):
 
 | Sleeve | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM-ext | 1.183 | 12.45% | 10.39% | -15.41% |
+| CPM-ext | 1.291 | 15.07% | 11.67% | -15.41% |
 | BULL-ext | 1.034 | 13.14% | 12.75% | -20.28% |
 | NDX + LQD/IEF circuit | 1.077 | 20.42% | 18.93% | -21.08% |
 | NDX raw (no circuit, reference) | 0.975 | 27.06% | 28.90% | -42.48% |
@@ -96,7 +96,7 @@ if not canary_ok:
     cpm = {best_safe: 1.0}                            # any-positive canary defensive
 else:
     cands = [A in CPM_UNIVERSE if faber_score(A) > 0] # positive-trend filter
-    top   = top_K(cands, key=gpm_score, K=ceil(N/2)=5)
+    top   = top_K(cands, key=faber_score, K=ceil(N/2)=5)
     if   len(top) == 0: cpm = {best_safe: 1.0}
     elif len(top) == 1: cpm = {top[0]: 0.5, best_safe: 0.5}    # partial-safe
     else:
@@ -254,17 +254,17 @@ in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - Reasonable forward Sharpe expectation for retail-data reproductions:
   **1.00-1.20** on the 60/40 (CPM+BULL only, no NDX); **1.30-1.60** on the
   60/20/20 PROD blend (with NDX). Anchors: bootstrap 95% CI on PROD Sharpe is
-  [1.04, 1.89] with point 1.465; subtract ~0.05-0.15 for typical retail-data
+  [1.03, 1.87] with point 1.440; subtract ~0.05-0.15 for typical retail-data
   reproduction drift to get a forward range. The LQD/IEF intramonth circuit
   depends on credit spreads being a regime-shift signal for equity stress; in
   a low-credit-vol regime the circuit fires less, but downside floor is
   bounded by NDX-raw Sharpe (~1.0).
-- **P(PROD beats BB4 on Sharpe) ≈ 96.9%** by paired block bootstrap (B=5000,
-  block=21d); P(beats by ≥0.10 Sharpe) ≈ 88.4%, P(beats by ≥0.20) ≈ 68.9%.
-  P(shallower MaxDD than BB4) ≈ 72.6%.
-- **P(PROD beats Static 80/20 on Sharpe) ≈ 97.9%** by same bootstrap; P(beats
-  by ≥0.10 Sharpe) ≈ 94.2%, P(beats by ≥0.20) ≈ 86.6%, P(shallower MaxDD)
-  ≈ 82.8%. Vs SPY/QQQ buy-hold: P(higher Sharpe) >99%. Details in
+- **P(PROD beats BB4 on Sharpe) ≈ 97.0%** by paired block bootstrap (B=5000,
+  block=21d); P(beats by ≥0.10 Sharpe) ≈ 87.1%, P(beats by ≥0.20) ≈ 62.7%.
+  P(shallower MaxDD than BB4) ≈ 60.3%.
+- **P(PROD beats Static 80/20 on Sharpe) ≈ 97.1%** by same bootstrap; P(beats
+  by ≥0.10 Sharpe) ≈ 92.3%, P(beats by ≥0.20) ≈ 83.9%, P(shallower MaxDD)
+  ≈ 75.7%. Vs SPY/QQQ buy-hold: P(higher Sharpe) >99%. Details in
   `research/prod_vs_bb4_pwin_2026_05_28.log`.
 
 **What this strategy does NOT do**
