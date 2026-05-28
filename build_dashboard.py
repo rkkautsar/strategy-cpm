@@ -1118,7 +1118,9 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     picks = Counter()
     pair_counter = Counter()
     dates = []
-    blend_def_pcts = []
+    cpm_def_pcts = []
+    bull_def_pcts = []
+    ndx_def_pcts = []
 
     for rec in records:
         sd = rec["sig_d"]
@@ -1153,10 +1155,11 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
         else:
             ndx_def = n_weights.get(safe, 0.0)
 
-        # Aggregate portfolio defensive weight (60% CPM / 20% BULL / 20% NDX)
-        total_def = 0.60 * cpm_def + 0.20 * bull_def + 0.20 * ndx_def
+        # Portfolio contributions in % of total blend
+        cpm_def_pcts.append(0.60 * cpm_def * 100.0)
+        bull_def_pcts.append(0.20 * bull_def * 100.0)
+        ndx_def_pcts.append(0.20 * ndx_def * 100.0)
         dates.append(sd)
-        blend_def_pcts.append(total_def * 100.0)
 
     for sd, _, _, _ in cpm_per_date:
         bull_rec_reg = _bull_by_date.get(sd, {})
@@ -1172,14 +1175,21 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     }
 
     fig, ax = plt.subplots(figsize=(11, 3.2), constrained_layout=True)
-    ax.fill_between(dates, 0, blend_def_pcts, color="#e74c3c", alpha=0.35, label="Defensive Weight (%)")
-    ax.plot(dates, blend_def_pcts, color="#c0392b", lw=1.5)
+    cpm_arr = np.array(cpm_def_pcts)
+    bull_arr = np.array(bull_def_pcts)
+    ndx_arr = np.array(ndx_def_pcts)
+
+    ax.bar(dates, cpm_arr, width=25, label="CPM (60% wt)", color="#9e2a2b", alpha=0.85, edgecolor="none")
+    ax.bar(dates, bull_arr, width=25, bottom=cpm_arr, label="BULL-SPY (20% wt)", color="#3f51b5", alpha=0.85, edgecolor="none")
+    ax.bar(dates, ndx_arr, width=25, bottom=cpm_arr + bull_arr, label="NDX (20% wt)", color="#ffb703", alpha=0.85, edgecolor="none")
+
     ax.set_ylabel("Defensive Weight (%)", fontsize=9, fontweight="bold")
     ax.set_ylim(0, 100)
     ax.set_title("Aggregate Portfolio Defensive Exposure (Monthly Signal, 60/20/20)", fontsize=11, fontweight="bold")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     ax.tick_params(axis='both', which='both', labelsize=8)
+    ax.legend(loc="upper right", frameon=False, fontsize=8)
     return fig, regime_counts, picks, pair_counter
 
 
@@ -1545,31 +1555,6 @@ def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: p
 <th>Depth</th><th>To trough</th><th>To recover</th>
 <th>CPM contrib (peak->trough)</th><th>BULL contrib (peak->trough)</th><th>NDX contrib (peak->trough)</th>
 </tr></thead><tbody>{rows_html}</tbody></table></div>"""
-
-
-def chart_rolling_defensive_pct(panel: pd.DataFrame, start: pd.Timestamp,
-                                  records: list | None = None):
-    """Rolling 12-month % of months the CPM canary was defensive."""
-    records = records if records is not None else cpm_signal_records(panel, start)
-    defensive_per_month = []
-    for rec in records:
-        is_def = 1.0 if rec["regime"] == "DEFENSIVE" else (0.5 if rec["pair"] is None else 0.0)
-        defensive_per_month.append((rec["sig_d"], is_def))
-    df_def = pd.DataFrame(defensive_per_month, columns=['date', 'def']).set_index('date')
-    rolling_def = df_def['def'].rolling(12, min_periods=6).mean() * 100
-
-    fig, ax = plt.subplots(figsize=(12, 4), constrained_layout=True)
-    ax.fill_between(rolling_def.index, 0, rolling_def.values, color='#e74c3c', alpha=0.4, label='CPM defensive %')
-    ax.plot(rolling_def.index, rolling_def.values, color='#c0392b', lw=1.5)
-    ax.axhline(rolling_def.mean(), color='black', ls='--', lw=0.8, label=f'Mean {rolling_def.mean():.1f}%')
-    ax.set_ylabel('% of last 12 months in defensive (best-of-safe SHV/IEF)')
-    ax.set_ylim(0, 100)
-    ax.set_title('CPM Rolling Defensive Activation (12-month window)')
-    ax.legend(loc='upper right')
-    ax.grid(alpha=0.3)
-    ax.xaxis.set_major_locator(mdates.YearLocator(2))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    return fig
 
 
 def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp,
@@ -2317,7 +2302,6 @@ def main():
     fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start, records=art.cpm_records)
     fig_sleeve_contrib = chart_sleeve_contribution(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
     drawdowns_html = table_worst_drawdowns(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W, top_n=10)
-    fig_def_pct = chart_rolling_defensive_pct(panel, start, records=art.cpm_records)
     fig_pair_timeline = chart_pair_pick_timeline(panel, start, records=art.cpm_records)
     fig_sleeve_corr = chart_rolling_sleeve_correlation(art.cpm, art.bull, art.ndx)
     fig_distributions = chart_monthly_return_distributions(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
@@ -2650,7 +2634,6 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <h3>Regime & gate history</h3>
 <div class='card'>
 {fig_to_html(fig_canary)}
-{fig_to_html(fig_def_pct)}
 {fig_to_html(fig_canary_heatmap)}
 </div>
 
