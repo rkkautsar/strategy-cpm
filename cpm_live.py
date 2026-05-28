@@ -53,13 +53,11 @@ RISKY_UNIVERSE = (US_EQUITY + US_FACTOR + INTERNATIONAL + REAL_ESTATE
                    + DIVERSIFIERS)
 SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
-# CPM canary: TIP-only (HAA canonical).
-CANARY_ASSETS = ["TIP"]
+# CPM canary: HYG OR TIP (any positive, matching BULL-SPY breadth).
+# Using dual breadth provides robust cross-asset recession hedging.
+CANARY_ASSETS = ["HYG_stitched", "TIP"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
-# BULL-SPY canary: HYG OR TIP. Two-canary breadth justified for single-asset
-# sleeve (vs CPM's multi-asset universe diversification). See research/.
-BULL_CANARY_ASSETS = ["HYG_stitched", "TIP"]
 DEFAULT_CASH = "SHV"
 
 # NDX intramonth circuit assets: LQD/IEF ratio is the duration-cancelled credit
@@ -125,7 +123,6 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     
     # Live yfinance pulls for ETFs not in proxy panel
     needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS
-                  + BULL_CANARY_ASSETS
                   + NDX_INTRAMONTH_CANARY_ASSETS
                   + PP_ASSETS + [DEFAULT_CASH])
     missing = sorted(needed - set(panel.columns))
