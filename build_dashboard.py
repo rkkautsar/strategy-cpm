@@ -615,9 +615,9 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
 
     Returns SimpleNamespace with:
       panel, ndx_panel, start, end
-      cpm, bull_raw, ndx_raw          - daily return Series (pre-DD-circuit)
-      bull, ndx                        - daily return Series (post-DD-circuit)
-      bull_dd_scale, ndx_dd_scale      - daily DD-scale Series
+      cpm, bull_raw, ndx_raw          - daily return Series
+      bull, ndx                        - daily return Series
+      bull_dd_scale, ndx_dd_scale      - daily scale Series (identity)
       vol_scale, vol_events            - portfolio overlay scale/events (identity)
       blend_uncapped, blend            - portfolio daily returns
       sigs                             - signal dates list
@@ -625,8 +625,6 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                                                 (only populated when include_records=True;
                                                 EXT 30y window skips these for speed)
     """
-    from circuit_breaker import (compute_lqd_ief_circuit_scale,
-                                   LQD_IEF_EMA_SPAN)
     cpm, _ = run_cpm_backtest(panel, start, end)
     bull_raw = run_bull_qqq_backtest(panel, start, end)
     if ndx_panel is not None:
@@ -640,22 +638,12 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    # Intramonth circuits (BULL has none; NDX uses LQD/IEF credit-spread proxy).
-    # BULL: no circuit (2026-05-27 audit found DD-10%/63d net Sharpe-negative
-    #   under honest t+1 MOO execution; sleeve raw 1.023 > circuit 0.983).
-    # NDX: LQD/IEF < EMA50 daily circuit. LQD/IEF ratio is the
-    #   duration-cancelled credit spread proxy; falling below EMA50 = IG corporate bonds
-    #   underperforming Treasuries = credit-spread widening = risk-off signal.
-    #   PROD blend Sharpe 1.384 (DD-10%) -> 1.410 (LQD/IEF). Best Calmar 1.30
-    #   (vs 1.28) and shallowest MaxDD -10.17% (vs -10.89%). Sanity-gate
-    #   robust to +1d lag (+0.075 delta = signal improves with lag).
+    # No intramonth daily circuit overlays for Option B.
+    # BULL and NDX are monthly-gated sleeves only.
     bull = bull_raw
-    bull_dd_scale = pd.Series(1.0, index=bull_raw.index)  # passthrough
-    lqd_price = panel["LQD"]
-    ief_price = panel["IEF"]
-    ndx_dd_scale = compute_lqd_ief_circuit_scale(lqd_price, ief_price, common, sigs,
-                                                    ema_span=LQD_IEF_EMA_SPAN)
-    ndx = ndx_dd_scale * ndx_raw
+    bull_dd_scale = pd.Series(1.0, index=bull_raw.index)
+    ndx_dd_scale = pd.Series(1.0, index=ndx_raw.index)
+    ndx = ndx_raw
     blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
     # No additional portfolio-level cap overlay.
     vol_scale = pd.Series(1.0, index=blend_uncapped.index)
@@ -2104,25 +2092,15 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                              for t, w in sorted(combined.items(), key=lambda x: -x[1])
                              if abs(w) > 1e-6)
 
-    # LQD/IEF credit-spread circuit state for NDX sleeve
-    from circuit_breaker import current_circuit_state, LQD_IEF_EMA_SPAN
-    try:
-        st = current_circuit_state(panel["LQD"], panel["IEF"])
-        triggered = st["triggered"]
-        color = "#e74c3c" if triggered else "#2ecc71"
-        status = "⚠️ CIRCUIT TRIGGERED" if triggered else "✓ Normal"
-        dist_pct = st["distance_pct"]
-        dd_status_html = (
-            f"<div style='grid-column: 1 / -1; background:#fafafa;border-left:4px solid {color};"
-            f"padding:8px 12px;margin:8px 0;border-radius:4px;font-size:0.88rem;'>"
-            f"<strong>NDX LQD/IEF circuit</strong>: {status} "
-            f"&middot; ratio <strong>{st['ratio']:.4f}</strong> "
-            f"(EMA{LQD_IEF_EMA_SPAN} {st['ema']:.4f}, {dist_pct:+.2f}%) "
-            f"&middot; as of {st['as_of_date'].date() if st.get('as_of_date') else 'n/a'}"
-            f"</div>"
-        )
-    except Exception as _e:
-        dd_status_html = f"<p style='color:#999'>NDX circuit state unavailable: {_e}</p>"
+    # NDX sleeve uses monthly BULL gate only (no intramonth daily circuit).
+    dd_status_html = (
+        "<div style='grid-column: 1 / -1; background:#fafafa;border-left:4px solid #3498db;"
+        "padding:8px 12px;margin:8px 0;border-radius:4px;font-size:0.88rem;'>"
+        "<strong>NDX gate model</strong>: monthly BULL-state gate only. "
+        "When BULL is defensive, NDX allocates 100% best-of-safe (SHV/IEF). "
+        "No daily circuit breaker is applied intramonth."
+        "</div>"
+    )
 
     # Build prior-vs-target trade-delta table (compare to PREVIOUS signal date if available)
     prev_combined = {}
@@ -2587,7 +2565,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on (HYG OR TIP) 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_20d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on QQQ 13612U trend (asset-class trend filter: the NDX universe is Nasdaq-100, QQQ is its ETF). When QQQ trend is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on monthly BULL active state (when BULL is off, NDX is off; no daily circuit breaker applied).</li>
 </ul>
 </div>
 </details>
@@ -2708,9 +2686,9 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
 <li><strong>Signal:</strong> GPM score = 13612U momentum penalized by 260d correlation to equal-weighted NDX basket.</li>
 <li><strong>Selection:</strong> top {NDX_SELECT_K} by GPM score (positive only), equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
-<li><strong>Gate:</strong> Gated on QQQ 13612U trend &gt; 0 (NDX universe's own asset-class trend filter -- don't fish in a falling pond).</li>
-<li><strong>Daily overlay:</strong> -10% daily drawdown circuit breaker from 63d rolling-peak. Scale to cash (0.0) on breach, resets monthly.</li>
-<li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
+<li><strong>Gate:</strong> Gated on monthly BULL active state. BULL active = SPY weight &gt; 0 in BULL sleeve at signal date.</li>
+<li><strong>Daily overlay:</strong> None. No intramonth daily circuit breaker applied.</li>
+<li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when BULL gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
 <li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
 </ul>

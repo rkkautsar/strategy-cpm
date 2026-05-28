@@ -83,26 +83,19 @@ def compute_ndx_weights(
     """Returns (weights, regime_label, diagnostics).
 
     Flow:
-      - QQQ 13612U > 0  -> select top-K NDX names by GPM score (full weight)
-      - QQQ 13612U <= 0 -> 100% best-of-safe (SHV/IEF)
-
-    Gate rationale: NDX selects K=5 stocks from the Nasdaq-100 universe.
-    Requiring QQQ (the NDX ETF) to have positive 12-month trend is the
-    universe's own asset-class trend filter -- don't fish in a falling pond.
-    Validated against dot-com regime (QQQ trend fires defensive correctly,
-    while a TIP-only canary would stay risk-on through the bear).
+      - BULL sleeve active (SPY weight > 0)  -> select top-K NDX names by GPM score
+      - BULL sleeve defensive                -> 100% best-of-safe (SHV/IEF)
     """
-    # Step 1: Decoupled Gating -- defensive if QQQ trend is negative
+    # Step 1: Gate on monthly BULL active state.
     cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
-    qqq_mom = sig_13612U(cpm_monthly["QQQ"]) if "QQQ" in cpm_monthly.columns else float("nan")
-    ndx_active = bool(pd.notna(qqq_mom) and qqq_mom > 0)
+    bull_weights, _, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
+    bull_active = any(w > 0 for t, w in bull_weights.items() if t == "SPY")
 
-    if not ndx_active:
+    if not bull_active:
         safe = _pick_safe(cpm_monthly)
-        return ({safe: 1.0}, "GATE_OFF (QQQ_mom <= 0)", {
-            "qqq_mom": qqq_mom,
+        return ({safe: 1.0}, "GATE_OFF (BULL_defensive)", {
             "selected": [],
-            "reason": "QQQ 13612U trend negative",
+            "reason": "BULL sleeve defensive",
             "picked_safe": safe,
         })
 
