@@ -1101,17 +1101,25 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
 
 def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
                             records: list | None = None,
-                            bull_records: list | None = None) -> tuple:
-    """Run signal dates and collect (sig_d, cpm_regime, bull_regime, pair, safe).
-    Plot two stacked rows: CPM canary (HYG/TIP) + BULL canary (HYG/TIP).
+                            bull_records: list | None = None,
+                            ndx_records: list | None = None) -> tuple:
+    """Plot aggregate portfolio defensive (risk-off) exposure over time.
     Returns (fig, regime_counts dict, picks Counter, pair_counter Counter)."""
     from collections import Counter
     records = records if records is not None else cpm_signal_records(panel, start)
+    _br = bull_records if bull_records is not None else bull_signal_records(panel, start)
+    _nr = ndx_records if ndx_records is not None else ndx_signal_records(panel, load_ndx_panel(), start)
+
+    _bull_by_date = {r["sig_d"]: r for r in _br}
+    _ndx_by_date = {r["sig_d"]: r for r in _nr}
 
     cpm_per_date = []
     bull_per_date = []
     picks = Counter()
     pair_counter = Counter()
+    dates = []
+    blend_def_pcts = []
+
     for rec in records:
         sd = rec["sig_d"]
         weights = rec["weights"]
@@ -1124,17 +1132,38 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
                 picks[asset] += 1
         if pair and len(pair) == 2:
             pair_counter[tuple(sorted(pair))] += 1
-    # BULL-SPY canary state: pull from precomputed bull_records (memoized) so
-    # we don't recompute compute_bull_qqq_weights for every signal date
-    # (~218 redundant calls each containing a full monthly resample).
-    _br = bull_records if bull_records is not None else bull_signal_records(panel, start)
-    _bull_by_date = {r["sig_d"]: r["regime"] for r in _br}
+
+        # Calculate exact defensive exposure per sleeve
+        # 1. CPM defensive share (weight of the safe asset)
+        cpm_def = weights.get(safe, 0.0)
+        if regime == "DEFENSIVE":
+            cpm_def = 1.0
+
+        # 2. BULL defensive share
+        b_rec = _bull_by_date.get(sd, {})
+        b_reg = b_rec.get("regime", "CASH")
+        bull_def = 1.0 if b_reg == "CASH" else 0.0
+
+        # 3. NDX defensive share
+        n_rec = _ndx_by_date.get(sd, {})
+        n_weights = n_rec.get("weights", {})
+        n_reg = n_rec.get("regime", "GATE_OFF (QQQ_mom <= 0)")
+        if n_reg.startswith("GATE_OFF") or n_reg == "NDX_DEFENSIVE":
+            ndx_def = 1.0
+        else:
+            ndx_def = n_weights.get(safe, 0.0)
+
+        # Aggregate portfolio defensive weight (60% CPM / 20% BULL / 20% NDX)
+        total_def = 0.60 * cpm_def + 0.20 * bull_def + 0.20 * ndx_def
+        dates.append(sd)
+        blend_def_pcts.append(total_def * 100.0)
+
     for sd, _, _, _ in cpm_per_date:
-        bull_per_date.append((sd, _bull_by_date.get(sd, "CASH")))
+        bull_rec_reg = _bull_by_date.get(sd, {})
+        bull_per_date.append((sd, bull_rec_reg.get("regime", "CASH")))
 
     cpm_regimes = [r for _, r, _, _ in cpm_per_date]
     bull_regimes = [r for _, r in bull_per_date]
-    n_total = len(cpm_regimes)
     regime_counts = {
         "RISK_ON": cpm_regimes.count("RISK_ON"),
         "DEFENSIVE": cpm_regimes.count("DEFENSIVE"),
@@ -1142,46 +1171,15 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
         "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
     }
 
-    from matplotlib.patches import Patch
-    fig, axes = plt.subplots(2, 1, figsize=(8, 3.2), sharex=True,
-                             gridspec_kw={"hspace": 0.55})
-    dates = [d for d, _, _, _ in cpm_per_date]
-
-    # Row 1: CPM canary (HYG/TIP any-positive)
-    cpm_colors = ["#d04000" if r == "DEFENSIVE" else "#0040d0" for r in cpm_regimes]
-    axes[0].bar(dates, [1] * len(dates), color=cpm_colors, width=25, alpha=0.85, edgecolor="none")
-    axes[0].set_yticks([])
-    axes[0].set_ylim(0, 1)
-    axes[0].set_title("CPM canary (HYG / TIP any-positive 13612U)", fontsize=9)
-    axes[0].legend(
-        handles=[
-            Patch(facecolor="#0040d0", label="RISK_ON (pair)"),
-            Patch(facecolor="#d04000", label="DEFENSIVE (best-of-safe SHV/IEF)"),
-        ],
-        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
-        frameon=False, handlelength=1.2, handleheight=0.7,
-    )
-
-    # Row 2: BULL-SPY canary (HYG/TIP any-positive + asset mom)
-    bull_colors = []
-    for r in bull_regimes:
-        if r.startswith("BULL_"): bull_colors.append("#00a040")
-        else: bull_colors.append("#808080")
-    axes[1].bar(dates, [1] * len(dates), color=bull_colors, width=25, alpha=0.85, edgecolor="none")
-    axes[1].set_yticks([])
-    axes[1].set_ylim(0, 1)
-    axes[1].set_title("BULL canary (HYG/TIP any-positive 13612U)", fontsize=9)
-    axes[1].legend(
-        handles=[
-            Patch(facecolor="#00a040", label="BULL_SPY"),
-            Patch(facecolor="#808080", label="CASH (best-of-safe SHV/IEF)"),
-        ],
-        loc="upper right", bbox_to_anchor=(1.0, 1.4), ncol=2, fontsize=7,
-        frameon=False, handlelength=1.2, handleheight=0.7,
-    )
-    axes[1].xaxis.set_major_locator(mdates.YearLocator(2))
-    axes[1].xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-    plt.tight_layout()
+    fig, ax = plt.subplots(figsize=(11, 3.2), constrained_layout=True)
+    ax.fill_between(dates, 0, blend_def_pcts, color="#e74c3c", alpha=0.35, label="Defensive Weight (%)")
+    ax.plot(dates, blend_def_pcts, color="#c0392b", lw=1.5)
+    ax.set_ylabel("Defensive Weight (%)", fontsize=9, fontweight="bold")
+    ax.set_ylim(0, 100)
+    ax.set_title("Aggregate Portfolio Defensive Exposure (Monthly Signal, 60/20/20)", fontsize=11, fontweight="bold")
+    ax.xaxis.set_major_locator(mdates.YearLocator(2))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax.tick_params(axis='both', which='both', labelsize=8)
     return fig, regime_counts, picks, pair_counter
 
 
@@ -2314,7 +2312,7 @@ def main():
     fig_excess = chart_rolling_excess(art.cpm, art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"], art.bull)
     fig_roll_dd = chart_rolling_dd(art.cpm, art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"], art.bull)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(
-        panel, start, records=art.cpm_records, bull_records=art.bull_records)
+        panel, start, records=art.cpm_records, bull_records=art.bull_records, ndx_records=art.ndx_records)
     fig_canary_heatmap = chart_canary_state_heatmap(panel, art.cpm, art.bull, start)
     fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start, records=art.cpm_records)
     fig_sleeve_contrib = chart_sleeve_contribution(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
