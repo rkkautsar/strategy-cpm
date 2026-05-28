@@ -5,7 +5,7 @@ canaries plus a daily LQD/IEF credit-spread intramonth circuit on the NDX
 sleeve are the defensive machinery.
 
 - **CPM (60%)** — AAA Pair-EW Extension over the 9-asset risky universe with
-  13612U momentum (Faber) ranker, HYG OR TIP canary (BULL-style breadth), and
+  Faber 10-month SMA ranker, HYG OR TIP canary (BULL-style breadth), and
   504d simple daily covariance for min-variance pair selection. Top-K = ceil(9/2)
   = 5 candidates. Equal-weighted 50/50 on the chosen pair.
 - **BULL (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
@@ -82,7 +82,7 @@ mom_13612U(A)     = (r1 + r3 + r6 + r12) / 4                # Keller HAA canonic
 faber_score(A)    = (price[T] - SMA_10mo) / SMA_10mo        # Faber 2007
 corr_260d(A, U)   = daily Pearson corr of A's returns over last 260d to the
                     equal-weighted basket return of universe U
-gpm_score(A, U)   = faber_score(A) * (1 - corr_260d(A, U))  # GPM penalty
+gpm_score(A, U)   = mom_13612U(A) * (1 - corr_260d(A, U))   # GPM penalty (NDX sleeve)
 best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
 
 # ------------------------------------------------------------------------
@@ -142,7 +142,7 @@ for d in trading_days(T_prev_signal+1, T_next_signal):
     if d == T_next_signal:               # monthly reset
         state = 1.0
     apply scale[d] = state to NDX sleeve_return[d]
-    if ratio[d] < sma50[d]:              # trigger fires for tomorrow
+    if ratio[d] < ema50[d]:              # trigger fires for tomorrow
         state = 0.0                      # defensive starting day d+1
 
 # ------------------------------------------------------------------------
@@ -221,16 +221,16 @@ refreshed at each spec change, current run 2026-05-28):
 
 | Metric | Point | p2.5 | p25 | p50 | p75 | p97.5 |
 |---|---:|---:|---:|---:|---:|---:|
-| Sharpe | 1.466 | 1.053 | 1.328 | 1.473 | 1.617 | 1.896 |
-| CAGR | 14.57% | 10.34% | 13.06% | 14.61% | 16.18% | 19.23% |
-| Vol | 9.61% | 9.02% | 9.40% | 9.60% | 9.80% | 10.21% |
-| MaxDD | -9.94% | -20.51% | -14.66% | -12.60% | -10.95% | -8.93% |
-| Calmar | 1.47 | 0.58 | 0.92 | 1.15 | 1.42 | 1.97 |
+| Sharpe | 1.440 | 1.035 | 1.302 | 1.446 | 1.588 | 1.872 |
+| CAGR | 15.42% | 10.75% | 13.85% | 15.41% | 17.12% | 20.51% |
+| Vol | 10.33% | 9.68% | 10.10% | 10.32% | 10.55% | 10.99% |
+| MaxDD | -11.04% | -22.03% | -15.55% | -13.40% | -11.77% | -9.48% |
+| Calmar | 1.39 | 0.58 | 0.91 | 1.14 | 1.39 | 1.97 |
 
-95% CI summary: **Sharpe [1.05, 1.90]**, CAGR [10.34%, 19.23%], MaxDD [-20.51%,
--8.93%], Calmar [0.58, 1.97]. Lower bound of Sharpe ~1.05, comfortably above
-literature blends (BB4: 1.19, BB1: 1.11) and SPY (0.66). Script + log + JSON
-in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
+95% CI summary: **Sharpe [1.04, 1.87]**, CAGR [10.75%, 20.51%], MaxDD [-22.03%,
+-9.48%], Calmar [0.58, 1.97]. The paired block bootstrap difference provides
+rigorous evidence of outperformance, showing P(PROD > BB4 on Sharpe) ≈ 97.0%.
+Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 
 ## Key caveats
 
