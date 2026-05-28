@@ -71,16 +71,9 @@ DEFAULT_CASH = "SHV"
 NDX_INTRAMONTH_CANARY_ASSETS = ["LQD"]   # IEF is already in SAFE_POOL
 
 # Engine parameters
-TOP_K_CANDIDATES = 5        # top-half of 9-asset CLEAN-9 universe (ceil(9/2))
-HOLD_BUFFER = 0.0           # DISABLED in AAA Pair-EW Extension spec; hold
-                            # buffer was an overlay on the prior 9-asset spec.
+TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
 CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)
 CORR_PENALTY_LOOKBACK_DAYS = 260  # GPM correlation penalty lookback (~1y)
-TARGET_VOL = None           # DISABLED. Vol cap was an overlay on the prior
-                            # 9-asset spec; AAA Pair-EW + TIP canary already
-                            # delivers shallow MaxDD without the cap.
-VOL_LOOKBACK_DAYS = 63      # only used when TARGET_VOL is not None
-MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
@@ -220,23 +213,15 @@ def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> 
     return sum(1 for score in scores if score > 0)
 
 
-# AAA Pair-EW Extension uses TIP-only canary (len(CANARY_ASSETS) == 1).
-# Risk state is binary: ON (TIP > 0) or OFF (TIP <= 0). The prior 3-canary
-# OFF/WEAK/ON mapping (HYG/TIP/GLD) is retired with the rest of the prior
-# spec; see research/README.archive.2026-05-27.md for the previous logic.
 assert len(CANARY_ASSETS) >= 1, "CANARY_ASSETS must be non-empty"
 
 
 def canary_risk_state(n_pos: int | None) -> str | None:
     """Map canary positive count -> risk state.
 
-    Binary mapping for the AAA Pair-EW Extension (TIP-only canary):
-      OFF (n_pos == 0): defensive
-      ON  (n_pos >= 1): risk-on
-
-    Hold-buffer memory (when enabled) is invalidated on OFF<->ON transitions.
-    Generalizes cleanly to multi-canary configs: any state change in n_pos
-    triggers a memory reset.
+    Binary: ON (n_pos >= 1) or OFF (n_pos == 0). Generalizes cleanly to
+    multi-canary configs; any state change in n_pos can be used to invalidate
+    memory in callers that track prior risk regime.
     """
     if n_pos is None:
         return None
@@ -347,7 +332,6 @@ def best_safe(monthly: pd.DataFrame, sig_d: pd.Timestamp, safe_pool: list) -> st
 def compute_target_weights(
     close_panel: pd.DataFrame,
     sig_d: pd.Timestamp,
-    prev_pair: tuple = None,
     universe: list = None,
     safe_pool: list = None,
     canary_assets: list = None,
@@ -427,92 +411,24 @@ def compute_target_weights(
     if new_pick is None:
         return {candidates[0]: 1.0}, None, "RISK_ON", safe
     
-    # Hold buffer
-    # Small-sample rule: DISABLED if fewer than 3 positive candidates -- cross-
-    # sectional z-score is unstable with n<3, so the buffer cannot reliably
-    # judge whether prior is "close enough" to swap candidate. Default to
-    # the new pick when sample is sparse.
-    if prev_pair is not None and HOLD_BUFFER > 1e-9 and len(candidates) >= 3:
-        new_set = list(new_pick)
-        for prior in prev_pair:
-            if prior in new_set or prior not in avail:
-                continue
-            if sa.get(prior, -np.inf) <= 0:
-                continue
-            z_prior = za.get(prior, np.nan)
-            if pd.isna(z_prior):
-                continue
-            swap_cands = [x for x in new_set if x not in prev_pair]
-            if not swap_cands:
-                continue
-            swap = min(swap_cands, key=lambda x: za.get(x, np.inf))
-            z_swap = za.get(swap, np.nan)
-            if pd.isna(z_swap):
-                continue
-            if z_swap - z_prior < HOLD_BUFFER:
-                new_set.remove(swap)
-                new_set.append(prior)
-        new_pick = tuple(new_set[:2])
-    
     return {new_pick[0]: 0.5, new_pick[1]: 0.5}, new_pick, "RISK_ON", safe
 
 
 # ---------- Backtest ----------
 
-LIVE_WALK_MONTHS = 36  # walk forward this many months ending at sig_d.
-                       # 36mo = 12mo canary warmup + 24mo prev_pair propagation
-                       # buffer (covers 1-2 canary regime transitions for
-                       # hold-buffer reset history). Simple rolling cov uses
-                       # a hard 504d window so no warmup-convergence concern.
-
 
 def compute_live_weights(
     panel: pd.DataFrame,
     sig_d: pd.Timestamp,
-    walk_months: int = LIVE_WALK_MONTHS,
 ) -> tuple[dict, tuple, str, str]:
-    """STATELESS production-correct allocation at sig_d.
+    """Production-correct allocation at sig_d.
 
-    Walks forward from (sig_d - walk_months) with prev_pair propagation +
-    hold-buffer reset on canary risk state transitions (OFF <-> WEAK <-> ON), matching
-    `run_cpm_backtest` behavior. No state file needed -- the walk
-    reconstructs hold-buffer state from scratch each call.
-
-    walk_months default 36 = 12mo canary lookback + 24mo EWMA cov warmup
-    + buffer for 1-2 canary regime transitions. This is sufficient to
-    reach a stable prev_pair chain by the time we hit sig_d. Longer walks
-    are harmless but slower. Shorter (<24mo) risks missing buffer-reset
-    history that would otherwise have happened.
-
-    cpm_live.py allocate and format_message.py MUST call this to avoid
-    backtest/live divergence. The single-call `compute_target_weights`
-    does NOT apply hold buffer (no prev_pair), causing pair churn.
+    Returns (weights, pair, regime, safe). Used by `cpm_live allocate` and
+    `format_message.py` to publish the live signal.
     """
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     close = panel[cols]
-    monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
-    walk_start = sig_d - pd.DateOffset(months=walk_months)
-    sig_dates = monthly_idx.index[(monthly_idx.index >= walk_start)
-                                    & (monthly_idx.index <= sig_d)].tolist()
-    if not sig_dates:
-        return compute_target_weights(close, sig_d)
-    prev_pair = None
-    prev_risk_state = None
-    weights = pair = regime = safe = None
-    for sd in sig_dates:
-        monthly = close.loc[:sd].resample("ME").last()
-        n_pos = canary_positive_count(monthly, CANARY_ASSETS)
-        risk_state = canary_risk_state(n_pos)
-        if (prev_pair is not None and risk_state is not None
-                and prev_risk_state is not None
-                and risk_state != prev_risk_state):
-            prev_pair = None
-        weights, new_pair, regime, safe = compute_target_weights(
-            close, sd, prev_pair=prev_pair)
-        prev_pair = new_pair
-        prev_risk_state = risk_state
-        pair = new_pair
-    return weights, pair, regime, safe
+    return compute_target_weights(close, sig_d)
 
 
 def perf_metrics(daily: pd.Series) -> dict:
@@ -539,7 +455,6 @@ def run_cpm_backtest(
     panel: pd.DataFrame,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    apply_vol_target: bool = True,    # no-op when TARGET_VOL is None
     cost_bps: float = COST_BPS_PER_SIDE,
 ) -> tuple[pd.Series, list]:
     """Run CPM standalone (no PP blend). Returns daily returns + diagnostics list.
@@ -548,17 +463,6 @@ def run_cpm_backtest(
     rebalance executed at MOO of next trading day T+1 OPEN. Backtest uses
     close-to-close accounting on the apply_from day (close[T+1] / close[T] - 1),
     which assigns the T_eom -> T+1 overnight gap to the NEW weight vector.
-    Validated 2026-05-27 against a strict open-fill attribution that splits T+1
-    into OLD * overnight (close[T_eom] -> open[T+1]) + NEW * intraday
-    (open[T+1] -> close[T+1]) using consistently-adjusted yfinance opens and
-    closes on the CLEAN-7 universe with Faber*(1-corr) ranking, 504d cov,
-    TIP canary, no hold buffer, 10 bps/side, 2008-04-30 to 2026-05-22:
-        close-to-close (current): Sharpe 1.029, CAGR 10.62%, MaxDD -16.68%
-        strict open-fill (true MOO): Sharpe 1.018, CAGR 10.48%, MaxDD -18.23%
-    Delta is +0.011 Sharpe, +0.14% CAGR, +1.55pp shallower MaxDD vs true MOO;
-    all within bootstrap noise. The convention slightly understates MaxDD on
-    crisis rebalance days where intraday reversals would split between OLD and
-    NEW under strict open-fill. See research/exec_accounting_audit_2026_05.
     """
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     close = panel[cols]
@@ -568,25 +472,10 @@ def run_cpm_backtest(
     
     weights_history = []
     canary_state = {}
-    prev_pair = None
-    prev_risk_state = None
 
     for i, sig_d in enumerate(signal_dates):
-        monthly = close.loc[:sig_d].resample("ME").last()
-        n_pos = canary_positive_count(monthly, CANARY_ASSETS)
-        risk_state = canary_risk_state(n_pos)
-        if (
-            prev_pair is not None
-            and risk_state is not None
-            and prev_risk_state is not None
-            and risk_state != prev_risk_state
-        ):
-            prev_pair = None
-
-        w, new_pair, regime, safe = compute_target_weights(close, sig_d, prev_pair)
+        w, new_pair, regime, safe = compute_target_weights(close, sig_d)
         canary_state[sig_d] = (regime == "RISK_ON")
-        prev_pair = new_pair
-        prev_risk_state = risk_state
         future = close.index[close.index > sig_d]
         if len(future) < 1:
             continue
@@ -630,12 +519,6 @@ def run_cpm_backtest(
         af = weights_history[i]["apply_from"]
         if af in raw_returns.index:
             raw_returns.loc[af] -= cost
-    
-    # Vol target overlay (no-op when TARGET_VOL is None per AAA Pair-EW spec)
-    if apply_vol_target and TARGET_VOL is not None:
-        realized = raw_returns.rolling(VOL_LOOKBACK_DAYS).std() * np.sqrt(252)
-        scale = (TARGET_VOL / realized).clip(upper=MAX_LEVERAGE).shift(1).fillna(1.0)
-        raw_returns = raw_returns * scale
     
     return raw_returns.loc[(raw_returns.index >= start) & (raw_returns.index <= end)], weights_history
 
@@ -732,12 +615,8 @@ def cmd_backtest(args):
     print(f"NOTE: This is CPM sleeve only (60% of PROD). For full PROD blend")
     print(f"      (60% CPM + 20% BULL-SPY + 20% NDX) use build_dashboard.py.")
     
-    kwargs = dict(
-        apply_vol_target=not args.no_vol_target,
-        cost_bps=0 if args.no_cost else COST_BPS_PER_SIDE,
-    )
-    
-    cpm, _ = run_cpm_backtest(panel, start, end, **kwargs)
+    cost_bps = 0 if args.no_cost else COST_BPS_PER_SIDE
+    cpm, _ = run_cpm_backtest(panel, start, end, cost_bps=cost_bps)
     
     print(f"\n{'Strategy':25s} {'CAGR':>8s} {'Vol':>7s} {'Sharpe':>7s} {'MaxDD':>8s}")
     print("-" * 60)

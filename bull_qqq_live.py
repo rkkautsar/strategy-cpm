@@ -286,8 +286,8 @@ def cmd_backtest(args):
     w_b = PROD_BULL_WEIGHT
     w_f = 1 - w_b
     blend = w_f * fcp_rets.loc[common] + w_b * bull_qqq.loc[common]
-    prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL (2-sleeve historical)"
-    print("Note: actual PROD is 60/20/20 CPM-BULL-NDX (see build_dashboard.py); this CLI prints 2-sleeve comparison.")
+    prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL (2-sleeve)"
+    print("Note: PROD blend is 60/20/20 CPM-BULL-NDX (see build_dashboard.py); this CLI prints the 2-sleeve diagnostic.")
 
     strategies = [
         (prod_label, blend),

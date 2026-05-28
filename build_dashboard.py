@@ -35,7 +35,7 @@ import cpm_live as cpm_module
 from cpm_live import (
     RISKY_UNIVERSE, SAFE_POOL,
     CANARY_ASSETS, DEFAULT_CASH,
-    TARGET_VOL, HOLD_BUFFER, CORR_LOOKBACK_DAYS, COST_BPS_PER_SIDE,
+    CORR_LOOKBACK_DAYS, COST_BPS_PER_SIDE,
     TOP_K_CANDIDATES,
     load_panel, run_cpm_backtest,
     perf_metrics, compute_target_weights, sig_13612U,
@@ -525,21 +525,11 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
     sig_dates = monthly_idx.index[mask].tolist()
 
     records = []
-    prev_pair = None
-    prev_risk_state = None
     for sig_d in sig_dates:
         monthly = close.loc[:sig_d].resample("ME").last()
         n_pos = cpm_module.canary_positive_count(monthly, CANARY_ASSETS)
         risk_state = cpm_module.canary_risk_state(n_pos)
-        if (
-            prev_pair is not None
-            and risk_state is not None
-            and prev_risk_state is not None
-            and risk_state != prev_risk_state
-        ):
-            prev_pair = None
-
-        weights, new_pair, regime, safe = compute_target_weights(close, sig_d, prev_pair=prev_pair)
+        weights, new_pair, regime, safe = compute_target_weights(close, sig_d)
         records.append({
             "sig_d": sig_d,
             "weights": weights,
@@ -549,8 +539,6 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
             "canary_positive_count": n_pos,
             "risk_state": risk_state,
         })
-        prev_pair = new_pair
-        prev_risk_state = risk_state
     return records
 
 
@@ -659,7 +647,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     #   PROD blend Sharpe 1.384 (DD-10%) -> 1.410 (LQD/IEF). Best Calmar 1.30
     #   (vs 1.28) and shallowest MaxDD -10.17% (vs -10.89%). Sanity-gate
     #   robust to +1d lag (+0.075 delta = signal improves with lag).
-    bull = bull_raw  # no intramonth circuit
+    bull = bull_raw
     bull_dd_scale = pd.Series(1.0, index=bull_raw.index)  # passthrough
     lqd_price = panel["LQD"]
     ief_price = panel["IEF"]
@@ -1037,7 +1025,7 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
             row_order = [(True,), (False,)]
             col_order = [(True,), (False,)]
         elif include_macro and n_assets == 2:
-            # BULL legacy: rows = HYG x TIP, cols = curve x vol
+            # BULL: rows = HYG x TIP, cols = curve x vol
             row_order = [(True, True), (True, False), (False, True), (False, False)]
             col_order = [(True, True), (True, False), (False, True), (False, False)]
         else:
@@ -2613,8 +2601,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> CLEAN-7 universe (SPY, EFA, EEM, VNQ, GLD, TLT, DBC), TIP-only 13612U canary (HAA canonical), Faber * (1 - corr_260d) GPM-penalized ranker, top-{cpm_module.TOP_K_CANDIDATES} (top-half), min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive. No hold buffer, no vol cap.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 13612U momentum &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U. No intramonth circuit.</li>
+<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), TIP 13612U canary (HAA canonical), GPM-penalized ranker (13612U * (1 - corr_260d)), top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 AND SPY 13612U &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
 </ul>
 </div>
