@@ -53,10 +53,10 @@ RISKY_UNIVERSE = (US_EQUITY + US_FACTOR + INTERNATIONAL + REAL_ESTATE
                    + DIVERSIFIERS)
 SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
-# CPM canary: HYG OR TIP (any positive, matching BULL-SPY breadth).
-# Using dual breadth provides robust cross-asset recession hedging.
+# CPM canary: HYG AND TIP (all positive, dual confirmation).
+# Dual confirmation canary reduces false risk-on signals.
 CANARY_ASSETS = ["HYG", "TIP"]
-CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
+CANARY_RULE = "all_positive"  # "any_positive" or "all_positive"
 
 DEFAULT_CASH = "SHV"
 
