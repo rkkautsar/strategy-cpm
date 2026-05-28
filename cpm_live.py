@@ -36,42 +36,49 @@ PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 # (DBC live + 12mo signal warmup, 19.3y).
 # HYG canary uses VWEHX mutual fund pre-2007-04 + live HYG post.
 #
-# US factors (4): QQQ (Nasdaq-100), IWF (Russell 1000 Growth),
-# SPHQ (S&P 500 Quality), VBR (small-cap value).
-US_FACTORS = [
-    "QQQ", "IWF", "VBR", "SPHQ",
-]
-
-# International: regime hedge for periods when US factor leadership wanes.
-# International: EFA (developed ex-US, live 2001-08), EEM (emerging markets,
-# live 2003-04). Chosen over VEA/VWO for longer live history.
+# CPM CLEAN-7 universe (AAA Pair-EW Extension on the canonical AAA cross-asset
+# pool). SPY (US equity), EFA (developed ex-US), EEM (emerging), VNQ (real
+# estate), GLD (gold), TLT (long bonds), DBC (broad commodities). All live since
+# 2006-02 (DBC inception is the binding constraint). Chosen over the prior
+# 9-asset US-factor stack (QQQ/IWF/VBR/SPHQ + EFA/EEM/GLD/TLT/DBC) because the
+# GPM correlation penalty interacts more cleanly with a non-redundant universe;
+# see research/benchmark_with_ndx_2026_05.log and the alpha decomposition table
+# in README.md.
+US_EQUITY = ["SPY"]
 INTERNATIONAL = ["EFA", "EEM"]
-
-# Diversifiers: GLD (gold), TLT (long bonds), DBC (broad commodities).
+REAL_ESTATE = ["VNQ"]
 DIVERSIFIERS = ["GLD", "TLT", "DBC"]
-RISKY_UNIVERSE = US_FACTORS + INTERNATIONAL + DIVERSIFIERS  # 9 risky
-SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe: SHV (ultra-short)
-                                 # or IEF (7-10y) by Faber 10m SMA distance.
-                                 # Captures duration alpha in falling-rate eras.
-                                 # Mirrors BULL sleeve's safe pool (was SHV only).
+RISKY_UNIVERSE = US_EQUITY + INTERNATIONAL + REAL_ESTATE + DIVERSIFIERS  # N=7
+SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
-# CPM canary: HYG (credit), TIP (inflation), GLD (real-asset/tail).
-# HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post.
-CANARY_ASSETS = ["HYG_stitched", "TIP", "GLD"]
+# CPM canary: TIP only (HAA canonical). Single-canary breadth is robust across
+# universe variants; multi-canary OR rules (HYG/TIP/GLD) blow MaxDD to -35% on
+# CLEAN-7 because GLD-positive regimes can stay risk-on into equity stress.
+CANARY_ASSETS = ["TIP"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
-# BULL-SPY canary: TIP (real-rate/inflation) + HYG (credit-risk).
-# Risk-on when either canary is positive.
+# BULL-SPY canary: HYG OR TIP. Two-canary breadth justified for single-asset
+# sleeve (vs CPM's multi-asset universe diversification). See research/.
 BULL_CANARY_ASSETS = ["HYG_stitched", "TIP"]
 DEFAULT_CASH = "SHV"
 
+# NDX intramonth circuit assets: LQD/IEF ratio is the duration-cancelled credit
+# spread proxy used as the daily intramonth defensive trigger for NDX.
+# Adopted 2026-05-27 after audit found LQD/IEF < SMA50 daily circuit delivers
+# best Calmar (1.30) and shallowest MaxDD (-10.17%) of all NDX intramonth
+# options tested, with +1d lag sanity gate passing (+0.075 delta = robust).
+NDX_INTRAMONTH_CANARY_ASSETS = ["LQD"]   # IEF is already in SAFE_POOL
+
 # Engine parameters
-TOP_K_CANDIDATES = 5        # top-half of 9-asset universe (ceil(9/2))
-HOLD_BUFFER = 2.0           # z-score units; retain prior pair member unless
-                            # new candidate exceeds by this margin
-CORR_LOOKBACK_DAYS = 504    # EWMA covariance half-life for min-var pair (~2y)
-TARGET_VOL = 0.15           # annualized vol cap (de-risk only)
-VOL_LOOKBACK_DAYS = 63      # ~3mo realized vol
+TOP_K_CANDIDATES = 4        # top-half of 7-asset CLEAN-7 universe (ceil(7/2))
+HOLD_BUFFER = 0.0           # DISABLED in AAA Pair-EW Extension spec; hold
+                            # buffer was an overlay on the prior 9-asset spec.
+CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)
+CORR_PENALTY_LOOKBACK_DAYS = 260  # GPM correlation penalty lookback (~1y)
+TARGET_VOL = None           # DISABLED. Vol cap was an overlay on the prior
+                            # 9-asset spec; AAA Pair-EW + TIP canary already
+                            # delivers shallow MaxDD without the cap.
+VOL_LOOKBACK_DAYS = 63      # only used when TARGET_VOL is not None
 MAX_LEVERAGE = 1.0          # de-risk only, no borrowing
 COST_BPS_PER_SIDE = 10
 
@@ -128,6 +135,7 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     # Live yfinance pulls for ETFs not in proxy panel
     needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS
                   + BULL_CANARY_ASSETS
+                  + NDX_INTRAMONTH_CANARY_ASSETS
                   + PP_ASSETS + [DEFAULT_CASH])
     missing = sorted(needed - set(panel.columns))
     
@@ -211,34 +219,28 @@ def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> 
     return sum(1 for score in scores if score > 0)
 
 
-# Invariant: canary_risk_state's OFF/WEAK/ON cutoffs assume exactly 3
-# canary assets. If CANARY_ASSETS is resized, update the mapping logic.
-assert len(CANARY_ASSETS) == 3, (
-    "canary_risk_state assumes 3 canaries; update mapping if CANARY_ASSETS changes"
-)
+# AAA Pair-EW Extension uses TIP-only canary (len(CANARY_ASSETS) == 1).
+# Risk state is binary: ON (TIP > 0) or OFF (TIP <= 0). The prior 3-canary
+# OFF/WEAK/ON mapping (HYG/TIP/GLD) is retired with the rest of the prior
+# spec; see research/README.archive.2026-05-27.md for the previous logic.
+assert len(CANARY_ASSETS) >= 1, "CANARY_ASSETS must be non-empty"
 
 
 def canary_risk_state(n_pos: int | None) -> str | None:
-    """Map canary positive count -> 3-level risk state.
+    """Map canary positive count -> risk state.
 
-    OFF  (n_pos == 0)  : no canary positive, defensive-only regime
-    WEAK (n_pos == 1)  : one positive, narrow risk-on
-    ON   (n_pos >= 2)  : majority positive, broad risk-on
+    Binary mapping for the AAA Pair-EW Extension (TIP-only canary):
+      OFF (n_pos == 0): defensive
+      ON  (n_pos >= 1): risk-on
 
-    Hold-buffer memory is invalidated on any transition between these
-    states. Generalizes the prior 2-level majority cross trigger so the
-    reset fires on OFF<->WEAK and WEAK<->ON transitions as well, in case
-    future regimes traverse those boundaries (current backtest data
-    rarely does, so behavior is identical to majority cross in-sample).
-
-    Note: cutoffs hardcode `len(CANARY_ASSETS) == 3`. Asserted at import.
+    Hold-buffer memory (when enabled) is invalidated on OFF<->ON transitions.
+    Generalizes cleanly to multi-canary configs: any state change in n_pos
+    triggers a memory reset.
     """
     if n_pos is None:
         return None
     if n_pos == 0:
         return "OFF"
-    if n_pos == 1:
-        return "WEAK"
     return "ON"
 
 
@@ -382,19 +384,35 @@ def compute_target_weights(
         if n_pos <= len(canary_scores) // 2:
             return {safe: 1.0}, None, "DEFENSIVE", safe
     
-    # Faber SMA10m ranker on universe
-    score = faber_sma_xs(monthly)
+    # GPM-penalized Faber ranker (AAA Pair-EW Extension spec):
+    #   gpm_score(A) = faber_score(A) * (1 - corr_260d(A, basket))
+    # where corr_260d is the daily Pearson correlation of A's returns over the
+    # last 260 trading days to the equal-weighted return of the universe.
+    # Faber sign is preserved (positive-momentum filter applies to raw faber).
+    faber = faber_sma_xs(monthly)
     avail = [t for t in universe
-             if t in score.index and pd.notna(score[t])
+             if t in faber.index and pd.notna(faber[t])
              and pd.notna(close_panel.loc[sig_d].get(t, np.nan) if sig_d in close_panel.index else np.nan)]
     if not avail:
         return {safe: 1.0}, None, "DEFENSIVE", safe
-    
-    sa = score.loc[avail]
+    daily_rets_full = close_panel[avail].ffill().pct_change()
+    daily_rets_lb = daily_rets_full.loc[:sig_d].tail(CORR_PENALTY_LOOKBACK_DAYS)
+    ew_ret = daily_rets_lb.mean(axis=1)
+    gpm_scores = {}
+    for t in avail:
+        c = daily_rets_lb[t].corr(ew_ret)
+        if pd.isna(c):
+            c = 0.0
+        gpm_scores[t] = float(faber[t]) * (1.0 - float(c))
+    score = pd.Series(gpm_scores)
+    sa = score              # GPM-penalized score used for ranking
+    sa_raw = faber.loc[avail]  # raw faber used for positive-momentum filter
     za = zscore(sa)
     ranked = sa.sort_values(ascending=False)
     top_k = max(2, min(TOP_K_CANDIDATES, len(ranked)))  # See TOP_K_CANDIDATES at top of file.
-    positive = ranked.iloc[:top_k][lambda s: s > 0]
+    top = ranked.iloc[:top_k]
+    # Positive-momentum filter on raw faber (not GPM-penalized score).
+    positive = top[top.index.map(lambda t: sa_raw.get(t, -np.inf) > 0)]
     
     # Partial-safe fill if <2 positive
     if len(positive) < 2:
@@ -520,17 +538,26 @@ def run_cpm_backtest(
     panel: pd.DataFrame,
     start: pd.Timestamp,
     end: pd.Timestamp,
-    apply_vol_target: bool = True,
+    apply_vol_target: bool = True,    # no-op when TARGET_VOL is None
     cost_bps: float = COST_BPS_PER_SIDE,
 ) -> tuple[pd.Series, list]:
     """Run CPM standalone (no PP blend). Returns daily returns + diagnostics list.
 
     Execution model: signal at month-end close T (last trading day of month),
     rebalance executed at MOO of next trading day T+1 OPEN. Backtest uses
-    close-to-close accounting on the apply_from day (close[T+1] / close[T]
-    - 1), which slightly overestimates Sharpe vs strict open-to-close attribution
-    (~5-10 bps/yr bias from crediting overnight gap to NEW weights). The bias is
-    within bootstrap noise and small relative to the strategy's edge.
+    close-to-close accounting on the apply_from day (close[T+1] / close[T] - 1),
+    which assigns the T_eom -> T+1 overnight gap to the NEW weight vector.
+    Validated 2026-05-27 against a strict open-fill attribution that splits T+1
+    into OLD * overnight (close[T_eom] -> open[T+1]) + NEW * intraday
+    (open[T+1] -> close[T+1]) using consistently-adjusted yfinance opens and
+    closes on the CLEAN-7 universe with Faber*(1-corr) ranking, 504d cov,
+    TIP canary, no hold buffer, 10 bps/side, 2008-04-30 to 2026-05-22:
+        close-to-close (current): Sharpe 1.029, CAGR 10.62%, MaxDD -16.68%
+        strict open-fill (true MOO): Sharpe 1.018, CAGR 10.48%, MaxDD -18.23%
+    Delta is +0.011 Sharpe, +0.14% CAGR, +1.55pp shallower MaxDD vs true MOO;
+    all within bootstrap noise. The convention slightly understates MaxDD on
+    crisis rebalance days where intraday reversals would split between OLD and
+    NEW under strict open-fill. See research/exec_accounting_audit_2026_05.
     """
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     close = panel[cols]
@@ -603,8 +630,8 @@ def run_cpm_backtest(
         if af in raw_returns.index:
             raw_returns.loc[af] -= cost
     
-    # Vol target overlay
-    if apply_vol_target:
+    # Vol target overlay (no-op when TARGET_VOL is None per AAA Pair-EW spec)
+    if apply_vol_target and TARGET_VOL is not None:
         realized = raw_returns.rolling(VOL_LOOKBACK_DAYS).std() * np.sqrt(252)
         scale = (TARGET_VOL / realized).clip(upper=MAX_LEVERAGE).shift(1).fillna(1.0)
         raw_returns = raw_returns * scale

@@ -454,7 +454,9 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                                                 EXT 30y window skips these for speed)
     """
     from vol_cap import (compute_dd_circuit_scale,
-                          DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
+                          compute_lqd_ief_circuit_scale,
+                          DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE,
+                          LQD_IEF_SMA_WINDOW)
     cpm, _ = run_cpm_backtest(panel, start, end)
     bull_raw = run_bull_qqq_backtest(panel, start, end)
     if ndx_panel is not None:
@@ -468,10 +470,22 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    # DD circuit applies to NDX sleeve only.
-    bull_dd_scale = pd.Series(1.0, index=bull_raw.index)
-    ndx_dd_scale = compute_dd_circuit_scale(ndx_raw, sigs, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE)
-    bull = bull_raw  # no DD circuit
+    # Intramonth circuits (BULL has none; NDX uses LQD/IEF credit-spread proxy).
+    # BULL: no circuit (2026-05-27 audit found DD-10%/63d net Sharpe-negative
+    #   under honest t+1 MOO execution; sleeve raw 1.023 > circuit 0.983).
+    # NDX: LQD/IEF < SMA50 daily circuit (adopted 2026-05-27 to replace
+    #   sleeve-equity DD-10%/63d). LQD/IEF ratio is the duration-cancelled
+    #   credit spread proxy; falling below SMA50 = IG corporate bonds
+    #   underperforming Treasuries = credit-spread widening = risk-off signal.
+    #   PROD blend Sharpe 1.384 (DD-10%) -> 1.410 (LQD/IEF). Best Calmar 1.30
+    #   (vs 1.28) and shallowest MaxDD -10.17% (vs -10.89%). Sanity-gate
+    #   robust to +1d lag (+0.075 delta = signal improves with lag).
+    bull = bull_raw  # no intramonth circuit
+    bull_dd_scale = pd.Series(1.0, index=bull_raw.index)  # passthrough
+    lqd_price = panel["LQD"]
+    ief_price = panel["IEF"]
+    ndx_dd_scale = compute_lqd_ief_circuit_scale(lqd_price, ief_price, common, sigs,
+                                                    sma_window=LQD_IEF_SMA_WINDOW)
     ndx = ndx_dd_scale * ndx_raw
     blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
     # No additional portfolio-level cap overlay.
@@ -2370,7 +2384,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>CPM ({int(CPM_W*100)}%):</strong> 9-asset universe (US factor + intl + diversifier), HYG+TIP+GLD any-positive 13612U canary, Faber SMA10 ranker top-{cpm_module.TOP_K_CANDIDATES}, min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), hold buffer {cpm_module.HOLD_BUFFER:.1f}z, vol cap {cpm_module.TARGET_VOL*100:.0f}% (de-risk only). HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
+<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> CLEAN-7 universe (SPY, EFA, EEM, VNQ, GLD, TLT, DBC), TIP-only 13612U canary (HAA canonical), Faber * (1 - corr_260d) GPM-penalized ranker, top-{cpm_module.TOP_K_CANDIDATES} (top-half), min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive. No hold buffer, no vol cap.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 13612U momentum &gt; 0. Fallback: HAA best-of-safe (SHV / IEF) by 13612U. Both BULL-SPY and NDX sleeves are protected by daily -10% drawdown circuit breakers.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on decoupled TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF.</li>
 </ul>
@@ -2450,18 +2464,18 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec details</strong> (full sleeve mechanics)</summary>
 <div class='card'>
 <details>
-<summary>CPM Sleeve ({int(CPM_W*100)}%)</summary>
+<summary>CPM Sleeve ({int(CPM_W*100)}%) -- AAA Pair-EW Extension (CLEAN-7)</summary>
 <ul>
-<li><strong>Universe ({len(RISKY_UNIVERSE)}):</strong> US factor + international + diversifier.
+<li><strong>Universe ({len(RISKY_UNIVERSE)}, CLEAN-7):</strong> US equity + international + real estate + diversifiers (canonical AAA cross-asset pool).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>Canary:</strong> HYG + TIP + GLD -- ANY positive 13612U momentum -&gt; risk-on; all negative -&gt; 100% best-of-safe.</li>
-<li><strong>Ranker:</strong> Faber 10-month SMA distance: <code>(price - SMA10) / SMA10</code></li>
-<li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by ranker (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop negative momentum</li>
-<li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d covariance lookback)</li>
-<li><strong>Hold buffer:</strong> {HOLD_BUFFER:.1f} z-units (keep previous pair member unless new candidate exceeds by this margin in cross-sectional z-score). Buffer memory resets across any 3-level canary risk state transition (OFF <-> WEAK <-> ON).</li>
+<li><strong>Canary:</strong> TIP only -- 13612U &gt; 0 -&gt; risk-on; negative -&gt; 100% best-of-safe (HAA canonical TIP veto).</li>
+<li><strong>Ranker:</strong> Faber * (1 - corr_260d) GPM-penalized score. <code>faber = (price - SMA10) / SMA10</code>; <code>corr_260d</code> = daily Pearson correlation of asset's returns over last 260d to equal-weighted basket return of the universe. Positive-momentum filter applies to raw Faber, not the penalized score.</li>
+<li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by GPM-penalized score (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop assets with raw Faber &le; 0</li>
+<li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d simple daily covariance lookback)</li>
+<li><strong>Hold buffer:</strong> DISABLED (HB = 0). Was an overlay on the prior 9-asset spec; the AAA Pair-EW Extension does not use it.</li>
 <li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% best-of-safe; 0 positive &rarr; 100% best-of-safe</li>
-<li><strong>Vol cap:</strong> {TARGET_VOL*100:.0f}% annualized target, 63d realized vol, <strong>max 1.0x (de-risk only, no leverage)</strong>.</li>
+<li><strong>Vol cap:</strong> DISABLED. Was an overlay on the prior 9-asset spec; the AAA Pair-EW Extension already delivers shallow MaxDD without it.</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>

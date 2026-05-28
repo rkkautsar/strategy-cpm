@@ -706,21 +706,35 @@ open-fill variant (overnight gap T+1 attributed to OLD weight; intraday
 T+1 to NEW) checks whether the close-to-close convention overstates
 performance by hiding overnight gap risk:
 
-| Variant   | Convention           | Sharpe | CAGR    | MaxDD   | Delta Sh |
-|-----------|----------------------|-------:|--------:|--------:|---------:|
-| Bull-SPY  | Close-to-close       |  1.136 | 11.59%  | -12.58% |    -     |
-| Bull-SPY  | Strict open-fill     |  1.134 | 11.41%  | -12.41% |   -0.002 |
+| Variant            | Convention            | Sharpe | CAGR    | MaxDD   | Delta Sh |
+|--------------------|-----------------------|-------:|--------:|--------:|---------:|
+| Bull-SPY           | Close-to-close        |  1.136 | 11.59%  | -12.58% |    -     |
+| Bull-SPY           | Strict open-fill      |  1.134 | 11.41%  | -12.41% |   -0.002 |
+| CPM Pair-EW (C7)   | Close-to-close        |  1.029 | 10.62%  | -16.68% |    -     |
+| CPM Pair-EW (C7)   | Strict open-fill      |  1.018 | 10.48%  | -18.23% |   -0.011 |
 
-The delta is **within noise** (-0.002 Sharpe, ~17 bps DD). The monthly
-rebalance produces only ~33 state-transition overnight gaps over 18y
-with mostly random signs, so the convention choice does not materially
-affect results.
+The deltas are **within noise** for both sleeves (-0.002 to -0.011
+Sharpe). The monthly rebalance produces only ~33 state-transition
+overnight gaps over 18y with mostly random signs, so the convention
+choice does not materially affect returns. Close-to-close marginally
+understates MaxDD on volatile rebalance days (e.g. 2008, 2020) because
+the attribution smooths intraday reversals that strict open-fill splits
+between OLD and NEW. On CPM Pair-EW the MaxDD understatement is ~1.5pp
+(-16.68% vs -18.23%); on Bull-SPY ~17 bps. The current code uses
+close-to-close for consistency with prior runs and to avoid dependence
+on open-price availability for stitched pre-ETF proxy series.
 
-Absolute Sharpe values in this table (1.136) come from a separate
-strict-fill comparator with slightly different startup edge handling
-and differ from the Section 3.1 canonical value (1.114; see footnote)
-by ~0.02. The relevant quantity is the delta between conventions on
-the same comparator.
+Absolute Sharpe values in the Bull-SPY rows of this table (1.136) come
+from a separate strict-fill comparator with slightly different startup
+edge handling and differ from the Section 3.1 canonical value (1.114;
+see footnote) by ~0.02. The relevant quantity is the delta between
+conventions on the same comparator.
+
+CPM Pair-EW row methodology: CLEAN-7 universe (SPY, EFA, EEM, VNQ, GLD,
+TLT, DBC), Faber*(1-corr) ranking, 504d simple daily covariance, TIP
+canary, no hold buffer, 10 bps/side, 2008-04-30 to 2026-05-22. Strict
+open-fill comparator downloads both Open and Close from yfinance
+(auto_adjust=True) so adjustment basis is consistent.
 
 ### 4.10 Deflated Sharpe Ratio (DSR)
 

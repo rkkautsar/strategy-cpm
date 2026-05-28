@@ -16,10 +16,17 @@ import pandas as pd
 # Avoids the prior hand-picked -15% which had no paper citation.
 DD_CIRCUIT_THRESHOLD = -0.10   # -10% drawdown triggers defensive (Nystrup-Boyd)
 DD_CIRCUIT_SCALE = 0.0         # 0 = full cash; could be 0.5 for partial
-DD_CIRCUIT_SLEEVES = ("NDX",)  # NDX only -- empirical test showed BULL DD
-# circuit added negligible benefit (+0.004 Sh vs no-DD baseline) while NDX-
-# only captured the bulk of the benefit. CPM also excluded (low standalone DD);
-# BULL excluded (13612U trend gate already self-protects vs drawdowns).
+# NDX-only after the 2026-05-27 execution-day lookahead audit. The same
+# audit that caught the DCH20 lookahead also revealed the same bug in the
+# sleeve-equity DD-10% circuit (same-day scale application after a same-day
+# trigger). With the proper t+1 MOO execution lag now applied in
+# compute_dd_circuit_scale below, the BULL DD circuit was found to be net
+# Sharpe-negative on the BULL sleeve (0.983 vs 1.023 raw), so BULL was
+# dropped from DD_CIRCUIT_SLEEVES. NDX circuit kept: with t+1 lag it is
+# Sharpe-neutral (1.010 vs 1.016 raw) but Calmar-positive (0.78 vs 0.64)
+# and meaningfully shallower MaxDD (-27.5% vs -43.6% raw). CPM excluded.
+# See research/dch_t_plus_1_moo_2026_05.log for the forensic detail.
+DD_CIRCUIT_SLEEVES = ("NDX",)
 
 
 # Rolling-peak lookback for DD circuit breaker = 63 trading days (~1
@@ -70,12 +77,127 @@ def compute_dd_circuit_scale(sleeve_returns: pd.Series,
     scale = pd.Series(1.0, index=sleeve_returns.index)
     sig_set = set(sig_dates)
     current = 1.0
+    # T+1 MOO execution: when trigger fires at day t close, the defensive
+    # scale takes effect STARTING day t+1 (modeling next-day-open trade).
+    # Order: set scale[t] = current state FIRST, THEN check trigger to
+    # update state for tomorrow. The prior same-day implementation
+    # (`scale[t] = 0 immediately on trigger at t close`) was caught
+    # 2026-05-27 as an execution-day lookahead during the DCH20 audit:
+    # it credited the strategy with avoiding day-t's close-to-close return
+    # using information only available at day-t close. NDX DD-10% inflated
+    # by ~0.44 Sharpe under same-day; BULL inflated by ~0.10 Sharpe. See
+    # research/dch_t_plus_1_moo_2026_05.log.
     for i, day in enumerate(sleeve_returns.index):
         if day in sig_set:
-            current = 1.0   # reset scale at signal date
-        elif dd.iloc[i] < threshold:
-            current = recovery_scale
-        scale.iloc[i] = current
+            current = 1.0   # reset scale at signal date (apply on T+1 anyway)
+        scale.iloc[i] = current  # set TODAY based on yesterday's trigger state
+        if dd.iloc[i] < threshold:
+            current = recovery_scale  # trigger fires; defensive STARTING TOMORROW
+    return scale
+
+
+# ============================================================================
+# Donchian-20 "STRICT" daily circuit - REMOVED 2026-05-27 (lookahead failure).
+#
+# The 2026-05-27 attempt to replace BULL's intramonth circuit with a daily
+# Donchian-20 "STRICT" rule (latch defensive when asset_price[t] <= rolling
+# 20-day low excluding today) appeared to deliver BULL standalone Sharpe
+# 1.557-1.608 vs the DD-10%/63d circuit at 1.109. Audits (look-ahead in the
+# window definition, sub-period stability, walk-forward, 24y extension,
+# DCH-N parameter sweep) all passed superficially and oracle voted swap.
+#
+# A subsequent critic-prompted execution-day lag test (lag the trigger by
+# 1 trading day to model realistic next-day execution) revealed catastrophic
+# Sharpe collapse: 1.589 -> 0.899 with 1-day lag, 0.821 with 2-day lag.
+# That is, the apparent edge was almost entirely from applying the defensive
+# scale on day t's own close-to-close return, which used same-day trigger
+# information that could only be acted on at t+1 open.
+#
+# Excluding today from the rolling LOOKBACK WINDOW (the "STRICT" form) was
+# not enough; the SCALE itself needed to be lagged. With proper execution
+# lag, the rule was strictly worse than the incumbent DD-10% circuit.
+#
+# Knowledge-note correction: the "swap when audits pass and floor is bounded"
+# orchestrator rule should require an explicit execution-day lag ("shift
+# trigger by 1 day, check Sharpe stability") in the audit gate before
+# accepting any intramonth-circuit change.
+#
+# See research/bull_dch_critic_audits_2026_05.log for the full audit.
+
+
+# ============================================================================
+# LQD/IEF credit-spread intramonth circuit (NDX sleeve).
+#
+# Rule: latch defensive when LQD/IEF ratio < its rolling 50-day SMA.
+# LQD = iShares iBoxx $ Investment Grade Corporate Bonds (duration ~8y)
+# IEF = iShares 7-10 Year Treasury Bond ETF (duration ~7y)
+# Both have similar duration so the ratio cancels out rate-direction moves,
+# leaving an approximate credit-spread proxy. Falling ratio = IG corporates
+# underperforming Treasuries = credit-spread widening = risk-off.
+#
+# Window: 50-day SMA (well-known practitioner standard; not paper-cited but
+# robust to lag at this lookback per sanity gate).
+# Reset: scale = 1.0 at each monthly signal date (same convention as DD circuit).
+# Execution: t+1 MOO honest (scale[t] set BEFORE today's trigger evaluation).
+#
+# Adopted 2026-05-27 after the NDX intramonth canary audit. Winning metric:
+# best Calmar (1.30) of all NDX intramonth options tested, shallowest MaxDD
+# (-10.17%), lag-robust (+1d sanity gate delta +0.075 = IMPROVES with lag).
+# Trade-off vs prior DD-10%/63d: lower CAGR (13.21% vs 21.40% standalone) but
+# better Calmar and shallower MaxDD. PROD blend goes 1.384 -> 1.410 Sharpe.
+# See research/ndx_lqd_ief_circuit_2026_05.log for full audit.
+#
+# Method lineage:
+#   - LQD/IEF as credit-spread proxy: duration-cancelled ratio is standard in
+#     macro practitioner research (no specific paper citation; HYG/IEF and
+#     LQD/IEF spread variants are commonly used).
+#   - SMA50 crossover: practitioner moving-average filter family
+#     (Faber 2007 SSRN TAA uses 10mo SMA on equity; same family).
+LQD_IEF_SMA_WINDOW = 50  # SMA lookback for LQD/IEF ratio (trading days)
+
+
+def compute_lqd_ief_circuit_scale(lqd_price: pd.Series,
+                                     ief_price: pd.Series,
+                                     sleeve_index: pd.DatetimeIndex,
+                                     sig_dates: list,
+                                     sma_window: int = LQD_IEF_SMA_WINDOW,
+                                     recovery_scale: float = DD_CIRCUIT_SCALE,
+                                     ) -> pd.Series:
+    """Daily LQD/IEF < SMA intramonth circuit for a single sleeve.
+
+    Latches defensive when ratio = LQD / IEF < ratio.rolling(SMA_WINDOW).mean()
+    Releases to 1.0 at each monthly signal date.
+
+    Args:
+        lqd_price: daily close of LQD ETF
+        ief_price: daily close of IEF ETF
+        sleeve_index: daily index over which to produce scale
+        sig_dates: monthly signal dates where the latch resets
+        sma_window: rolling SMA window in trading days (default 50)
+        recovery_scale: scale when latched defensive (default 0.0)
+
+    Returns:
+        scale: pd.Series of daily scale [0, 1] indexed by sleeve_index
+    """
+    if len(sleeve_index) == 0:
+        return pd.Series(dtype=float)
+    lqd = lqd_price.reindex(sleeve_index).ffill()
+    ief = ief_price.reindex(sleeve_index).ffill()
+    ratio = lqd / ief
+    sma = ratio.rolling(sma_window).mean()
+    trigger = (ratio < sma) & ratio.notna() & sma.notna()
+    scale = pd.Series(1.0, index=sleeve_index)
+    sig_set = set(sig_dates)
+    state = 1.0
+    # T+1 MOO honest execution: set scale[t] FIRST, then check trigger to
+    # update state for t+1. Trigger evaluated at day-t close fires defensive
+    # starting day t+1.
+    for i, day in enumerate(sleeve_index):
+        if day in sig_set:
+            state = 1.0
+        scale.iloc[i] = state
+        if bool(trigger.iloc[i]):
+            state = recovery_scale
     return scale
 
 
