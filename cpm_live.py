@@ -67,9 +67,7 @@ DEFAULT_CASH = "SHV"
 
 # NDX intramonth circuit assets: LQD/IEF ratio is the duration-cancelled credit
 # spread proxy used as the daily intramonth defensive trigger for NDX.
-# Adopted 2026-05-27 after audit found LQD/IEF < SMA50 daily circuit delivers
-# best Calmar (1.30) and shallowest MaxDD (-10.17%) of all NDX intramonth
-# options tested, with +1d lag sanity gate passing (+0.075 delta = robust).
+# Rule: latch defensive when ratio < EMA50.
 NDX_INTRAMONTH_CANARY_ASSETS = ["LQD"]   # IEF is already in SAFE_POOL
 
 # Engine parameters

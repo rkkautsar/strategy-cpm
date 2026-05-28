@@ -4,7 +4,7 @@ compatibility_date = "2026-01-01"
 
 # Two cron schedules:
 #   1. Monthly signal:  02:00 UTC, day 1      -> event_type=monthly-signal
-#   2. Daily dd-check:  22:35 UTC, weekdays   -> event_type=dd-check
+#   2. Daily circuit-check:  22:35 UTC, weekdays   -> event_type=circuit-check
 #
 # Monthly: 02:00 UTC = 10:00 AM SGT (UTC+8). Signal date = last biz day of
 # prior month. Signal close at 4 PM ET does not change over the weekend or

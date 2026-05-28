@@ -275,9 +275,8 @@ in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - `cpm_live.py` — CPM sleeve engine + monthly rebalance signal.
 - `bull_qqq_live.py` — BULL sleeve engine.
 - `ndx_sleeve_live.py` — NDX stock-picking sleeve engine.
-- `vol_cap.py` — LQD/IEF credit-spread intramonth circuit (NDX sleeve);
-  sleeve-equity DD circuit code retained for diagnostics but not applied.
+- `circuit_breaker.py` — LQD/IEF credit-spread intramonth circuit (NDX sleeve).
 - `build_dashboard.py` — daily blend assembly + dashboard generation.
-- `dd_check.py` — daily intramonth circuit canary (cron-monitored).
+- `circuit_check.py` — daily LQD/IEF circuit canary (cron-monitored).
 - `cpm_dashboard.html` — generated dashboard.
 - `research/` — research scripts, audit logs, archived spec versions.

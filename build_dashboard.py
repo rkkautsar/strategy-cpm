@@ -635,10 +635,8 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                                                 (only populated when include_records=True;
                                                 EXT 30y window skips these for speed)
     """
-    from vol_cap import (compute_dd_circuit_scale,
-                          compute_lqd_ief_circuit_scale,
-                          DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE,
-                          LQD_IEF_SMA_WINDOW)
+    from circuit_breaker import (compute_lqd_ief_circuit_scale,
+                                   LQD_IEF_EMA_SPAN)
     cpm, _ = run_cpm_backtest(panel, start, end)
     bull_raw = run_bull_qqq_backtest(panel, start, end)
     if ndx_panel is not None:
@@ -655,9 +653,8 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     # Intramonth circuits (BULL has none; NDX uses LQD/IEF credit-spread proxy).
     # BULL: no circuit (2026-05-27 audit found DD-10%/63d net Sharpe-negative
     #   under honest t+1 MOO execution; sleeve raw 1.023 > circuit 0.983).
-    # NDX: LQD/IEF < SMA50 daily circuit (adopted 2026-05-27 to replace
-    #   sleeve-equity DD-10%/63d). LQD/IEF ratio is the duration-cancelled
-    #   credit spread proxy; falling below SMA50 = IG corporate bonds
+    # NDX: LQD/IEF < EMA50 daily circuit. LQD/IEF ratio is the
+    #   duration-cancelled credit spread proxy; falling below EMA50 = IG corporate bonds
     #   underperforming Treasuries = credit-spread widening = risk-off signal.
     #   PROD blend Sharpe 1.384 (DD-10%) -> 1.410 (LQD/IEF). Best Calmar 1.30
     #   (vs 1.28) and shallowest MaxDD -10.17% (vs -10.89%). Sanity-gate
@@ -667,7 +664,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     lqd_price = panel["LQD"]
     ief_price = panel["IEF"]
     ndx_dd_scale = compute_lqd_ief_circuit_scale(lqd_price, ief_price, common, sigs,
-                                                    sma_window=LQD_IEF_SMA_WINDOW)
+                                                    ema_span=LQD_IEF_EMA_SPAN)
     ndx = ndx_dd_scale * ndx_raw
     blend_uncapped = CPM_W * cpm + BULL_W * bull + NDX_W * ndx
     # No additional portfolio-level cap overlay.
@@ -2134,25 +2131,25 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                              for t, w in sorted(combined.items(), key=lambda x: -x[1])
                              if abs(w) > 1e-6)
 
-    # DD circuit state for NDX sleeve
-    from vol_cap import current_dd_state, DD_CIRCUIT_THRESHOLD
+    # LQD/IEF credit-spread circuit state for NDX sleeve
+    from circuit_breaker import current_circuit_state, LQD_IEF_EMA_SPAN
     try:
-        st = current_dd_state(ndx_rets, threshold=DD_CIRCUIT_THRESHOLD)
+        st = current_circuit_state(panel["LQD"], panel["IEF"])
         triggered = st["triggered"]
         color = "#e74c3c" if triggered else "#2ecc71"
         status = "⚠️ CIRCUIT TRIGGERED" if triggered else "✓ Normal"
-        dd_pct = st["current_dd"] * 100
+        dist_pct = st["distance_pct"]
         dd_status_html = (
             f"<div style='grid-column: 1 / -1; background:#fafafa;border-left:4px solid {color};"
             f"padding:8px 12px;margin:8px 0;border-radius:4px;font-size:0.88rem;'>"
-            f"<strong>NDX DD circuit</strong>: {status} "
-            f"&middot; current DD <strong>{dd_pct:+.2f}%</strong> "
-            f"(threshold {DD_CIRCUIT_THRESHOLD*100:.0f}%) &middot; "
-            f"{st['days_in_dd']}d since peak"
+            f"<strong>NDX LQD/IEF circuit</strong>: {status} "
+            f"&middot; ratio <strong>{st['ratio']:.4f}</strong> "
+            f"(EMA{LQD_IEF_EMA_SPAN} {st['ema']:.4f}, {dist_pct:+.2f}%) "
+            f"&middot; as of {st['as_of_date'].date() if st.get('as_of_date') else 'n/a'}"
             f"</div>"
         )
     except Exception as _e:
-        dd_status_html = f"<p style='color:#999'>NDX DD circuit state unavailable: {_e}</p>"
+        dd_status_html = f"<p style='color:#999'>NDX circuit state unavailable: {_e}</p>"
 
     # Build prior-vs-target trade-delta table (compare to PREVIOUS signal date if available)
     prev_combined = {}
@@ -2618,7 +2615,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> CLEAN-7 universe (SPY, EFA, EEM, VNQ, GLD, TLT, DBC), TIP-only 13612U canary (HAA canonical), Faber * (1 - corr_260d) GPM-penalized ranker, top-{cpm_module.TOP_K_CANDIDATES} (top-half), min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive. No hold buffer, no vol cap.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 13612U momentum &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U. No intramonth circuit.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;SMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
 </ul>
 </div>
 </details>

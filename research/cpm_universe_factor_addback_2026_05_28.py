@@ -24,7 +24,7 @@ import cpm_live as cl
 from cpm_live import load_panel, perf_metrics
 from bull_qqq_live import run_bull_qqq_backtest
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
-from vol_cap import compute_lqd_ief_circuit_scale, LQD_IEF_SMA_WINDOW
+from vol_cap import compute_lqd_ief_circuit_scale, LQD_IEF_EMA_SPAN
 
 CLEAN7 = ["SPY", "EFA", "EEM", "VNQ", "GLD", "TLT", "DBC"]
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     common_idx = bull_raw.index.intersection(ndx_raw.index)
     bull_raw = bull_raw.reindex(common_idx); ndx_raw = ndx_raw.reindex(common_idx).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=common_idx).groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    ndx_scale = compute_lqd_ief_circuit_scale(panel["LQD"], panel["IEF"], common_idx, sigs, sma_window=LQD_IEF_SMA_WINDOW)
+    ndx_scale = compute_lqd_ief_circuit_scale(panel["LQD"], panel["IEF"], common_idx, sigs, ema_span=LQD_IEF_EMA_SPAN)
     ndx_circ = ndx_scale * ndx_raw
 
     # BB4 lit blend
