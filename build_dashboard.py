@@ -296,8 +296,8 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
 # weighting, all three sleeves backed by published TAA papers, and it was the
 # strongest literature blend across all multi-sleeve combinations tested.
 # Per-sleeve alpha decomposition uses:
-#   CPM-ext     vs B2 (AAA + TIP)
-#   BULL-ext    vs B3 (HAA-Simple SPY)
+#   CPM         vs B2 (AAA + TIP)
+#   BULL-SPY    vs B3 (HAA-Simple SPY)
 #   NDX sleeve  vs B5 (QQQ 12mo trend) or QQQ buy-hold for raw equity proxy
 # ============================================================================
 
@@ -2253,7 +2253,7 @@ def main():
         print("  NDX panel data not found; skipping NDX sleeve.")
         ndx_panel = None
     art = build_artifacts(panel, ndx_panel, start, end)
-    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + NDX LQD/IEF circuit"
+    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)})"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
@@ -2386,10 +2386,10 @@ def main():
         ("PROD 60/20/20",  art.blend, static_pp_qqq,  "Static 80% PP + 20% QQQ (vol-matched)"),
         ("PROD 60/20/20",  art.blend, spy_d,          "SPY buy-hold"),
         ("PROD 60/20/20",  art.blend, qqq_d,          "QQQ buy-hold"),
-        ("CPM-ext sleeve", art.cpm,   bench_b2,  "B2 AAA + TIP canary"),
-        ("CPM-ext sleeve", art.cpm,   spy_d,     "SPY buy-hold"),
-        ("BULL-ext sleeve",art.bull,  bench_b3,  "B3 HAA-Simple SPY"),
-        ("BULL-ext sleeve",art.bull,  spy_d,     "SPY buy-hold"),
+        ("CPM sleeve", art.cpm,   bench_b2,  "B2 AAA + TIP canary"),
+        ("CPM sleeve", art.cpm,   spy_d,     "SPY buy-hold"),
+        ("BULL sleeve",art.bull,  bench_b3,  "B3 HAA-Simple SPY"),
+        ("BULL sleeve",art.bull,  spy_d,     "SPY buy-hold"),
         ("NDX sleeve",     art.ndx,   bench_b5,  "B5 QQQ 12mo trend (Antonacci GEM)"),
         ("NDX sleeve",     art.ndx,   qqq_d,     "QQQ buy-hold"),
     ]:
@@ -2602,7 +2602,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary><strong>Alpha / Beta / Correlation vs canonical benchmarks</strong> (daily OLS regression)</summary>
 <div class='card'>
-<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM-ext vs B2 (AAA + TIP canary)</code>, <code>BULL-ext vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
+<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>BULL-SPY vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
 {alpha_beta_table_html(alpha_beta_rows)}
 </div>
 </details>

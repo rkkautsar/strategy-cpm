@@ -1,14 +1,14 @@
 # CPM-BULL-NDX
 
-**60% CPM-ext + 20% BULL-ext + 20% NDX.** Personal runbook. Sleeve-level
+**60% CPM + 20% BULL + 20% NDX.** Personal runbook. Sleeve-level
 canaries plus a daily LQD/IEF credit-spread intramonth circuit on the NDX
 sleeve are the defensive machinery.
 
-- **CPM-ext (60%)** — AAA Pair-EW Extension over the 9-asset risky universe with
+- **CPM (60%)** — AAA Pair-EW Extension over the 9-asset risky universe with
   13612U momentum (Faber) ranker, HYG OR TIP canary (BULL-style breadth), and
   504d simple daily covariance for min-variance pair selection. Top-K = ceil(9/2)
   = 5 candidates. Equal-weighted 50/50 on the chosen pair.
-- **BULL-ext (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
+- **BULL (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
   Either fully invested in SPY (when canary AND SPY mom_13612U > 0 both pass)
   or fully in HAA best-of-safe (SHV/IEF).
 - **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by GPM score (13612U momentum
@@ -46,8 +46,8 @@ Sleeve standalone (clean window, post-cost):
 
 | Sleeve | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM-ext | 1.291 | 15.07% | 11.67% | -15.41% |
-| BULL-ext | 1.034 | 13.14% | 12.75% | -20.28% |
+| CPM | 1.291 | 15.07% | 11.67% | -15.41% |
+| BULL | 1.034 | 13.14% | 12.75% | -20.28% |
 | NDX + LQD/IEF circuit | 1.077 | 20.42% | 18.93% | -21.08% |
 | NDX raw (no circuit, reference) | 0.975 | 27.06% | 28.90% | -42.48% |
 
@@ -61,8 +61,8 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 
 | Strategy | Benchmark | Alpha (%/yr) | Beta | Corr |
 |---|---|---:|---:|---:|
-| CPM-ext | B2: AAA + TIP canary (same universe) | +4.47 | 0.766 | 0.780 |
-| BULL-ext | B3: HAA-Simple SPY | +1.56 | 0.989 | 0.929 |
+| CPM | B2: AAA + TIP canary (same universe) | +4.47 | 0.766 | 0.780 |
+| BULL | B3: HAA-Simple SPY | +1.56 | 0.989 | 0.929 |
 | **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+4.90** | **0.774** | **0.800** |
 | PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +5.65 | 0.780 | 0.783 |
 | PROD 60/20/20 | SPY buy-hold | +11.72 | 0.182 | 0.374 |
@@ -86,7 +86,7 @@ gpm_score(A, U)   = faber_score(A) * (1 - corr_260d(A, U))  # GPM penalty
 best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
 
 # ------------------------------------------------------------------------
-# CPM-ext (60%) -- AAA Pair-EW Extension
+# CPM (60%) -- AAA Pair-EW Extension
 # ------------------------------------------------------------------------
 CPM_UNIVERSE = [SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC]    # N=9
 
@@ -106,7 +106,7 @@ else:
         cpm  = {pair[0]: 0.5, pair[1]: 0.5}
 
 # ------------------------------------------------------------------------
-# BULL-ext (20%) -- HAA-Simple Extension on SPY
+# BULL (20%) -- HAA-Simple Extension on SPY
 # ------------------------------------------------------------------------
 canary_ok     = (mom_13612U(HYG) > 0) OR (mom_13612U(TIP) > 0)
 asset_mom_ok  = (mom_13612U(SPY) > 0)
