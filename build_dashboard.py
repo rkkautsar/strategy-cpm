@@ -286,7 +286,8 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
 # Literature benchmarks (apples-to-apples vs PROD 60/20/20).
 #
 # Naming follows research/benchmark_comparison_2026_05.py:
-#   B2: AAA + TIP canary on CLEAN-7 (Butler-Philbrick 2012 + Keller TIP veto)
+#   B2: AAA + TIP canary on the canonical AAA 7-asset cross-asset pool
+#       (Butler-Philbrick 2012 + Keller TIP veto)
 #   B3: HAA-Simple SPY (Keller 2022; AllocateSmartly canonical N=1 form)
 #   B5: QQQ 12mo trend (Antonacci 2014 GEM single-asset form)
 #   BB4 = 60% B2 + 20% B3 + 20% B5 (best literature 60/20/20 blend tested)
@@ -300,7 +301,8 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
 #   NDX sleeve  vs B5 (QQQ 12mo trend) or QQQ buy-hold for raw equity proxy
 # ============================================================================
 
-CLEAN7_UNIVERSE = ["SPY", "EFA", "EEM", "VNQ", "GLD", "TLT", "DBC"]
+# B2 benchmark universe: canonical AAA cross-asset pool (Butler-Philbrick 2012).
+BENCH_AAA_UNIVERSE = ["SPY", "EFA", "EEM", "VNQ", "GLD", "TLT", "DBC"]
 _BENCH_SAFE = ["SHV", "IEF"]
 
 
@@ -339,14 +341,14 @@ def _b_build_port(close, weights_history, start, end, cost_bps=10.0):
 
 
 def bench_aaa_tip(panel, start, end, cost_bps=10.0):
-    """B2: AAA standard with TIP canary on CLEAN-7.
+    """B2: AAA standard with TIP canary on the canonical AAA universe.
     Top-half ranking by mom_13612U; min-var continuous weights via SLSQP;
     TIP canary (mom_13612U > 0) gates risk-on/off; HAA best-of-safe (SHV/IEF).
     """
     from cpm_live import sig_13612U, best_safe as _best_safe
     from scipy.optimize import minimize
     import math
-    cols = sorted(set(CLEAN7_UNIVERSE + _BENCH_SAFE + ["TIP"]) & set(panel.columns))
+    cols = sorted(set(BENCH_AAA_UNIVERSE + _BENCH_SAFE + ["TIP"]) & set(panel.columns))
     close = panel[cols]
     daily = close.ffill().pct_change()
     sig_dates = _b_monthly_signal_dates(close, start, end)
@@ -357,10 +359,10 @@ def bench_aaa_tip(panel, start, end, cost_bps=10.0):
         tipm = sig_13612U(monthly["TIP"]) if "TIP" in monthly.columns else float("nan")
         if not (pd.notna(tipm) and tipm > 0):
             wh.append((sd, {safe: 1.0})); continue
-        scores = {t: sig_13612U(monthly[t]) for t in CLEAN7_UNIVERSE if t in monthly.columns}
+        scores = {t: sig_13612U(monthly[t]) for t in BENCH_AAA_UNIVERSE if t in monthly.columns}
         scores = {t: s for t, s in scores.items() if pd.notna(s)}
         ranked = sorted(scores.items(), key=lambda x: -x[1])
-        top_half = max(2, math.ceil(len(CLEAN7_UNIVERSE) / 2))
+        top_half = max(2, math.ceil(len(BENCH_AAA_UNIVERSE) / 2))
         top = [t for t, s in ranked[:top_half] if s > 0]
         if len(top) == 0:
             wh.append((sd, {safe: 1.0})); continue
@@ -2391,7 +2393,7 @@ def main():
     # Alpha/beta/corr decomposition vs canonical benchmarks (BB4 blend +
     # per-sleeve literature counterparts). Daily-return OLS regression.
     print("Computing alpha/beta/corr vs canonical benchmarks ...")
-    bench_b2 = bench_aaa_tip(panel, start, end)   # AAA+TIP canary CLEAN-7 (sleeve canonical for CPM)
+    bench_b2 = bench_aaa_tip(panel, start, end)   # AAA+TIP canary (sleeve canonical for CPM)
     bench_b3 = bench_haa_simple(panel, start, end, asset="SPY")  # HAA-Simple SPY (BULL canonical)
     bench_b5 = bench_qqq_12mo_trend(panel, start, end)  # QQQ 12mo trend (NDX-equity peer)
     alpha_beta_rows = []
@@ -2402,7 +2404,7 @@ def main():
         ("PROD 60/20/20",  art.blend, static_pp_qqq,  "Static 80% PP + 20% QQQ (vol-matched)"),
         ("PROD 60/20/20",  art.blend, spy_d,          "SPY buy-hold"),
         ("PROD 60/20/20",  art.blend, qqq_d,          "QQQ buy-hold"),
-        ("CPM-ext sleeve", art.cpm,   bench_b2,  "B2 AAA + TIP canary (CLEAN-7)"),
+        ("CPM-ext sleeve", art.cpm,   bench_b2,  "B2 AAA + TIP canary"),
         ("CPM-ext sleeve", art.cpm,   spy_d,     "SPY buy-hold"),
         ("BULL-ext sleeve",art.bull,  bench_b3,  "B3 HAA-Simple SPY"),
         ("BULL-ext sleeve",art.bull,  spy_d,     "SPY buy-hold"),
@@ -2618,7 +2620,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary><strong>Alpha / Beta / Correlation vs canonical benchmarks</strong> (daily OLS regression)</summary>
 <div class='card'>
-<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM-ext vs B2 (AAA + TIP canary CLEAN-7)</code>, <code>BULL-ext vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
+<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM-ext vs B2 (AAA + TIP canary)</code>, <code>BULL-ext vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
 {alpha_beta_table_html(alpha_beta_rows)}
 </div>
 </details>
@@ -2689,9 +2691,9 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec details</strong> (full sleeve mechanics)</summary>
 <div class='card'>
 <details>
-<summary>CPM Sleeve ({int(CPM_W*100)}%) -- AAA Pair-EW Extension (CLEAN-7)</summary>
+<summary>CPM Sleeve ({int(CPM_W*100)}%) -- AAA Pair-EW Extension</summary>
 <ul>
-<li><strong>Universe ({len(RISKY_UNIVERSE)}, CLEAN-7):</strong> US equity + international + real estate + diversifiers (canonical AAA cross-asset pool).
+<li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> US equity (SPY) + US factor (QQQ, SPHQ) + international (EFA, EEM) + real estate (VNQ) + diversifiers (GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
 <li><strong>Canary:</strong> TIP only -- 13612U &gt; 0 -&gt; risk-on; negative -&gt; 100% best-of-safe (HAA canonical TIP veto).</li>

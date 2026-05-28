@@ -36,27 +36,24 @@ PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 # (DBC live + 12mo signal warmup, 19.3y).
 # HYG canary uses VWEHX mutual fund pre-2007-04 + live HYG post.
 #
-# CPM CLEAN-9 universe (AAA Pair-EW Extension over the canonical AAA cross-
-# asset pool plus two US factor ETFs). All live since 2006-02 (DBC inception
-# is the binding constraint).
-#   US equity (1):    SPY
-#   US factor (2):    QQQ (Nasdaq-100 tech), SPHQ (S&P 500 Quality)
-#   International (2): EFA (developed ex-US), EEM (emerging)
-#   Real estate (1):  VNQ
-#   Diversifiers (3): GLD, TLT, DBC
-# Total N=9. Top-K = ceil(N/2) = 5.
+# CPM risky universe (9 assets, all live since 2006-02; DBC inception is the
+# binding constraint).
+#   US equity (1):     SPY
+#   US factor (2):     QQQ, SPHQ
+#   International (2): EFA, EEM
+#   Real estate (1):   VNQ
+#   Diversifiers (3):  GLD, TLT, DBC
+# Top-K candidates = ceil(N/2) = 5.
 US_EQUITY = ["SPY"]
 US_FACTOR = ["QQQ", "SPHQ"]
 INTERNATIONAL = ["EFA", "EEM"]
 REAL_ESTATE = ["VNQ"]
 DIVERSIFIERS = ["GLD", "TLT", "DBC"]
 RISKY_UNIVERSE = (US_EQUITY + US_FACTOR + INTERNATIONAL + REAL_ESTATE
-                   + DIVERSIFIERS)  # N=9
+                   + DIVERSIFIERS)
 SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
-# CPM canary: TIP only (HAA canonical). Single-canary breadth is robust across
-# universe variants; multi-canary OR rules (HYG/TIP/GLD) blow MaxDD to -35% on
-# CLEAN-7 because GLD-positive regimes can stay risk-on into equity stress.
+# CPM canary: TIP-only (HAA canonical).
 CANARY_ASSETS = ["TIP"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
