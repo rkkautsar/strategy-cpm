@@ -36,19 +36,22 @@ PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 # (DBC live + 12mo signal warmup, 19.3y).
 # HYG canary uses VWEHX mutual fund pre-2007-04 + live HYG post.
 #
-# CPM CLEAN-7 universe (AAA Pair-EW Extension on the canonical AAA cross-asset
-# pool). SPY (US equity), EFA (developed ex-US), EEM (emerging), VNQ (real
-# estate), GLD (gold), TLT (long bonds), DBC (broad commodities). All live since
-# 2006-02 (DBC inception is the binding constraint). Chosen over the prior
-# 9-asset US-factor stack (QQQ/IWF/VBR/SPHQ + EFA/EEM/GLD/TLT/DBC) because the
-# GPM correlation penalty interacts more cleanly with a non-redundant universe;
-# see research/benchmark_with_ndx_2026_05.log and the alpha decomposition table
-# in README.md.
+# CPM CLEAN-9 universe (AAA Pair-EW Extension over the canonical AAA cross-
+# asset pool plus two US factor ETFs). All live since 2006-02 (DBC inception
+# is the binding constraint).
+#   US equity (1):    SPY
+#   US factor (2):    QQQ (Nasdaq-100 tech), SPHQ (S&P 500 Quality)
+#   International (2): EFA (developed ex-US), EEM (emerging)
+#   Real estate (1):  VNQ
+#   Diversifiers (3): GLD, TLT, DBC
+# Total N=9. Top-K = ceil(N/2) = 5.
 US_EQUITY = ["SPY"]
+US_FACTOR = ["QQQ", "SPHQ"]
 INTERNATIONAL = ["EFA", "EEM"]
 REAL_ESTATE = ["VNQ"]
 DIVERSIFIERS = ["GLD", "TLT", "DBC"]
-RISKY_UNIVERSE = US_EQUITY + INTERNATIONAL + REAL_ESTATE + DIVERSIFIERS  # N=7
+RISKY_UNIVERSE = (US_EQUITY + US_FACTOR + INTERNATIONAL + REAL_ESTATE
+                   + DIVERSIFIERS)  # N=9
 SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
 # CPM canary: TIP only (HAA canonical). Single-canary breadth is robust across
@@ -70,7 +73,7 @@ DEFAULT_CASH = "SHV"
 NDX_INTRAMONTH_CANARY_ASSETS = ["LQD"]   # IEF is already in SAFE_POOL
 
 # Engine parameters
-TOP_K_CANDIDATES = 4        # top-half of 7-asset CLEAN-7 universe (ceil(7/2))
+TOP_K_CANDIDATES = 5        # top-half of 9-asset CLEAN-9 universe (ceil(9/2))
 HOLD_BUFFER = 0.0           # DISABLED in AAA Pair-EW Extension spec; hold
                             # buffer was an overlay on the prior 9-asset spec.
 CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)

@@ -4,10 +4,10 @@
 equity/Nasdaq exposure is ~44%; sleeve-level canaries plus a daily LQD/IEF
 credit-spread intramonth circuit on the NDX sleeve are the defensive machinery.
 
-- **CPM-ext (60%)** — AAA Pair-EW Extension over the CLEAN-7 universe with
+- **CPM-ext (60%)** — AAA Pair-EW Extension over the CLEAN-9 universe with
   Faber × (1 - corr_260d) GPM-penalized ranker, TIP canary (HAA canonical), and
-  504d simple daily covariance for min-variance pair selection. Equal-weighted
-  50/50 on the chosen pair.
+  504d simple daily covariance for min-variance pair selection. Top-K = ceil(9/2)
+  = 5 candidates. Equal-weighted 50/50 on the chosen pair.
 - **BULL-ext (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
   Either fully invested in SPY (when canary AND SPY mom_13612U > 0 both pass)
   or fully in HAA best-of-safe (SHV/IEF).
@@ -31,22 +31,22 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.410** | **13.21%** | **9.10%** | **-10.17%** | **1.30** |
+| **PROD 60/20/20** | **1.455** | **13.37%** | **8.91%** | **-9.90%** | **1.35** |
 | Best literature blend (BB4) | 1.192 | 12.00% | 9.93% | -14.55% | 0.82 |
 | Simplest literature 60/40 (BB1) | 1.111 | 10.77% | 9.64% | -14.80% | 0.73 |
 | SPY buy-hold | 0.660 | 11.76% | 19.79% | -51.48% | 0.23 |
 | QQQ buy-hold | 0.824 | 17.23% | 22.29% | -49.37% | 0.35 |
 
 PROD beats the best literature blend (BB4 = 60% AAA+TIP + 20% HAA-Simple SPY +
-20% Antonacci QQQ-trend) by **+0.22 Sharpe**, **-4.4pp shallower MaxDD**, and
-**+0.48 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.17 with correlation ≈ 0.35
+20% Antonacci QQQ-trend) by **+0.26 Sharpe**, **-4.6pp shallower MaxDD**, and
+**+0.53 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.17 with correlation ≈ 0.35
 — a portfolio diversifier, not a levered equity play.
 
 Sleeve standalone (clean window, post-cost):
 
 | Sleeve | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
-| CPM-ext | 1.072 | 11.10% | 10.34% | -16.34% |
+| CPM-ext (CLEAN-9) | 1.141 | 11.38% | 9.97% | -15.91% |
 | BULL-ext | 1.023 | 12.97% | 12.73% | -20.28% |
 | NDX (with LQD/IEF circuit) | 1.046 | 17.88% | 17.15% | -20.35% |
 
@@ -56,7 +56,7 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 
 | Strategy | Benchmark | Alpha (%/yr) | Beta | Corr |
 |---|---|---:|---:|---:|
-| CPM-ext | AAA + TIP canary (CLEAN-7) | +2.38 | 0.828 | 0.848 |
+| CPM-ext | AAA + TIP canary (CLEAN-9, same universe) | +2.23 | 0.757 | 0.810 |
 | BULL-ext | HAA-Simple SPY | +4.34 | 0.805 | 0.812 |
 | **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+5.87** | **0.795** | **0.815** |
 | PROD 60/20/20 | BB1 (60% AAA + 40% HAA-S SPY) | +6.42 | 0.828 | 0.824 |
@@ -80,13 +80,13 @@ best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
 # ------------------------------------------------------------------------
 # CPM-ext (60%) -- AAA Pair-EW Extension on CLEAN-7
 # ------------------------------------------------------------------------
-CPM_UNIVERSE = [SPY, EFA, EEM, VNQ, GLD, TLT, DBC]    # N=7
+CPM_UNIVERSE = [SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC]    # N=9
 
 if mom_13612U(TIP) <= 0:
     cpm = {best_safe: 1.0}                            # HAA TIP canary defensive
 else:
     cands = [A in CPM_UNIVERSE if faber_score(A) > 0] # positive-trend filter
-    top   = top_K(cands, key=gpm_score, K=ceil(N/2)=4)
+    top   = top_K(cands, key=gpm_score, K=ceil(N/2)=5)
     if   len(top) == 0: cpm = {best_safe: 1.0}
     elif len(top) == 1: cpm = {top[0]: 0.5, best_safe: 0.5}    # partial-safe
     else:
@@ -137,7 +137,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
 | Pool | Tickers |
 |---|---|
-| CPM CLEAN-7 (7) | SPY, EFA, EEM, VNQ, GLD, TLT, DBC |
+| CPM CLEAN-9 (9) | SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC |
 | BULL (1) | SPY |
 | Safe pool (HAA best-of by 13612U) | SHV (ultra-short), IEF (7-10y) |
 | CPM canary (1) | TIP |
@@ -202,14 +202,14 @@ refreshed at each spec change, current run 2026-05-28):
 
 | Metric | Point | p2.5 | p25 | p50 | p75 | p97.5 |
 |---|---:|---:|---:|---:|---:|---:|
-| Sharpe | 1.410 | 0.987 | 1.272 | 1.409 | 1.556 | 1.837 |
-| CAGR | 13.21% | 9.15% | 11.78% | 13.18% | 14.65% | 17.48% |
-| Vol | 9.10% | 8.44% | 8.86% | 9.11% | 9.33% | 9.77% |
-| MaxDD | -10.17% | -19.03% | -14.05% | -12.06% | -10.50% | -8.75% |
-| Calmar | 1.30 | 0.54 | 0.87 | 1.08 | 1.34 | 1.84 |
+| Sharpe | 1.455 | 1.041 | 1.316 | 1.453 | 1.601 | 1.866 |
+| CAGR | 13.37% | 9.41% | 11.97% | 13.37% | 14.83% | 17.68% |
+| Vol | 8.91% | 8.27% | 8.69% | 8.92% | 9.14% | 9.56% |
+| MaxDD | -9.90% | -17.88% | -13.28% | -11.47% | -10.04% | -8.42% |
+| Calmar | 1.35 | 0.60 | 0.94 | 1.16 | 1.40 | 1.94 |
 
-95% CI summary: **Sharpe [0.99, 1.84]**, CAGR [9.15%, 17.48%], MaxDD [-19.03%,
--8.75%], Calmar [0.54, 1.84]. Lower bound of Sharpe ~1.0, comfortably above
+95% CI summary: **Sharpe [1.04, 1.87]**, CAGR [9.41%, 17.68%], MaxDD [-17.88%,
+-8.42%], Calmar [0.60, 1.94]. Lower bound of Sharpe ~1.04, comfortably above
 literature blends (BB4: 1.19, BB1: 1.11) and SPY (0.66). Script + log + JSON
 in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 

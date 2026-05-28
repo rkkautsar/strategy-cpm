@@ -416,6 +416,32 @@ def bench_qqq_12mo_trend(panel, start, end, cost_bps=10.0):
     return _b_build_port(close, wh, start, end, cost_bps)
 
 
+def bench_static_pp_qqq(panel, start, end, pp_weight=0.80, growth_ticker="QQQ"):
+    """Static portfolio benchmark: 80% Permanent Portfolio + 20% QQQ buy-hold,
+    monthly rebal between sleeves. PP itself is 25% each of SPY/IEF/GLD/SHV
+    rebalanced monthly. So the effective static mix is:
+      20% SPY  (from PP)
+      20% IEF  (from PP)
+      20% GLD  (from PP)
+      20% SHV  (from PP)
+      20% QQQ  (growth sleeve)
+    Total ~40% equity (SPY + QQQ), 40% defensive (IEF + SHV), 20% gold.
+    Chosen for closest Vol match to PROD 60/20/20 (PROD Vol ~8.9%, this ~9.1%).
+    Acts as a 'what if you didn't time anything' static baseline alongside the
+    BB4 active-TAA peer benchmark.
+    """
+    from cpm_live import run_pp_backtest
+    pp = run_pp_backtest(panel, start, end)
+    if growth_ticker not in panel.columns:
+        return pd.Series(dtype=float)
+    growth = panel[growth_ticker].ffill().pct_change()
+    common = pp.index.intersection(growth.index)
+    if len(common) == 0:
+        return pd.Series(dtype=float)
+    return (pp_weight * pp.reindex(common).fillna(0)
+            + (1 - pp_weight) * growth.reindex(common).fillna(0))
+
+
 def bench_bb4_blend(panel, start, end):
     """BB4 literature blend: 60% B2 (AAA+TIP) + 20% B3 (HAA-Simple SPY) +
     20% B5 (QQQ 12mo trend). Apples-to-apples 60/20/20 vs PROD."""
@@ -684,6 +710,7 @@ FCP_STYLES = {
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: benchmarks
     "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
+    "Static 80% PP + 20% QQQ": dict(color="#2d8659", lw=1.4, ls="-.", alpha=0.85, zorder=4),
     "QQQ buy-hold":         dict(color="#707070", lw=1.2, ls=":",  alpha=0.7,  zorder=3),
     # Additional benchmark styles
     "SPY buy-hold":         dict(color="#a0a0a0", lw=1.0, ls=":",  alpha=0.65, zorder=3),
@@ -699,7 +726,7 @@ BASE_RENDER_ORDER = [
     "Keller VAA G4", "HAA-Balanced",
     "60/40 SPY/IEF", "SPY buy-hold",
     "NDX sleeve",
-    "QQQ buy-hold", "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
+    "QQQ buy-hold", "Static 80% PP + 20% QQQ", "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
     "BULL-SPY sleeve", "CPM standalone",
 ]
 
@@ -2263,6 +2290,7 @@ def main():
     qqq = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     six40 = sixty_forty(panel, start, end)
     bb4_blend = bench_bb4_blend(panel, start, end)
+    static_pp_qqq = bench_static_pp_qqq(panel, start, end, pp_weight=0.80, growth_ticker="QQQ")
 
     strategies = {
         prod_label: art.blend,
@@ -2270,6 +2298,7 @@ def main():
         "BULL-SPY sleeve": art.bull,
         "NDX sleeve": art.ndx,
         "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": bb4_blend,
+        "Static 80% PP + 20% QQQ": static_pp_qqq,
         "QQQ buy-hold": qqq,
     }
     
@@ -2284,9 +2313,10 @@ def main():
     
     # Build charts
     print("Building charts ...")
-    # Core comparison: PROD + 2 components + 2 apples-to-apples benchmarks
+    # Core comparison: PROD + 3 sleeves + 2 active TAA benchmarks + 1 static + QQQ
     CORE_CHARTS = (prod_label, "CPM standalone", "BULL-SPY sleeve", "NDX sleeve",
-                   "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)", "QQQ buy-hold")
+                   "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
+                   "Static 80% PP + 20% QQQ", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                               prod_label=prod_label)
     fig_dd = chart_drawdown({k: v for k, v in strategies.items() if k in CORE_CHARTS},
@@ -2383,9 +2413,10 @@ def main():
     spy_d = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
     qqq_d = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     for label, strat, bench, bench_label in [
-        ("PROD 60/20/20",  art.blend, bb4_blend, "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"),
-        ("PROD 60/20/20",  art.blend, spy_d,     "SPY buy-hold"),
-        ("PROD 60/20/20",  art.blend, qqq_d,     "QQQ buy-hold"),
+        ("PROD 60/20/20",  art.blend, bb4_blend,      "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"),
+        ("PROD 60/20/20",  art.blend, static_pp_qqq,  "Static 80% PP + 20% QQQ (vol-matched)"),
+        ("PROD 60/20/20",  art.blend, spy_d,          "SPY buy-hold"),
+        ("PROD 60/20/20",  art.blend, qqq_d,          "QQQ buy-hold"),
         ("CPM-ext sleeve", art.cpm,   bench_b2,  "B2 AAA + TIP canary (CLEAN-7)"),
         ("CPM-ext sleeve", art.cpm,   spy_d,     "SPY buy-hold"),
         ("BULL-ext sleeve",art.bull,  bench_b3,  "B3 HAA-Simple SPY"),
@@ -2413,12 +2444,14 @@ def main():
     ext_qqq = panel["QQQ"].ffill().pct_change().loc[ext_start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     ext_bb4 = bench_bb4_blend(panel, ext_start, end)
 
+    ext_static_pp_qqq = bench_static_pp_qqq(panel, ext_start, end, pp_weight=0.80, growth_ticker="QQQ")
     ext_strategies = {
         prod_label: ext_art.blend,
         "CPM standalone": ext_art.cpm,
         "BULL-SPY sleeve": ext_art.bull,
         "NDX sleeve": ext_art.ndx,
         "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": ext_bb4,
+        "Static 80% PP + 20% QQQ": ext_static_pp_qqq,
         "QQQ buy-hold": ext_qqq,
     }
     ext_perf_rows = []
