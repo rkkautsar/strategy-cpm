@@ -36,6 +36,10 @@ SELECT_K = 5              # top-K by GPM score, equal-weighted (20% per pick
                           # within sleeve = 4% portfolio at 20% blend weight;
                           # caps single-name bankruptcy impact at ~4% portfolio)
 COST_BPS_PER_SIDE = 10
+DELISTING_HAIRCUT = -0.10  # applied to a held position when the ticker stops
+                           # quoting mid-period; rough blended estimate across
+                           # NDX historical delistings (mix of acquisitions at
+                           # a premium and bankruptcies near 0).
 
 
 def load_ndx_panel() -> pd.DataFrame:
@@ -232,13 +236,10 @@ def run_ndx_backtest(
                 port_r += w * (today / yest - 1)
             elif market_open and pd.notna(yest) and yest > 0 and pd.isna(today):
                 # Real delisting detected mid-holding-period (acquisition,
-                # merger, or bankruptcy). Without delisting-event metadata we
-                # cannot know the terminal payoff. Apply conservative
-                # liquidation: one-time -10% haircut on the delisting day
-                # (rough blended estimate across NDX historical delistings)
-                # then convert proceeds to the period's existing safe asset
-                # (or CASH_TICKER if no safe was held).
-                port_r += w * (-0.10)
+                # merger, or bankruptcy). Apply DELISTING_HAIRCUT as a one-time
+                # liquidation hit, then convert proceeds to the period's
+                # existing safe (or CASH_TICKER if no safe was held).
+                port_r += w * DELISTING_HAIRCUT
                 delisted_w += w
                 del cur_w[asset]
         if delisted_w > 0:
