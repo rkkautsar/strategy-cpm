@@ -2586,7 +2586,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG OR TIP) 13612U &gt; 0 AND SPY 13612U &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on (HYG OR TIP) 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_20d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on QQQ 13612U trend (asset-class trend filter: the NDX universe is Nasdaq-100, QQQ is its ETF). When QQQ trend is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
 </ul>
 </div>
@@ -2689,11 +2689,12 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </ul>
 </details>
 <details>
-<summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 2-layer regime gate (Keller/HAA canary + TSMOM trend filter)</summary>
+<summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (canary + trend + RV crossover)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation.</li>
 <li><strong>Canary gate:</strong> (HYG OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical). Fast and responsive (no slow 12mo lag).</li>
+<li><strong>Realized volatility crossover gate:</strong> <code>{BULL_TICKER}</code> RV_20d &lt; RV_252d (annualized daily realized volatility).</li>
 <li><strong>Daily overlay:</strong> -10% daily drawdown circuit breaker from 63d rolling-peak. Scale to cash (0.0) on breach, resets monthly.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>

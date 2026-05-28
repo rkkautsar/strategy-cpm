@@ -101,6 +101,16 @@ def _spy_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dic
     return _trend_signal(monthly[BULL_TICKER], sig_d)
 
 
+def _vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
+    sub = daily_spy.loc[:sig_d].pct_change().dropna()
+    if len(sub) < 252:
+        return True, {"rv_20": 0.0, "rv_252": 0.0, "vol_ok": True}
+    v20 = float(sub.tail(20).std() * np.sqrt(252))
+    v252 = float(sub.tail(252).std() * np.sqrt(252))
+    vol_ok = v20 < v252
+    return vol_ok, {"rv_20": v20, "rv_252": v252, "vol_ok": vol_ok}
+
+
 # ---------- Allocation ----------
 
 def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
@@ -128,27 +138,38 @@ def _pick_safe(monthly: pd.DataFrame) -> str:
     return max(scores, key=scores.get) if scores else CASH_TICKER
 
 
-def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp
-                              ) -> tuple[dict, str, dict]:
+def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp,
+                              daily_spy: pd.Series | None = None) -> tuple[dict, str, dict]:
     """Returns (weights, regime_label, diagnostics).
     regime: 'BULL_<asset>' or 'CASH'. Safe leg uses best-of(SAFE_POOL) by 13612U."""
     monthly = close_panel.loc[:sig_d].resample("ME").last()
     canary_ok, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)
-    asset_mom_ok, tdiag = _spy_trend_ok(monthly, sig_d)
-    all_diag = {**mdiag, **tdiag, "state": state}
-    if not (canary_ok and asset_mom_ok):
+    spy_trend_ok, tdiag = _spy_trend_ok(monthly, sig_d)
+    if daily_spy is None:
+        daily_spy = close_panel[BULL_TICKER]
+    vol_ok, vdiag = _vol_gate_ok(daily_spy, sig_d)
+
+    gate_natural = canary_ok and spy_trend_ok and vol_ok
+    all_diag = {**mdiag, **tdiag, **vdiag, "state": state,
+                "spy_trend_ok": spy_trend_ok, "gate_natural": gate_natural}
+    if not gate_natural:
         safe = _pick_safe(monthly)
-        reason = ('macro_gate_off' if not canary_ok
-                  else f"asset_mom_off ({BULL_TICKER} 13612U <= 0; circuit breaker on risky asset)")
+        reasons = []
+        if not canary_ok:
+            reasons.append("macro_gate_off")
+        if not spy_trend_ok:
+            reasons.append(f"{BULL_TICKER}_trend_off")
+        if not vol_ok:
+            reasons.append("vol_crossover_off")
         return ({safe: 1.0}, "CASH",
-                {**all_diag, "reason": reason, "picked_safe": safe})
+                {**all_diag, "reason": "; ".join(reasons), "picked_safe": safe})
+
     # Bull state: 100% SPY (no state rotation in current spec).
     weights = {BULL_TICKER: 1.0}
     regime_label = f"BULL_{BULL_TICKER}"
     return (weights, regime_label,
-            {**all_diag, "bull_asset": BULL_TICKER,
-             "bull_weights": weights, "gate_natural": canary_ok})
+            {**all_diag, "bull_asset": BULL_TICKER, "bull_weights": weights})
 
 
 # ---------- Backtest ----------
@@ -180,14 +201,7 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     state_per_day = pd.Series("", index=common, dtype=object)  # for cost calc
 
     for i, sig_d in enumerate(sigs):
-        mon = panel.loc[:sig_d].resample("ME").last()
-        canary_ok, _ = _macro_gate(mon, sig_d)
-        asset_mom_ok, _ = _spy_trend_ok(mon, sig_d)
-        if canary_ok and asset_mom_ok:
-            month_weights = {BULL_TICKER: 1.0}
-        else:
-            safe = _pick_safe(mon)
-            month_weights = {safe: 1.0}
+        month_weights, _, _ = compute_bull_qqq_weights(panel, sig_d, panel[BULL_TICKER])
 
         future = common[common > sig_d]
         if len(future) < 1:
