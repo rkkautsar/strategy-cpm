@@ -2605,7 +2605,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), TIP 13612U canary (HAA canonical), GPM-penalized ranker (13612U * (1 - corr_260d)), top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 AND SPY 13612U &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on QQQ 13612U trend (asset-class trend filter: the NDX universe is Nasdaq-100, QQQ is its ETF). When QQQ trend is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
 </ul>
 </div>
 </details>
@@ -2726,7 +2726,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
 <li><strong>Signal:</strong> GPM score = 13612U momentum penalized by 260d correlation to equal-weighted NDX basket.</li>
 <li><strong>Selection:</strong> top {NDX_SELECT_K} by GPM score (positive only), equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
-<li><strong>Gate:</strong> Gated strictly on decoupled TIP 13612U canary &gt; 0 (no SPY trend filter check, allowing stock-level momentum to run undisturbed).</li>
+<li><strong>Gate:</strong> Gated on QQQ 13612U trend &gt; 0 (NDX universe's own asset-class trend filter -- don't fish in a falling pond).</li>
 <li><strong>Daily overlay:</strong> -10% daily drawdown circuit breaker from 63d rolling-peak. Scale to cash (0.0) on breach, resets monthly.</li>
 <li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>

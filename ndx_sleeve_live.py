@@ -83,20 +83,26 @@ def compute_ndx_weights(
     """Returns (weights, regime_label, diagnostics).
 
     Flow:
-      - TIP canary ON  -> select top-K NDX names by GPM score (full weight)
-      - TIP canary OFF -> 100% best-of-safe (SHV/IEF)
+      - QQQ 13612U > 0  -> select top-K NDX names by GPM score (full weight)
+      - QQQ 13612U <= 0 -> 100% best-of-safe (SHV/IEF)
+
+    Gate rationale: NDX selects K=5 stocks from the Nasdaq-100 universe.
+    Requiring QQQ (the NDX ETF) to have positive 12-month trend is the
+    universe's own asset-class trend filter -- don't fish in a falling pond.
+    Validated against dot-com regime (QQQ trend fires defensive correctly,
+    while a TIP-only canary would stay risk-on through the bear).
     """
-    # Step 1: Decoupled Gating -- defensive if TIP canary is negative
+    # Step 1: Decoupled Gating -- defensive if QQQ trend is negative
     cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
-    tip_sig = sig_13612U(cpm_monthly["TIP"]) if "TIP" in cpm_monthly.columns else float("nan")
-    ndx_active = bool(pd.notna(tip_sig) and tip_sig > 0)
-    
+    qqq_mom = sig_13612U(cpm_monthly["QQQ"]) if "QQQ" in cpm_monthly.columns else float("nan")
+    ndx_active = bool(pd.notna(qqq_mom) and qqq_mom > 0)
+
     if not ndx_active:
         safe = _pick_safe(cpm_monthly)
-        return ({safe: 1.0}, "GATE_OFF (TIP_mom <= 0)", {
-            "tip_sig": tip_sig,
+        return ({safe: 1.0}, "GATE_OFF (QQQ_mom <= 0)", {
+            "qqq_mom": qqq_mom,
             "selected": [],
-            "reason": "TIP canary negative",
+            "reason": "QQQ 13612U trend negative",
             "picked_safe": safe,
         })
 
