@@ -1,8 +1,8 @@
 # CPM-BULL-NDX
 
-**60% CPM-ext + 20% BULL-ext + 20% NDX.** Personal runbook. Realized mean
-equity/Nasdaq exposure is ~44%; sleeve-level canaries plus a daily LQD/IEF
-credit-spread intramonth circuit on the NDX sleeve are the defensive machinery.
+**60% CPM-ext + 20% BULL-ext + 20% NDX.** Personal runbook. Sleeve-level
+canaries plus a daily LQD/IEF credit-spread intramonth circuit on the NDX
+sleeve are the defensive machinery.
 
 - **CPM-ext (60%)** — AAA Pair-EW Extension over the CLEAN-9 universe with
   Faber × (1 - corr_260d) GPM-penalized ranker, TIP canary (HAA canonical), and
@@ -39,7 +39,7 @@ Clean live-ETF window 2008-04-30 → 2026-05-22 (18.1y, post-cost). Raw backtest
 
 PROD beats the best literature blend (BB4 = 60% AAA+TIP + 20% HAA-Simple SPY +
 20% Antonacci QQQ-trend) by **+0.26 Sharpe**, **-4.6pp shallower MaxDD**, and
-**+0.53 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.17 with correlation ≈ 0.35
+**+0.53 Calmar**. Vs SPY buy-hold, PROD has β ≈ 0.16 with correlation ≈ 0.35
 — a portfolio diversifier, not a levered equity play.
 
 Sleeve standalone (clean window, post-cost):
@@ -47,8 +47,13 @@ Sleeve standalone (clean window, post-cost):
 | Sleeve | Sharpe | CAGR | Vol | MaxDD |
 |---|---:|---:|---:|---:|
 | CPM-ext (CLEAN-9) | 1.141 | 11.38% | 9.97% | -15.91% |
-| BULL-ext | 1.023 | 12.97% | 12.73% | -20.28% |
-| NDX (with LQD/IEF circuit) | 1.046 | 17.88% | 17.15% | -20.35% |
+| BULL-ext (no intramonth circuit) | 1.023 | 12.97% | 12.73% | -20.28% |
+| NDX + LQD/IEF circuit | 1.046 | 17.88% | 17.15% | -20.35% |
+| NDX raw (no circuit, reference) | 1.016 | 27.74% | 28.00% | -43.57% |
+
+NDX LQD/IEF circuit is Sharpe-neutral vs raw (1.046 vs 1.016) but cuts
+standalone MaxDD from -43.57% to -20.35%; selected for tail-risk reduction
+at near-zero Sharpe cost, not for Sharpe lift.
 
 ## Alpha decomposition
 
@@ -56,13 +61,16 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 
 | Strategy | Benchmark | Alpha (%/yr) | Beta | Corr |
 |---|---|---:|---:|---:|
-| CPM-ext | AAA + TIP canary (CLEAN-9, same universe) | +2.23 | 0.757 | 0.810 |
-| BULL-ext | HAA-Simple SPY | +4.34 | 0.805 | 0.812 |
-| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+5.87** | **0.795** | **0.815** |
-| PROD 60/20/20 | BB1 (60% AAA + 40% HAA-S SPY) | +6.42 | 0.828 | 0.824 |
-| PROD 60/20/20 | SPY buy-hold | +13.12 | 0.165 | 0.338 |
-| PROD 60/20/20 | QQQ buy-hold | +12.31 | 0.162 | 0.373 |
-| NDX sleeve | QQQ buy-hold | +24.47 | 0.328 | 0.348 |
+| CPM-ext (CLEAN-9) | B2: AAA + TIP canary (CLEAN-9, same universe) | +3.43 | 0.776 | 0.830 |
+| BULL-ext | B3: HAA-Simple SPY | +1.55 | 0.989 | 0.929 |
+| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+4.16** | **0.743** | **0.828** |
+| PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +4.66 | 0.776 | 0.839 |
+| PROD 60/20/20 | SPY buy-hold | +10.90 | 0.158 | 0.352 |
+| PROD 60/20/20 | QQQ buy-hold | +10.14 | 0.154 | 0.385 |
+| NDX (with LQD/IEF circuit) | QQQ buy-hold | +13.78 | 0.227 | 0.295 |
+
+Numbers refreshed 2026-05-28 against current locked spec; see
+`research/alpha_beta_refresh_2026_05_28.log`.
 
 ## Strategy specification
 
@@ -78,7 +86,7 @@ gpm_score(A, U)   = faber_score(A) * (1 - corr_260d(A, U))  # GPM penalty
 best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
 
 # ------------------------------------------------------------------------
-# CPM-ext (60%) -- AAA Pair-EW Extension on CLEAN-7
+# CPM-ext (60%) -- AAA Pair-EW Extension on CLEAN-9
 # ------------------------------------------------------------------------
 CPM_UNIVERSE = [SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC]    # N=9
 
@@ -121,11 +129,19 @@ else:
 
 # Daily LQD/IEF credit-spread intramonth circuit on NDX:
 #   ratio = LQD_close / IEF_close      # duration-cancelled credit-spread proxy
-#   trigger when ratio < ratio.rolling(50).mean()
-#   reset at next monthly signal date; t+1 MOO execution honest
-ratio_lqd_ief = LQD_close / IEF_close
-if ratio_lqd_ief[T] < ratio_lqd_ief.rolling(50).mean()[T]:
-    ndx = {best_safe: 1.0}              # latched until next monthly signal
+#   evaluated EVERY trading day d (not just at monthly T):
+#     if ratio[d] < ratio.rolling(50).mean()[d] -> latch defensive starting d+1
+#     state stays defensive until next monthly signal date resets to 1.0
+#   t+1 MOO honest: scale on day d is set BEFORE day-d trigger evaluation
+ratio = LQD_close / IEF_close
+sma50 = ratio.rolling(50).mean()
+state = 1.0                              # 1.0 = NDX holds picks, 0.0 = defensive
+for d in trading_days(T_prev_signal+1, T_next_signal):
+    if d == T_next_signal:               # monthly reset
+        state = 1.0
+    apply scale[d] = state to NDX sleeve_return[d]
+    if ratio[d] < sma50[d]:              # trigger fires for tomorrow
+        state = 0.0                      # defensive starting day d+1
 
 # ------------------------------------------------------------------------
 # Blend
@@ -143,7 +159,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | CPM canary (1) | TIP |
 | BULL canary (2, OR) | HYG_stitched, TIP |
 | NDX canary (1) | TIP |
-| NDX intramonth circuit (2) | LQD, IEF (duration-cancelled ratio) |
+| NDX intramonth circuit (2) | LQD, IEF (duration-cancelled ratio; IEF supplied via SAFE_POOL) |
 | NDX pool | point-in-time Nasdaq-100 (top-5 by GPM score, 20% each) |
 
 **Method lineage:**
@@ -157,6 +173,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | HAA-Simple skeleton (N=1) | AllocateSmartly summary of Keller HAA |
 | Faber SMA10m ranker | Faber 2007 SSRN TAA |
 | GPM correlation penalty (1 - corr) | Generalized Protective Momentum (Keller 2017) |
+| US factor-ETF universe extension (QQQ, SPHQ) | This work (best Sharpe + Calmar in factor add-back sweep, see `research/cpm_universe_factor_addback_2026_05_28.py`) |
 | HYG breadth canary extension | Keller HAA-extension family |
 | LQD/IEF credit-spread (duration-cancelled ratio) | Practitioner macro standard |
 | SMA crossover trigger (50-day) | Practitioner technical-analysis family (Faber TAA precedent) |
@@ -190,10 +207,10 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | B2: AAA + TIP canary | This + Keller TIP | 0.956 | 10.01% | -18.80% |
 | B3: HAA-Simple SPY | Keller 2022 | 0.970 | 11.48% | -20.28% |
 | B4: HAA-Simple QQQ | Keller 2022 variant | 0.875 | 13.43% | -28.56% |
-| B5: QQQ 12mo trend | Antonacci 2014 GEM | 0.923 | 16.73% | -28.56% |
-| BB1: 60 B2 + 40 B3 | Two-sleeve blend | 1.111 | 10.77% | -14.80% |
+| B5: QQQ 12mo trend (Antonacci-family TSMOM single-asset) | Faber/Antonacci 12mo absolute trend | 0.923 | 16.73% | -28.56% |
+| BB1: 60 B2 + 40 B3 (60 AAA+TIP / 40 HAA-S SPY) | Two-sleeve blend | 1.111 | 10.77% | -14.80% |
 | BB4: 60 B2 + 20 B3 + 20 B5 | Three-sleeve blend (best lit) | 1.192 | 12.00% | -14.55% |
-| **PROD 60/20/20** | This work | **1.410** | **13.21%** | **-10.17%** |
+| **PROD 60/20/20** | This work | **1.455** | **13.37%** | **-9.90%** |
 
 ## Robustness
 
@@ -233,12 +250,17 @@ in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
   Sharpe -0.05 to -0.15 of headline due to signal-date convention, cost
   application timing, NaN handling, and `pandas.cov` ddof choice.
 - Reasonable forward Sharpe expectation for retail-data reproductions:
-  **0.95-1.10** on the 60/40 (CPM+BULL only, no NDX); **1.30-1.50** on the
-  60/20/20 PROD blend (with NDX). The LQD/IEF intramonth circuit specifically
-  depends on credit spreads being a regime-shift signal for equity stress;
-  in a low-credit-vol regime the circuit fires less, but downside floor is
-  bounded by NDX-raw Sharpe (~1.0) since the circuit is risk-neutral on
-  average.
+  **1.00-1.20** on the 60/40 (CPM+BULL only, no NDX); **1.30-1.60** on the
+  60/20/20 PROD blend (with NDX). Anchors: bootstrap 95% CI on PROD Sharpe is
+  [1.04, 1.87] with point 1.455; subtract ~0.05-0.15 for typical retail-data
+  reproduction drift to get a forward range. The LQD/IEF intramonth circuit
+  depends on credit spreads being a regime-shift signal for equity stress; in
+  a low-credit-vol regime the circuit fires less, but downside floor is
+  bounded by NDX-raw Sharpe (~1.0).
+- **P(PROD beats BB4 on Sharpe) ≈ 98%** by paired block bootstrap (B=5000,
+  block=21d); P(beats by ≥0.10 Sharpe) ≈ 89%, P(beats by ≥0.20) ≈ 67%.
+  P(shallower MaxDD than BB4) ≈ 85%. Vs SPY/QQQ buy-hold: P(higher Sharpe)
+  >99%. Details in `research/prod_vs_bb4_pwin_2026_05_28.log`.
 
 **What this strategy does NOT do**
 
@@ -253,7 +275,8 @@ in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - `cpm_live.py` — CPM sleeve engine + monthly rebalance signal.
 - `bull_qqq_live.py` — BULL sleeve engine.
 - `ndx_sleeve_live.py` — NDX stock-picking sleeve engine.
-- `vol_cap.py` — sleeve-equity DD circuit + LQD/IEF credit-spread circuit.
+- `vol_cap.py` — LQD/IEF credit-spread intramonth circuit (NDX sleeve);
+  sleeve-equity DD circuit code retained for diagnostics but not applied.
 - `build_dashboard.py` — daily blend assembly + dashboard generation.
 - `dd_check.py` — daily intramonth circuit canary (cron-monitored).
 - `cpm_dashboard.html` — generated dashboard.
