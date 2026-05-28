@@ -282,17 +282,173 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
     return trend_rets
 
 
-def naive_60_40_pp_qqq_trend(panel, start, end):
-    """Naive 60/40: 60% Permanent Portfolio + 40% QQQ trend-follow.
-    Apples-to-apples benchmark for CPM-BULL-NDX PROD (60/20/20 = 60% defensive
-    + 40% growth-leveraged)."""
-    from cpm_live import run_pp_backtest
-    pp = run_pp_backtest(panel, start, end)
-    qt = qqq_trend_follow(panel, start, end)
-    common = pp.index.intersection(qt.index)
+# ============================================================================
+# Literature benchmarks (apples-to-apples vs PROD 60/20/20).
+#
+# Naming follows research/benchmark_comparison_2026_05.py:
+#   B2: AAA + TIP canary on CLEAN-7 (Butler-Philbrick 2012 + Keller TIP veto)
+#   B3: HAA-Simple SPY (Keller 2022; AllocateSmartly canonical N=1 form)
+#   B5: QQQ 12mo trend (Antonacci 2014 GEM single-asset form)
+#   BB4 = 60% B2 + 20% B3 + 20% B5 (best literature 60/20/20 blend tested)
+#
+# BB4 is the canonical apples-to-apples benchmark for PROD: same 60/20/20
+# weighting, all three sleeves backed by published TAA papers, and it was the
+# strongest literature blend across all multi-sleeve combinations tested.
+# Per-sleeve alpha decomposition uses:
+#   CPM-ext     vs B2 (AAA + TIP)
+#   BULL-ext    vs B3 (HAA-Simple SPY)
+#   NDX sleeve  vs B5 (QQQ 12mo trend) or QQQ buy-hold for raw equity proxy
+# ============================================================================
+
+CLEAN7_UNIVERSE = ["SPY", "EFA", "EEM", "VNQ", "GLD", "TLT", "DBC"]
+_BENCH_SAFE = ["SHV", "IEF"]
+
+
+def _b_monthly_signal_dates(close, start, end):
+    monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(
+        pd.Grouper(freq="ME")).tail(1).index
+    return monthly_idx[(monthly_idx >= start) & (monthly_idx <= end)].tolist()
+
+
+def _b_build_port(close, weights_history, start, end, cost_bps=10.0):
+    common = close.index[(close.index >= start) & (close.index <= end)]
+    daily = close.ffill().pct_change()
+    port = pd.Series(0.0, index=common)
+    state = pd.Series("", index=common, dtype=object)
+    for i, (sd, w) in enumerate(weights_history):
+        fut = common[common > sd]
+        if len(fut) < 1: continue
+        af = fut[0]
+        if i + 1 < len(weights_history):
+            nf = common[common > weights_history[i + 1][0]]
+            ea = nf[0] if len(nf) >= 1 else common[-1] + pd.Timedelta(days=1)
+        else:
+            ea = end + pd.Timedelta(days=1)
+        mask = (common >= af) & (common < ea)
+        for t, ww in w.items():
+            if t in daily.columns:
+                port.loc[mask] += daily[t].reindex(common).fillna(0.0).loc[mask] * ww
+        state.loc[mask] = "|".join(f"{t}:{ww:.2f}" for t, ww in sorted(w.items()))
+    if cost_bps > 0:
+        arr = state.values
+        if len(arr) > 1:
+            flips = np.where(arr[1:] != arr[:-1])[0] + 1
+            for f in flips:
+                port.iloc[f] -= 2.0 * cost_bps / 10000.0
+    return port
+
+
+def bench_aaa_tip(panel, start, end, cost_bps=10.0):
+    """B2: AAA standard with TIP canary on CLEAN-7.
+    Top-half ranking by mom_13612U; min-var continuous weights via SLSQP;
+    TIP canary (mom_13612U > 0) gates risk-on/off; HAA best-of-safe (SHV/IEF).
+    """
+    from cpm_live import sig_13612U, best_safe as _best_safe
+    from scipy.optimize import minimize
+    import math
+    cols = sorted(set(CLEAN7_UNIVERSE + _BENCH_SAFE + ["TIP"]) & set(panel.columns))
+    close = panel[cols]
+    daily = close.ffill().pct_change()
+    sig_dates = _b_monthly_signal_dates(close, start, end)
+    wh = []
+    for sd in sig_dates:
+        monthly = close.loc[:sd].resample("ME").last()
+        safe = _best_safe(monthly, sd, _BENCH_SAFE)
+        tipm = sig_13612U(monthly["TIP"]) if "TIP" in monthly.columns else float("nan")
+        if not (pd.notna(tipm) and tipm > 0):
+            wh.append((sd, {safe: 1.0})); continue
+        scores = {t: sig_13612U(monthly[t]) for t in CLEAN7_UNIVERSE if t in monthly.columns}
+        scores = {t: s for t, s in scores.items() if pd.notna(s)}
+        ranked = sorted(scores.items(), key=lambda x: -x[1])
+        top_half = max(2, math.ceil(len(CLEAN7_UNIVERSE) / 2))
+        top = [t for t, s in ranked[:top_half] if s > 0]
+        if len(top) == 0:
+            wh.append((sd, {safe: 1.0})); continue
+        if len(top) == 1:
+            wh.append((sd, {top[0]: 0.5, safe: 0.5})); continue
+        cov = daily.loc[:sd].tail(504)[top].cov() * 252
+        n = len(top)
+        def obj(w, C=cov.values): return float(np.dot(w, np.dot(C, w)))
+        cons = ({"type": "eq", "fun": lambda w: np.sum(w) - 1.0},)
+        bnds = tuple((0.0, 1.0) for _ in range(n))
+        w0 = np.ones(n) / n
+        r = minimize(obj, w0, method="SLSQP", bounds=bnds, constraints=cons)
+        weights = {top[i]: float(r.x[i]) for i in range(n)} if r.success else {t: 1.0/n for t in top}
+        wh.append((sd, weights))
+    return _b_build_port(close, wh, start, end, cost_bps)
+
+
+def bench_haa_simple(panel, start, end, asset="SPY", cost_bps=10.0):
+    """B3/B4: HAA-Simple N=1 specialization. Hold `asset` when TIP canary AND
+    asset's own mom_13612U both positive; else HAA best-of-safe."""
+    from cpm_live import sig_13612U, best_safe as _best_safe
+    cols = sorted(set([asset] + _BENCH_SAFE + ["TIP"]) & set(panel.columns))
+    close = panel[cols]
+    sig_dates = _b_monthly_signal_dates(close, start, end)
+    wh = []
+    for sd in sig_dates:
+        monthly = close.loc[:sd].resample("ME").last()
+        safe = _best_safe(monthly, sd, _BENCH_SAFE)
+        tipm = sig_13612U(monthly["TIP"]) if "TIP" in monthly.columns else float("nan")
+        c_ok = pd.notna(tipm) and tipm > 0
+        amom = sig_13612U(monthly[asset]) if asset in monthly.columns else float("nan")
+        a_ok = pd.notna(amom) and amom > 0
+        wh.append((sd, {asset: 1.0} if (c_ok and a_ok) else {safe: 1.0}))
+    return _b_build_port(close, wh, start, end, cost_bps)
+
+
+def bench_qqq_12mo_trend(panel, start, end, cost_bps=10.0):
+    """B5: Antonacci 2014 GEM single-asset on QQQ. Hold QQQ when r12 > 0,
+    else HAA best-of-safe."""
+    from cpm_live import best_safe as _best_safe
+    cols = sorted(set(["QQQ"] + _BENCH_SAFE) & set(panel.columns))
+    close = panel[cols]
+    sig_dates = _b_monthly_signal_dates(close, start, end)
+    wh = []
+    for sd in sig_dates:
+        monthly = close.loc[:sd].resample("ME").last()
+        safe = _best_safe(monthly, sd, _BENCH_SAFE)
+        if "QQQ" in monthly.columns and len(monthly["QQQ"]) >= 13:
+            r12 = monthly["QQQ"].iloc[-1] / monthly["QQQ"].iloc[-13] - 1
+            if pd.notna(r12) and r12 > 0:
+                wh.append((sd, {"QQQ": 1.0})); continue
+        wh.append((sd, {safe: 1.0}))
+    return _b_build_port(close, wh, start, end, cost_bps)
+
+
+def bench_bb4_blend(panel, start, end):
+    """BB4 literature blend: 60% B2 (AAA+TIP) + 20% B3 (HAA-Simple SPY) +
+    20% B5 (QQQ 12mo trend). Apples-to-apples 60/20/20 vs PROD."""
+    b2 = bench_aaa_tip(panel, start, end)
+    b3 = bench_haa_simple(panel, start, end, asset="SPY")
+    b5 = bench_qqq_12mo_trend(panel, start, end)
+    common = b2.index.intersection(b3.index).intersection(b5.index)
     if len(common) == 0:
         return pd.Series(dtype=float)
-    return (0.6 * pp.reindex(common).fillna(0) + 0.4 * qt.reindex(common).fillna(0))
+    return (0.60 * b2.reindex(common).fillna(0)
+            + 0.20 * b3.reindex(common).fillna(0)
+            + 0.20 * b5.reindex(common).fillna(0))
+
+
+def alpha_beta_corr(strat: pd.Series, bench: pd.Series) -> dict:
+    """OLS daily-return regression r_strat = alpha + beta * r_bench + eps.
+    Returns dict with annualized alpha (%/yr), beta, and Pearson correlation.
+    """
+    common = strat.index.intersection(bench.index)
+    if len(common) < 30:
+        return {"alpha_ann_pct": float("nan"), "beta": float("nan"), "corr": float("nan")}
+    s = strat.reindex(common).fillna(0.0).values
+    b = bench.reindex(common).fillna(0.0).values
+    if np.std(b) < 1e-12:
+        return {"alpha_ann_pct": float("nan"), "beta": float("nan"), "corr": float("nan")}
+    cov = np.cov(s, b, ddof=1)
+    beta = cov[0, 1] / cov[1, 1]
+    alpha_daily = float(np.mean(s) - beta * np.mean(b))
+    return {
+        "alpha_ann_pct": alpha_daily * 252 * 100,
+        "beta": float(beta),
+        "corr": float(np.corrcoef(s, b)[0, 1]),
+    }
 
 
 # Module-level cache for cpm_signal_records. Several dashboard diagnostics
@@ -527,7 +683,7 @@ FCP_STYLES = {
     "BULL-SPY sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: benchmarks
-    "Naive 60/40 PP/SPY-trend": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
+    "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
     "QQQ buy-hold":         dict(color="#707070", lw=1.2, ls=":",  alpha=0.7,  zorder=3),
     # Additional benchmark styles
     "SPY buy-hold":         dict(color="#a0a0a0", lw=1.0, ls=":",  alpha=0.65, zorder=3),
@@ -543,7 +699,7 @@ BASE_RENDER_ORDER = [
     "Keller VAA G4", "HAA-Balanced",
     "60/40 SPY/IEF", "SPY buy-hold",
     "NDX sleeve",
-    "QQQ buy-hold", "Naive 60/40 PP/SPY-trend",
+    "QQQ buy-hold", "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
     "BULL-SPY sleeve", "CPM standalone",
 ]
 
@@ -658,17 +814,17 @@ def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     width = 0.28
     x = np.arange(len(years))
     ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color="#707070")
-    ax.bar(x,         yr_n.values, width, label="Naive 60/40 PP/SPY-trend", color="#9966aa")
+    ax.bar(x,         yr_n.values, width, label="BB4 lit blend", color="#9966aa")
     ax.bar(x + width, yr_b.values, width, label="CPM-BULL-NDX (PROD)", color="#0040d0")
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45, fontsize=8)
     ax.set_ylabel("Annual return (%)")
-    ax.set_title("Annual Returns: PROD vs Naive 60/40 vs QQQ buy-hold")
+    ax.set_title("Annual Returns: PROD vs BB4 lit blend vs QQQ buy-hold")
     ax.axhline(0, color="#888", lw=0.6)
     _legend_below(ax, ncol=3)
     return fig
 
-def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
+def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
                       max_fcp: pd.Series = None, window_days=63):
     """Rolling N-day max drawdown within window (peak-to-trough inside window)."""
     fig, ax = plt.subplots(figsize=(8, 3.6))
@@ -686,12 +842,12 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
     idx = blended.index
     fcp_dd = rolling_intra_dd(fcp_only.reindex(idx))
     blend_dd = rolling_intra_dd(blended)
-    naive_dd = rolling_intra_dd(naive.reindex(idx))
+    bb4_dd = rolling_intra_dd(bb4.reindex(idx))
 
 
     ax.plot(fcp_dd.index, fcp_dd.values, label="CPM standalone", color="#1a9a1a", lw=1.6)
     ax.plot(blend_dd.index, blend_dd.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
-    ax.plot(naive_dd.index, naive_dd.values, label="Naive 60/40 PP/SPY-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(bb4_dd.index, bb4_dd.values, label="BB4 lit blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
@@ -705,9 +861,9 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
     _legend_below(ax, ncol=4)
     return fig
 
-def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, naive: pd.Series,
+def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
                           max_fcp: pd.Series = None, window_days=252):
-    """Rolling N-month annualized excess CAGR vs Naive 60/40 benchmark.
+    """Rolling N-month annualized excess CAGR vs BB4 lit benchmark.
     Uses geometric (1+r).rolling.prod()**(252/window) - 1 for proper compounding.
     """
     fig, ax = plt.subplots(figsize=(8, 3.6))
@@ -719,44 +875,44 @@ def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, naive: pd.Seri
 
     idx = blended.index
     fcp_only_a = fcp_only.reindex(idx)
-    naive_a = naive.reindex(idx)
+    bb4_a = bb4.reindex(idx)
 
     fcp_cagr = rolling_cagr(fcp_only_a)
     blend_cagr = rolling_cagr(blended)
-    naive_cagr = rolling_cagr(naive_a)
+    bb4_cagr = rolling_cagr(bb4_a)
 
-    excess_fcp = (fcp_cagr - naive_cagr) * 100
-    excess_blend = (blend_cagr - naive_cagr) * 100
+    excess_fcp = (fcp_cagr - bb4_cagr) * 100
+    excess_blend = (blend_cagr - bb4_cagr) * 100
 
     ax.plot(excess_fcp.index, excess_fcp.values,
-            label="CPM standalone vs Naive 60/40", color="#1a9a1a", lw=1.6)
+            label="CPM standalone vs BB4", color="#1a9a1a", lw=1.6)
     ax.plot(excess_blend.index, excess_blend.values,
-            label="PROD vs Naive 60/40", color="#0040d0", lw=2.0)
+            label="PROD vs BB4", color="#0040d0", lw=2.0)
     if max_fcp is not None:
         max_fcp_cagr = rolling_cagr(max_fcp.reindex(idx))
-        excess_max = (max_fcp_cagr - naive_cagr) * 100
+        excess_max = (max_fcp_cagr - bb4_cagr) * 100
         ax.plot(excess_max.index, excess_max.values,
-                label="BULL-SPY standalone vs Naive 60/40", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
+                label="BULL-SPY standalone vs BB4", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Excess CAGR (pp, ann.)")
-    ax.set_title(f"Rolling {window_days//21}-Month Excess vs Naive 60/40")
+    ax.set_title(f"Rolling {window_days//21}-Month Excess vs BB4 lit blend")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax, ncol=3)
     return fig
 
-def chart_rolling_sharpe(blended: pd.Series, naive: pd.Series, window_days=252):
-    # Rolling Sharpe vs Naive 60/40 (apples-to-apples architecture)
+def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
+    # Rolling Sharpe vs BB4 lit blend (apples-to-apples architecture)
     fig, ax = plt.subplots(figsize=(8, 3.6))
-    bench = naive.reindex(blended.index)
+    bench = bb4.reindex(blended.index)
     bench_sr = (bench.rolling(window_days).mean() * 252) / (bench.rolling(window_days).std() * np.sqrt(252))
     fcp_sr = (blended.rolling(window_days).mean() * 252) / (blended.rolling(window_days).std() * np.sqrt(252))
-    ax.plot(bench_sr.index, bench_sr.values, label="Naive 60/40 PP/SPY-trend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(bench_sr.index, bench_sr.values, label="BB4 lit blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
     ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
     ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
     ax.set_ylabel("Sharpe")
-    ax.set_title(f"Rolling {window_days//21}-Month Sharpe: PROD vs Naive 60/40 PP/SPY-trend")
+    ax.set_title(f"Rolling {window_days//21}-Month Sharpe: PROD vs BB4 lit blend")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax, ncol=2)
@@ -1726,6 +1882,22 @@ def period_summary_html(daily: pd.Series, end_date: pd.Timestamp = None) -> str:
 
 # ---------- Tables ----------
 
+def alpha_beta_table_html(rows: list[dict]) -> str:
+    """rows: list of {strategy, benchmark, alpha_ann_pct, beta, corr}."""
+    body = ""
+    for r in rows:
+        body += ("<tr>"
+                  f"<td>{r['strategy']}</td>"
+                  f"<td>{r['benchmark']}</td>"
+                  f"<td style='text-align:right'>{r['alpha_ann_pct']:+.2f}%</td>"
+                  f"<td style='text-align:right'>{r['beta']:.3f}</td>"
+                  f"<td style='text-align:right'>{r['corr']:.3f}</td>"
+                  "</tr>\n")
+    return f"""<div class='table-scroll'><table class='perf'>
+<thead><tr><th>Strategy</th><th>Benchmark</th><th>Alpha (%/yr)</th><th>Beta</th><th>Corr</th></tr></thead>
+<tbody>{body}</tbody></table></div>"""
+
+
 def perf_table_html(rows: list[dict], compact: bool = False) -> str:
     """rows: list of {strategy, cagr, vol, sharpe, max_drawdown, ulcer, calmar, martin, ...}.
     compact=True drops Ulcer/Calmar/Martin (keep them for collapsed details view)."""
@@ -1767,25 +1939,25 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series,
                        "CPM": yr_f.reindex(yr_b.index).values * 100,
                        "BULL-SPY": yr_bu.reindex(yr_b.index).values * 100,
                        "NDX": yr_nd.reindex(yr_b.index).values * 100,
-                       "Naive 60/40": yr_n.reindex(yr_b.index).values * 100,
+                       "BB4 lit": yr_n.reindex(yr_b.index).values * 100,
                        "QQQ": yr_q.reindex(yr_b.index).values * 100})
-    df["Excess vs Naive"] = df["PROD"] - df["Naive 60/40"]
+    df["Excess vs BB4"] = df["PROD"] - df["BB4 lit"]
     df["Excess vs QQQ"] = df["PROD"] - df["QQQ"]
     body = ""
     for _, r in df.iterrows():
-        ex_n = r["Excess vs Naive"]
+        ex_n = r["Excess vs BB4"]
         ex_q = r["Excess vs QQQ"]
         exn_class = "pos" if ex_n > 0 else "neg"
         exq_class = "pos" if ex_q > 0 else "neg"
         body += f"<tr><td>{int(r['Year'])}</td>"
-        for col in ["PROD", "CPM", "BULL-SPY", "NDX", "Naive 60/40", "QQQ"]:
+        for col in ["PROD", "CPM", "BULL-SPY", "NDX", "BB4 lit", "QQQ"]:
             v = r[col]
             cls = "pos" if v > 0 else "neg"
             body += f"<td style='text-align:right' class='{cls}'>{v:+.2f}%</td>"
         body += f"<td style='text-align:right' class='{exn_class}'>{ex_n:+.2f}pp</td>"
         body += f"<td style='text-align:right' class='{exq_class}'>{ex_q:+.2f}pp</td></tr>\n"
     return f"""<div class='table-scroll'><table class='yearly'>
-<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-SPY only</th><th>NDX only</th><th>Naive 60/40</th><th>QQQ</th><th>Ex vs Naive</th><th>Ex vs QQQ</th></tr></thead>
+<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-SPY only</th><th>NDX only</th><th>BB4 lit blend</th><th>QQQ</th><th>Ex vs BB4</th><th>Ex vs QQQ</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
 
@@ -2090,14 +2262,14 @@ def main():
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
     qqq = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     six40 = sixty_forty(panel, start, end)
-    naive_pp_qt = naive_60_40_pp_qqq_trend(panel, start, end)
+    bb4_blend = bench_bb4_blend(panel, start, end)
 
     strategies = {
         prod_label: art.blend,
         "CPM standalone": art.cpm,
         "BULL-SPY sleeve": art.bull,
         "NDX sleeve": art.ndx,
-        "Naive 60/40 PP/SPY-trend": naive_pp_qt,
+        "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": bb4_blend,
         "QQQ buy-hold": qqq,
     }
     
@@ -2114,16 +2286,16 @@ def main():
     print("Building charts ...")
     # Core comparison: PROD + 2 components + 2 apples-to-apples benchmarks
     CORE_CHARTS = (prod_label, "CPM standalone", "BULL-SPY sleeve", "NDX sleeve",
-                   "Naive 60/40 PP/SPY-trend", "QQQ buy-hold")
+                   "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                               prod_label=prod_label)
     fig_dd = chart_drawdown({k: v for k, v in strategies.items() if k in CORE_CHARTS},
                             prod_label=prod_label)
-    fig_yearly = chart_yearly_bars(art.blend, qqq, strategies["Naive 60/40 PP/SPY-trend"])
+    fig_yearly = chart_yearly_bars(art.blend, qqq, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"])
     fig_monthly_heatmap = chart_monthly_heatmap(art.blend, title="PROD 60/20/20 Monthly Returns Heatmap")
-    fig_rolling = chart_rolling_sharpe(art.blend, strategies["Naive 60/40 PP/SPY-trend"])
-    fig_excess = chart_rolling_excess(art.cpm, art.blend, strategies["Naive 60/40 PP/SPY-trend"], art.bull)
-    fig_roll_dd = chart_rolling_dd(art.cpm, art.blend, strategies["Naive 60/40 PP/SPY-trend"], art.bull)
+    fig_rolling = chart_rolling_sharpe(art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"])
+    fig_excess = chart_rolling_excess(art.cpm, art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"], art.bull)
+    fig_roll_dd = chart_rolling_dd(art.cpm, art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"], art.bull)
     fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(
         panel, start, records=art.cpm_records, bull_records=art.bull_records)
     fig_canary_heatmap = chart_canary_state_heatmap(panel, art.cpm, art.bull, start)
@@ -2146,11 +2318,11 @@ def main():
         prod_label=prod_label,
     )
     # TT-style integrated equity + drawdown chart for headline.
-    # PROD vs closest benchmark (Naive 60/40 PP/SPY-trend).
-    naive_for_headline = strategies.get("Naive 60/40 PP/SPY-trend")
+    # PROD vs closest benchmark (BB4 lit blend).
+    bb4_for_headline = strategies.get("BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)")
     headline_strats = {prod_label: art.blend}
-    if naive_for_headline is not None and not naive_for_headline.empty:
-        headline_strats["Naive 60/40 PP/SPY-trend"] = naive_for_headline
+    if bb4_for_headline is not None and not bb4_for_headline.empty:
+        headline_strats["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"] = bb4_for_headline
     fig_eq_dd_headline = chart_equity_dd_combined(headline_strats,
                                                     prod_label=prod_label)
     top_dd_html = topN_drawdowns_html(art.blend, n=10)
@@ -2201,6 +2373,33 @@ def main():
         {"strategy": "NDX standalone (20% weight)",                   **perf_metrics(art.ndx)},
     ]
 
+    # Alpha/beta/corr decomposition vs canonical benchmarks (BB4 blend +
+    # per-sleeve literature counterparts). Daily-return OLS regression.
+    print("Computing alpha/beta/corr vs canonical benchmarks ...")
+    bench_b2 = bench_aaa_tip(panel, start, end)   # AAA+TIP canary CLEAN-7 (sleeve canonical for CPM)
+    bench_b3 = bench_haa_simple(panel, start, end, asset="SPY")  # HAA-Simple SPY (BULL canonical)
+    bench_b5 = bench_qqq_12mo_trend(panel, start, end)  # QQQ 12mo trend (NDX-equity peer)
+    alpha_beta_rows = []
+    spy_d = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
+    qqq_d = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
+    for label, strat, bench, bench_label in [
+        ("PROD 60/20/20",  art.blend, bb4_blend, "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"),
+        ("PROD 60/20/20",  art.blend, spy_d,     "SPY buy-hold"),
+        ("PROD 60/20/20",  art.blend, qqq_d,     "QQQ buy-hold"),
+        ("CPM-ext sleeve", art.cpm,   bench_b2,  "B2 AAA + TIP canary (CLEAN-7)"),
+        ("CPM-ext sleeve", art.cpm,   spy_d,     "SPY buy-hold"),
+        ("BULL-ext sleeve",art.bull,  bench_b3,  "B3 HAA-Simple SPY"),
+        ("BULL-ext sleeve",art.bull,  spy_d,     "SPY buy-hold"),
+        ("NDX sleeve",     art.ndx,   bench_b5,  "B5 QQQ 12mo trend (Antonacci GEM)"),
+        ("NDX sleeve",     art.ndx,   qqq_d,     "QQQ buy-hold"),
+    ]:
+        m = alpha_beta_corr(strat, bench)
+        alpha_beta_rows.append({
+            "strategy": label, "benchmark": bench_label,
+            "alpha_ann_pct": m["alpha_ann_pct"],
+            "beta": m["beta"], "corr": m["corr"],
+        })
+
     # ========================================================
     # Extended backtest from QQQ inception.
     # ========================================================
@@ -2212,14 +2411,14 @@ def main():
     # skip records to save ~7s on the deep history pass.
     ext_art = build_artifacts(panel, ndx_panel, ext_start, end, include_records=False)
     ext_qqq = panel["QQQ"].ffill().pct_change().loc[ext_start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
-    ext_naive = naive_60_40_pp_qqq_trend(panel, ext_start, end)
+    ext_bb4 = bench_bb4_blend(panel, ext_start, end)
 
     ext_strategies = {
         prod_label: ext_art.blend,
         "CPM standalone": ext_art.cpm,
         "BULL-SPY sleeve": ext_art.bull,
         "NDX sleeve": ext_art.ndx,
-        "Naive 60/40 PP/SPY-trend": ext_naive,
+        "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": ext_bb4,
         "QQQ buy-hold": ext_qqq,
     }
     ext_perf_rows = []
@@ -2233,9 +2432,9 @@ def main():
     print("Building EXT charts ...")
     ext_fig_equity = chart_equity(ext_strategies, prod_label=prod_label)
     ext_fig_dd = chart_drawdown(ext_strategies, prod_label=prod_label)
-    ext_fig_yearly = chart_yearly_bars(ext_art.blend, ext_qqq, ext_naive)
-    ext_fig_rolling = chart_rolling_sharpe(ext_art.blend, ext_naive)
-    ext_fig_roll_dd = chart_rolling_dd(ext_art.cpm, ext_art.blend, ext_naive, ext_art.bull)
+    ext_fig_yearly = chart_yearly_bars(ext_art.blend, ext_qqq, ext_bb4)
+    ext_fig_rolling = chart_rolling_sharpe(ext_art.blend, ext_bb4)
+    ext_fig_roll_dd = chart_rolling_dd(ext_art.cpm, ext_art.blend, ext_bb4, ext_art.bull)
     
     # Compose HTML
     print("Composing HTML ...")
@@ -2385,8 +2584,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> CLEAN-7 universe (SPY, EFA, EEM, VNQ, GLD, TLT, DBC), TIP-only 13612U canary (HAA canonical), Faber * (1 - corr_260d) GPM-penalized ranker, top-{cpm_module.TOP_K_CANDIDATES} (top-half), min-vol pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive. No hold buffer, no vol cap.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%):</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 13612U momentum &gt; 0. Fallback: HAA best-of-safe (SHV / IEF) by 13612U. Both BULL-SPY and NDX sleeves are protected by daily -10% drawdown circuit breakers.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on decoupled TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP plus credit extension) AND SPY 13612U momentum &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U. No intramonth circuit.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly on TIP 13612U canary. When TIP canary is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;SMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
 </ul>
 </div>
 </details>
@@ -2395,6 +2594,14 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Sleeve breakdown</strong></summary>
 <div class='card'>
 {perf_table_html(sleeve_rows)}
+</div>
+</details>
+
+<details>
+<summary><strong>Alpha / Beta / Correlation vs canonical benchmarks</strong> (daily OLS regression)</summary>
+<div class='card'>
+<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM-ext vs B2 (AAA + TIP canary CLEAN-7)</code>, <code>BULL-ext vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
+{alpha_beta_table_html(alpha_beta_rows)}
 </div>
 </details>
 
@@ -2412,7 +2619,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 {fig_to_html(fig_yearly)}
 {fig_to_html(fig_monthly_heatmap)}
-{yearly_table_html(art.blend, qqq, art.cpm, art.bull, art.ndx, naive_pp_qt)}
+{yearly_table_html(art.blend, qqq, art.cpm, art.bull, art.ndx, bb4_blend)}
 </div>
 
 <h3>Rolling metrics (12-month)</h3>
