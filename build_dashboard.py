@@ -2280,7 +2280,7 @@ def main():
         print("  NDX panel data not found; skipping NDX sleeve.")
         ndx_panel = None
     art = build_artifacts(panel, ndx_panel, start, end)
-    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + NDX DD circuit"
+    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)}) + NDX LQD/IEF circuit"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
