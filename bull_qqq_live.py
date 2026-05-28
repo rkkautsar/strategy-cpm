@@ -6,7 +6,7 @@ BULL-SPY - Regime-gated SPY overlay with SHV cash fallback.
 
 Spec:
   Risk-on when BOTH gates pass:
-    1. Canary:    (HYG_stitched OR TIP) 13612U > 0   (HAA-simple + credit breadth extension)
+    1. Canary:    (HYG OR TIP) 13612U > 0   (HAA-simple + credit breadth extension)
     2. Asset mom: <BULL_TICKER> 12-month TR absolute momentum > 0 (Antonacci GEM)
 
   Risk-on  -> 100% SPY
@@ -45,7 +45,7 @@ SAFE_POOL = ["SHV", "IEF"]    # HAA-style best-of-safe: pick by 13612U momentum
 
 # Macro canary: HYG credit + TIP real-rate/inflation breadth extension.
 # Risk-on when either canary asset has positive 13612U momentum.
-CANARY_ASSETS = ["HYG_stitched", "TIP"]
+CANARY_ASSETS = ["HYG", "TIP"]
 CANARY_RULE = "any_positive"
 
 PROD_BULL_WEIGHT = 0.20      # BULL weight in 60/20/20 PROD blend
@@ -84,7 +84,7 @@ def _macro_gate(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dict]
     else:
         canary_ok = any(positives)
     diag = dict(
-        hyg_sig=sigs.get("HYG_stitched", float("nan")),
+        hyg_sig=sigs.get("HYG", float("nan")),
         tip_sig=sigs.get("TIP", float("nan")),
         canary_ok=canary_ok,
     )
@@ -239,7 +239,7 @@ def cmd_allocate(args):
     print("=" * 60)
     print(f"Bull asset:  {BULL_TICKER}  (100% when canary AND asset momentum both pass)")
     print(f"Fallback:    best-of-safe (SHV/IEF by 13612U) when any gate fails")
-    print(f"Canary:      (HYG_stitched OR TIP) 13612U > 0")
+    print(f"Canary:      (HYG OR TIP) 13612U > 0")
     print(f"Asset mom:   {BULL_TICKER} 13612U momentum > 0 (HAA standard, circuit breaker)")
     print()
 

@@ -55,7 +55,7 @@ SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
 # CPM canary: HYG OR TIP (any positive, matching BULL-SPY breadth).
 # Using dual breadth provides robust cross-asset recession hedging.
-CANARY_ASSETS = ["HYG_stitched", "TIP"]
+CANARY_ASSETS = ["HYG", "TIP"]
 CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
 DEFAULT_CASH = "SHV"
@@ -91,7 +91,7 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         panel = pd.DataFrame()
     
     # Stitched series from data/ (overwrites same-named column in proxy panel).
-    # HYG_stitched = VWEHX mutual fund pre-2007-04 + live HYG post.
+    # HYG = VWEHX mutual fund pre-2007-04 + live HYG post.
     # GLD/TIP: clean stitches for canary usage pre-live-ETF.
     # Audited stitches (each replaces same-named column from proxy file):
     # - HYG <- VWEHX (Vanguard HY mutual fund), 1980-01+, auditable
@@ -103,7 +103,7 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     for fname, col in [
         ("gld_stitched_extended_daily.csv", "GLD"),  # World Bank monthly pre-2000-08
         ("tip_stitched_daily.csv", "TIP"),
-        ("hyg_stitched_daily.csv", "HYG_stitched"),
+        ("hyg_stitched_daily.csv", "HYG"),
         ("shv_stitched_daily.csv", "SHV"),
         ("ief_stitched_daily.csv", "IEF"),
         ("tlt_stitched_daily.csv", "TLT"),

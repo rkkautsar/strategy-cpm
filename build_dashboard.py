@@ -1078,8 +1078,8 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
         ax.set_title(title, fontsize=11, fontweight='bold', pad=36)
         return im
 
-    cpm_canary = ['HYG_stitched', 'TIP']
-    bull_canary = ['HYG_stitched', 'TIP']
+    cpm_canary = ['HYG', 'TIP']
+    bull_canary = ['HYG', 'TIP']
 
     cpm_grid = build_grid(cpm_rets, cpm_canary, include_macro=False)
     bull_grid = build_grid(bull_rets, bull_canary, include_macro=False)
@@ -2603,8 +2603,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG_stitched OR TIP) 13612U > 0 canary (BULL-style breadth), GPM-penalized ranker (13612U * (1 - corr_260d)), top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG_stitched OR TIP) 13612U &gt; 0 AND SPY 13612U &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 9-asset risky universe (SPY, QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (BULL-style breadth), GPM-penalized ranker (13612U * (1 - corr_260d)), top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when both gates pass: (HYG OR TIP) 13612U &gt; 0 AND SPY 13612U &gt; 0. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on QQQ 13612U trend (asset-class trend filter: the NDX universe is Nasdaq-100, QQQ is its ETF). When QQQ trend is off, allocate 100% best-of-safe SHV/IEF. Daily LQD/IEF&lt;EMA50 intramonth circuit (duration-cancelled credit-spread proxy) latches defensive intramonth on credit-spread widening; releases at next monthly signal.</li>
 </ul>
 </div>
@@ -2696,7 +2696,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> US equity (SPY) + US factor (QQQ, SPHQ) + international (EFA, EEM) + real estate (VNQ) + diversifiers (GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>Canary:</strong> (HYG_stitched OR TIP) 13612U &gt; 0 -- any positive -&gt; risk-on; negative -&gt; 100% best-of-safe (BULL-style breadth).</li>
+<li><strong>Canary:</strong> (HYG OR TIP) 13612U &gt; 0 -- any positive -&gt; risk-on; negative -&gt; 100% best-of-safe (BULL-style breadth).</li>
 <li><strong>Ranker:</strong> Faber * (1 - corr_260d) GPM-penalized score. <code>faber = (price - SMA10) / SMA10</code>; <code>corr_260d</code> = daily Pearson correlation of asset's returns over last 260d to equal-weighted basket return of the universe. Positive-momentum filter applies to raw Faber, not the penalized score.</li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by GPM-penalized score (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop assets with raw Faber &le; 0</li>
 <li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d simple daily covariance lookback)</li>
@@ -2711,7 +2711,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 2-layer regime gate (Keller/HAA canary + TSMOM trend filter)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation.</li>
-<li><strong>Canary gate:</strong> (HYG_stitched OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
+<li><strong>Canary gate:</strong> (HYG OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical). Fast and responsive (no slow 12mo lag).</li>
 <li><strong>Daily overlay:</strong> -10% daily drawdown circuit breaker from 63d rolling-peak. Scale to cash (0.0) on breach, resets monthly.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>

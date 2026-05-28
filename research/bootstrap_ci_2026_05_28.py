@@ -84,7 +84,7 @@ def main():
     print(f"Loading panel and computing sleeves...")
     panel = load_panel(start=pd.Timestamp("1993-01-01"))
     ndx_panel = load_ndx_panel()
-    start = pd.Timestamp("2008-04-30")
+    start = pd.Timestamp("2008-05-30")
     end = pd.Timestamp("2026-05-22")
 
     cpm, _ = run_cpm_backtest(panel, start, end)
