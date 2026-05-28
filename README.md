@@ -28,7 +28,7 @@ Clean live-ETF window 2008-05-30 → 2026-05-22 (18.0y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.483** | **15.73%** | **9.61%** | **-11.04%** | **1.42** |
+| **PROD 60/20/20** | **1.483** | **15.73%** | **11.22%** | **-11.04%** | **1.42** |
 | Best literature blend (BB4) | 1.194 | 12.03% | 9.94% | -14.55% | 0.83 |
 | Simplest literature 60/40 (BB1) | 1.122 | 10.90% | 9.65% | -14.80% | 0.74 |
 | SPY buy-hold | 0.660 | 11.73% | 19.82% | -50.70% | 0.23 |
@@ -51,6 +51,9 @@ Sleeve standalone (clean window, post-cost):
 NDX remains the high-beta growth sleeve; risk is controlled at portfolio level
 via 20% blend weight plus strict monthly BULL-state gating.
 
+Option B blend volatility is **11.22%**. The previously reported **9.61%** was
+from an earlier spec that still had the daily LQD/IEF circuit active on NDX.
+
 ## Alpha decomposition
 
 OLS daily-return regression `r_strat = alpha + beta · r_bench`:
@@ -63,7 +66,7 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 | PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +5.65 | 0.780 | 0.783 |
 | PROD 60/20/20 | SPY buy-hold | +11.72 | 0.182 | 0.374 |
 | PROD 60/20/20 | QQQ buy-hold | +10.84 | 0.179 | 0.416 |
-| NDX (monthly BULL-gated) | QQQ buy-hold | +15.74 | 0.257 | 0.302 |
+| NDX (monthly BULL-gated) | QQQ buy-hold | +16.79 | 0.207 | 0.274 |
 
 Numbers refreshed 2026-05-28 against current locked spec; see
 `research/alpha_beta_refresh_2026_05_28.log`.
@@ -81,6 +84,11 @@ eaa_score(A)      = faber_score(A) / vol_252d(A)            # EAA Vol-Adj (CPM s
 corr_260d(A, U)   = daily Pearson corr of A's returns over last 260d to the
                     equal-weighted basket return of universe U
 gpm_score(A, U)   = mom_13612U(A) * (1 - corr_260d(A, U))   # GPM penalty (NDX sleeve)
+is_fully_valid(t) =
+    has 12m momentum history
+    and has 260d return history
+    and has current adjusted price
+    and is tradable at T+1 open
 best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
 
 # ------------------------------------------------------------------------
@@ -91,7 +99,7 @@ CPM_UNIVERSE = [QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC]         # N=8
 canary_ok = (mom_13612U(HYG) > 0) OR (mom_13612U(TIP) > 0)
 
 if not canary_ok:
-    cpm = {best_safe: 1.0}                            # any-positive canary defensive
+    cpm = {best_safe: 1.0}                            # defensive only when both HYG and TIP fail
 else:
     cands = [A in CPM_UNIVERSE if faber_score(A) > 0] # positive-trend filter
     top   = top_K(cands, key=eaa_score, K=ceil(N/2)=4)
@@ -122,10 +130,11 @@ bull_active = (bull.get(SPY, 0.0) > 0)
 if not bull_active:
     ndx = {best_safe: 1.0}
 else:
-    pool   = PIT_NDX100_constituents(T)
-    scores = {t: mom_13612U(t) * (1 - corr_260d(t, pool)) for t in pool}
-    picks  = top_5(t for t, s in scores.items() if mom_13612U(t) > 0)
-    ndx    = {t: 0.20 for t in picks}                 # 20% each, K=5
+    pool     = PIT_NDX100_constituents(T)
+    scores   = {t: mom_13612U(t) * (1 - corr_260d(t, pool)) for t in pool}
+    eligible = [t for t in pool if mom_13612U(t) > 0 and is_fully_valid(t)]
+    picks    = top_K(eligible, key=lambda t: scores[t], K=5)
+    ndx      = {t: 0.20 for t in picks}               # 20% each, K=5
     if len(picks) < 5:                                # partial-fill -> safe
         ndx[best_safe] = 1.0 - 0.20 * len(picks)
 
@@ -200,7 +209,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
 ## Robustness
 
-Stationary block bootstrap on PROD daily returns (B=2000, block=21d, seed=42;
+Single-strategy bootstrap CI on PROD daily returns (B=2000, block=21d, seed=42;
 refreshed at each spec change, current run 2026-05-28):
 
 | Metric | Point | p2.5 | p25 | p50 | p75 | p97.5 |
@@ -212,8 +221,8 @@ refreshed at each spec change, current run 2026-05-28):
 | Calmar | 1.424 | 0.607 | 0.961 | 1.183 | 1.443 | 2.021 |
 
 95% CI summary: **Sharpe [1.074, 1.914]**, CAGR [11.13%, 20.74%], MaxDD
-[-21.30%, -9.30%], Calmar [0.607, 2.021]. The paired block bootstrap
-difference provides rigorous evidence of outperformance, showing
+[-21.30%, -9.30%], Calmar [0.607, 2.021]. Paired-difference block bootstrap
+for strategy deltas vs BB4/benchmarks uses B=5000 and shows
 P(PROD > BB4 on Sharpe) = 98.76%. Script + log + JSON in
 `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 
@@ -236,11 +245,10 @@ P(PROD > BB4 on Sharpe) = 98.76%. Script + log + JSON in
 - Third-party reproductions on yfinance ETF-only data typically land within
   Sharpe -0.05 to -0.15 of headline due to signal-date convention, cost
   application timing, NaN handling, and `pandas.cov` ddof choice.
-- Reasonable forward Sharpe expectation for retail-data reproductions:
-  **1.00-1.20** on the 60/40 (CPM+BULL only, no NDX); **1.30-1.60** on the
-  60/20/20 PROD blend (with NDX). Anchors: bootstrap 95% CI on PROD Sharpe is
-  [1.074, 1.914] with point 1.483; subtract ~0.05-0.15 for typical retail-data
-  reproduction drift to get a forward range.
+- The realized backtest Sharpe is 1.48. Retail-data reproductions may be
+  modestly lower due to implementation differences. For capital planning, use
+  materially lower forward assumptions, such as 0.7-1.0 Sharpe, and treat 1.3+
+  as an upside case until live/paper trading confirms signal fidelity.
 - **P(PROD beats BB4 on Sharpe) = 98.76%** by paired block bootstrap (B=5000,
   block=21d); P(beats by ≥0.10 Sharpe) = 93.20%, P(beats by ≥0.20) = 74.98%,
   P(shallower MaxDD than BB4) = 63.44%.

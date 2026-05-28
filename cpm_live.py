@@ -353,7 +353,7 @@ def compute_target_weights(
     n_pos = sum(1 for s in canary_scores if s > 0)
     if CANARY_RULE == "any_positive":
         if n_pos == 0:
-            return {safe: 1.0}, None, "DEFENSIVE", safe
+            return {safe: 1.0}, None, "DEFENSIVE", safe  # defensive only when both HYG and TIP fail
     elif CANARY_RULE == "all_positive":
         if n_pos < len(canary_scores):
             return {safe: 1.0}, None, "DEFENSIVE", safe

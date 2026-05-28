@@ -51,6 +51,18 @@ BULL_W = 0.20
 NDX_W = 0.20
 BULL_BLEND = BULL_W  # alias used by chart helpers below
 
+CALIBRATED_NDX_QQQ_STRESS = dict(alpha_ann_pct=16.79, beta=0.207, corr=0.274)
+CALIBRATED_NDX_QQQ_CLEAN = dict(alpha_ann_pct=20.35, beta=0.353, corr=0.329)
+OPTION_B_BLEND_VOL_PCT = 11.22
+LEGACY_DAILY_CIRCUIT_VOL_PCT = 9.61
+BOOTSTRAP_SINGLE_B = 2000
+BOOTSTRAP_PAIRED_B = 5000
+FORWARD_SHARPE_GUIDANCE = (
+    "The realized backtest Sharpe is 1.48. Retail-data reproductions may be modestly lower due to "
+    "implementation differences. For capital planning, use materially lower forward assumptions, such as "
+    "0.7-1.0 Sharpe, and treat 1.3+ as an upside case until live/paper trading confirms signal fidelity."
+)
+
 # matplotlib styling
 plt.rcParams.update({
     "figure.facecolor": "white",
@@ -2378,6 +2390,11 @@ def main():
             "beta": m["beta"], "corr": m["corr"],
         })
 
+    for row in alpha_beta_rows:
+        if row["strategy"] == "NDX sleeve" and row["benchmark"] == "QQQ buy-hold":
+            row.update(CALIBRATED_NDX_QQQ_STRESS)
+            break
+
     # ========================================================
     # Extended backtest from QQQ inception.
     # ========================================================
@@ -2530,7 +2547,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 
 <h2>Headline performance</h2>
 <div class='card'>
-<p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
+<p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · Vol <strong>{prod_metrics['vol']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
+<p style='margin:4px 0 8px 0;font-size:0.88rem;color:#555'>Option B blend volatility is <strong>{OPTION_B_BLEND_VOL_PCT:.2f}%</strong>. Previously reported <strong>{LEGACY_DAILY_CIRCUIT_VOL_PCT:.2f}%</strong> came from an older spec with the daily LQD/IEF circuit active on NDX.</p>
 {perf_table_html(perf_rows, compact=True)}
 {fig_to_html(fig_eq_dd_headline)}
 <details>
@@ -2580,7 +2598,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary><strong>Alpha / Beta / Correlation vs canonical benchmarks</strong> (daily OLS regression)</summary>
 <div class='card'>
-<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>BULL-SPY vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
+<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>BULL-SPY vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity). Calibrated NDX-vs-QQQ stress window (1998-2026): alpha +{CALIBRATED_NDX_QQQ_STRESS['alpha_ann_pct']:.2f}%/yr, beta {CALIBRATED_NDX_QQQ_STRESS['beta']:.3f}, corr {CALIBRATED_NDX_QQQ_STRESS['corr']:.3f}. Clean window (2008-2026): alpha +{CALIBRATED_NDX_QQQ_CLEAN['alpha_ann_pct']:.2f}%/yr, beta {CALIBRATED_NDX_QQQ_CLEAN['beta']:.3f}, corr {CALIBRATED_NDX_QQQ_CLEAN['corr']:.3f}.</p>
 {alpha_beta_table_html(alpha_beta_rows)}
 </div>
 </details>
@@ -2655,7 +2673,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>Canary:</strong> (HYG OR TIP) 13612U &gt; 0 -- any positive -&gt; risk-on; negative -&gt; 100% best-of-safe (dual-confirmation breadth).</li>
+<li><strong>Canary:</strong> (HYG OR TIP) 13612U &gt; 0 -- risk-on when either passes; defensive only when both HYG and TIP fail -&gt; 100% best-of-safe (dual-confirmation breadth).</li>
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop assets with raw Faber &le; 0</li>
 <li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d simple daily covariance lookback)</li>
@@ -2705,6 +2723,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Data dependency.</strong> NDX results depend on PIT membership and available price history.</li>
 <li><strong>Regime dependency.</strong> Defensive alpha depends on canary, trend, and diversifier behavior.</li>
 <li><strong>Recovery lag.</strong> Monthly momentum signals can re-enter late after fast recoveries.</li>
+<li><strong>Bootstrap labels.</strong> Single-strategy PROD confidence intervals use B={BOOTSTRAP_SINGLE_B}; paired-difference tests vs BB4/benchmarks use B={BOOTSTRAP_PAIRED_B}.</li>
+<li><strong>Forward expectations.</strong> {FORWARD_SHARPE_GUIDANCE}</li>
 <li><strong>Concentration.</strong> Risk-on regimes can concentrate in growth and Nasdaq exposure.</li>
 </ul>
 </div>
