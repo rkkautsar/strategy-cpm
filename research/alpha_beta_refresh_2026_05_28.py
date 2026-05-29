@@ -7,7 +7,6 @@ import numpy as np
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
 from bull_qqq_live import run_bull_qqq_backtest
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
-from circuit_breaker import compute_lqd_ief_circuit_scale, LQD_IEF_EMA_SPAN
 from build_dashboard import (
     bench_aaa_tip, bench_haa_simple, bench_qqq_12mo_trend,
     bench_static_pp_qqq, bench_bb4_blend, alpha_beta_corr
@@ -27,12 +26,9 @@ def main():
     cpm = cpm.reindex(common)
     bull_raw = bull_raw.reindex(common)
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
-    sigs = (pd.DataFrame({"x": 1}, index=cpm.index).groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
 
-    ndx_scale = compute_lqd_ief_circuit_scale(panel["LQD"], panel["IEF"],
-                                                 common, sigs, ema_span=LQD_IEF_EMA_SPAN)
-    ndx = ndx_scale * ndx_raw
-    bull = bull_raw  # no intramonth circuit
+    ndx = ndx_raw
+    bull = bull_raw
     blend = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
     print("Computing benchmarks ...")
@@ -46,9 +42,9 @@ def main():
     print("\nSleeve standalone (current spec, honest t+1 MOO):")
     for name, s in [
         ("CPM-ext (CLEAN-9)", cpm),
-        ("BULL-ext (no circuit)", bull),
+        ("BULL-ext", bull),
         ("NDX raw", ndx_raw),
-        ("NDX + LQD/IEF circuit", ndx),
+        ("NDX sleeve", ndx),
         ("PROD 60/20/20", blend),
         ("BB4 lit", bb4_blend),
         ("BB1 lit", bb1_blend),
@@ -67,12 +63,12 @@ def main():
 
     for label, strat, bench, bench_label in [
         ("CPM-ext (CLEAN-9)", cpm, bench_b2, "B2: AAA + TIP canary (CLEAN-9, same universe)"),
-        ("BULL-ext (no circuit)", bull, bench_b3, "B3: HAA-Simple SPY"),
+        ("BULL-ext", bull, bench_b3, "B3: HAA-Simple SPY"),
         ("PROD 60/20/20", blend, bb4_blend, "BB4: 60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend"),
         ("PROD 60/20/20", blend, bb1_blend, "BB1: 60 AAA+TIP / 40 HAA-S SPY"),
         ("PROD 60/20/20", blend, spy_d, "SPY buy-hold"),
         ("PROD 60/20/20", blend, qqq_d, "QQQ buy-hold"),
-        ("NDX sleeve (with LQD/IEF circuit)", ndx, qqq_d, "QQQ buy-hold"),
+        ("NDX sleeve", ndx, qqq_d, "QQQ buy-hold"),
     ]:
         m = alpha_beta_corr(strat, bench)
         print(f"{label:<38} {bench_label:<56} {m['alpha_ann_pct']:>+13.2f}% {m['beta']:>7.3f} {m['corr']:>7.3f}")

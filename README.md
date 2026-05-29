@@ -16,7 +16,7 @@ canaries plus monthly sleeve-state gating are the defensive machinery.
 - **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by raw 13612U momentum
   (positive only), 20% each, strictly gated on monthly BULL active state.
   If BULL is active, NDX runs equal-weight top-5; if BULL is defensive,
-  NDX allocates 100% best_safe (SHV/IEF). No daily circuit breaker.
+  NDX allocates 100% best_safe (SHV/IEF).
 
 Monthly rebalance on the last trading day of each calendar month, ETF +
 individual stocks, no leverage, 10 bps/side cost. Total-return prices
@@ -26,7 +26,7 @@ individual stocks, no leverage, 10 bps/side cost. Total-return prices
 
 ## Headline performance
 
-Clean live-ETF window 2008-05-30 → 2026-05-22 (18.0y, post-cost). Raw backtest.
+Clean live-ETF window 2008-05-30 -> 2026-05-22 (18.0y, post-cost).
 
 | Strategy | Raw Sharpe (0rf) | Excess Sharpe (vs SHV) | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|---:|
@@ -36,26 +36,23 @@ Clean live-ETF window 2008-05-30 → 2026-05-22 (18.0y, post-cost). Raw backtest
 | SPY buy-hold | 0.660 | 0.591 | 11.73% | 19.82% | -50.70% | 0.23 |
 | QQQ buy-hold | 0.816 | 0.755 | 16.94% | 22.30% | -49.37% | 0.34 |
 
-PROD remains the 60/20/20 blend implementation with monthly rebalancing and
-sleeve-level gating.
-
 Sleeve standalone (clean window, post-cost):
 
 | Sleeve | Raw Sharpe (0rf) | Excess Sharpe (vs SHV) | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|---:|
-| CPM-ext | 1.265 | 1.148 | 14.63% | 11.32% | -15.91% | 0.92 |
-| BULL-SPY | 1.086 | 0.961 | 11.60% | 10.65% | -12.02% | 0.97 |
-| NDX Choice C (monthly BULL-gated, no daily circuit) | 1.246 | 1.193 | 32.26% | 24.97% | -31.39% | 1.03 |
+| CPM-ext | 1.263 | 1.145 | 14.58% | 11.30% | -15.41% | 0.95 |
+| BULL-SPY | 1.099 | 0.974 | 11.77% | 10.66% | -12.02% | 0.98 |
+| NDX (monthly BULL-gated) | 1.253 | 1.200 | 32.56% | 25.03% | -31.39% | 1.04 |
 
-NDX remains the high-beta growth sleeve; risk is controlled at portfolio level
-via 20% blend weight plus strict monthly BULL-state gating.
+NDX is the high-beta growth sleeve; portfolio risk is controlled via the 20%
+blend weight and monthly BULL-state gating.
 
-Choice C / raw-momentum checkpoints:
+Raw-momentum checkpoints:
 
 | Window | NDX Sharpe | NDX CAGR | NDX MaxDD | Blend Sharpe | Blend CAGR | Blend MaxDD |
 |---|---:|---:|---:|---:|---:|---:|
-| Clean | 1.253 | 32.56% | -31.39% | 1.445 | 14.85% | -11.70% |
-| Stress | 1.06 | 22.71% | -31.39% | 1.36 | 15.04% | -12.69% |
+| Clean | 1.253 | 32.56% | -31.39% | 1.503 | 17.93% | -11.62% |
+| Stress | 1.09 | 23.67% | -31.39% | 1.40 | 15.54% | -12.69% |
 
 ## Alpha decomposition
 
@@ -63,16 +60,15 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 
 | Strategy | Benchmark | Alpha (%/yr) | Beta | Corr |
 |---|---|---:|---:|---:|
-| CPM | B2: AAA + TIP canary (same universe) | +4.47 | 0.766 | 0.780 |
-| BULL | B3: HAA-Simple SPY | +1.56 | 0.989 | 0.929 |
-| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+4.97** | **0.792** | **0.792** |
-| PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +5.65 | 0.780 | 0.783 |
-| PROD 60/20/20 | SPY buy-hold | +12.24 | 0.161 | 0.321 |
-| PROD 60/20/20 | QQQ buy-hold | +10.84 | 0.179 | 0.416 |
-| NDX Choice C (monthly BULL-gated) | QQQ buy-hold | +13.12 | 0.222 | 0.273 |
+| CPM | B2: AAA + TIP canary (same universe) | +5.20 | 0.889 | 0.832 |
+| BULL | B3: HAA-Simple SPY | +4.66 | 0.600 | 0.674 |
+| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+6.43** | **0.905** | **0.787** |
+| PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +7.34 | 0.909 | 0.767 |
+| PROD 60/20/20 | SPY buy-hold | +14.73 | 0.187 | 0.324 |
+| PROD 60/20/20 | QQQ buy-hold | +13.54 | 0.200 | 0.390 |
+| NDX (monthly BULL-gated) | QQQ buy-hold | +24.15 | 0.396 | 0.353 |
 
-Numbers refreshed 2026-05-28 against current locked spec; see
-`research/alpha_beta_refresh_2026_05_28.log`.
+See `research/alpha_beta_refresh_2026_05_28.log`.
 
 ## Strategy specification
 
@@ -126,7 +122,7 @@ else:
     bull = {best_safe: 1.0}
 
 # ------------------------------------------------------------------------
-# NDX (20%) -- Choice C monthly BULL-gated top-K PIT Nasdaq-100 momentum
+# NDX (20%) -- monthly BULL-gated top-K PIT Nasdaq-100 momentum
 # ------------------------------------------------------------------------
 bull_active = (bull.get(SPY, 0.0) > 0)
 
@@ -139,8 +135,6 @@ else:
     ndx      = {t: 0.20 for t in picks}               # 20% each, K=5
     if len(picks) < 5:                                # partial-fill -> safe
         ndx[best_safe] = 1.0 - 0.20 * len(picks)
-
-# No daily intramonth circuit breaker.
 
 # ------------------------------------------------------------------------
 # Blend
@@ -172,9 +166,9 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | TIP canary | Keller & Keuning 2022 HAA canonical |
 | HAA-Simple skeleton (N=1) | AllocateSmartly summary of Keller HAA |
 | EAA Vol-Adj (Faber/Vol) ranker | Elastic Asset Allocation (Keller & Butler 2014) |
-| US factor-ETF universe extension (QQQ, SPHQ) | This work (best Sharpe + Calmar in factor add-back sweep, see `research/cpm_universe_factor_addback_2026_05_28.py`) |
+| US factor-ETF universe (QQQ, SPHQ) | This work |
 | HYG breadth canary extension | Keller HAA-extension family |
-| Monthly sleeve-state gate (NDX follows BULL active state) | This work (Option B) |
+| Monthly sleeve-state gate (NDX follows BULL active state) | This work |
 | Top-K cross-sectional (NDX) | Jegadeesh & Titman 1993 |
 | PIT NDX-100 constituents | `index-constitution` library (≥ 2006-01) |
 | Deflated Sharpe | Bailey & Lopez de Prado 2012 |
@@ -192,6 +186,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
 - CAGR = `eq[-1] ** (1/years) - 1`, years = calendar_days / 365.25.
 - Sharpe = annualized at 0% rf (`daily.mean() · 252 / (daily.std() · sqrt(252))`).
+- Excess Sharpe = excess.mean() * 252 / (excess.std(ddof=0) * sqrt(252)), excess_daily = strategy_daily - SHV_daily.
 - Vol = `std(daily) · sqrt(252)`, ddof=0.
 - MaxDD = trough below highest prior peak.
 - Calmar = CAGR / |MaxDD|.
@@ -208,23 +203,22 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | B5: QQQ 12mo trend (Antonacci-family TSMOM single-asset) | Faber/Antonacci 12mo absolute trend | 0.909 | 16.44% | -28.56% |
 | BB1: 60 B2 + 40 B3 (60 AAA+TIP / 40 HAA-S SPY) | Two-sleeve blend | 1.122 | 10.90% | -14.80% |
 | BB4: 60 B2 + 20 B3 + 20 B5 | Three-sleeve blend (best lit) | 1.194 | 12.03% | -14.55% |
-| **PROD 60/20/20 (Choice C)** | This work | **1.445** | **14.85%** | **-11.70%** |
+| **PROD 60/20/20** | This work | **1.503** | **17.93%** | **-11.62%** |
 
 ## Robustness
 
-Single-strategy bootstrap CI on PROD daily returns (B=2000, block=21d, seed=42;
-refreshed at each spec change, current run 2026-05-28):
+Single-strategy bootstrap CI on PROD daily returns (B=2000, block=21d, seed=42):
 
-| Metric | Point | Mean | p2.5 | p25 | p50 | p75 | p97.5 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Sharpe | 1.447 | 1.454 | 1.058 | 1.310 | 1.451 | 1.599 | 1.868 |
-| CAGR | 14.85% | 14.93% | 10.55% | 13.31% | 14.89% | 16.46% | 19.67% |
-| Vol | 9.92% | 9.92% | 9.29% | 9.70% | 9.91% | 10.14% | 10.58% |
-| MaxDD | -11.70% | -12.93% | -19.91% | -14.44% | -12.46% | -10.87% | -8.93% |
-| Calmar | 1.269 | 1.223 | 0.604 | 0.945 | 1.192 | 1.454 | 2.018 |
+| Metric | Point | p2.5 | p25 | p50 | p75 | p97.5 |
+|---|---:|---:|---:|---:|---:|---:|
+| Sharpe | 1.503 | 1.113 | 1.364 | 1.505 | 1.653 | 1.926 |
+| CAGR | 17.93% | 12.86% | 16.11% | 17.93% | 19.81% | 23.55% |
+| Vol | 11.43% | 10.71% | 11.17% | 11.41% | 11.69% | 12.21% |
+| MaxDD | -11.62% | -21.66% | -15.70% | -13.47% | -11.82% | -9.78% |
+| Calmar | 1.543 | 0.684 | 1.067 | 1.321 | 1.600 | 2.243 |
 
-95% CI summary: **Sharpe [1.058, 1.868]**, CAGR [10.55%, 19.67%], MaxDD
-[-19.91%, -8.93%], Calmar [0.604, 2.018]. Paired-difference block bootstrap
+95% CI summary: **Sharpe [1.113, 1.926]**, CAGR [12.86%, 23.55%], MaxDD
+[-21.66%, -9.78%], Calmar [0.684, 2.243]. Paired-difference block bootstrap
 for strategy deltas vs BB4/benchmarks is summarized in win probabilities below.
 Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 
@@ -247,28 +241,28 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - Third-party reproductions on yfinance ETF-only data typically land within
   Sharpe -0.05 to -0.15 of headline due to signal-date convention, cost
   application timing, NaN handling, and `pandas.cov` ddof choice.
-- The realized backtest Sharpe is 1.445. Retail-data reproductions may be
+- The realized backtest Sharpe is 1.503. Retail-data reproductions may be
   modestly lower due to implementation differences. For capital planning, use
   materially lower forward assumptions, such as 0.7-1.0 Sharpe, and treat 1.3+
   as an upside case until live/paper trading confirms signal fidelity.
 - **Vs BB4 lit blend (paired block bootstrap, B=5000, block=21d):**
-  P(dSharpe > 0) = 95.40%, P(dSharpe > 0.05) = 91.22%,
-  P(dSharpe > 0.10) = 84.88%, P(dSharpe > 0.20) = 63.94%,
-  P(dCAGR > 0) = 95.76%, P(MaxDD shallower) = 70.62%.
-- **Vs Static 80% PP + 20% QQQ:** P(dSharpe > 0) = 97.02%,
-  P(dSharpe > 0.20) = 84.24%, P(dCAGR > 0) = 99.46%,
-  P(MaxDD shallower) = 82.72%.
-- **Vs SPY buy-hold:** P(dSharpe > 0) = 99.94%,
-  P(MaxDD shallower) = 99.98%.
-- **Vs QQQ buy-hold:** P(dSharpe > 0) = 99.48%,
-  P(MaxDD shallower) = 100.00%. Details in
+  P(dSharpe > 0) = 97.62%, P(dSharpe > 0.05) = 95.32%,
+  P(dSharpe > 0.10) = 91.32%, P(dSharpe > 0.20) = 75.86%,
+  P(dCAGR > 0) = 99.96%, P(MaxDD shallower) = 57.40%.
+- **Vs Static 80% PP + 20% QQQ:** P(dSharpe > 0) = 98.26%,
+  P(dSharpe > 0.20) = 89.42%, P(dCAGR > 0) = 99.98%,
+  P(MaxDD shallower) = 74.56%.
+- **Vs SPY buy-hold:** P(dSharpe > 0) = 99.98%,
+  P(MaxDD shallower) = 99.96%.
+- **Vs QQQ buy-hold:** P(dSharpe > 0) = 99.78%,
+  P(MaxDD shallower) = 99.98%. Details in
   `research/prod_vs_bb4_pwin_2026_05_28.log`.
 
 **What this strategy does NOT do**
 
 - No vol targeting / leverage (max weight = 1.0 per sleeve).
 - No factor tilts, sector caps, or sleeve-level rebalance bands.
-- No daily intramonth circuit breaker; NDX risk gate is monthly BULL-state only.
+- NDX risk gate is monthly BULL-state only.
 - NDX stock picking depends on continuous PIT Nasdaq-100 constituent data;
   any data outage forces NDX to safe.
 
@@ -279,4 +273,4 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - `ndx_sleeve_live.py` — NDX stock-picking sleeve engine.
 - `build_dashboard.py` — daily blend assembly + dashboard generation.
 - `cpm_dashboard.html` — generated dashboard.
-- `research/` — research scripts, audit logs, archived spec versions.
+- `research/` — research scripts and audit logs.

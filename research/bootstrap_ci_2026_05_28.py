@@ -9,8 +9,8 @@ Reports point estimate and percentile CI (2.5%, 25%, 50%, 75%, 97.5%).
 
 Current PROD spec:
   60% CPM-ext  (AAA Pair-EW on CLEAN-7, TIP canary, GPM Faber, top-4 pair)
-  20% BULL-ext (HAA-Simple on SPY, HYG OR TIP canary, no intramonth circuit)
-  20% NDX     (top-5 PIT NDX by GPM, TIP canary, LQD/IEF<SMA50 intramonth)
+  20% BULL-ext (HAA-Simple on SPY, HYG OR TIP canary)
+  20% NDX     (top-5 PIT NDX by GPM, TIP canary)
 """
 import sys, socket
 socket.setdefaulttimeout(15)
@@ -21,7 +21,6 @@ import numpy as np
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
 from bull_qqq_live import run_bull_qqq_backtest
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
-from circuit_breaker import compute_lqd_ief_circuit_scale, LQD_IEF_EMA_SPAN
 
 
 def stationary_block_bootstrap(daily, block_size=21, rng=None):
@@ -92,12 +91,8 @@ def main():
     ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
     common = cpm.index.intersection(bull_raw.index).intersection(ndx_raw.index)
     cpm = cpm.reindex(common); bull_raw = bull_raw.reindex(common); ndx_raw = ndx_raw.reindex(common).fillna(0.0)
-    sigs = (pd.DataFrame({"x": 1}, index=cpm.index).groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-
-    ndx_scale = compute_lqd_ief_circuit_scale(panel["LQD"], panel["IEF"],
-                                                 common, sigs, ema_span=LQD_IEF_EMA_SPAN)
-    ndx = ndx_scale * ndx_raw
-    bull = bull_raw  # no intramonth circuit
+    ndx = ndx_raw
+    bull = bull_raw
     blend = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
     print(f"\nPROD 60/20/20 blend, {blend.index.min().date()} -> {blend.index.max().date()}, n={len(blend)} days")

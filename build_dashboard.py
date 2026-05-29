@@ -51,14 +51,10 @@ BULL_W = 0.20
 NDX_W = 0.20
 BULL_BLEND = BULL_W  # alias used by chart helpers below
 
-CALIBRATED_NDX_QQQ_STRESS = dict(alpha_ann_pct=16.79, beta=0.207, corr=0.274)
-CALIBRATED_NDX_QQQ_CLEAN = dict(alpha_ann_pct=20.35, beta=0.353, corr=0.329)
-OPTION_B_BLEND_VOL_PCT = 11.22
-LEGACY_DAILY_CIRCUIT_VOL_PCT = 9.61
 BOOTSTRAP_SINGLE_B = 2000
 BOOTSTRAP_PAIRED_B = 5000
 FORWARD_SHARPE_GUIDANCE = (
-    "The realized backtest Sharpe is 1.48. Retail-data reproductions may be modestly lower due to "
+    "The realized backtest Sharpe is 1.503. Retail-data reproductions may be modestly lower due to "
     "implementation differences. For capital planning, use materially lower forward assumptions, such as "
     "0.7-1.0 Sharpe, and treat 1.3+ as an upside case until live/paper trading confirms signal fidelity."
 )
@@ -650,7 +646,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
-    # No intramonth daily circuit overlays for Option B.
+    # Monthly sleeve gates only.
     # BULL and NDX are monthly-gated sleeves only.
     bull = bull_raw
     bull_dd_scale = pd.Series(1.0, index=bull_raw.index)
@@ -2104,17 +2100,17 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                              for t, w in sorted(combined.items(), key=lambda x: -x[1])
                              if abs(w) > 1e-6)
 
-    # NDX sleeve uses monthly BULL gate only (no intramonth daily circuit).
+    # Monthly sleeve gates only.
     dd_status_html = (
         "<div style='grid-column: 1 / -1; background:#fafafa;border-left:4px solid #3498db;"
         "padding:8px 12px;margin:8px 0;border-radius:4px;font-size:0.88rem;'>"
         "<strong>NDX gate model</strong>: monthly BULL-state gate only. "
         "When BULL is defensive, NDX allocates 100% best-of-safe (SHV/IEF). "
-        "No daily circuit breaker is applied intramonth."
+        "NDX risk is gated monthly by BULL active state."
         "</div>"
     )
 
-    # Build prior-vs-target trade-delta table (compare to PREVIOUS signal date if available)
+    # Build previous-vs-target trade-delta table (compare to PREVIOUS signal date if available)
     prev_combined = {}
     if len(records) >= 2:
         prev_rec = records[-2]
@@ -2159,12 +2155,12 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     if trade_rows:
         hold_note = f"<p style='font-size:0.75rem;color:#888;margin:4px 0 0 0'>({hold_count} unchanged positions hidden)</p>" if hold_count else ""
         trade_html = ("<table class='alloc'><thead><tr><th>Ticker</th>"
-                      "<th style='text-align:right'>Prior</th>"
+                      "<th style='text-align:right'>Previous</th>"
                       "<th style='text-align:right'>Target</th>"
                       "<th style='text-align:right'>Trade</th></tr></thead><tbody>"
                       + "".join(trade_rows) + "</tbody></table>" + hold_note)
     else:
-        trade_html = "<p style='font-size:0.85rem;color:#666'>(no rebalance trades needed; all positions unchanged from prior signal)</p>"
+        trade_html = "<p style='font-size:0.85rem;color:#666'>(no rebalance trades needed; all positions unchanged from previous signal)</p>"
 
     # Combined target weights table
     combined_target_html = "".join(
@@ -2187,7 +2183,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     <div class='table-scroll'><table class='alloc'>{combined_target_html}</table></div>
   </div>
   <div>
-    <h4 style='background:#e8f4fd;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Rebalance trade (vs prior signal)</h4>
+    <h4 style='background:#e8f4fd;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Rebalance trade (vs previous signal)</h4>
     <div class='table-scroll'>{trade_html}</div>
   </div>
 </div>
@@ -2216,20 +2212,21 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
 
 def main():
     ap = argparse.ArgumentParser()
-    # Default to strict live-ETF CLEAN window 18.1y (2008-04-30).
+    # Default to strict live-ETF CLEAN window 18.0y (2008-05-30).
     # Matches README CLEAN headline.
-    ap.add_argument("--start", default="2008-04-30")
+    ap.add_argument("--start", default="2008-05-30")
     ap.add_argument("--end", default=None)
     ap.add_argument("--out", default=str(ROOT / "cpm_dashboard.html"))
     args = ap.parse_args()
     
     start = pd.Timestamp(args.start)
-    end = pd.Timestamp(args.end) if args.end else pd.Timestamp.today().normalize()
+    requested_end = pd.Timestamp(args.end) if args.end else pd.Timestamp.today().normalize()
     
     # Load with sufficient warmup so CPM signals + BULL-SPY 12mo TR momentum are stable
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
-    panel = load_panel(start=panel_start, end=end)
+    panel = load_panel(start=panel_start, end=requested_end)
+    end = min(requested_end, panel.index[-1])
     cash_daily = panel["SHV"].ffill().pct_change().dropna()
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
@@ -2320,8 +2317,8 @@ def main():
 
     # Current allocation: use last COMPLETED month-end as signal date
     today = panel.index[-1]
-    prior_month_end = today.replace(day=1) - pd.Timedelta(days=1)
-    candidates = panel.index[panel.index <= prior_month_end]
+    prev_month_end = today.replace(day=1) - pd.Timedelta(days=1)
+    candidates = panel.index[panel.index <= prev_month_end]
     sig_d = candidates[-1] if len(candidates) > 0 else today
     alloc_html = current_alloc_html(panel, sig_d,
                                        bull_qqq_rets=art.bull,
@@ -2390,11 +2387,6 @@ def main():
             "alpha_ann_pct": m["alpha_ann_pct"],
             "beta": m["beta"], "corr": m["corr"],
         })
-
-    for row in alpha_beta_rows:
-        if row["strategy"] == "NDX sleeve" and row["benchmark"] == "QQQ buy-hold":
-            row.update(CALIBRATED_NDX_QQQ_STRESS)
-            break
 
     # ========================================================
     # Extended backtest from QQQ inception.
@@ -2549,8 +2541,6 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <h2>Headline performance</h2>
 <div class='card'>
 <p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · Vol <strong>{prod_metrics['vol']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
-<p style='margin:4px 0 8px 0;font-size:0.88rem;color:#555'>Option B blend volatility is <strong>{OPTION_B_BLEND_VOL_PCT:.2f}%</strong>. Previously reported <strong>{LEGACY_DAILY_CIRCUIT_VOL_PCT:.2f}%</strong> came from an older spec with the daily LQD/IEF circuit active on NDX.</p>
-<p style='margin:4px 0 8px 0;font-size:0.88rem;color:#555'><strong>Choice C raw-momentum checkpoints:</strong> Clean -> NDX (Sharpe 1.25, CAGR 32.56%, MaxDD -31.39%), Blend (Sharpe 1.50, CAGR 17.93%, MaxDD -11.62%). Stress -> NDX (Sharpe 1.06, CAGR 22.71%, MaxDD -31.39%), Blend (Sharpe 1.36, CAGR 15.04%, MaxDD -12.69%).</p>
 {perf_table_html(perf_rows, compact=True)}
 {fig_to_html(fig_eq_dd_headline)}
 <details>
@@ -2585,7 +2575,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on (HYG OR TIP) 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_20d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly by monthly BULL active state (when BULL is off, NDX is off; no daily circuit breaker applied).</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly by monthly BULL active state (when BULL is off, NDX is off).</li>
 </ul>
 </div>
 </details>
@@ -2600,7 +2590,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary><strong>Alpha / Beta / Correlation vs canonical benchmarks</strong> (daily OLS regression)</summary>
 <div class='card'>
-<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>BULL-SPY vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity). Calibrated NDX-vs-QQQ stress window (1998-2026): alpha +{CALIBRATED_NDX_QQQ_STRESS['alpha_ann_pct']:.2f}%/yr, beta {CALIBRATED_NDX_QQQ_STRESS['beta']:.3f}, corr {CALIBRATED_NDX_QQQ_STRESS['corr']:.3f}. Clean window (2008-2026): alpha +{CALIBRATED_NDX_QQQ_CLEAN['alpha_ann_pct']:.2f}%/yr, beta {CALIBRATED_NDX_QQQ_CLEAN['beta']:.3f}, corr {CALIBRATED_NDX_QQQ_CLEAN['corr']:.3f}.</p>
+<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>BULL-SPY vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
 {alpha_beta_table_html(alpha_beta_rows)}
 </div>
 </details>
@@ -2679,9 +2669,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop assets with raw Faber &le; 0</li>
 <li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d simple daily covariance lookback)</li>
-<li><strong>Hold buffer:</strong> DISABLED (HB = 0). Was an overlay on the prior CPM spec; the AAA Pair-EW Extension does not use it.</li>
 <li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% best-of-safe; 0 positive &rarr; 100% best-of-safe</li>
-<li><strong>Vol cap:</strong> DISABLED. Was an overlay on the prior CPM spec; the AAA Pair-EW Extension already delivers shallow MaxDD without it.</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
@@ -2689,9 +2677,9 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <details>
 <summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (canary + trend + RV crossover)</summary>
 <ul>
-<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market). No state-conditional rotation.</li>
+<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market).</li>
 <li><strong>Canary gate:</strong> (HYG OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
-<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical). Fast and responsive (no slow 12mo lag).</li>
+<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical).</li>
 <li><strong>Realized volatility crossover gate:</strong> <code>{BULL_TICKER}</code> RV_20d &lt; RV_252d (annualized daily realized volatility).</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
@@ -2706,7 +2694,6 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Signal:</strong> Raw 13612U momentum (no correlation penalty).</li>
 <li><strong>Selection:</strong> top {NDX_SELECT_K} positive momentum names, equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
 <li><strong>Gate:</strong> Gated on monthly BULL active state. BULL active = SPY weight &gt; 0 in BULL sleeve at signal date.</li>
-<li><strong>Daily overlay:</strong> None. No intramonth daily circuit breaker applied.</li>
 <li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when BULL gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
 <li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
