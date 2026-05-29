@@ -2,12 +2,11 @@
 
 Spec:
   1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)
-  2. Signal:   GPM score (13612U momentum * (1 - 260d correlation)) per stock
-  3. Gate:     Decoupled. Gated strictly on TIP 13612U > 0; else best-of-safe
-               (SHV/IEF by 13612U, HAA-style). No SPY trend gate check.
+  2. Signal:   Raw 13612U momentum per stock (no correlation penalty)
+  3. Gate:     Monthly BULL active-state gate; else best-of-safe (SHV/IEF)
   4. PIT fallback: when PIT data is unavailable, mirror BULL sleeve
      weights (NDX sleeve acts as extra BULL exposure).
-  5. Selection: top-K by GPM score, equal-weighted 1/K each.
+  5. Selection: top-K by raw momentum score, equal-weighted 1/K each.
   6. Partial fill: if fewer than K positive candidates, take what's there at
      1/K=20% per pick, rest in best-of-safe (e.g. 2 positives -> 40% stocks
      + 60% best-safe).
@@ -32,7 +31,7 @@ ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
 
 # Spec config
-SELECT_K = 5              # top-K by GPM score, equal-weighted (20% per pick
+SELECT_K = 5              # top-K by raw momentum score, equal-weighted (20% per pick
                           # within sleeve = 4% portfolio at 20% blend weight;
                           # caps single-name bankruptcy impact at ~4% portfolio)
 COST_BPS_PER_SIDE = 10
@@ -83,7 +82,7 @@ def compute_ndx_weights(
     """Returns (weights, regime_label, diagnostics).
 
     Flow:
-      - BULL sleeve active (SPY weight > 0)  -> select top-K NDX names by GPM score
+      - BULL sleeve active (SPY weight > 0)  -> select top-K NDX names by raw momentum
       - BULL sleeve defensive                -> 100% best-of-safe (SHV/IEF)
     """
     # Step 1: Gate on monthly BULL active state.
@@ -128,11 +127,7 @@ def compute_ndx_weights(
             continue
         available.append(t)
 
-    # Step 3: Compute GPM scores (13612U momentum * (1 - correlation-to-basket))
-    # Daily returns lookback over last 260 trading days (~1 year)
-    daily_rets_lookback = ndx_panel[available].ffill().pct_change().loc[:sig_d].tail(260)
-    ew_ret = daily_rets_lookback.mean(axis=1)
-
+    # Step 3: Compute raw 13612U momentum scores.
     momenta = {}
     for t in available:
         s = monthly[t].dropna()
@@ -140,13 +135,10 @@ def compute_ndx_weights(
             continue
         m = sig_13612U(s)
         if pd.notna(m) and m > 0:
-            corr = daily_rets_lookback[t].corr(ew_ret)
-            if pd.isna(corr):
-                corr = 0.0
-            score = m * (1.0 - corr)
+            score = m
             momenta[t] = score
 
-    # Step 4: top SELECT_K by GPM score, equal-weight 1/SELECT_K each.
+    # Step 4: top SELECT_K by raw momentum score, equal-weight 1/SELECT_K each.
     # Partial fill (CPM-style) if < SELECT_K positive candidates; rest in safe.
     sorted_by_mom = sorted(momenta.items(), key=lambda x: -x[1])
     n_pick = min(len(sorted_by_mom), SELECT_K)
@@ -286,11 +278,11 @@ if __name__ == "__main__":
     print(f"Regime: {regime}")
     if regime == "NDX_ACTIVE" or regime.startswith("NDX_PARTIAL"):
         print(f"BULL gate state: {diag.get('bull_regime')}")
-        print(f"\nTop-{SELECT_K} by GPM (13612U x (1-corr)) score:")
+        print(f"\nTop-{SELECT_K} by raw 13612U momentum:")
         for t in diag["selected"]:
             score = diag["momenta"][t]
             weight_pct = weights[t] * 100
-            print(f"  {t:<6} weight {weight_pct:.0f}%  GPM score {score*100:+.2f}%")
+            print(f"  {t:<6} weight {weight_pct:.0f}%  momentum {score*100:+.2f}%")
     else:
         print(f"  100% {CASH_TICKER} cash")
         print(f"  Reason: {diag.get('reason', '-')}")

@@ -2080,7 +2080,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         if ndx_regime == "NDX_ACTIVE" or ndx_regime.startswith("NDX_PARTIAL"):
             sel = ndx_diag.get('selected', [])
             sector_summary = _ndx_sector_summary(sel)
-            mode = f"{ndx_regime} · top-{NDX_SELECT_K} by GPM"
+            mode = f"{ndx_regime} · top-{NDX_SELECT_K} raw 13612U momentum"
             ndx_state = (f"{mode}: {', '.join(sel)}<br>Sector mix: {sector_summary}")
         else:
             ndx_state = f"{ndx_regime} -- {ndx_diag.get('reason', '100% cash')}"
@@ -2549,6 +2549,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · Vol <strong>{prod_metrics['vol']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
 <p style='margin:4px 0 8px 0;font-size:0.88rem;color:#555'>Option B blend volatility is <strong>{OPTION_B_BLEND_VOL_PCT:.2f}%</strong>. Previously reported <strong>{LEGACY_DAILY_CIRCUIT_VOL_PCT:.2f}%</strong> came from an older spec with the daily LQD/IEF circuit active on NDX.</p>
+<p style='margin:4px 0 8px 0;font-size:0.88rem;color:#555'><strong>Choice C raw-momentum checkpoints:</strong> Clean -> NDX (Sharpe 1.25, CAGR 32.56%, MaxDD -31.39%), Blend (Sharpe 1.50, CAGR 17.93%, MaxDD -11.62%). Stress -> NDX (Sharpe 1.06, CAGR 22.71%, MaxDD -31.39%), Blend (Sharpe 1.36, CAGR 15.04%, MaxDD -12.69%).</p>
 {perf_table_html(perf_rows, compact=True)}
 {fig_to_html(fig_eq_dd_headline)}
 <details>
@@ -2583,7 +2584,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <ul>
 <li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on (HYG OR TIP) 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_20d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by GPM score (13612U momentum penalized by 260d correlation), equal-weight {100/NDX_SELECT_K:.1f}% each, gated on monthly BULL active state (when BULL is off, NDX is off; no daily circuit breaker applied).</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly by monthly BULL active state (when BULL is off, NDX is off; no daily circuit breaker applied).</li>
 </ul>
 </div>
 </details>
@@ -2702,8 +2703,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary>NDX Sleeve ({int(NDX_W*100)}%) -- concentrated Nasdaq-100 momentum</summary>
 <ul>
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
-<li><strong>Signal:</strong> GPM score = 13612U momentum penalized by 260d correlation to equal-weighted NDX basket.</li>
-<li><strong>Selection:</strong> top {NDX_SELECT_K} by GPM score (positive only), equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
+<li><strong>Signal:</strong> Raw 13612U momentum (no correlation penalty).</li>
+<li><strong>Selection:</strong> top {NDX_SELECT_K} positive momentum names, equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
 <li><strong>Gate:</strong> Gated on monthly BULL active state. BULL active = SPY weight &gt; 0 in BULL sleeve at signal date.</li>
 <li><strong>Daily overlay:</strong> None. No intramonth daily circuit breaker applied.</li>
 <li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when BULL gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>

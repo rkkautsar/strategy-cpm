@@ -11,10 +11,10 @@ canaries plus monthly sleeve-state gating are the defensive machinery.
 - **BULL (20%)** — HAA-Simple Extension on SPY with HYG OR TIP canary.
   Either fully invested in SPY (when canary AND SPY mom_13612U > 0 both pass)
   or fully in HAA best-of-safe (SHV/IEF).
-- **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by GPM score (13612U momentum
-  penalized by 260d correlation), 20% each, strictly gated on monthly BULL
-  active state. If BULL is active, NDX runs equal-weight top-5; if BULL is
-  defensive, NDX allocates 100% best_safe (SHV/IEF). No daily circuit breaker.
+- **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by raw 13612U momentum
+  (positive only), 20% each, strictly gated on monthly BULL active state.
+  If BULL is active, NDX runs equal-weight top-5; if BULL is defensive,
+  NDX allocates 100% best_safe (SHV/IEF). No daily circuit breaker.
 
 Monthly rebalance on the last trading day of each calendar month, ETF +
 individual stocks, no leverage, 10 bps/side cost. Total-return prices
@@ -28,17 +28,14 @@ Clean live-ETF window 2008-05-30 → 2026-05-22 (18.0y, post-cost). Raw backtest
 
 | Strategy | Sharpe | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.483** | **15.73%** | **11.22%** | **-11.04%** | **1.42** |
+| **PROD 60/20/20** | **1.50** | **17.93%** | **11.22%** | **-11.62%** | **1.42** |
 | Best literature blend (BB4) | 1.194 | 12.03% | 9.94% | -14.55% | 0.83 |
 | Simplest literature 60/40 (BB1) | 1.122 | 10.90% | 9.65% | -14.80% | 0.74 |
 | SPY buy-hold | 0.660 | 11.73% | 19.82% | -50.70% | 0.23 |
 | QQQ buy-hold | 0.815 | 16.94% | 22.30% | -49.37% | 0.34 |
 
-PROD beats the best literature blend (BB4 = 60% AAA+TIP + 20% HAA-Simple SPY +
-20% Antonacci QQQ-trend) by **+0.289 Sharpe**, **+3.69% CAGR**,
-**+3.50pp shallower MaxDD**, and **+0.59 Calmar**. Vs SPY buy-hold, PROD has β
-≈ 0.18 with correlation ≈ 0.37 — a portfolio diversifier, not a levered equity
-play.
+PROD remains the 60/20/20 blend implementation with monthly rebalancing and
+sleeve-level gating.
 
 Sleeve standalone (clean window, post-cost):
 
@@ -46,13 +43,17 @@ Sleeve standalone (clean window, post-cost):
 |---|---:|---:|---:|---:|
 | CPM | 1.266 | 14.37% | 10.41% | -15.41% |
 | BULL | 1.034 | 13.14% | 12.75% | -20.28% |
-| NDX (monthly BULL-gated, no daily circuit) | 1.10 | 26.26% | 23.83% | -34.51% |
+| NDX (monthly BULL-gated, no daily circuit) | 1.25 | 32.56% | 23.83% | -31.39% |
 
 NDX remains the high-beta growth sleeve; risk is controlled at portfolio level
 via 20% blend weight plus strict monthly BULL-state gating.
 
-Option B blend volatility is **11.22%**. The previously reported **9.61%** was
-from an earlier spec that still had the daily LQD/IEF circuit active on NDX.
+Choice C / raw-momentum checkpoints:
+
+| Window | NDX Sharpe | NDX CAGR | NDX MaxDD | Blend Sharpe | Blend CAGR | Blend MaxDD |
+|---|---:|---:|---:|---:|---:|---:|
+| Clean | 1.25 | 32.56% | -31.39% | 1.50 | 17.93% | -11.62% |
+| Stress | 1.06 | 22.71% | -31.39% | 1.36 | 15.04% | -12.69% |
 
 ## Alpha decomposition
 
@@ -81,12 +82,8 @@ mom_13612U(A)     = (r1 + r3 + r6 + r12) / 4                # Keller HAA canonic
 faber_score(A)    = (price[T] - SMA_10mo) / SMA_10mo        # Faber 2007
 vol_252d(A)       = annualized daily standard deviation of A over last 252d
 eaa_score(A)      = faber_score(A) / vol_252d(A)            # EAA Vol-Adj (CPM sleeve)
-corr_260d(A, U)   = daily Pearson corr of A's returns over last 260d to the
-                    equal-weighted basket return of universe U
-gpm_score(A, U)   = mom_13612U(A) * (1 - corr_260d(A, U))   # GPM penalty (NDX sleeve)
 is_fully_valid(t) =
     has 12m momentum history
-    and has 260d return history
     and has current adjusted price
     and is tradable at T+1 open
 best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
@@ -123,7 +120,7 @@ else:
     bull = {best_safe: 1.0}
 
 # ------------------------------------------------------------------------
-# NDX (20%) -- Option B monthly BULL-gated top-K PIT Nasdaq-100 momentum
+# NDX (20%) -- Choice C monthly BULL-gated top-K PIT Nasdaq-100 momentum
 # ------------------------------------------------------------------------
 bull_active = (bull.get(SPY, 0.0) > 0)
 
@@ -131,9 +128,8 @@ if not bull_active:
     ndx = {best_safe: 1.0}
 else:
     pool     = PIT_NDX100_constituents(T)
-    scores   = {t: mom_13612U(t) * (1 - corr_260d(t, pool)) for t in pool}
     eligible = [t for t in pool if mom_13612U(t) > 0 and is_fully_valid(t)]
-    picks    = top_K(eligible, key=lambda t: scores[t], K=5)
+    picks    = top_K(eligible, key=lambda t: mom_13612U(t), K=5)
     ndx      = {t: 0.20 for t in picks}               # 20% each, K=5
     if len(picks) < 5:                                # partial-fill -> safe
         ndx[best_safe] = 1.0 - 0.20 * len(picks)
@@ -156,7 +152,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | CPM canary (2, OR) | HYG, TIP |
 | BULL canary (2, OR) | HYG, TIP |
 | NDX gate | monthly BULL active state (BULL_SPY) |
-| NDX pool | point-in-time Nasdaq-100 (top-5 by GPM score, 20% each) |
+| NDX pool | point-in-time Nasdaq-100 (top-5 by raw 13612U momentum, 20% each) |
 
 **Method lineage:**
 
@@ -168,7 +164,6 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | TIP canary | Keller & Keuning 2022 HAA canonical |
 | HAA-Simple skeleton (N=1) | AllocateSmartly summary of Keller HAA |
 | EAA Vol-Adj (Faber/Vol) ranker | Elastic Asset Allocation (Keller & Butler 2014) |
-| GPM correlation penalty (1 - corr) | Generalized Protective Momentum (Keller 2017) |
 | US factor-ETF universe extension (QQQ, SPHQ) | This work (best Sharpe + Calmar in factor add-back sweep, see `research/cpm_universe_factor_addback_2026_05_28.py`) |
 | HYG breadth canary extension | Keller HAA-extension family |
 | Monthly sleeve-state gate (NDX follows BULL active state) | This work (Option B) |
