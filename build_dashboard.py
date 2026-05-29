@@ -2225,7 +2225,7 @@ def main():
     # Load with sufficient warmup so CPM signals + BULL-SPY 12mo TR momentum are stable
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
-    panel = load_panel(start=panel_start, end=requested_end)
+    panel = load_panel(start=panel_start, end=requested_end, live=True)
     end = min(requested_end, panel.index[-1])
     cash_daily = panel["SHV"].ffill().pct_change().dropna()
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")

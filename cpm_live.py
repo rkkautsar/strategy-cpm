@@ -63,6 +63,8 @@ DEFAULT_CASH = "SHV"
 TOP_K_CANDIDATES = 4        # top-half of 8-asset universe (ceil(8/2))
 CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)
 COST_BPS_PER_SIDE = 10
+# Pinned research/backtest evaluation cutoff for reproducibility (memo clean-window end).
+EVAL_END = pd.Timestamp("2026-05-22")
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
 # PRODUCTION strategy is 60% CPM + 20% BULL-SPY + 20% NDX.
@@ -72,17 +74,73 @@ PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
 
 # ---------- Data loading ----------
 
+def _download_adjusted_close(ticker: str, start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
+    """Download adjusted close series (same convention as stitched history)."""
+    d = yf.download(
+        ticker,
+        start=start.strftime("%Y-%m-%d"),
+        end=end.strftime("%Y-%m-%d"),
+        auto_adjust=True,
+        progress=False,
+        threads=False,
+    )
+    if d is None or d.empty:
+        return pd.Series(dtype=float, name=ticker)
+    if isinstance(d.columns, pd.MultiIndex):
+        if "Close" in d.columns.get_level_values(-1):
+            c = d.xs("Close", axis=1, level=-1)
+            if isinstance(c, pd.DataFrame):
+                c = c.iloc[:, 0]
+        else:
+            c = d.iloc[:, 0]
+    else:
+        c = d["Close"] if "Close" in d.columns else d.iloc[:, 0]
+    c = c.dropna()
+    c.name = ticker
+    return c
+
+
+def _fetch_cached_adjusted_close(
+    ticker: str,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    cache_dir: str,
+) -> pd.Series:
+    """Range-cached adjusted close series keyed by ticker + date range."""
+    start_ts = pd.Timestamp(start).normalize()
+    end_ts = pd.Timestamp(end).normalize()
+    if end_ts < start_ts:
+        return pd.Series(dtype=float, name=ticker)
+
+    cache_path = Path(cache_dir) / f"{ticker}_{start_ts.strftime('%Y-%m-%d')}_{end_ts.strftime('%Y-%m-%d')}.csv"
+    if cache_path.exists():
+        try:
+            s = pd.read_csv(cache_path, parse_dates=[0], index_col=0).iloc[:, 0]
+            s.name = ticker
+            return s.dropna()
+        except Exception:
+            pass
+
+    s = _download_adjusted_close(ticker, start_ts, end_ts)
+    s.to_csv(cache_path, header=True)
+    return s
+
+
 def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
-               cache_dir: str = "/tmp/cpm_cache") -> pd.DataFrame:
-    """Build the daily price panel from all sources."""
+               cache_dir: str = "/tmp/cpm_cache", live: bool = False) -> pd.DataFrame:
+    """Build the daily price panel from all sources.
+
+    live=False: frozen in-repo data only (plus fully-missing columns, as before).
+    live=True: append fresh per-ticker deltas after each column's last non-NaN date.
+    """
     os.makedirs(cache_dir, exist_ok=True)
-    
+
     # Long-history proxy panel (1995+)
     if PROXY_PATH.exists():
         panel = pd.read_csv(PROXY_PATH, parse_dates=["Date"], index_col="Date").sort_index()
     else:
         panel = pd.DataFrame()
-    
+
     # Stitched series from data/ (overwrites same-named column in proxy panel).
     # HYG = VWEHX mutual fund pre-2007-04 + live HYG post.
     # GLD/TIP: clean stitches for canary usage pre-live-ETF.
@@ -113,45 +171,51 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
                 panel = panel.drop(columns=[col]).join(s, how="outer").sort_index()
             else:
                 panel = panel.join(s, how="outer").sort_index()
-    
-    # Live yfinance pulls for ETFs not in proxy panel
-    needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS
-                  + PP_ASSETS + [DEFAULT_CASH])
-    missing = sorted(needed - set(panel.columns))
-    
+
+    needed = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + PP_ASSETS + [DEFAULT_CASH]))
+    present = set(panel.columns)
+    missing = [t for t in needed if t not in present]
+
     pull_start = (start - pd.DateOffset(years=2)) if start else pd.Timestamp("1995-01-01")
     pull_end = end if end else pd.Timestamp.today() + pd.Timedelta(days=1)
-    
-    fetched = {}
+
+    # Always backfill fully missing assets exactly as before.
+    fetched_missing = {}
     for t in missing:
-        cache_path = Path(cache_dir) / f"{t}.csv"
-        if cache_path.exists():
-            try:
-                s = pd.read_csv(cache_path, parse_dates=[0], index_col=0).iloc[:, 0]
-                s.name = t
-                fetched[t] = s
-                continue
-            except Exception:
-                pass
         try:
-            d = yf.download(t, start=pull_start.strftime("%Y-%m-%d"),
-                            end=pull_end.strftime("%Y-%m-%d"),
-                            auto_adjust=True, progress=False, threads=False)
-            if isinstance(d.columns, pd.MultiIndex):
-                d = d["Close"]
-            c = d["Close"] if "Close" in d.columns else d.iloc[:, 0]
-            c = c.dropna(); c.name = t
-            c.to_csv(cache_path, header=True)
-            fetched[t] = c
+            s = _fetch_cached_adjusted_close(t, pull_start, pull_end, cache_dir)
+            if not s.empty:
+                fetched_missing[t] = s
         except Exception as e:
             print(f"WARN: could not fetch {t}: {e}", file=sys.stderr)
-    
-    if fetched:
-        extras = pd.DataFrame(fetched)
+
+    if fetched_missing:
+        extras = pd.DataFrame(fetched_missing)
         panel = panel.join(extras, how="outer").sort_index() if not panel.empty else extras
-    
-    if start: panel = panel[panel.index >= start - pd.DateOffset(months=15)]  # keep warmup
-    if end:   panel = panel[panel.index <= end]
+
+    # Live mode: refresh stale tails for assets that already exist in panel.
+    if live and not panel.empty:
+        for t in [x for x in needed if x in panel.columns]:
+            col = panel[t]
+            last_valid = col.last_valid_index()
+            delta_start = pull_start if last_valid is None else (last_valid + pd.Timedelta(days=1))
+            if delta_start > pull_end:
+                continue
+            try:
+                delta = _fetch_cached_adjusted_close(t, delta_start, pull_end, cache_dir)
+                if delta.empty:
+                    continue
+                panel = panel.reindex(panel.index.union(delta.index))
+                panel.loc[delta.index, t] = delta.values
+            except Exception as e:
+                print(f"WARN: could not refresh {t}: {e}", file=sys.stderr)
+
+    if start:
+        panel = panel[panel.index >= start - pd.DateOffset(months=15)]  # keep warmup
+    if end is not None:
+        panel = panel[panel.index <= end]
+    elif not live:
+        panel = panel.loc[:EVAL_END]
     return panel.sort_index()
 
 
@@ -548,7 +612,7 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
 def cmd_allocate(args):
     """Print this month's target allocation."""
     sig_d = pd.Timestamp(args.signal_date) if args.signal_date else None
-    panel = load_panel(end=sig_d)
+    panel = load_panel(end=sig_d, live=True)
     if sig_d is None:
         # Use most recent COMPLETED month-end as signal date.
         # (e.g. on May 14, signal date = April 30 close, trade for May)
