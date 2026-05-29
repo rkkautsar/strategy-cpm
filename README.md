@@ -44,8 +44,7 @@ Sleeve standalone (clean window, post-cost):
 | BULL-SPY | 1.099 | 0.974 | 11.77% | 10.66% | -12.02% | 0.98 |
 | NDX (monthly BULL-gated) | 1.253 | 1.200 | 32.56% | 25.03% | -31.39% | 1.04 |
 
-NDX is the high-beta growth sleeve; portfolio risk is controlled via the 20%
-blend weight and monthly BULL-state gating.
+NDX is a leveraged-beta expression of Nasdaq growth via top-5 raw 13612U momentum under monthly BULL gating. Treat it as a beta amplifier with bounded downside (20% weight + 4% single-name cap), because its +0.12 Sharpe edge vs plain BULL-gated QQQ is roughly offset by selection-stage survivorship bias (~-0.11).
 
 Raw-momentum checkpoints:
 
@@ -64,9 +63,9 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 | BULL | B3: HAA-Simple SPY | +4.66 | 0.600 | 0.674 |
 | **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+6.43** | **0.905** | **0.787** |
 | PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +7.34 | 0.909 | 0.767 |
-| PROD 60/20/20 | SPY buy-hold | +14.73 | 0.187 | 0.324 |
-| PROD 60/20/20 | QQQ buy-hold | +13.54 | 0.200 | 0.390 |
 | NDX (monthly BULL-gated) | QQQ buy-hold | +24.15 | 0.396 | 0.353 |
+
+Buy-hold equity alpha (vs SPY +14.73%/yr, vs QQQ +13.54%/yr) is mechanically inflated by time spent in cash/safe (low realized beta) and is not analytically meaningful. The peer-blend alpha (+6.43 vs BB4, +7.34 vs BB1) is the real claim.
 
 See `research/alpha_beta_refresh_2026_05_28.log`.
 
@@ -141,6 +140,15 @@ else:
 # ------------------------------------------------------------------------
 portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 ```
+
+### BULL volatility gate
+
+| Blocked-month cohort | Count | Mean fwd SPY | Fwd vol (ann) |
+|---|---:|---:|---:|
+| False-positive (market rose) | 27 (66%) | +3.06% | 11.8% |
+| True-positive (market fell) | 14 (34%) | -3.54% | 21.1% |
+
+"The RV gate is a volatility filter, not a direction predictor. False-positive months average +3.06% SPY return but at 11.8% forward vol; true-positive months average -3.54% at 21.1% vol. The vol asymmetry (~2:1) is the operative signal. Net effect: -0.81% CAGR drag offset by MaxDD compression and Calmar improvement (1.28 -> 1.54). Consistent with Moreira-Muir vol-managed logic. Known limitation: ~1-month lag on V-shaped recoveries."
 
 **Universe:**
 
