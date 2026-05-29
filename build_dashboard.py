@@ -1896,16 +1896,16 @@ def alpha_beta_table_html(rows: list[dict]) -> str:
 
 
 def perf_table_html(rows: list[dict], compact: bool = False) -> str:
-    """rows: list of {strategy, cagr, vol, sharpe, max_drawdown, ulcer, calmar, martin, ...}.
+    """rows: list of {strategy, cagr, vol, sharpe, excess_sharpe, max_drawdown, ulcer, calmar, martin, ...}.
     compact=True drops Ulcer/Calmar/Martin (keep them for collapsed details view)."""
     df = pd.DataFrame(rows)
     if compact:
-        cols = ["strategy", "sharpe", "cagr", "vol", "max_drawdown"]
+        cols = ["strategy", "sharpe", "excess_sharpe", "cagr", "vol", "max_drawdown"]
     else:
-        cols = ["strategy", "cagr", "vol", "sharpe", "max_drawdown", "ulcer", "calmar", "martin"]
+        cols = ["strategy", "cagr", "vol", "sharpe", "excess_sharpe", "max_drawdown", "ulcer", "calmar", "martin"]
     cols = [c for c in cols if c in df.columns]
     df = df[cols]
-    rename = {"strategy": "Strategy", "cagr": "CAGR", "vol": "Vol", "sharpe": "Sharpe",
+    rename = {"strategy": "Strategy", "cagr": "CAGR", "vol": "Vol", "sharpe": "Raw Sharpe", "excess_sharpe": "Excess Sharpe",
               "max_drawdown": "MaxDD", "ulcer": "Ulcer", "calmar": "Calmar", "martin": "Martin"}
     df.columns = [rename[c] for c in cols]
     body = ""
@@ -2230,6 +2230,7 @@ def main():
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
     panel = load_panel(start=panel_start, end=end)
+    cash_daily = panel["SHV"].ffill().pct_change().dropna()
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
     # Compute all sleeves, overlays, and per-signal records ONCE.
@@ -2266,7 +2267,7 @@ def main():
     perf_rows = []
     for name, daily in strategies.items():
         if daily.empty: continue
-        m = perf_metrics(daily)
+        m = perf_metrics(daily, cash_daily)
         m["strategy"] = name
         perf_rows.append(m)
     perf_rows = sorted(perf_rows, key=lambda r: -r.get("sharpe", -99))
@@ -2356,10 +2357,10 @@ def main():
     
     # Per-sleeve breakdown of the PROD blend.
     sleeve_rows = [
-        {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend)},
-        {"strategy": "CPM standalone (60% weight)",                   **perf_metrics(art.cpm)},
-        {"strategy": "BULL-SPY standalone (20% weight)",              **perf_metrics(art.bull)},
-        {"strategy": "NDX standalone (20% weight)",                   **perf_metrics(art.ndx)},
+        {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
+        {"strategy": "CPM standalone (60% weight)",                   **perf_metrics(art.cpm, cash_daily)},
+        {"strategy": "BULL-SPY standalone (20% weight)",              **perf_metrics(art.bull, cash_daily)},
+        {"strategy": "NDX standalone (20% weight)",                   **perf_metrics(art.ndx, cash_daily)},
     ]
 
     # Alpha/beta/corr decomposition vs canonical benchmarks (BB4 blend +
@@ -2421,7 +2422,7 @@ def main():
     ext_perf_rows = []
     for name, daily in ext_strategies.items():
         if daily.empty: continue
-        m = perf_metrics(daily)
+        m = perf_metrics(daily, cash_daily)
         m["strategy"] = name
         ext_perf_rows.append(m)
     ext_perf_rows = sorted(ext_perf_rows, key=lambda r: -r.get("sharpe", -99))
@@ -2438,9 +2439,9 @@ def main():
     today = dt.date.today().isoformat()
     window_str = f"{start.date()} to {end.date()}"
     yrs_full = (end - start).days / 365.25
-    prod_metrics = perf_metrics(art.blend)
-    bull_metrics = perf_metrics(art.bull)
-    ndx_metrics = perf_metrics(art.ndx) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
+    prod_metrics = perf_metrics(art.blend, cash_daily)
+    bull_metrics = perf_metrics(art.bull, cash_daily)
+    ndx_metrics = perf_metrics(art.ndx, cash_daily) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2692,7 +2693,6 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Canary gate:</strong> (HYG OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical). Fast and responsive (no slow 12mo lag).</li>
 <li><strong>Realized volatility crossover gate:</strong> <code>{BULL_TICKER}</code> RV_20d &lt; RV_252d (annualized daily realized volatility).</li>
-<li><strong>Daily overlay:</strong> -10% daily drawdown circuit breaker from 63d rolling-peak. Scale to cash (0.0) on breach, resets monthly.</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 

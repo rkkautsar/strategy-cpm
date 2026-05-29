@@ -14,10 +14,8 @@ Spec:
 """
 from __future__ import annotations
 import sys
-from itertools import combinations
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import index_constitution as ic
 

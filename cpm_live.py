@@ -59,11 +59,6 @@ CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
 
 DEFAULT_CASH = "SHV"
 
-# NDX intramonth circuit assets: LQD/IEF ratio is the duration-cancelled credit
-# spread proxy used as the daily intramonth defensive trigger for NDX.
-# Rule: latch defensive when ratio < EMA50.
-NDX_INTRAMONTH_CANARY_ASSETS = ["LQD"]   # IEF is already in SAFE_POOL
-
 # Engine parameters
 TOP_K_CANDIDATES = 4        # top-half of 8-asset universe (ceil(8/2))
 CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)
@@ -121,7 +116,6 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
     
     # Live yfinance pulls for ETFs not in proxy panel
     needed = set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS
-                  + NDX_INTRAMONTH_CANARY_ASSETS
                   + PP_ASSETS + [DEFAULT_CASH])
     missing = sorted(needed - set(panel.columns))
     
@@ -418,7 +412,7 @@ def compute_live_weights(
     return compute_target_weights(close, sig_d)
 
 
-def perf_metrics(daily: pd.Series) -> dict:
+def perf_metrics(daily: pd.Series, cash_daily: pd.Series = None) -> dict:
     if daily.empty:
         return {}
     eq = (1.0 + daily).cumprod() * 100_000.0
@@ -427,6 +421,10 @@ def perf_metrics(daily: pd.Series) -> dict:
     cagr = (eq.iloc[-1] / eq.iloc[0]) ** (1 / yrs) - 1 if yrs > 0 else float("nan")
     vol = daily.std(ddof=0) * np.sqrt(252)
     sharpe = (daily.mean() * 252) / vol if vol > 0 else float("nan")
+    cash_aligned = cash_daily.reindex_like(daily).fillna(0.0) if cash_daily is not None else pd.Series(0.0, index=daily.index)
+    excess_daily = daily - cash_aligned
+    excess_vol = excess_daily.std(ddof=0) * np.sqrt(252)
+    excess_sharpe = (excess_daily.mean() * 252) / excess_vol if excess_vol > 0 else float("nan")
     rm = eq.cummax()
     dd_series = eq / rm - 1
     mdd = dd_series.min()
@@ -434,7 +432,7 @@ def perf_metrics(daily: pd.Series) -> dict:
     calmar = cagr / abs(mdd) if mdd != 0 and not pd.isna(mdd) else float("nan")
     martin = cagr / ulcer if ulcer > 0 else float("nan")
     return {"total_return": eq.iloc[-1] / eq.iloc[0] - 1,
-            "cagr": cagr, "vol": vol, "sharpe": sharpe, "max_drawdown": mdd,
+            "cagr": cagr, "vol": vol, "sharpe": sharpe, "excess_sharpe": excess_sharpe, "max_drawdown": mdd,
             "ulcer": ulcer, "calmar": calmar, "martin": martin}
 
 
