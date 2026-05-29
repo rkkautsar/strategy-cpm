@@ -102,13 +102,17 @@ def _spy_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dic
 
 
 def _vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
+    """Lag-robust S1-60 realized-volatility crossover gate.
+
+    Gate is ON when RV_60d < RV_252d (annualized from daily returns).
+    """
     sub = daily_spy.loc[:sig_d].pct_change().dropna()
     if len(sub) < 252:
-        return True, {"rv_20": 0.0, "rv_252": 0.0, "vol_ok": True}
-    v20 = float(sub.tail(20).std() * np.sqrt(252))
-    v252 = float(sub.tail(252).std() * np.sqrt(252))
-    vol_ok = v20 < v252
-    return vol_ok, {"rv_20": v20, "rv_252": v252, "vol_ok": vol_ok}
+        return True, {"warmup": True}
+    rv_60 = float(sub.tail(60).std() * np.sqrt(252))
+    rv_252 = float(sub.tail(252).std() * np.sqrt(252))
+    vol_ok = rv_60 < rv_252
+    return vol_ok, {"rv_60": rv_60, "rv_252": rv_252, "vol_ok": vol_ok}
 
 
 # ---------- Allocation ----------

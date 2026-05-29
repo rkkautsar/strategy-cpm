@@ -10,7 +10,7 @@ canaries plus monthly sleeve-state gating are the defensive machinery.
   candidates. Equal-weighted 50/50 on the chosen pair.
 - **BULL (20%)** — HAA-Simple Extension on SPY with 3-layer monthly gate:
   Canary (HYG OR TIP), Trend (SPY mom_13612U > 0), and RV Crossover
-  (vol_ok: Monthly realized volatility gate (RV_20d < RV_252d)).
+  (vol_ok: Monthly realized volatility gate (RV_60d < RV_252d)).
   Either fully invested in SPY (when all three pass) or fully in HAA
   best-of-safe (SHV/IEF).
 - **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by raw 13612U momentum
@@ -78,7 +78,7 @@ See `research/alpha_beta_refresh_2026_05_28.log`.
 mom_13612U(A)     = (r1 + r3 + r6 + r12) / 4                # Keller HAA canonical
 faber_score(A)    = (price[T] - SMA_10mo) / SMA_10mo        # Faber 2007
 vol_252d(A)       = annualized daily standard deviation of A over last 252d
-rv_20d(A)         = annualized daily standard deviation of A over last 20d
+rv_60d(A)         = annualized daily standard deviation of A over last 60d
 rv_252d(A)        = annualized daily standard deviation of A over last 252d
 eaa_score(A)      = faber_score(A) / vol_252d(A)            # EAA Vol-Adj (CPM sleeve)
 is_fully_valid(t) =
@@ -113,7 +113,7 @@ else:
 # ------------------------------------------------------------------------
 canary_ok     = (mom_13612U(HYG) > 0) OR (mom_13612U(TIP) > 0)
 asset_mom_ok  = (mom_13612U(SPY) > 0)
-vol_ok        = (rv_20d(SPY) < rv_252d(SPY))  # Monthly realized volatility gate (RV_20d < RV_252d)
+vol_ok        = (rv_60d(SPY) < rv_252d(SPY))  # Monthly realized volatility gate (RV_60d < RV_252d)
 
 if canary_ok AND asset_mom_ok AND vol_ok:
     bull = {SPY: 1.0}
@@ -160,7 +160,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | CPM canary (2, OR) | HYG, TIP |
 | BULL canary (2, OR) | HYG, TIP |
 | BULL trend gate | SPY mom_13612U > 0 |
-| BULL vol gate | vol_ok: Monthly realized volatility gate (RV_20d < RV_252d) |
+| BULL vol gate | vol_ok: Monthly realized volatility gate (RV_60d < RV_252d) |
 | NDX gate | monthly BULL active state (BULL_SPY) |
 | NDX pool | point-in-time Nasdaq-100 (top-5 by raw 13612U momentum, 20% each) |
 
