@@ -15,7 +15,7 @@ Spec:
 Usage:
     python bull_qqq_live.py allocate                  # show this month's target
     python bull_qqq_live.py allocate --signal-date 2026-04-30
-    python bull_qqq_live.py backtest                  # standalone backtest
+    python bull_qqq_live.py backtest                  # backtest
     python bull_qqq_live.py backtest --start 2010-01-01
 """
 from __future__ import annotations
@@ -180,7 +180,7 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp,
 
 def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp,
                            cost_bps: float = COST_BPS_PER_SIDE) -> pd.Series:
-    """Run BULL-SPY standalone backtest.
+    """Run BULL-SPY backtest.
 
     For each signal date (month-end):
       - If macro canary passes AND asset mom > 0: hold 100% SPY
@@ -231,11 +231,16 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
         if t in daily_rets.columns:
             port = port + daily_rets[t].reindex(common).fillna(0.0) * w_s
 
-    # Switching costs on any weight change (label change captures basket switches too)
+    # Switching costs on any initialized-state change.
+    # Ignore "" -> first-label transition to avoid phantom first-segment entry cost.
     if cost_bps > 0:
         label_arr = state_per_day.values
         if len(label_arr) > 1:
-            flips = np.where(label_arr[1:] != label_arr[:-1])[0] + 1
+            flips = np.where(
+                (label_arr[1:] != label_arr[:-1])
+                & (label_arr[1:] != "")
+                & (label_arr[:-1] != "")
+            )[0] + 1
             for f in flips:
                 port.iloc[f] -= 2.0 * cost_bps / 10000.0
 
@@ -309,8 +314,8 @@ def cmd_backtest(args):
 
     strategies = [
         (prod_label, blend),
-        ("BULL standalone", bull_qqq),
-        ("CPM-9 standalone", fcp_rets),
+        ("BULL", bull_qqq),
+        ("CPM-9", fcp_rets),
         ("QQQ buy-hold", qqq),
         ("SPY buy-hold", spy),
     ]

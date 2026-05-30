@@ -1,0 +1,236 @@
+{
+  "meta": {
+    "conv": "mooex",
+    "cost_bps": 10,
+    "lookback": 504,
+    "K": 4,
+    "spec": "FINAL strict-3 partial-safe INVVOL-3 (cpm_live.compute_target_weights)",
+    "clean_start": "2008-05-30",
+    "ext_start": "1999-03-10",
+    "end": "2026-05-22",
+    "B": 2000,
+    "block": 21,
+    "seed": 42
+  },
+  "anchor": {
+    "clean": {
+      "sharpe": 1.2666810990474202,
+      "maxdd": -0.1265707610892406,
+      "calmar": 1.130630691337409,
+      "ok": 1.0
+    },
+    "ext": {
+      "sharpe": 1.2348590629306821,
+      "maxdd": -0.15178981302984007,
+      "calmar": 0.9118888935623948,
+      "ok": 1.0
+    }
+  },
+  "selfcheck_faber_vol_matches_prod": true,
+  "headline": {
+    "faber_vol": {
+      "label": "vol-Faber (PRODUCTION) m_faber/rv_252d",
+      "clean": {
+        "sharpe": 1.2666810990474202,
+        "cagr": 0.1431047871134301,
+        "vol": 0.11080552680816665,
+        "maxdd": -0.1265707610892406,
+        "calmar": 1.130630691337409,
+        "excess_sharpe": 1.146692249179338
+      },
+      "ext": {
+        "sharpe": 1.2348590629306821,
+        "cagr": 0.13841544465782363,
+        "vol": 0.10988147580094698,
+        "maxdd": -0.15178981302984007,
+        "calmar": 0.9118888935623948,
+        "excess_sharpe": 1.0264337630623523
+      }
+    },
+    "faber": {
+      "label": "plain Faber m_faber",
+      "clean": {
+        "sharpe": 1.1581877156384457,
+        "cagr": 0.13277510951141447,
+        "vol": 0.11360524009007686,
+        "maxdd": -0.1265707610892406,
+        "calmar": 1.0490188126292408,
+        "excess_sharpe": 1.041062934980468
+      },
+      "ext": {
+        "sharpe": 1.2434303436668428,
+        "cagr": 0.14368000092784894,
+        "vol": 0.11312721488514442,
+        "maxdd": -0.1517898130298403,
+        "calmar": 0.9465720924210043,
+        "excess_sharpe": 1.0390490759752318
+      }
+    },
+    "13612u_vol": {
+      "label": "13612U/rv_252d",
+      "clean": {
+        "sharpe": 1.2515854796968238,
+        "cagr": 0.14087767822160524,
+        "vol": 0.11071943084637055,
+        "maxdd": -0.14407848044997806,
+        "calmar": 0.9777843143655024,
+        "excess_sharpe": 1.1318158201949153
+      },
+      "ext": {
+        "sharpe": 1.243001245291231,
+        "cagr": 0.1395792157186646,
+        "vol": 0.10999436922038369,
+        "maxdd": -0.17061795538734437,
+        "calmar": 0.818080461706306,
+        "excess_sharpe": 1.034329333015371
+      }
+    },
+    "plain12": {
+      "label": "plain 12m total-return momentum",
+      "clean": {
+        "sharpe": 0.9718614775066122,
+        "cagr": 0.11009915773792156,
+        "vol": 0.11487523315112781,
+        "maxdd": -0.17332283009152694,
+        "calmar": 0.6352259404013959,
+        "excess_sharpe": 0.8565914582157308
+      },
+      "ext": {
+        "sharpe": 1.0367752004069584,
+        "cagr": 0.11967230347919577,
+        "vol": 0.11546430872194138,
+        "maxdd": -0.17332283009152694,
+        "calmar": 0.6904589742505369,
+        "excess_sharpe": 0.8349495531446844
+      }
+    }
+  },
+  "bootstrap": {
+    "faber": {
+      "clean": {
+        "sharpe": {
+          "p_base_beats": 0.987,
+          "mean": 0.10986310591970237,
+          "ci_lo": 0.01193739529654137,
+          "ci_hi": 0.21669950645100736,
+          "excludes_zero": true
+        },
+        "maxdd": {
+          "p_base_beats": 0.647,
+          "mean": 0.007819191955214265,
+          "ci_lo": -0.019013115443330793,
+          "ci_hi": 0.04774582038213279,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_base_beats": 0.867,
+          "mean": 0.10602102016914079,
+          "ci_lo": -0.07572550806789104,
+          "ci_hi": 0.3464795231659127,
+          "excludes_zero": false
+        }
+      },
+      "ext": {
+        "sharpe": {
+          "p_base_beats": 0.4435,
+          "mean": -0.007302117130095146,
+          "ci_lo": -0.10748387399589468,
+          "ci_hi": 0.08982551020447455,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_base_beats": 0.49,
+          "mean": -0.00034896474788964177,
+          "ci_lo": -0.04064920822864448,
+          "ci_hi": 0.0370888271025685,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_base_beats": 0.357,
+          "mean": -0.02974277275944438,
+          "ci_lo": -0.22704223599583326,
+          "ci_hi": 0.15530188782813642,
+          "excludes_zero": false
+        }
+      }
+    },
+    "13612u_vol": {
+      "clean": {
+        "sharpe": {
+          "p_base_beats": 0.5585,
+          "mean": 0.014121872424833242,
+          "ci_lo": -0.1528221214264162,
+          "ci_hi": 0.18482368454515546,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_base_beats": 0.569,
+          "mean": 0.004355875142181562,
+          "ci_lo": -0.03708082729472606,
+          "ci_hi": 0.054609587600262396,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_base_beats": 0.591,
+          "mean": 0.03779454065775,
+          "ci_lo": -0.25724274411558706,
+          "ci_hi": 0.3819911218581701,
+          "excludes_zero": false
+        }
+      },
+      "ext": {
+        "sharpe": {
+          "p_base_beats": 0.4575,
+          "mean": -0.00671836360982766,
+          "ci_lo": -0.1390493345094993,
+          "ci_hi": 0.12921674397059232,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_base_beats": 0.5485,
+          "mean": 0.0025575520435731085,
+          "ci_lo": -0.04400368314765881,
+          "ci_hi": 0.05174342292602137,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_base_beats": 0.518,
+          "mean": 0.004180142570860588,
+          "ci_lo": -0.23409860499841553,
+          "ci_hi": 0.23640525295580592,
+          "excludes_zero": false
+        }
+      }
+    }
+  },
+  "triple_vol_counting": {
+    "clean": {
+      "d_sharpe": 0.10849338340897452,
+      "d_maxdd_pp": 0.0,
+      "d_calmar": 0.0816118787081681
+    },
+    "ext": {
+      "d_sharpe": -0.008571280736160647,
+      "d_maxdd_pp": 2.220446049250313e-14,
+      "d_calmar": -0.03468319885860949
+    }
+  },
+  "overlap": {
+    "clean": {
+      "n_sigs": 217,
+      "both_riskon": 188,
+      "frac_same_basket": 0.7819148936170213,
+      "mean_jaccard": 0.8861702127659575,
+      "frac_same_topk_when_both_on": 0.7712765957446809,
+      "riskon_state_disagree": 0
+    },
+    "ext": {
+      "n_sigs": 327,
+      "both_riskon": 291,
+      "frac_same_basket": 0.7594501718213058,
+      "mean_jaccard": 0.8749140893470791,
+      "frac_same_topk_when_both_on": 0.7457044673539519,
+      "riskon_state_disagree": 0
+    }
+  }
+}

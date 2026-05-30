@@ -3,11 +3,11 @@
 **60% CPM + 20% BULL + 20% NDX.** Personal runbook. Sleeve-level
 canaries plus monthly sleeve-state gating are the defensive machinery.
 
-- **CPM (60%)** — AAA Pair-EW Extension over the 8-asset risky universe
-  (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC) with EAA-style Vol-Adj
-  (Faber/Vol) ranker, HYG OR TIP canary (BULL-style breadth), and 504d simple
-  daily covariance for min-variance pair selection. Top-K = ceil(8/2) = 4
-  candidates. Equal-weighted 50/50 on the chosen pair.
+- **Cross-asset Parity Momentum (CPM) (60%)** — 8-asset risky universe
+  (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), HYG OR TIP canary,
+  EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-K=4,
+  inverse-vol weights across all surviving positives, strict-4 partial-safe,
+  timed best-safe (SHV/IEF).
 - **BULL (20%)** — HAA-Simple Extension on SPY with 3-layer monthly gate:
   Canary (HYG OR TIP), Trend (SPY mom_13612U > 0), and RV Crossover
   (vol_ok: Monthly realized volatility gate (RV_60d < RV_252d)).
@@ -30,19 +30,30 @@ Clean live-ETF window 2008-05-30 -> 2026-05-22 (18.0y, post-cost).
 
 | Strategy | Raw Sharpe (0rf) | Excess Sharpe (vs SHV) | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|---:|
-| **PROD 60/20/20** | **1.503** | **1.387** | **17.93%** | **11.43%** | **-11.62%** | **1.54** |
+| **PROD 60/20/20** | **1.370** | **1.257** | **16.64%** | **11.78%** | **-12.16%** | **1.37** |
 | Best literature blend (BB4) | 1.194 | 1.061 | 12.03% | 9.94% | -14.55% | 0.83 |
 | Simplest literature 60/40 (BB1) | 1.122 | 0.985 | 10.90% | 9.65% | -14.80% | 0.74 |
 | SPY buy-hold | 0.660 | 0.591 | 11.73% | 19.82% | -50.70% | 0.23 |
 | QQQ buy-hold | 0.816 | 0.755 | 16.94% | 22.30% | -49.37% | 0.34 |
 
-Sleeve standalone (clean window, post-cost):
+Sleeve (clean window, post-cost):
 
 | Sleeve | Raw Sharpe (0rf) | Excess Sharpe (vs SHV) | CAGR | Vol | MaxDD | Calmar |
 |---|---:|---:|---:|---:|---:|---:|
-| CPM-ext | 1.263 | 1.145 | 14.58% | 11.30% | -15.41% | 0.95 |
-| BULL-SPY | 1.099 | 0.974 | 11.77% | 10.66% | -12.02% | 0.98 |
-| NDX (monthly BULL-gated) | 1.253 | 1.200 | 32.56% | 25.03% | -31.39% | 1.04 |
+| CPM | 1.191 | 1.072 | 13.44% | 11.16% | -12.67% | 1.06 |
+| BULL | 1.081 | 0.955 | 11.44% | 10.57% | -13.35% | 0.86 |
+| NDX | 1.186 | 1.132 | 30.01% | 24.77% | -35.92% | 0.84 |
+| PROD 60/20/20 | 1.370 | 1.257 | 16.64% | 11.78% | -12.16% | 1.37 |
+
+Clean-window anchors (CPM-focused):
+
+| Variant | Sharpe | CAGR | Vol | MaxDD | Calmar | Martin |
+|---|---:|---:|---:|---:|---:|---:|
+| Cross-asset Parity Momentum (CPM) | 1.1910 | 13.44% | 11.16% | -12.67% | 1.0615 | 3.9646 |
+| CPM-BULL 60/40 (two-sleeve, no NDX) | 1.2485 | 12.74% | 10.05% | -10.68% | 1.1928 | 4.354 |
+
+CPM concentration (clean, per-asset share of risky sleeve exposure):
+SPHQ 20.9%, QQQ 16.9%, GLD 15.0%, EFA 11.7%, TLT 10.5%, VNQ 9.8%, EEM 8.1%, DBC 7.2%.
 
 NDX is a leveraged-beta expression of Nasdaq growth via top-5 raw 13612U momentum under monthly BULL gating. Treat it as a beta amplifier with bounded downside (20% weight + 4% single-name cap), because its +0.12 Sharpe edge vs plain BULL-gated QQQ is roughly offset by selection-stage survivorship bias (~-0.11).
 
@@ -50,8 +61,8 @@ Raw-momentum checkpoints:
 
 | Window | NDX Sharpe | NDX CAGR | NDX MaxDD | Blend Sharpe | Blend CAGR | Blend MaxDD |
 |---|---:|---:|---:|---:|---:|---:|
-| Clean | 1.253 | 32.56% | -31.39% | 1.503 | 17.93% | -11.62% |
-| Stress | 1.09 | 23.67% | -31.39% | 1.40 | 15.54% | -12.69% |
+| Clean | 1.186 | 30.01% | -35.92% | 1.370 | 16.64% | -12.16% |
+| Stress | 1.014 | 21.48% | -35.92% | 1.298 | 14.73% | -12.63% |
 
 ## Alpha decomposition
 
@@ -59,13 +70,13 @@ OLS daily-return regression `r_strat = alpha + beta · r_bench`:
 
 | Strategy | Benchmark | Alpha (%/yr) | Beta | Corr |
 |---|---|---:|---:|---:|
-| CPM | B2: AAA + TIP canary (same universe) | +5.20 | 0.889 | 0.832 |
-| BULL | B3: HAA-Simple SPY | +4.66 | 0.600 | 0.674 |
-| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+6.43** | **0.905** | **0.787** |
-| PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +7.34 | 0.909 | 0.767 |
-| NDX (monthly BULL-gated) | QQQ buy-hold | +24.15 | 0.396 | 0.353 |
+| CPM | B2: AAA + TIP canary (same universe) | +4.75 | 0.834 | 0.791 |
+| BULL | B3: HAA-Simple SPY | +4.48 | 0.589 | 0.668 |
+| **PROD 60/20/20** | **BB4 (best lit 60/20/20)** | **+4.85** | **0.947** | **0.800** |
+| PROD 60/20/20 | BB1 (60% AAA+TIP + 40% HAA-S SPY) | +6.01 | 0.933 | 0.764 |
+| NDX | QQQ buy-hold | +22.09 | 0.400 | 0.360 |
 
-Buy-hold equity alpha (vs SPY +14.73%/yr, vs QQQ +13.54%/yr) is mechanically inflated by time spent in cash/safe (low realized beta) and is not analytically meaningful. The peer-blend alpha (+6.43 vs BB4, +7.34 vs BB1) is the real claim.
+Buy-hold equity alpha (vs SPY +13.12%/yr, vs QQQ +11.73%/yr) is mechanically inflated by time spent in cash/safe (low realized beta) and is not analytically meaningful. The peer-blend alpha (+4.85 vs BB4, +6.01 vs BB1) is the real claim.
 
 See `research/alpha_beta_refresh_2026_05_28.log`.
 
@@ -88,7 +99,7 @@ is_fully_valid(t) =
 best_safe         = argmax({mom_13612U(s) for s in [SHV, IEF]})
 
 # ------------------------------------------------------------------------
-# CPM (60%) -- AAA Pair-EW Extension
+# Cross-asset Parity Momentum (CPM) (60%)
 # ------------------------------------------------------------------------
 CPM_UNIVERSE = [QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC]         # N=8
 
@@ -97,15 +108,18 @@ canary_ok = (mom_13612U(HYG) > 0) OR (mom_13612U(TIP) > 0)
 if not canary_ok:
     cpm = {best_safe: 1.0}                            # defensive only when both HYG and TIP fail
 else:
-    cands = [A in CPM_UNIVERSE if faber_score(A) > 0] # positive-trend filter
-    top   = top_K(cands, key=eaa_score, K=ceil(N/2)=4)
-    if   len(top) == 0: cpm = {best_safe: 1.0}
-    elif len(top) == 1: cpm = {top[0]: 0.5, best_safe: 0.5}    # partial-safe
+    ranked = top_K(CPM_UNIVERSE, key=eaa_score, K=4)
+    pos    = [A for A in ranked if faber_score(A) > 0]           # positive-trend filter
+    n_pos  = len(pos)
+    if n_pos == 0:
+        cpm = {best_safe: 1.0}
     else:
-        # AAA min-var pair on 504d simple daily covariance
-        pair = argmin over all pairs(p1, p2) in top:
-                 variance(50/50 weights, cov_504d)
-        cpm  = {pair[0]: 0.5, pair[1]: 0.5}
+        risky_fraction = min(n_pos, 4) / 4.0                      # strict-4 partial-safe
+        safe_fraction  = 1.0 - risky_fraction
+        invvol = inverse_vol_weights(pos, lookback=504)
+        cpm = {A: invvol[A] * risky_fraction for A in pos}
+        if safe_fraction > 0:
+            cpm[best_safe] = cpm.get(best_safe, 0.0) + safe_fraction
 
 # ------------------------------------------------------------------------
 # BULL (20%) -- HAA-Simple Extension on SPY
@@ -148,16 +162,16 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | False-positive (market rose) | 27 (66%) | +3.06% | 11.8% |
 | True-positive (market fell) | 14 (34%) | -3.54% | 21.1% |
 
-"The RV gate is a volatility filter, not a direction predictor. False-positive months average +3.06% SPY return but at 11.8% forward vol; true-positive months average -3.54% at 21.1% vol. The vol asymmetry (~2:1) is the operative signal. Net effect: -0.81% CAGR drag offset by MaxDD compression and Calmar improvement (1.28 -> 1.54). Consistent with Moreira-Muir vol-managed logic. Known limitation: ~1-month lag on V-shaped recoveries."
+"The RV gate is a volatility filter, not a direction predictor. False-positive months average +3.06% SPY return but at 11.8% forward vol; true-positive months average -3.54% at 21.1% vol. The vol asymmetry (~2:1) is the operative signal. Net effect: -0.81% CAGR drag offset by MaxDD compression and Calmar improvement (1.28 -> 1.37). Consistent with Moreira-Muir vol-managed logic. Known limitation: ~1-month lag on V-shaped recoveries."
 
 **Universe:**
 
 | Pool | Tickers |
 |---|---|
-| CPM (8) | QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC |
+| Cross-asset Parity Momentum (CPM) universe (8) | QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC |
 | BULL (1) | SPY |
 | Safe pool (HAA best-of by 13612U) | SHV (ultra-short), IEF (7-10y) |
-| CPM canary (2, OR) | HYG, TIP |
+| Cross-asset Parity Momentum (CPM) canary (2, OR) | HYG, TIP |
 | BULL canary (2, OR) | HYG, TIP |
 | BULL trend gate | SPY mom_13612U > 0 |
 | BULL vol gate | vol_ok: Monthly realized volatility gate (RV_60d < RV_252d) |
@@ -168,8 +182,8 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 
 | Component | Source |
 |---|---|
-| AAA min-variance optimization | Butler & Philbrick 2012 |
-| AAA Pair-EW restriction | This work |
+| Cross-asset Parity Momentum (CPM) top-4 + inverse-vol weight-all + strict-4 partial-safe | This work |
+| Timed safe sleeve (SHV/IEF by 13612U) | Keller & Keuning 2022 HAA family |
 | 13612U momentum | Keller & Keuning 2022 HAA canonical |
 | TIP canary | Keller & Keuning 2022 HAA canonical |
 | HAA-Simple skeleton (N=1) | AllocateSmartly summary of Keller HAA |
@@ -211,7 +225,7 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | B5: QQQ 12mo trend (Antonacci-family TSMOM single-asset) | Faber/Antonacci 12mo absolute trend | 0.909 | 16.44% | -28.56% |
 | BB1: 60 B2 + 40 B3 (60 AAA+TIP / 40 HAA-S SPY) | Two-sleeve blend | 1.122 | 10.90% | -14.80% |
 | BB4: 60 B2 + 20 B3 + 20 B5 | Three-sleeve blend (best lit) | 1.194 | 12.03% | -14.55% |
-| **PROD 60/20/20** | This work | **1.503** | **17.93%** | **-11.62%** |
+| **PROD 60/20/20** | This work | **1.370** | **16.64%** | **-12.16%** |
 
 ## Robustness
 
@@ -219,14 +233,15 @@ Single-strategy bootstrap CI on PROD daily returns (B=2000, block=21d, seed=42):
 
 | Metric | Point | p2.5 | p25 | p50 | p75 | p97.5 |
 |---|---:|---:|---:|---:|---:|---:|
-| Sharpe | 1.503 | 1.113 | 1.364 | 1.505 | 1.653 | 1.926 |
-| CAGR | 17.93% | 12.86% | 16.11% | 17.93% | 19.81% | 23.55% |
-| Vol | 11.43% | 10.71% | 11.17% | 11.41% | 11.69% | 12.21% |
-| MaxDD | -11.62% | -21.66% | -15.70% | -13.47% | -11.82% | -9.78% |
-| Calmar | 1.543 | 0.684 | 1.067 | 1.321 | 1.600 | 2.243 |
+| Sharpe | 1.370 | 0.954 | 1.224 | 1.372 | 1.521 | 1.823 |
+| CAGR | 16.69% | 11.25% | 14.81% | 16.66% | 18.68% | 22.61% |
+| Vol | 11.78% | 11.01% | 11.50% | 11.78% | 12.07% | 12.64% |
+| MaxDD | -12.16% | -24.58% | -18.18% | -15.56% | -13.52% | -10.85% |
+| Calmar | 1.372 | 0.525 | 0.843 | 1.069 | 1.314 | 1.901 |
 
-95% CI summary: **Sharpe [1.113, 1.926]**, CAGR [12.86%, 23.55%], MaxDD
-[-21.66%, -9.78%], Calmar [0.684, 2.243]. Paired-difference block bootstrap
+95% CI summary: **Sharpe [0.954, 1.823]**, CAGR [11.25%, 22.61%], MaxDD
+[-24.58%, -10.85%], Calmar [0.525, 1.901].
+Extended-window Sharpe point/CI: **1.298 [0.952, 1.640]**. Difference block bootstrap
 for strategy deltas vs BB4/benchmarks is summarized in win probabilities below.
 Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 
@@ -237,7 +252,7 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - Monthly rotation creates short-term gains. Tax-advantaged accounts only.
 - Strategy is NOT live-traded. All performance is backtest.
 - DBC inception 2006-02 is the binding universe start; backtest starts
-  2008-05-30 to give 504d covariance warmup + 13mo HYG warmup with all-live ETFs.
+  2008-05-30 to give 504d inverse-vol lookback warmup + 13mo HYG warmup with all-live ETFs.
 
 **Reproducibility**
 
@@ -249,14 +264,13 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - Third-party reproductions on yfinance ETF-only data typically land within
   Sharpe -0.05 to -0.15 of headline due to signal-date convention, cost
   application timing, NaN handling, and `pandas.cov` ddof choice.
-- The realized backtest Sharpe is 1.503. Retail-data reproductions may be
+- The realized backtest Sharpe is 1.370. Retail-data reproductions may be
   modestly lower due to implementation differences. For capital planning, use
   materially lower forward assumptions, such as 0.7-1.0 Sharpe, and treat 1.3+
   as an upside case until live/paper trading confirms signal fidelity.
 - **Vs BB4 lit blend (paired block bootstrap, B=5000, block=21d):**
-  P(dSharpe > 0) = 97.62%, P(dSharpe > 0.05) = 95.32%,
-  P(dSharpe > 0.10) = 91.32%, P(dSharpe > 0.20) = 75.86%,
-  P(dCAGR > 0) = 99.96%, P(MaxDD shallower) = 57.40%.
+  Clean P(dSharpe > 0) = 87.92%, P(dSharpe > 0.10) = 69.02%.
+  Extended P(dSharpe > 0) = 90.60%, P(dSharpe > 0.10) = 68.08%.
 - **Vs Static 80% PP + 20% QQQ:** P(dSharpe > 0) = 98.26%,
   P(dSharpe > 0.20) = 89.42%, P(dCAGR > 0) = 99.98%,
   P(MaxDD shallower) = 74.56%.
@@ -276,7 +290,7 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 
 ## Files
 
-- `cpm_live.py` — CPM sleeve engine + monthly rebalance signal.
+- `cpm_live.py` — Cross-asset Parity Momentum (CPM) sleeve engine + monthly rebalance signal.
 - `bull_qqq_live.py` — BULL sleeve engine.
 - `ndx_sleeve_live.py` — NDX stock-picking sleeve engine.
 - `build_dashboard.py` — daily blend assembly + dashboard generation.

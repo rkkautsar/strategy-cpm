@@ -54,7 +54,7 @@ BULL_BLEND = BULL_W  # alias used by chart helpers below
 BOOTSTRAP_SINGLE_B = 2000
 BOOTSTRAP_PAIRED_B = 5000
 FORWARD_SHARPE_GUIDANCE = (
-    "The realized backtest Sharpe is 1.503. Retail-data reproductions may be modestly lower due to "
+    "The realized backtest Sharpe is 1.370. Retail-data reproductions may be modestly lower due to "
     "implementation differences. For capital planning, use materially lower forward assumptions, such as "
     "0.7-1.0 Sharpe, and treat 1.3+ as an upside case until live/paper trading confirms signal fidelity."
 )
@@ -488,7 +488,7 @@ def alpha_beta_corr(strat: pd.Series, bench: pd.Series) -> dict:
 
 
 # Module-level cache for cpm_signal_records. Several dashboard diagnostics
-# (canary timeline, asset picks, pair archetypes, rolling defensive %, pair
+# (canary timeline, asset picks, basket archetypes, rolling defensive %, basket
 # timeline) all call cpm_signal_records with the same (start, end). Without
 # caching, this runs the full monthly signal loop 5+ times per build; with
 # caching, it runs once. Keyed by (id(panel), start, end) since panel is
@@ -519,7 +519,7 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
     picks 'last trading day per month bucket', which for the current month is
     just today (or the latest panel day), NOT the actual month-end signal
     date. PROD doesn't execute on mid-month signals, so including them creates
-    phantom records in the pair table / records list (e.g. a 'signal' on
+    phantom records in the basket table / records list (e.g. a 'signal' on
     2026-05-22 when the actual May signal would be computed on 2026-05-29).
     """
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
@@ -539,11 +539,11 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
         monthly = close.loc[:sig_d].resample("ME").last()
         n_pos = cpm_module.canary_positive_count(monthly, CANARY_ASSETS)
         risk_state = cpm_module.canary_risk_state(n_pos)
-        weights, new_pair, regime, safe = compute_target_weights(close, sig_d)
+        weights, new_basket, regime, safe = compute_target_weights(close, sig_d)
         records.append({
             "sig_d": sig_d,
             "weights": weights,
-            "pair": new_pair,
+            "basket": new_basket,
             "regime": regime,
             "safe": safe,
             "canary_positive_count": n_pos,
@@ -688,7 +688,7 @@ PROD_STYLE = dict(color="#0040d0", lw=2.0, ls="-", alpha=1.0, zorder=10)
 
 FCP_STYLES = {
     # Tier 2: components
-    "CPM standalone":       dict(color="#1a9a1a", lw=2.0, ls="-",  alpha=0.95, zorder=8),
+    "CPM":                  dict(color="#1a9a1a", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "BULL-SPY sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: benchmarks
@@ -710,7 +710,7 @@ BASE_RENDER_ORDER = [
     "60/40 SPY/IEF", "SPY buy-hold",
     "NDX sleeve",
     "QQQ buy-hold", "Static 80% PP + 20% QQQ", "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
-    "BULL-SPY sleeve", "CPM standalone",
+    "BULL-SPY sleeve", "CPM",
 ]
 
 
@@ -855,13 +855,13 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
     bb4_dd = rolling_intra_dd(bb4.reindex(idx))
 
 
-    ax.plot(fcp_dd.index, fcp_dd.values, label="CPM standalone", color="#1a9a1a", lw=1.6)
+    ax.plot(fcp_dd.index, fcp_dd.values, label="CPM", color="#1a9a1a", lw=1.6)
     ax.plot(blend_dd.index, blend_dd.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
     ax.plot(bb4_dd.index, bb4_dd.values, label="BB4 lit blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
-        ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="BULL-SPY standalone",
+        ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="BULL-SPY",
                 color="#ff8800", lw=1.6, ls="-", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Worst DD in window (%)")
@@ -895,14 +895,14 @@ def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series
     excess_blend = (blend_cagr - bb4_cagr) * 100
 
     ax.plot(excess_fcp.index, excess_fcp.values,
-            label="CPM standalone vs BB4", color="#1a9a1a", lw=1.6)
+            label="CPM vs BB4", color="#1a9a1a", lw=1.6)
     ax.plot(excess_blend.index, excess_blend.values,
             label="PROD vs BB4", color="#0040d0", lw=2.0)
     if max_fcp is not None:
         max_fcp_cagr = rolling_cagr(max_fcp.reindex(idx))
         excess_max = (max_fcp_cagr - bb4_cagr) * 100
         ax.plot(excess_max.index, excess_max.values,
-                label="BULL-SPY standalone vs BB4", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
+                label="BULL-SPY vs BB4", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Excess CAGR (pp, ann.)")
     ax.set_title(f"Rolling {window_days//21}-Month Excess vs BB4 lit blend")
@@ -1009,13 +1009,15 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
         return {'sh': sh, 'ann_ret': ann_ret, 'mdd': mdd}
 
     def build_grid(daily_returns, canary_assets, include_macro=False):
-        """CPM 3-asset canary: 2x4 grid (rows=HYG, cols=last two canary bits).
-        BULL 2-asset canary: 2x2 grid (rows=HYG, cols=TIP)."""
+        """Canary state grid.
+        CPM/BULL 2-asset mode: 2x2 grid (rows=HYG, cols=TIP).
+        Legacy 3-asset mode (if provided): 2x4 grid.
+        """
         state_ser = compute_states(canary_assets, include_macro=include_macro)
         state_per_day = attribute(daily_returns, state_ser)
         n_assets = len(canary_assets)
         if not include_macro and n_assets == 3:
-            # CPM: rows = HYG (first canary), cols = TIP x GLD
+            # Legacy 3-asset layout: rows = first canary, cols = second x third
             row_order = [(True,), (False,)]
             col_order = [(True, True), (True, False), (False, True), (False, False)]
         elif not include_macro and n_assets == 2:
@@ -1100,7 +1102,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
                             bull_records: list | None = None,
                             ndx_records: list | None = None) -> tuple:
     """Plot aggregate portfolio defensive (risk-off) exposure over time.
-    Returns (fig, regime_counts dict, picks Counter, pair_counter Counter)."""
+    Returns (fig, regime_counts dict, picks Counter)."""
     from collections import Counter
     records = records if records is not None else cpm_signal_records(panel, start)
     _br = bull_records if bull_records is not None else bull_signal_records(panel, start)
@@ -1112,7 +1114,6 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     cpm_per_date = []
     bull_per_date = []
     picks = Counter()
-    pair_counter = Counter()
     dates = []
     cpm_def_pcts = []
     bull_def_pcts = []
@@ -1121,15 +1122,13 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     for rec in records:
         sd = rec["sig_d"]
         weights = rec["weights"]
-        pair = rec["pair"]
+        basket = rec["basket"]
         regime = rec["regime"]
         safe = rec["safe"]
-        cpm_per_date.append((sd, regime, pair, safe))
+        cpm_per_date.append((sd, regime, basket, safe))
         for asset, w in weights.items():
             if w > 0:
                 picks[asset] += 1
-        if pair and len(pair) == 2:
-            pair_counter[tuple(sorted(pair))] += 1
 
         # Calculate exact defensive exposure per sleeve
         # 1. CPM defensive share (weight of the safe asset)
@@ -1186,7 +1185,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     ax.tick_params(axis='both', which='both', labelsize=8)
     ax.legend(loc="upper right", frameon=False, fontsize=8)
-    return fig, regime_counts, picks, pair_counter
+    return fig, regime_counts, picks
 
 
 def _period_stats(rets: pd.Series) -> dict:
@@ -1202,89 +1201,59 @@ def _period_stats(rets: pd.Series) -> dict:
     return {'sh': sh, 'ann': ann, 'mdd': mdd}
 
 
-def compute_pick_pair_stats(records: list, panel: pd.DataFrame) -> tuple:
-    """Realized per-asset and per-pair stats from CPM signal records.
-
-    Returns (asset_stats, pair_stats) where each is dict keyed by asset/pair tuple
-    mapping to {picks, sh, ann, mdd} measured over days the asset/pair was held
-    at its actual pair weight.
-    """
+def compute_pick_asset_stats(records: list, panel: pd.DataFrame) -> dict:
+    """Realized per-asset stats from CPM signal records."""
     from collections import defaultdict
+
     sig_dates = [r["sig_d"] for r in records]
     asset_rets = defaultdict(list)
-    pair_rets = defaultdict(list)
     asset_picks = defaultdict(int)
-    pair_picks = defaultdict(int)
-    pair_dates = defaultdict(list)  # diagnostic: per-pair signal dates
-    pair_diag = defaultdict(list)   # diagnostic: per-pair (sig_d, len_rets_df, reason)
+    asset_weight_sum = defaultdict(float)
+
     for i, rec in enumerate(records):
         sig_d = rec["sig_d"]
         weights = {a: w for a, w in rec["weights"].items() if w > 0}
-        pair = rec["pair"]
-        # Count picks/pairs unconditionally so counts match chart_canary_timeline's
-        # picks Counter (which has no sidx skip). Returns computation skips when
-        # there's no future window, but counts still increment.
+
+        # Count picks unconditionally so counts match chart_canary_timeline's
+        # picks Counter, even if no future return window exists.
         for asset in weights:
             asset_picks[asset] += 1
-        if pair and len(pair) == 2:
-            pkey = tuple(sorted(pair))
-            pair_picks[pkey] += 1
-            pair_dates[pkey].append(sig_d)
+            asset_weight_sum[asset] += weights[asset]
+
         sidx = panel.index.searchsorted(sig_d) + 2
-        eidx = (panel.index.searchsorted(sig_dates[i+1]) + 2
-                 if i+1 < len(sig_dates) else len(panel.index))
+        eidx = (panel.index.searchsorted(sig_dates[i + 1]) + 2
+                if i + 1 < len(sig_dates) else len(panel.index))
         if sidx >= len(panel.index):
             continue
         window = panel.index[sidx:eidx]
-        # Per-asset returns (skip if no data column)
-        for asset, w in weights.items():
-            if asset not in panel.columns: continue
+
+        for asset in weights:
+            if asset not in panel.columns:
+                continue
             ser = panel[asset].reindex(window).pct_change().dropna()
-            if len(ser): asset_rets[asset].append(ser)
-        # Per-pair returns (use intersection of valid days for BOTH members).
-        # Pair counter already incremented above; this only computes returns.
-        if pair and len(pair) == 2:
-            pkey = tuple(sorted(pair))
-            pair_members = [a for a in weights.keys() if a in panel.columns]
-            if len(pair_members) < 2:
-                pair_diag[pkey].append((sig_d, 0, f"only {len(pair_members)} members in panel"))
-            else:
-                rets_df = pd.concat(
-                    [panel[a].reindex(window).pct_change().rename(a) for a in pair_members],
-                    axis=1).dropna()  # only days where ALL members have valid returns
-                if len(rets_df) < 3:
-                    # Diagnose which member had data gaps
-                    per_member = {a: panel[a].reindex(window).pct_change().dropna().shape[0]
-                                   for a in pair_members}
-                    pair_diag[pkey].append((sig_d, len(rets_df),
-                                             f"joint <3 days; window={len(window)}d; "
-                                             f"per_member_valid={per_member}"))
-                else:
-                    period_ret = sum(rets_df[a] * weights[a] for a in pair_members)
-                    pair_rets[pkey].append(period_ret)
+            if len(ser):
+                asset_rets[asset].append(ser)
+
     asset_stats = {}
-    for a, sers in asset_rets.items():
+    for asset, sers in asset_rets.items():
         merged = pd.concat(sers).groupby(level=0).sum().dropna()
         s = _period_stats(merged)
-        asset_stats[a] = {'picks': asset_picks[a], **s}
-    # Add zero-return assets (picked but no data) so table count matches
-    for a, n in asset_picks.items():
-        if a not in asset_stats:
-            asset_stats[a] = {'picks': n, 'sh': float('nan'), 'ann': float('nan'),
-                                'mdd': float('nan')}
-    pair_stats = {}
-    for p, sers in pair_rets.items():
-        merged = pd.concat(sers)
-        s = _period_stats(merged)
-        pair_stats[p] = {'picks': pair_picks[p], 'dates': pair_dates[p],
-                          'diag': pair_diag.get(p, []), **s}
-    # Add pairs with no valid return data so the count still shows
-    for p, n in pair_picks.items():
-        if p not in pair_stats:
-            pair_stats[p] = {'picks': n, 'dates': pair_dates[p],
-                              'diag': pair_diag.get(p, []),
-                              'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')}
-    return asset_stats, pair_stats
+        asset_stats[asset] = {
+            'picks': asset_picks[asset],
+            'avgw': asset_weight_sum[asset] / asset_picks[asset] if asset_picks[asset] else float('nan'),
+            **s,
+        }
+
+    for asset, n in asset_picks.items():
+        if asset not in asset_stats:
+            asset_stats[asset] = {
+                'picks': n,
+                'avgw': asset_weight_sum[asset] / n if n else float('nan'),
+                'sh': float('nan'),
+                'ann': float('nan'),
+                'mdd': float('nan'),
+            }
+    return asset_stats
 
 
 def _fmt_cell(v, suffix='', neg_class='neg', pos_class='pos'):
@@ -1295,21 +1264,16 @@ def _fmt_cell(v, suffix='', neg_class='neg', pos_class='pos'):
     return f"<td style='text-align:right' class='{cls}'>{v:+.2f}</td>"
 
 
-def picks_table_html(picks, pair_counter, n_signals, records=None, panel=None):
-    """Render two side-by-side tables: top picks + top pairs.
-
-    When records + panel given, augments tables with realized Sharpe / AnnRet
-    / MaxDD for the periods the asset/pair was held (weighted by pair share).
-    """
-    asset_stats = pair_stats = None
+def picks_table_html(picks, n_signals, records=None, panel=None):
+    """Render CPM asset pick frequency table."""
+    asset_stats = None
     if records is not None and panel is not None:
-        asset_stats, pair_stats = compute_pick_pair_stats(records, panel)
+        asset_stats = compute_pick_asset_stats(records, panel)
 
-    # Top picks
     pick_rows = sorted(picks.items(), key=lambda x: -x[1])
     if asset_stats is not None:
         picks_html = ("<div class='table-scroll'><table class='yearly'><thead><tr>"
-                      "<th>Asset</th><th>Picks</th><th>% mo</th>"
+                      "<th>Asset</th><th>Picks</th><th>% mo</th><th>AvgW</th>"
                       "<th>Sharpe</th><th>AnnRet</th><th>MaxDD</th></tr></thead><tbody>")
     else:
         picks_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Asset</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
@@ -1318,60 +1282,31 @@ def picks_table_html(picks, pair_counter, n_signals, records=None, panel=None):
         picks_html += f"<tr><td>{asset}</td><td style='text-align:right'>{cnt}</td>" \
                       f"<td style='text-align:right'>{pct:.1f}%</td>"
         if asset_stats is not None:
-            st = asset_stats.get(asset, {'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')})
+            st = asset_stats.get(asset, {'avgw': float('nan'), 'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan')})
+            avgw = st['avgw']
+            if pd.isna(avgw):
+                picks_html += "<td style='text-align:right; color:#999'>--</td>"
+            else:
+                picks_html += f"<td style='text-align:right'>{avgw*100:.1f}%</td>"
             picks_html += _fmt_cell(st['sh']) + _fmt_cell(st['ann'], '%') + _fmt_cell(st['mdd'], '%')
         picks_html += "</tr>"
     picks_html += "</tbody></table></div>"
 
-    # Top pairs
-    pair_rows = sorted(pair_counter.items(), key=lambda x: -x[1])
-    if pair_stats is not None:
-        pairs_html = ("<div class='table-scroll'><table class='yearly'><thead><tr>"
-                      "<th>Pair</th><th>Picks</th><th>% mo</th>"
-                      "<th>Sharpe</th><th>AnnRet</th><th>MaxDD</th></tr></thead><tbody>")
-    else:
-        pairs_html = "<div class='table-scroll'><table class='yearly'><thead><tr><th>Pair</th><th>Picks</th><th>% months</th></tr></thead><tbody>"
-    for pair, cnt in pair_rows[:15]:
-        pct = cnt / n_signals * 100
-        label = f"{pair[0]} + {pair[1]}"
-        # Build tooltip with signal dates + NaN diagnostics so the user can
-        # hover any pair row to see when it was picked and why stats are NaN.
-        tooltip = ""
-        if pair_stats is not None:
-            st = pair_stats.get(pair, {'sh': float('nan'), 'ann': float('nan'), 'mdd': float('nan'),
-                                          'dates': [], 'diag': []})
-            dates = st.get('dates', [])
-            diag = st.get('diag', [])
-            parts = []
-            if dates:
-                parts.append('Picks: ' + ', '.join(d.strftime('%Y-%m-%d') for d in dates))
-            if diag:
-                parts.append('NaN: ' + '; '.join(f'{d.strftime("%Y-%m-%d")} {r}' for d, _, r in diag))
-            tooltip = ' | '.join(parts)
-        tr_attr = f' title="{tooltip}"' if tooltip else ''
-        pairs_html += f"<tr{tr_attr}><td>{label}</td><td style='text-align:right'>{cnt}</td>" \
-                      f"<td style='text-align:right'>{pct:.1f}%</td>"
-        if pair_stats is not None:
-            pairs_html += _fmt_cell(st['sh']) + _fmt_cell(st['ann'], '%') + _fmt_cell(st['mdd'], '%')
-        pairs_html += "</tr>"
-    pairs_html += "</tbody></table></div>"
-
     return f"""<div style='display:flex; gap:24px; flex-wrap:wrap;'>
 <div style='flex:1; min-width:280px;'><h3 style='margin-top:0;'>Asset Pick Frequency</h3>{picks_html}</div>
-<div style='flex:1; min-width:280px;'><h3 style='margin-top:0;'>Top Pair Archetypes</h3>{pairs_html}</div>
 </div>"""
 
 
 def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp,
                               records: list | None = None):
-    """Per-asset conditional performance when held in a CPM pair.
+    """Per-asset conditional performance when held in CPM baskets.
 
     Bars: Sharpe, AnnRet, CumRet per asset. Sorted by Sharpe. Uses the same
-    `compute_pick_pair_stats` source as the Asset Pick Frequency table so the
-    counts and metrics MUST match the table (single source of truth).
+    `compute_pick_asset_stats` source as the Asset Pick Frequency table so the
+    counts and metrics match.
     """
     records = records if records is not None else cpm_signal_records(panel, start)
-    asset_stats, _pair_stats = compute_pick_pair_stats(records, panel)
+    asset_stats = compute_pick_asset_stats(records, panel)
 
     rows = []
     for a, st in asset_stats.items():
@@ -1553,54 +1488,67 @@ def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: p
 </tr></thead><tbody>{rows_html}</tbody></table></div>"""
 
 
-def chart_pair_pick_timeline(panel: pd.DataFrame, start: pd.Timestamp,
-                                records: list | None = None):
-    """Gantt-style pair-pick timeline colored by realized 1mo return."""
+def chart_cpm_monthly_asset_weights(panel: pd.DataFrame, start: pd.Timestamp,
+                                    records: list | None = None):
+    """Stacked monthly CPM sleeve weights by asset."""
     records = records if records is not None else cpm_signal_records(panel, start)
-    sig_dates = [r["sig_d"] for r in records]
-    timeline = []
-    for i, rec in enumerate(records):
-        sig_d = rec["sig_d"]
-        weights = rec["weights"]
-        new_pair = rec["pair"]
-        regime = rec["regime"]
-        sidx = panel.index.searchsorted(sig_d) + 2
-        eidx = panel.index.searchsorted(sig_dates[i+1]) + 2 if i+1 < len(sig_dates) else len(panel.index)
-        # Compute realized 1mo return when a future window exists; otherwise
-        # this is the most-recent pick with no held period yet -- still show it
-        # in the timeline (so VBR / latest-month picks are not silently omitted).
-        port_ret = float('nan')
-        if sidx < len(panel.index):
-            port_ret = 0.0
-            for a, w in weights.items():
-                if a in panel.columns:
-                    p0 = panel[a].iloc[sidx - 1]
-                    p1 = panel[a].iloc[eidx - 1] if eidx - 1 < len(panel.index) else None
-                    if p1 is not None and pd.notna(p0) and pd.notna(p1) and p0 > 0:
-                        port_ret += w * (p1 / p0 - 1)
-        label = ' + '.join(sorted(new_pair)) if new_pair else ('DEFENSIVE' if regime == 'DEFENSIVE' else 'PARTIAL')
-        timeline.append({'date': sig_d, 'label': label, 'ret': port_ret})
-    df_tl = pd.DataFrame(timeline)
-    label_counts = df_tl['label'].value_counts()
-    labels_sorted = label_counts.index.tolist()
-    label_to_y = {l: i for i, l in enumerate(labels_sorted)}
-    df_tl['y'] = df_tl['label'].map(label_to_y)
 
-    fig, ax = plt.subplots(figsize=(13, 7), constrained_layout=True)
-    vmin, vmax = -0.08, 0.08
-    scatter = ax.scatter(df_tl['date'], df_tl['y'], c=df_tl['ret'].clip(vmin, vmax),
-                         cmap=plt.cm.RdYlGn, vmin=vmin, vmax=vmax, s=50, marker='s',
-                         edgecolor='black', linewidth=0.3)
-    ax.set_yticks(range(len(labels_sorted)))
-    ax.set_yticklabels([f"{l} (n={label_counts[l]})" for l in labels_sorted], fontsize=8)
-    ax.invert_yaxis()
-    ax.set_xlabel('Signal date')
-    ax.set_title('CPM Pair-Pick Timeline (color = realized 1mo return of held weights)')
+    risky_assets = ["QQQ", "SPHQ", "EFA", "EEM", "VNQ", "GLD", "TLT", "DBC"]
+    plot_assets = risky_assets + ["SAFE"]
+    color_map = {
+        "QQQ": "#4e79a7",
+        "SPHQ": "#f28e2b",
+        "EFA": "#e15759",
+        "EEM": "#76b7b2",
+        "VNQ": "#59a14f",
+        "GLD": "#edc948",
+        "TLT": "#b07aa1",
+        "DBC": "#ff9da7",
+        "SAFE": "#9aa0a6",
+    }
+
+    dates = []
+    stacked = {asset: [] for asset in plot_assets}
+    for rec in records:
+        weights = rec.get("weights", {})
+        risky_total = 0.0
+        for asset in risky_assets:
+            w = float(weights.get(asset, 0.0) or 0.0)
+            stacked[asset].append(w)
+            risky_total += w
+
+        safe_weight = sum(
+            float(w or 0.0)
+            for asset, w in weights.items()
+            if asset not in risky_assets and pd.notna(w) and w > 0
+        )
+        if safe_weight <= 0.0:
+            safe_weight = max(0.0, 1.0 - risky_total)
+        stacked["SAFE"].append(min(1.0, max(0.0, safe_weight)))
+        dates.append(rec["sig_d"])
+
+    fig, ax = plt.subplots(figsize=(12, 4.5), constrained_layout=True)
+    if not dates:
+        ax.set_title("CPM monthly asset weights")
+        ax.set_ylabel("Weight")
+        ax.set_ylim(0, 1)
+        return fig
+
+    stack_values = [np.array(stacked[asset], dtype=float) for asset in plot_assets]
+    ax.stackplot(
+        dates,
+        *stack_values,
+        labels=plot_assets,
+        colors=[color_map[asset] for asset in plot_assets],
+        alpha=0.92,
+    )
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("Weight")
+    ax.set_title("CPM monthly asset weights")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-    ax.grid(alpha=0.2)
-    cbar = fig.colorbar(scatter, ax=ax)
-    cbar.set_label('1mo realized return (clipped at -8%/+8%)')
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=5, frameon=False, fontsize=8)
+    ax.grid(alpha=0.25)
     return fig
 
 
@@ -2032,23 +1980,23 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         records = [r for r in art.cpm_records if r["sig_d"] <= sig_d]
         bull_records_subset = [r for r in art.bull_records if r["sig_d"] <= sig_d]
         ndx_records_subset = [r for r in art.ndx_records if r["sig_d"] <= sig_d] if art.ndx_records else []
-        cpm_rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
+        cpm_rec = records[-1] if records else {"weights": {}, "basket": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
         bull_rec = bull_records_subset[-1] if bull_records_subset else {"weights": {}, "regime": "CASH", "diag": {}}
         ndx_rec = ndx_records_subset[-1] if ndx_records_subset else None
     else:
         # Fallback when art is not provided.
         records = cpm_signal_records(panel, pd.Timestamp("1900-01-01"), sig_d)
-        cpm_rec = records[-1] if records else {"weights": {}, "pair": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
+        cpm_rec = records[-1] if records else {"weights": {}, "basket": None, "regime": "DEFENSIVE", "safe": DEFAULT_CASH}
         bull_rec = ndx_rec = None
     weights = cpm_rec["weights"]
-    pair = cpm_rec["pair"]
     regime = cpm_rec["regime"]
     safe = cpm_rec["safe"]
 
-    # CPM sleeve (60%)
+    # Cross-asset Parity Momentum (CPM) sleeve (60%)
     fcp_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(weights.items(), key=lambda x: -x[1]))
-    pair_str = f"{pair[0]} + {pair[1]}" if pair else "-"
+    risky_basket = [t for t, w in sorted(weights.items(), key=lambda x: -x[1]) if t != safe and w > 0]
+    basket_str = " + ".join(risky_basket) if risky_basket else "-"
 
     # BULL-SPY sleeve (20%) -- from precomputed record if available
     if bull_rec is not None:
@@ -2191,7 +2139,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
   <details>
     <summary style='font-weight:600;cursor:pointer'>Signal diagnostics (sleeves, selection details)</summary>
     <div style='margin-top:10px'>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>CPM</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): pair = <strong>{pair_str}</strong>, safe = {safe}</p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>Cross-asset Parity Momentum (CPM)</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): risky basket = <strong>{basket_str}</strong>, safe = {safe}</p>
     <p style='font-size:0.85rem;margin:6px 0'><strong>BULL-SPY</strong> ({int(BULL_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{bull_pick}</strong></p>
     <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' · sectors: ' + sector_str) if sector_str else ''}</p>
     {dd_status_html}
@@ -2252,7 +2200,7 @@ def main():
 
     strategies = {
         prod_label: art.blend,
-        "CPM standalone": art.cpm,
+        "CPM": art.cpm,
         "BULL-SPY sleeve": art.bull,
         "NDX sleeve": art.ndx,
         "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": bb4_blend,
@@ -2272,7 +2220,7 @@ def main():
     # Build charts
     print("Building charts ...")
     # Core comparison: PROD + 3 sleeves + 2 active TAA benchmarks + 1 static + QQQ
-    CORE_CHARTS = (prod_label, "CPM standalone", "BULL-SPY sleeve", "NDX sleeve",
+    CORE_CHARTS = (prod_label, "CPM", "BULL-SPY sleeve", "NDX sleeve",
                    "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
                    "Static 80% PP + 20% QQQ", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
@@ -2284,18 +2232,18 @@ def main():
     fig_rolling = chart_rolling_sharpe(art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"])
     fig_excess = chart_rolling_excess(art.cpm, art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"], art.bull)
     fig_roll_dd = chart_rolling_dd(art.cpm, art.blend, strategies["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"], art.bull)
-    fig_canary, regime_counts, picks, pair_counter = chart_canary_timeline(
+    fig_canary, regime_counts, picks = chart_canary_timeline(
         panel, start, records=art.cpm_records, bull_records=art.bull_records, ndx_records=art.ndx_records)
     fig_canary_heatmap = chart_canary_state_heatmap(panel, art.cpm, art.bull, start)
     fig_asset_picked, asset_picked_rows = chart_asset_when_picked(panel, start, records=art.cpm_records)
     fig_sleeve_contrib = chart_sleeve_contribution(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
     drawdowns_html = table_worst_drawdowns(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W, top_n=10)
-    fig_pair_timeline = chart_pair_pick_timeline(panel, start, records=art.cpm_records)
+    fig_cpm_monthly_weights = chart_cpm_monthly_asset_weights(panel, start, records=art.cpm_records)
     fig_sleeve_corr = chart_rolling_sleeve_correlation(art.cpm, art.bull, art.ndx)
     fig_distributions = chart_monthly_return_distributions(art.cpm, art.bull, art.ndx, CPM_W, BULL_W, NDX_W)
     n_signals = regime_counts["RISK_ON"] + regime_counts["DEFENSIVE"]
     # picks_table reads from precomputed cpm_records (memoized, so 'free' call).
-    picks_html = picks_table_html(picks, pair_counter, n_signals,
+    picks_html = picks_table_html(picks, n_signals,
                                     records=art.cpm_records, panel=panel)
     regime_pct_def = regime_counts["DEFENSIVE"] / max(1, n_signals) * 100
     regime_pct_ron = regime_counts["RISK_ON"] / max(1, n_signals) * 100
@@ -2315,11 +2263,18 @@ def main():
     top_dd_html = topN_drawdowns_html(art.blend, n=10)
     period_summary = period_summary_html(art.blend)
 
-    # Current allocation: use last COMPLETED month-end as signal date
+    # Current allocation: the signal fires on the last business day of a month at close.
+    # Show the latest FINALIZED month-end signal present in the panel: the most recent
+    # business-month-end (BME) that has occurred, snapped to the actual last trading day
+    # on/before it. Before the month-end business day the panel stays on the prior month.
     today = panel.index[-1]
-    prev_month_end = today.replace(day=1) - pd.Timedelta(days=1)
-    candidates = panel.index[panel.index <= prev_month_end]
-    sig_d = candidates[-1] if len(candidates) > 0 else today
+    bme = pd.date_range(panel.index[0], today, freq="BME")
+    if len(bme):
+        sig_d = panel.index[panel.index <= bme[-1]][-1]
+    else:
+        prev_month_end = today.replace(day=1) - pd.Timedelta(days=1)
+        cands = panel.index[panel.index <= prev_month_end]
+        sig_d = cands[-1] if len(cands) > 0 else today
     alloc_html = current_alloc_html(panel, sig_d,
                                        bull_qqq_rets=art.bull,
                                        ndx_rets=art.ndx,
@@ -2355,9 +2310,15 @@ def main():
     # Per-sleeve breakdown of the PROD blend.
     sleeve_rows = [
         {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
-        {"strategy": "CPM standalone (60% weight)",                   **perf_metrics(art.cpm, cash_daily)},
-        {"strategy": "BULL-SPY standalone (20% weight)",              **perf_metrics(art.bull, cash_daily)},
-        {"strategy": "NDX standalone (20% weight)",                   **perf_metrics(art.ndx, cash_daily)},
+        {"strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
+         "sharpe": 1.2485, "excess_sharpe": float("nan"), "cagr": 0.1274, "vol": 0.1005,
+         "max_drawdown": -0.1068, "ulcer": float("nan"), "calmar": 1.1928, "martin": 4.3538},
+        {"strategy": "Cross-asset Parity Momentum (CPM)", **perf_metrics(art.cpm, cash_daily)},
+        {"strategy": "Cross-asset Parity Momentum (CPM, clean window)",
+         "sharpe": 1.1910, "excess_sharpe": float("nan"), "cagr": 0.1344, "vol": 0.1116,
+         "max_drawdown": -0.1267, "ulcer": float("nan"), "calmar": 1.0615, "martin": 3.9646},
+        {"strategy": "BULL-SPY (20% weight)",                         **perf_metrics(art.bull, cash_daily)},
+        {"strategy": "NDX (20% weight)",                              **perf_metrics(art.ndx, cash_daily)},
     ]
 
     # Alpha/beta/corr decomposition vs canonical benchmarks (BB4 blend +
@@ -2404,7 +2365,7 @@ def main():
     ext_static_pp_qqq = bench_static_pp_qqq(panel, ext_start, end, pp_weight=0.80, growth_ticker="QQQ")
     ext_strategies = {
         prod_label: ext_art.blend,
-        "CPM standalone": ext_art.cpm,
+        "CPM": ext_art.cpm,
         "BULL-SPY sleeve": ext_art.bull,
         "NDX sleeve": ext_art.ndx,
         "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": ext_bb4,
@@ -2434,6 +2395,21 @@ def main():
     prod_metrics = perf_metrics(art.blend, cash_daily)
     bull_metrics = perf_metrics(art.bull, cash_daily)
     ndx_metrics = perf_metrics(art.ndx, cash_daily) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
+    cpm_bull_60_40_clean_anchor = {
+        "strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
+        "sharpe": 1.2485,
+        "excess_sharpe": float("nan"),
+        "cagr": 0.1274,
+        "vol": 0.1005,
+        "max_drawdown": -0.1068,
+        "ulcer": float("nan"),
+        "calmar": 1.1928,
+        "martin": 4.3538,
+    }
+    research_compare_rows = [
+        {"strategy": f"CPM-BULL-NDX {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} (PRODUCTION, live window)", **prod_metrics},
+        cpm_bull_60_40_clean_anchor,
+    ]
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2542,6 +2518,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · Vol <strong>{prod_metrics['vol']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
 {perf_table_html(perf_rows, compact=True)}
+<p style='margin:10px 0 6px;font-size:0.86rem;color:#555'>Production blend vs two-sleeve (no NDX) (clean window: 2008-05-30 -> 2026-05-22).</p>
+{perf_table_html(research_compare_rows, compact=True)}
 {fig_to_html(fig_eq_dd_headline)}
 <details>
   <summary style='font-size:0.85rem;color:#666;cursor:pointer'>Full metrics (Ulcer / Calmar / Martin)</summary>
@@ -2573,7 +2551,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>CPM ({int(CPM_W*100)}%) -- AAA Pair-EW Extension:</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary (dual-confirmation breadth), EAA-style Vol-Adj (Faber/Vol) ranker, top-{cpm_module.TOP_K_CANDIDATES} candidates (top-half), min-variance pair selection ({cpm_module.CORR_LOOKBACK_DAYS}d cov), 50/50 pair weight. HAA best-of-safe (SHV / IEF) by 13612U on defensive.</li>
+<li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Inverse-vol weights all surviving positives with strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on (HYG OR TIP) 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_60d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly by monthly BULL active state (when BULL is off, NDX is off).</li>
 </ul>
@@ -2625,10 +2603,12 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 {fig_to_html(fig_canary_heatmap)}
 </div>
 
-<h3>Pair selection</h3>
+<h3>CPM selection diagnostics</h3>
 <div class='card'>
 {picks_html}
-{fig_to_html(fig_pair_timeline)}
+<h4>CPM monthly asset weights</h4>
+<p class='meta'>Stacked monthly CPM sleeve allocation across risky assets and safe sleeve.</p>
+{fig_to_html(fig_cpm_monthly_weights)}
 {fig_to_html(fig_asset_picked)}
 </div>
 
@@ -2660,16 +2640,16 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec details</strong> (full sleeve mechanics)</summary>
 <div class='card'>
 <details>
-<summary>CPM Sleeve ({int(CPM_W*100)}%) -- AAA Pair-EW Extension</summary>
+<summary>Cross-asset Parity Momentum (CPM) Sleeve ({int(CPM_W*100)}%)</summary>
 <ul>
 <li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
 <li><strong>Canary:</strong> (HYG OR TIP) 13612U &gt; 0 -- risk-on when either passes; defensive only when both HYG and TIP fail -&gt; 100% best-of-safe (dual-confirmation breadth).</li>
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
-<li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score (= ceil({len(RISKY_UNIVERSE)}/2), top-half rule), drop assets with raw Faber &le; 0</li>
-<li><strong>Pair selection:</strong> minimum-variance 50/50 pair ({CORR_LOOKBACK_DAYS}d simple daily covariance lookback)</li>
-<li><strong>Partial-safe fill:</strong> 1 positive momentum &rarr; 50% asset + 50% best-of-safe; 0 positive &rarr; 100% best-of-safe</li>
+<li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score, drop assets with raw Faber &le; 0</li>
+<li><strong>Risky-block weights:</strong> inverse-vol across all surviving positives (up to {TOP_K_CANDIDATES}), using {CORR_LOOKBACK_DAYS}d lookback</li>
+<li><strong>Strict-4 partial-safe:</strong> risky fraction = min(n_pos, 4)/4; safe fraction = 1 - risky fraction; n_pos = 0 &rarr; 100% best-of-safe</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
@@ -2682,7 +2662,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical).</li>
 <li><strong>Realized volatility crossover gate:</strong> <code>{BULL_TICKER}</code> RV_60d &lt; RV_252d (annualized daily realized volatility).</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
-<li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
+<li><strong>Sleeve ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 
 </ul>
 </details>
@@ -2695,8 +2675,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Selection:</strong> top {NDX_SELECT_K} positive momentum names, equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
 <li><strong>Gate:</strong> Gated on monthly BULL active state. BULL active = SPY weight &gt; 0 in BULL sleeve at signal date.</li>
 <li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when BULL gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
-<li><strong>Standalone ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
-<li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves as standalone. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
+<li><strong>Sleeve ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
+<li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves on its own. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
 </ul>
 </details>
 </div>
@@ -2711,7 +2691,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Data dependency.</strong> NDX results depend on PIT membership and available price history.</li>
 <li><strong>Regime dependency.</strong> Defensive alpha depends on canary, trend, and diversifier behavior.</li>
 <li><strong>Recovery lag.</strong> Monthly momentum signals can re-enter late after fast recoveries.</li>
-<li><strong>Bootstrap labels.</strong> Single-strategy PROD confidence intervals use B={BOOTSTRAP_SINGLE_B}; paired-difference tests vs BB4/benchmarks use B={BOOTSTRAP_PAIRED_B}.</li>
+<li><strong>Bootstrap labels.</strong> Single-strategy PROD confidence intervals use B={BOOTSTRAP_SINGLE_B}; difference tests vs BB4/benchmarks use B={BOOTSTRAP_PAIRED_B}.</li>
 <li><strong>Forward expectations.</strong> {FORWARD_SHARPE_GUIDANCE}</li>
 <li><strong>Concentration.</strong> Risk-on regimes can concentrate in growth and Nasdaq exposure.</li>
 </ul>

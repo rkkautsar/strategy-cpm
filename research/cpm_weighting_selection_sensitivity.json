@@ -1,0 +1,684 @@
+{
+  "meta": {
+    "conv": "mooex",
+    "lookback": 504,
+    "cost_bps_prod": 10,
+    "K_top_half": 4,
+    "M_target": 3,
+    "B": 2000,
+    "block": 21,
+    "seed": 42,
+    "clean_start": "2008-05-30",
+    "ext_start": "1999-03-10",
+    "end": "2026-05-22"
+  },
+  "configs": {
+    "MINVAR/INVVOL": {
+      "label": "INVVOL (production)",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.2452758236114134,
+            "cagr": 0.14278487232762171,
+            "maxdd": -0.13191865401474812,
+            "calmar": 1.0823705971989284,
+            "vol": 0.1126523111309533
+          },
+          "gross_0bps": {
+            "sharpe": 1.296882330470334,
+            "cagr": 0.14948843977277426,
+            "maxdd": -0.12435759942173286,
+            "calmar": 1.2020852804163211,
+            "vol": 0.11269130775404428
+          },
+          "avg_max_weight": 0.4755950490889584,
+          "avg_eff_n": 2.646981940831758,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.2249172843348244,
+            "cagr": 0.13885461566489865,
+            "maxdd": -0.15178981302983985,
+            "calmar": 0.9147821773625987,
+            "vol": 0.11120919935163157
+          },
+          "gross_0bps": {
+            "sharpe": 1.2793634394631164,
+            "cagr": 0.14584528360083526,
+            "maxdd": -0.15115391645775,
+            "calmar": 0.9648792900553219,
+            "vol": 0.11126605616429486
+          },
+          "avg_max_weight": 0.468861333395683,
+          "avg_eff_n": 2.683860704461502,
+          "max_single_weight": 1.0
+        }
+      }
+    },
+    "MINVAR/ERC": {
+      "label": "ERC true risk-parity",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.2693449574014148,
+            "cagr": 0.14416092256101143,
+            "maxdd": -0.12963868900823594,
+            "calmar": 1.1120208300768368,
+            "vol": 0.11135186128475096
+          },
+          "gross_0bps": {
+            "sharpe": 1.3237247047360474,
+            "cagr": 0.15114842418177377,
+            "maxdd": -0.1223899148640556,
+            "calmar": 1.2349745021855898,
+            "vol": 0.1113886831407
+          },
+          "avg_max_weight": 0.4978280558752237,
+          "avg_eff_n": 2.5982037152413904,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.2243488012226815,
+            "cagr": 0.13668248145814776,
+            "maxdd": -0.15198936677209296,
+            "calmar": 0.8992897619153992,
+            "vol": 0.10955245056365111
+          },
+          "gross_0bps": {
+            "sharpe": 1.2815547347861933,
+            "cagr": 0.1438998102954796,
+            "maxdd": -0.15134990556126338,
+            "calmar": 0.9507756860623338,
+            "vol": 0.10960715746397007
+          },
+          "avg_max_weight": 0.48982866926626634,
+          "avg_eff_n": 2.6300306122793846,
+          "max_single_weight": 1.0
+        }
+      }
+    },
+    "MINVAR/EW": {
+      "label": "1/3 equal-weight (ref)",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.2228955021089754,
+            "cagr": 0.14391238206653734,
+            "maxdd": -0.1685914599553081,
+            "calmar": 0.8536160853265465,
+            "vol": 0.11574501576477952
+          },
+          "gross_0bps": {
+            "sharpe": 1.2727497562213648,
+            "cagr": 0.15058237903038085,
+            "maxdd": -0.1663603733748792,
+            "calmar": 0.905157736638737,
+            "vol": 0.11579204566859055
+          },
+          "avg_max_weight": 0.42703533026113666,
+          "avg_eff_n": 2.705069124423963,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.2236651567621621,
+            "cagr": 0.14331598080342345,
+            "maxdd": -0.17680061166026217,
+            "calmar": 0.8106079467576596,
+            "vol": 0.11485664196422107
+          },
+          "gross_0bps": {
+            "sharpe": 1.2751522689863828,
+            "cagr": 0.1501827248277805,
+            "maxdd": -0.17238946228192886,
+            "calmar": 0.8711827442339193,
+            "vol": 0.11492231078664698
+          },
+          "avg_max_weight": 0.4118246687054027,
+          "avg_eff_n": 2.761467889908257,
+          "max_single_weight": 1.0
+        }
+      }
+    },
+    "MINVOL/INVVOL": {
+      "label": "MINVOL 3-lowest-vol",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.1925769013301608,
+            "cagr": 0.1358940257476604,
+            "maxdd": -0.13191865401475,
+            "calmar": 1.0301350234551812,
+            "vol": 0.11270808526018081
+          },
+          "gross_0bps": {
+            "sharpe": 1.2436363703817728,
+            "cagr": 0.1424703191547596,
+            "maxdd": -0.12435759942173319,
+            "calmar": 1.1456502844800087,
+            "vol": 0.1127334503593903
+          },
+          "avg_max_weight": 0.4748872087768139,
+          "avg_eff_n": 2.6488216503495097,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.1949027489867319,
+            "cagr": 0.13567376073697202,
+            "maxdd": -0.1723989914506593,
+            "calmar": 0.7869753737846079,
+            "vol": 0.11170811702086705
+          },
+          "gross_0bps": {
+            "sharpe": 1.2483797906864178,
+            "cagr": 0.14252857864096558,
+            "maxdd": -0.17122050893569585,
+            "calmar": 0.8324270236487504,
+            "vol": 0.11174826457182514
+          },
+          "avg_max_weight": 0.4676668738546015,
+          "avg_eff_n": 2.6880004721846427,
+          "max_single_weight": 1.0
+        }
+      }
+    },
+    "MINCORR/INVVOL": {
+      "label": "MINCORR diversification",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.2026839614283966,
+            "cagr": 0.14271972931456545,
+            "maxdd": -0.1265707610892406,
+            "calmar": 1.1275884579214845,
+            "vol": 0.11701165439523582
+          },
+          "gross_0bps": {
+            "sharpe": 1.2610285125959553,
+            "cagr": 0.1505546920118057,
+            "maxdd": -0.12435759942173286,
+            "calmar": 1.2106593622898016,
+            "vol": 0.11702805638264493
+          },
+          "avg_max_weight": 0.48493755468277194,
+          "avg_eff_n": 2.618712291997183,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.1847903735276566,
+            "cagr": 0.1391061875163162,
+            "maxdd": -0.16305208544821925,
+            "calmar": 0.8531395788893017,
+            "vol": 0.11558178509649387
+          },
+          "gross_0bps": {
+            "sharpe": 1.2449526764237657,
+            "cagr": 0.14709938236108755,
+            "maxdd": -0.16191832371295878,
+            "calmar": 0.9084789107739186,
+            "vol": 0.11561801698909029
+          },
+          "avg_max_weight": 0.48207309401038184,
+          "avg_eff_n": 2.6394678139367778,
+          "max_single_weight": 1.0
+        }
+      }
+    },
+    "MAXSHARPE/INVVOL": {
+      "label": "MAXSHARPE trailing",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.1500850902361284,
+            "cagr": 0.13796403282194292,
+            "maxdd": -0.1265707610892406,
+            "calmar": 1.0900150369220687,
+            "vol": 0.11892772003636323
+          },
+          "gross_0bps": {
+            "sharpe": 1.1991091946378174,
+            "cagr": 0.14467088804353745,
+            "maxdd": -0.12435759942173286,
+            "calmar": 1.1633457763438833,
+            "vol": 0.11898048024931716
+          },
+          "avg_max_weight": 0.4852466267784633,
+          "avg_eff_n": 2.618818665251691,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.1430932967155958,
+            "cagr": 0.13744842125853385,
+            "maxdd": -0.16162803289944627,
+            "calmar": 0.8503996416515488,
+            "vol": 0.11886093041055215
+          },
+          "gross_0bps": {
+            "sharpe": 1.1943023317795833,
+            "cagr": 0.1444730363286646,
+            "maxdd": -0.16109039374769996,
+            "calmar": 0.8968445167185978,
+            "vol": 0.11892766365284316
+          },
+          "avg_max_weight": 0.47935548240649695,
+          "avg_eff_n": 2.652184587920051,
+          "max_single_weight": 1.0
+        }
+      }
+    },
+    "MAXCALMAR/INVVOL": {
+      "label": "MAXCALMAR trailing",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.1957697037212314,
+            "cagr": 0.14365059662973323,
+            "maxdd": -0.1265707610892406,
+            "calmar": 1.1349429788800136,
+            "vol": 0.1185195596237843
+          },
+          "gross_0bps": {
+            "sharpe": 1.2472686347392985,
+            "cagr": 0.1506549465320175,
+            "maxdd": -0.12435759942173286,
+            "calmar": 1.2114655415717914,
+            "vol": 0.11853167971184403
+          },
+          "avg_max_weight": 0.4851937287240776,
+          "avg_eff_n": 2.6191231517800753,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.1419128816228286,
+            "cagr": 0.13563363364070913,
+            "maxdd": -0.15384157878074656,
+            "calmar": 0.8816448369527772,
+            "vol": 0.11743719892986405
+          },
+          "gross_0bps": {
+            "sharpe": 1.197333993454137,
+            "cagr": 0.1430983200001299,
+            "maxdd": -0.15263966118586858,
+            "calmar": 0.9374910746550974,
+            "vol": 0.1174788363566592
+          },
+          "avg_max_weight": 0.4792534062392848,
+          "avg_eff_n": 2.6527302160326167,
+          "max_single_weight": 1.0
+        }
+      }
+    },
+    "MINDD/INVVOL": {
+      "label": "MINDD trailing",
+      "windows": {
+        "CLEAN": {
+          "net_10bps": {
+            "sharpe": 1.216625118397756,
+            "cagr": 0.14220106470043614,
+            "maxdd": -0.13191865401474923,
+            "calmar": 1.0779450848894903,
+            "vol": 0.11511551710238324
+          },
+          "gross_0bps": {
+            "sharpe": 1.2680116005357804,
+            "cagr": 0.14899757736051455,
+            "maxdd": -0.12435759942173286,
+            "calmar": 1.198138095728435,
+            "vol": 0.11514016714964502
+          },
+          "avg_max_weight": 0.47800055763788446,
+          "avg_eff_n": 2.640579571694569,
+          "max_single_weight": 1.0
+        },
+        "EXT": {
+          "net_10bps": {
+            "sharpe": 1.2319944402903589,
+            "cagr": 0.14240008368805457,
+            "maxdd": -0.1442787695894856,
+            "calmar": 0.9869787779118409,
+            "vol": 0.1132837487596291
+          },
+          "gross_0bps": {
+            "sharpe": 1.2867887238449,
+            "cagr": 0.14957517042363078,
+            "maxdd": -0.14304368589715732,
+            "calmar": 1.0456607677962755,
+            "vol": 0.11333117062147076
+          },
+          "avg_max_weight": 0.4720026459142914,
+          "avg_eff_n": 2.673877085728809,
+          "max_single_weight": 1.0
+        }
+      }
+    }
+  },
+  "axis_a": [
+    {
+      "selector": "MINVAR",
+      "flavor": "INVVOL",
+      "label": "INVVOL (production)",
+      "key": "MINVAR/INVVOL"
+    },
+    {
+      "selector": "MINVAR",
+      "flavor": "ERC",
+      "label": "ERC true risk-parity",
+      "key": "MINVAR/ERC"
+    },
+    {
+      "selector": "MINVAR",
+      "flavor": "EW",
+      "label": "1/3 equal-weight (ref)",
+      "key": "MINVAR/EW"
+    }
+  ],
+  "axis_b": [
+    {
+      "selector": "MINVAR",
+      "flavor": "INVVOL",
+      "label": "MINVAR (production)",
+      "kind": "risk",
+      "key": "MINVAR/INVVOL"
+    },
+    {
+      "selector": "MINVOL",
+      "flavor": "INVVOL",
+      "label": "MINVOL 3-lowest-vol",
+      "kind": "risk",
+      "key": "MINVOL/INVVOL"
+    },
+    {
+      "selector": "MINCORR",
+      "flavor": "INVVOL",
+      "label": "MINCORR diversification",
+      "kind": "risk",
+      "key": "MINCORR/INVVOL"
+    },
+    {
+      "selector": "MAXSHARPE",
+      "flavor": "INVVOL",
+      "label": "MAXSHARPE trailing",
+      "kind": "perf",
+      "key": "MAXSHARPE/INVVOL"
+    },
+    {
+      "selector": "MAXCALMAR",
+      "flavor": "INVVOL",
+      "label": "MAXCALMAR trailing",
+      "kind": "perf",
+      "key": "MAXCALMAR/INVVOL"
+    },
+    {
+      "selector": "MINDD",
+      "flavor": "INVVOL",
+      "label": "MINDD trailing",
+      "kind": "perf",
+      "key": "MINDD/INVVOL"
+    }
+  ],
+  "paired_bootstrap": {
+    "AXISA_invvol_vs_erc_CLEAN": {
+      "a": "INVVOL",
+      "b": "ERC",
+      "n_days": 4524,
+      "n_years": 17.976728268309376,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.849,
+          "mean": 0.02497195194159019,
+          "ci_lo": -0.02344913558832146,
+          "ci_hi": 0.07322351524247595,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.686,
+          "mean": 0.004260900095421549,
+          "ci_lo": -0.010398855849525173,
+          "ci_hi": 0.024364570915282078,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.732,
+          "mean": 0.03283122516925812,
+          "ci_lo": -0.06859090062036968,
+          "ci_hi": 0.16028892159884947,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.99402420853406
+    },
+    "AXISA_invvol_vs_erc_EXT": {
+      "a": "INVVOL",
+      "b": "ERC",
+      "n_days": 6856,
+      "n_years": 27.200547570157426,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.4785,
+          "mean": -0.0013240038728069864,
+          "ci_lo": -0.043246110143310736,
+          "ci_hi": 0.04263833332546022,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.597,
+          "mean": 0.0023082684652386545,
+          "ci_lo": -0.012959362358720156,
+          "ci_hi": 0.020850183315168514,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.449,
+          "mean": -0.0038255770441591812,
+          "ci_lo": -0.088948531055088,
+          "ci_hi": 0.07598968410472848,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.9932126073670835
+    },
+    "AXISB_MAXSHARPE_vs_minvar_CLEAN": {
+      "a": "MINVAR",
+      "b": "MAXSHARPE",
+      "n_days": 4524,
+      "n_years": 17.976728268309376,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.0985,
+          "mean": -0.09569787407076706,
+          "ci_lo": -0.2535148188890881,
+          "ci_hi": 0.04470265663769771,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.228,
+          "mean": -0.017420620494146572,
+          "ci_lo": -0.08830384297209815,
+          "ci_hi": 0.019276002787511244,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.2195,
+          "mean": -0.11471414887701897,
+          "ci_lo": -0.5279814335051505,
+          "ci_hi": 0.12410815407577114,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.9608104643313725
+    },
+    "AXISB_MAXSHARPE_vs_minvar_EXT": {
+      "a": "MINVAR",
+      "b": "MAXSHARPE",
+      "n_days": 6856,
+      "n_years": 27.200547570157426,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.0855,
+          "mean": -0.08325933859338269,
+          "ci_lo": -0.21269318786590874,
+          "ci_hi": 0.03762740456794519,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.1725,
+          "mean": -0.021004062529606755,
+          "ci_lo": -0.08950345375733752,
+          "ci_hi": 0.01725854116801761,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.2125,
+          "mean": -0.08209239352989241,
+          "ci_lo": -0.34468548728850334,
+          "ci_hi": 0.09547741717188016,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.954842221076801
+    },
+    "AXISB_MAXCALMAR_vs_minvar_CLEAN": {
+      "a": "MINVAR",
+      "b": "MAXCALMAR",
+      "n_days": 4524,
+      "n_years": 17.976728268309376,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.206,
+          "mean": -0.049368666327637624,
+          "ci_lo": -0.17105746700512964,
+          "ci_hi": 0.06523358392501961,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.3065,
+          "mean": -0.008109339640850474,
+          "ci_lo": -0.04675762965010478,
+          "ci_hi": 0.021005355062546863,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.373,
+          "mean": -0.03713260270105092,
+          "ci_lo": -0.2801961247137865,
+          "ci_hi": 0.15992661184283238,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.9590862199126643
+    },
+    "AXISB_MAXCALMAR_vs_minvar_EXT": {
+      "a": "MINVAR",
+      "b": "MAXCALMAR",
+      "n_days": 6856,
+      "n_years": 27.200547570157426,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.0585,
+          "mean": -0.08335988654171751,
+          "ci_lo": -0.19104267869992733,
+          "ci_hi": 0.01838770846254642,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.267,
+          "mean": -0.012308554849821064,
+          "ci_lo": -0.05878487524231209,
+          "ci_hi": 0.02354222017191842,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.2365,
+          "mean": -0.06220379837799325,
+          "ci_lo": -0.2722536058880859,
+          "ci_hi": 0.10707608936960201,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.9517899433935851
+    },
+    "AXISB_MINDD_vs_minvar_CLEAN": {
+      "a": "MINVAR",
+      "b": "MINDD",
+      "n_days": 4524,
+      "n_years": 17.976728268309376,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.261,
+          "mean": -0.028183418722799097,
+          "ci_lo": -0.1096818330983069,
+          "ci_hi": 0.05163629497873123,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.352,
+          "mean": -0.0037125850914368915,
+          "ci_lo": -0.029891553002131373,
+          "ci_hi": 0.01915244004584065,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.383,
+          "mean": -0.02320448860531426,
+          "ci_lo": -0.20477621477528843,
+          "ci_hi": 0.13174172197326234,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.9828715100306387
+    },
+    "AXISB_MINDD_vs_minvar_EXT": {
+      "a": "MINVAR",
+      "b": "MINDD",
+      "n_days": 6856,
+      "n_years": 27.200547570157426,
+      "diff_b_minus_a": {
+        "sharpe": {
+          "p_b_wins": 0.583,
+          "mean": 0.007075552678787753,
+          "ci_lo": -0.061587682655244246,
+          "ci_hi": 0.07494147085413702,
+          "excludes_zero": false
+        },
+        "maxdd": {
+          "p_b_wins": 0.523,
+          "mean": 0.00139387095856019,
+          "ci_lo": -0.025984956967913614,
+          "ci_hi": 0.031569497299714096,
+          "excludes_zero": false
+        },
+        "calmar": {
+          "p_b_wins": 0.6685,
+          "mean": 0.023938628850780165,
+          "ci_lo": -0.11614497313414215,
+          "ci_hi": 0.16452052036964143,
+          "excludes_zero": false
+        }
+      },
+      "corr": 0.9822597997638735
+    }
+  },
+  "erc_diagnostics": {
+    "ERC": {
+      "n_risk_on": 291,
+      "avg_max_weight": 0.42671469020642294,
+      "max_max_weight": 0.6866379944093044,
+      "avg_eff_n": 2.8316838839015763,
+      "min_eff_n": 1.75541000978272
+    },
+    "INVVOL": {
+      "n_risk_on": 291,
+      "avg_max_weight": 0.40315345711473655,
+      "max_max_weight": 0.6859182565982689,
+      "avg_eff_n": 2.8921733689309668,
+      "min_eff_n": 1.7570641120157149
+    },
+    "mean_l1_erc_vs_invvol": 0.07924873478414664
+  }
+}

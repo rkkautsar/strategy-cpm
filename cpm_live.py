@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CPM - Factor, Canary, Pair
+CPM - Factor, Canary, Basket
 Production allocation runner + backtest.
 
 Usage:
@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -61,7 +60,7 @@ DEFAULT_CASH = "SHV"
 
 # Engine parameters
 TOP_K_CANDIDATES = 4        # top-half of 8-asset universe (ceil(8/2))
-CORR_LOOKBACK_DAYS = 504    # rolling cov lookback for min-var pair (~2y)
+CORR_LOOKBACK_DAYS = 504    # rolling covariance lookback for inverse-vol weights (~2y)
 COST_BPS_PER_SIDE = 10
 # Pinned research/backtest evaluation cutoff for reproducibility (memo clean-window end).
 EVAL_END = pd.Timestamp("2026-05-22")
@@ -122,7 +121,8 @@ def _fetch_cached_adjusted_close(
             pass
 
     s = _download_adjusted_close(ticker, start_ts, end_ts)
-    s.to_csv(cache_path, header=True)
+    if not s.empty:  # never cache empty/failed pulls (avoids day-stable empty-cache poisoning)
+        s.to_csv(cache_path, header=True)
     return s
 
 
@@ -248,7 +248,7 @@ def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> 
 
     Used by canary_risk_state to map breadth into a 3-level regime state
     (OFF/WEAK/ON). Hold-buffer memory is reset across any regime transition
-    so stale pair memory does not bridge a regime change.
+    so stale basket memory does not bridge a regime change.
     """
     canary_assets = canary_assets or CANARY_ASSETS
     scores = []
@@ -269,8 +269,8 @@ assert len(CANARY_ASSETS) >= 1, "CANARY_ASSETS must be non-empty"
 def canary_risk_state(n_pos: int | None) -> str | None:
     """Map canary positive count -> risk state.
 
-    Binary: ON (n_pos >= 1) or OFF (n_pos == 0). Generalizes cleanly to
-    multi-canary configs; any state change in n_pos can be used to invalidate
+    Binary: ON (n_canary_pos >= 1) or OFF (n_canary_pos == 0). Generalizes cleanly to
+    multi-canary configs; any state change in n_canary_pos can be used to invalidate
     memory in callers that track prior risk regime.
     """
     if n_pos is None:
@@ -280,67 +280,32 @@ def canary_risk_state(n_pos: int | None) -> str | None:
     return "ON"
 
 
-# Pair selection: pure min-variance (var_weight=1.0).
-# Tested 25% momentum tiebreaker -- empirically WORSE on both Sharpe (1.324
-# -> 1.239) AND perturbation stability (5.7% -> 11.0% pick flip rate under
-# +/-0.1% price noise). Momentum (12mo TR) depends on just two endpoints and
-# is more sensitive to price drift than the 504d rolling covariance which
-# smooths daily noise. Pure min-vol is both higher-Sharpe and more stable.
-PAIR_VAR_WEIGHT = 1.0
+def inv_vol_weights(close: pd.DataFrame, picks: list, lookback: int) -> dict:
+    """Inverse-vol weights over `picks` using sigma_i from 504d covariance diag.
 
-
-def min_vol_pair(daily: pd.DataFrame, candidates: list, lookback: int,
-                  momenta: dict | None = None,
-                  var_weight: float | None = None) -> tuple:
-    """Return the pair with best composite score (var_weight * min-vol +
-    (1-var_weight) * momentum z-score).
-
-    Pure min-vol pair selection (var_weight=1.0) is sensitive to small
-    variance perturbations. Adding momentum tiebreaker stabilizes selection.
-
-    Simple rolling covariance over the trailing `lookback` trading days
-    (504d ~ 2y). Hard window: live/backtest consistent regardless of
-    caller panel start (above 504d minimum).
-
-    var_weight default reads live module constant `PAIR_VAR_WEIGHT` (not
-    frozen at function-definition time) so runtime overrides for ablation
-    tests work as expected.
+    Uses the same backward-only NaN handling as ranking-vol path:
+      sigma_i = sqrt(diag(close[picks].ffill().pct_change().dropna(how='all').tail(lookback).cov()))
+    Falls back to equal-weight if covariance/sigma is unavailable or degenerate.
     """
-    if var_weight is None:
-        var_weight = PAIR_VAR_WEIGHT
-    if len(candidates) < 2:
-        return None
-    rets = daily[candidates].pct_change().dropna(how="all").tail(lookback)
+    if not picks:
+        return {}
+    rets = close[picks].ffill().pct_change().dropna(how="all").tail(lookback)
     if len(rets) < lookback:
-        return None
+        return {t: 1.0 / len(picks) for t in picks}
     cov = rets.cov()
     if cov.isna().any().any():
-        return None
-    # Compute pair variance for each candidate pair
-    pair_data = []
-    for a, b in combinations(candidates, 2):
-        try:
-            v = 0.25 * cov.loc[a, a] + 0.25 * cov.loc[b, b] + 0.5 * cov.loc[a, b]
-        except KeyError:
-            continue
-        if pd.notna(v):
-            pair_data.append((a, b, v))
-    if not pair_data:
-        return None
-    # Backward-compat / no-momentum path: pure min-vol
-    if momenta is None or var_weight >= 0.999:
-        best_idx = min(range(len(pair_data)), key=lambda i: pair_data[i][2])
-        return (pair_data[best_idx][0], pair_data[best_idx][1])
-    # Composite scoring with momentum tiebreaker
-    df = pd.DataFrame(pair_data, columns=['a', 'b', 'var'])
-    df['mom'] = df.apply(lambda r: 0.5 * momenta.get(r['a'], 0.0) + 0.5 * momenta.get(r['b'], 0.0), axis=1)
-    # Z-scores: lower variance is better (z_var negative = good); higher momentum is better
-    df['z_var'] = (df['var'] - df['var'].mean()) / (df['var'].std(ddof=0) or 1.0)
-    df['z_mom'] = (df['mom'] - df['mom'].mean()) / (df['mom'].std(ddof=0) or 1.0)
-    # Composite (lower = better): weighted blend
-    df['score'] = var_weight * df['z_var'] - (1.0 - var_weight) * df['z_mom']
-    best_row = df.loc[df['score'].idxmin()]
-    return (best_row['a'], best_row['b'])
+        return {t: 1.0 / len(picks) for t in picks}
+    sigma = pd.Series(np.sqrt(np.diag(cov.values)), index=cov.index)
+    inv = {}
+    for t in picks:
+        s = float(sigma.get(t, np.nan))
+        if not np.isfinite(s) or s < 1e-12:
+            return {tt: 1.0 / len(picks) for tt in picks}
+        inv[t] = 1.0 / s
+    z = float(sum(inv.values()))
+    if not np.isfinite(z) or z <= 0:
+        return {t: 1.0 / len(picks) for t in picks}
+    return {t: inv[t] / z for t in picks}
 
 
 def zscore(s: pd.Series) -> pd.Series:
@@ -387,7 +352,7 @@ def compute_target_weights(
     canary_assets: list = None,
 ) -> tuple[dict, tuple, str, str]:
     """
-    Returns: (weights, new_pair, regime, safe_ticker)
+    Returns: (weights, basket, regime, safe_ticker)
       regime: 'RISK_ON' | 'DEFENSIVE'
       weights: dict mapping ticker -> weight
     """
@@ -408,15 +373,15 @@ def compute_target_weights(
             canary_scores.append(s)
     if not canary_scores:
         return {safe: 1.0}, None, "DEFENSIVE", safe
-    n_pos = sum(1 for s in canary_scores if s > 0)
+    n_canary_pos = sum(1 for s in canary_scores if s > 0)
     if CANARY_RULE == "any_positive":
-        if n_pos == 0:
+        if n_canary_pos == 0:
             return {safe: 1.0}, None, "DEFENSIVE", safe  # defensive only when both HYG and TIP fail
     elif CANARY_RULE == "all_positive":
-        if n_pos < len(canary_scores):
+        if n_canary_pos < len(canary_scores):
             return {safe: 1.0}, None, "DEFENSIVE", safe
     else:  # "majority"
-        if n_pos <= len(canary_scores) // 2:
+        if n_canary_pos <= len(canary_scores) // 2:
             return {safe: 1.0}, None, "DEFENSIVE", safe
     
     # Volatility-adjusted Faber ranker (EAA adoption):
@@ -444,19 +409,25 @@ def compute_target_weights(
     # Positive-momentum filter on raw faber score (not volatility-adjusted).
     positive = top[top.index.map(lambda t: faber.get(t, -np.inf) > 0)]
     
-    # Partial-safe fill if <2 positive
-    if len(positive) < 2:
-        if len(positive) == 1:
-            return {positive.index[0]: 0.5, safe: 0.5}, None, "RISK_ON", safe
+    # Strict-4 partial-safe fallback:
+    #   risky fraction = min(n_picks, 4) / 4, safe fraction = 1 - risky fraction
+    #   n_picks in {1,2,3}: hold all positives, inverse-vol weighted, then scale risky block
+    #   n_picks=4: fully risky, inverse-vol across all 4 positives
+    if len(positive) == 0:
         return {safe: 1.0}, None, "DEFENSIVE", safe
-    
-    candidates = list(positive.index)
-    new_pick = min_vol_pair(close_panel.loc[:sig_d, candidates], candidates,
-                              CORR_LOOKBACK_DAYS)
-    if new_pick is None:
-        return {candidates[0]: 1.0}, None, "RISK_ON", safe
-    
-    return {new_pick[0]: 0.5, new_pick[1]: 0.5}, new_pick, "RISK_ON", safe
+
+    picks = list(positive.index)
+    n_picks = len(picks)
+    risky_fraction = min(n_picks, 4) / 4.0
+    safe_fraction = 1.0 - risky_fraction
+
+    csub = close_panel.loc[:sig_d]
+    risky_w = inv_vol_weights(csub, picks, CORR_LOOKBACK_DAYS)
+    out = {t: w * risky_fraction for t, w in risky_w.items()}
+    if safe_fraction > 0:
+        out[safe] = out.get(safe, 0.0) + safe_fraction
+
+    return out, tuple(picks), "RISK_ON", safe
 
 
 # ---------- Backtest ----------
@@ -468,7 +439,7 @@ def compute_live_weights(
 ) -> tuple[dict, tuple, str, str]:
     """Production-correct allocation at sig_d.
 
-    Returns (weights, pair, regime, safe). Used by `cpm_live allocate` and
+    Returns (weights, basket, regime, safe). Used by `cpm_live allocate` and
     `format_message.py` to publish the live signal.
     """
     cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
@@ -506,7 +477,7 @@ def run_cpm_backtest(
     end: pd.Timestamp,
     cost_bps: float = COST_BPS_PER_SIDE,
 ) -> tuple[pd.Series, list]:
-    """Run CPM standalone (no PP blend). Returns daily returns + diagnostics list.
+    """Run CPM (no PP blend). Returns daily returns + diagnostics list.
 
     Execution model: signal at month-end close T (last trading day of month),
     rebalance executed at MOO of next trading day T+1 OPEN. Backtest uses
@@ -523,7 +494,7 @@ def run_cpm_backtest(
     canary_state = {}
 
     for i, sig_d in enumerate(signal_dates):
-        w, new_pair, regime, safe = compute_target_weights(close, sig_d)
+        w, new_basket, regime, safe = compute_target_weights(close, sig_d)
         canary_state[sig_d] = (regime == "RISK_ON")
         future = close.index[close.index > sig_d]
         if len(future) < 1:
@@ -636,12 +607,12 @@ def cmd_allocate(args):
     print("=" * 60)
     
     # CPM weights (walk-forward with hold-buffer; matches backtest path)
-    weights, pair, regime, safe = compute_live_weights(panel, sig_d)
+    weights, basket, regime, safe = compute_live_weights(panel, sig_d)
     print(f"\n[CPM sleeve — 60% of PROD]")
     print(f"  Regime: {regime}")
     print(f"  Best safe: {safe}")
-    if pair:
-        print(f"  Selected pair: {pair[0]} + {pair[1]}")
+    if basket:
+        print(f"  Selected risky basket: {' + '.join(basket)}")
     print(f"  Weights:")
     for t, w in sorted(weights.items(), key=lambda x: -x[1]):
         print(f"    {t:8s} {w*100:5.1f}%")
@@ -654,27 +625,28 @@ def cmd_allocate(args):
 
 def cmd_backtest(args):
     start = pd.Timestamp(args.start)
-    end = pd.Timestamp(args.end) if args.end else pd.Timestamp.today().normalize()
+    end = pd.Timestamp(args.end) if args.end else None
     print(f"Loading panel ...")
     panel = load_panel(start=start, end=end)
+    bt_end = end if end is not None else panel.index[-1]
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
     
-    print(f"\nRunning CPM-only backtest from {start.date()} to {end.date()} ...")
+    print(f"\nRunning CPM-only backtest from {start.date()} to {bt_end.date()} ...")
     print(f"Execution model: T+1 OPEN (next-day MOO after month-end signal at T)")
     print(f"NOTE: This is CPM sleeve only (60% of PROD). For full PROD blend")
     print(f"      (60% CPM + 20% BULL-SPY + 20% NDX) use build_dashboard.py.")
     
     cost_bps = 0 if args.no_cost else COST_BPS_PER_SIDE
-    cpm, _ = run_cpm_backtest(panel, start, end, cost_bps=cost_bps)
+    cpm, _ = run_cpm_backtest(panel, start, bt_end, cost_bps=cost_bps)
     
     print(f"\n{'Strategy':25s} {'CAGR':>8s} {'Vol':>7s} {'Sharpe':>7s} {'MaxDD':>8s}")
     print("-" * 60)
     m = perf_metrics(cpm)
-    print(f"{'CPM standalone':25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
+    print(f"{'CPM':25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
 
     # SPY benchmark
     if "SPY" in panel.columns:
-        spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0)
+        spy = panel["SPY"].ffill().pct_change().loc[start:bt_end].fillna(0.0)
         common = cpm.index.intersection(spy.index)
         spy_eq = spy.reindex(common)
         m = perf_metrics(spy_eq)
