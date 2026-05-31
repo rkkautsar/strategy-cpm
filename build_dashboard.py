@@ -2012,7 +2012,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     else:
         bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate})"
 
-    # NDX sleeve (20%) -- gated by BULL-SPY regime
+    # NDX sleeve (20%) -- TIP canary + SPY trend + SPY RV20<RV252 gate
     try:
         from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel, SELECT_K as NDX_SELECT_K
         if ndx_rec is not None:
@@ -2053,9 +2053,8 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     dd_status_html = (
         "<div style='grid-column: 1 / -1; background:#fafafa;border-left:4px solid #3498db;"
         "padding:8px 12px;margin:8px 0;border-radius:4px;font-size:0.88rem;'>"
-        "<strong>NDX gate model</strong>: monthly BULL-state gate only. "
-        "When BULL is defensive, NDX allocates 100% best-of-safe (SHV/IEF). "
-        "NDX risk is gated monthly by BULL active state."
+        "<strong>NDX gate model</strong>: monthly TIP canary + SPY trend + SPY RV20&lt;RV252. "
+        "When any gate leg fails, NDX allocates 100% best-of-safe (SHV/IEF)."
         "</div>"
     )
 
@@ -2553,8 +2552,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Inverse-vol weights all surviving positives with strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on TIP 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_60d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly by monthly BULL active state (when BULL is off, NDX is off).</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple:</strong> 100% SPY when TIP 13612U &gt; 0 canary and SPY 13612U &gt; 0 trend both pass. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
 </ul>
 </div>
 </details>
@@ -2656,12 +2655,11 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 </ul>
 </details>
 <details>
-<summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (canary + trend + RV crossover)</summary>
+<summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- HAA-Simple (canary + trend)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market).</li>
 <li><strong>Canary gate:</strong> TIP 13612U &gt; 0 (HAA-Simple-style TIP canary).</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical).</li>
-<li><strong>Realized volatility crossover gate:</strong> <code>{BULL_TICKER}</code> RV_60d &lt; RV_252d (annualized daily realized volatility).</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
 <li><strong>Sleeve ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{bull_metrics['sharpe']:.2f}</strong>, CAGR <strong>{bull_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{bull_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{bull_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{bull_metrics['martin']:.2f}</strong>.</li>
 
@@ -2674,8 +2672,8 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code> library, coverage 2006-01+).</li>
 <li><strong>Signal:</strong> Raw 13612U momentum (no correlation penalty).</li>
 <li><strong>Selection:</strong> top {NDX_SELECT_K} positive momentum names, equal-weighted {100/NDX_SELECT_K:.1f}% each.</li>
-<li><strong>Gate:</strong> Gated on monthly BULL active state. BULL active = SPY weight &gt; 0 in BULL sleeve at signal date.</li>
-<li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when BULL gate is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
+<li><strong>Gate:</strong> Activated only when TIP 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_20d &lt; RV_252d all pass at the signal date.</li>
+<li><strong>Best-of-safe:</strong> HAA best-of-safe (SHV/IEF by 13612U) when any gate leg is off. Partial-fill cash (when &lt;K positive candidates) also uses best-of-safe.</li>
 <li><strong>Sleeve ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ndx_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ndx_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ndx_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ndx_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ndx_metrics['martin']:.2f}</strong>.</li>
 <li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves on its own. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
 </ul>

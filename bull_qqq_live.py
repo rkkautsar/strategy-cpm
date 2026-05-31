@@ -100,20 +100,6 @@ def _spy_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dic
     return _trend_signal(monthly[BULL_TICKER], sig_d)
 
 
-def _vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
-    """Lag-robust S1-60 realized-volatility crossover gate.
-
-    Gate is ON when RV_60d < RV_252d (annualized from daily returns).
-    """
-    sub = daily_spy.loc[:sig_d].pct_change().dropna()
-    if len(sub) < 252:
-        return True, {"warmup": True}
-    rv_60 = float(sub.tail(60).std() * np.sqrt(252))
-    rv_252 = float(sub.tail(252).std() * np.sqrt(252))
-    vol_ok = rv_60 < rv_252
-    return vol_ok, {"rv_60": rv_60, "rv_252": rv_252, "vol_ok": vol_ok}
-
-
 # ---------- Allocation ----------
 
 def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
@@ -149,12 +135,9 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp,
     canary_ok, mdiag = _macro_gate(monthly, sig_d)
     state = _canary_state(monthly, sig_d)
     spy_trend_ok, tdiag = _spy_trend_ok(monthly, sig_d)
-    if daily_spy is None:
-        daily_spy = close_panel[BULL_TICKER]
-    vol_ok, vdiag = _vol_gate_ok(daily_spy, sig_d)
 
-    gate_natural = canary_ok and spy_trend_ok and vol_ok
-    all_diag = {**mdiag, **tdiag, **vdiag, "state": state,
+    gate_natural = canary_ok and spy_trend_ok
+    all_diag = {**mdiag, **tdiag, "state": state,
                 "spy_trend_ok": spy_trend_ok, "gate_natural": gate_natural}
     if not gate_natural:
         safe = _pick_safe(monthly)
@@ -163,8 +146,6 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp,
             reasons.append("macro_gate_off")
         if not spy_trend_ok:
             reasons.append(f"{BULL_TICKER}_trend_off")
-        if not vol_ok:
-            reasons.append("vol_crossover_off")
         return ({safe: 1.0}, "CASH",
                 {**all_diag, "reason": "; ".join(reasons), "picked_safe": safe})
 

@@ -3,9 +3,8 @@
 Spec:
   1. Universe: PIT Nasdaq-100 constituents via index-constitution lib (2006-01+)
   2. Signal:   Raw 13612U momentum per stock (no correlation penalty)
-  3. Gate:     Monthly BULL active-state gate; else best-of-safe (SHV/IEF)
-  4. PIT fallback: when PIT data is unavailable, mirror BULL sleeve
-     weights (NDX sleeve acts as extra BULL exposure).
+  3. Gate:     TIP canary + SPY trend + SPY RV20<RV252; else best-of-safe (SHV/IEF)
+  4. PIT fallback: when PIT data is unavailable and gate is ON, use SPY proxy.
   5. Selection: top-K by raw momentum score, equal-weighted 1/K each.
   6. Partial fill: if fewer than K positive candidates, take what's there at
      1/K=20% per pick, rest in best-of-safe (e.g. 2 positives -> 40% stocks
@@ -16,19 +15,20 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import index_constitution as ic
 
 from cpm_live import sig_13612U
-from bull_qqq_live import (
-    compute_bull_qqq_weights, CASH_TICKER, BULL_TICKER, SAFE_POOL,
-    _pick_safe,
-)
+from bull_qqq_live import CASH_TICKER, SAFE_POOL, _pick_safe
 
 ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
 
 # Spec config
+SPY_TICKER = "SPY"
+VOL_FAST_DAYS = 20
+VOL_SLOW_DAYS = 252
 SELECT_K = 5              # top-K by raw momentum score, equal-weighted (20% per pick
                           # within sleeve = 4% portfolio at 20% blend weight;
                           # caps single-name bankruptcy impact at ~4% portfolio)
@@ -37,6 +37,17 @@ DELISTING_HAIRCUT = -0.10  # applied to a held position when the ticker stops
                            # quoting mid-period; rough blended estimate across
                            # NDX historical delistings (mix of acquisitions at
                            # a premium and bankruptcies near 0).
+
+
+def _ndx_vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
+    """NDX-local volatility gate: RV20<RV252 on SPY daily returns."""
+    sub = daily_spy.loc[:sig_d].pct_change().dropna()
+    if len(sub) < VOL_SLOW_DAYS:
+        return True, {"warmup": True, "rv_20": float("nan"), "rv_252": float("nan")}
+    rv_20 = float(sub.tail(VOL_FAST_DAYS).std() * np.sqrt(252))
+    rv_252 = float(sub.tail(VOL_SLOW_DAYS).std() * np.sqrt(252))
+    vol_ok = rv_20 < rv_252
+    return vol_ok, {"rv_20": rv_20, "rv_252": rv_252, "vol_ok": vol_ok}
 
 
 def load_ndx_panel() -> pd.DataFrame:
@@ -80,34 +91,59 @@ def compute_ndx_weights(
     """Returns (weights, regime_label, diagnostics).
 
     Flow:
-      - BULL sleeve active (SPY weight > 0)  -> select top-K NDX names by raw momentum
-      - BULL sleeve defensive                -> 100% best-of-safe (SHV/IEF)
+      - NDX gate ON (TIP canary + SPY trend + SPY RV20<RV252) -> select top-K
+      - NDX gate OFF                                           -> 100% best-of-safe
     """
-    # Step 1: Gate on monthly BULL active state.
+    # Step 1: NDX-local activation gate (decoupled from BULL sleeve weights).
     cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
-    bull_weights, _, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
-    bull_active = any(w > 0 for t, w in bull_weights.items() if t == "SPY")
+    safe = _pick_safe(cpm_monthly)
 
-    if not bull_active:
-        safe = _pick_safe(cpm_monthly)
-        return ({safe: 1.0}, "GATE_OFF (BULL_defensive)", {
+    tip_sig = sig_13612U(cpm_monthly["TIP"]) if "TIP" in cpm_monthly.columns else float("nan")
+    canary_ok = pd.notna(tip_sig) and tip_sig > 0
+    spy_sig = sig_13612U(cpm_monthly[SPY_TICKER]) if SPY_TICKER in cpm_monthly.columns else float("nan")
+    trend_ok = pd.notna(spy_sig) and spy_sig > 0
+
+    if SPY_TICKER in cpm_panel.columns:
+        vol_ok, vdiag = _ndx_vol_gate_ok(cpm_panel[SPY_TICKER], sig_d)
+    else:
+        vol_ok, vdiag = False, {"rv_20": float("nan"), "rv_252": float("nan"), "vol_ok": False, "missing_spy": True}
+
+    gate_on = canary_ok and trend_ok and vol_ok
+    gate_diag = {
+        "tip_sig": tip_sig,
+        "spy_sig": spy_sig,
+        "canary_ok": canary_ok,
+        "trend_ok": trend_ok,
+        **vdiag,
+        "ndx_gate_on": gate_on,
+    }
+
+    if not gate_on:
+        reasons = []
+        if not canary_ok:
+            reasons.append("canary_off")
+        if not trend_ok:
+            reasons.append("spy_trend_off")
+        if not vol_ok:
+            reasons.append("vol20_crossover_off")
+        return ({safe: 1.0}, "GATE_OFF (NDX_defensive)", {
+            **gate_diag,
             "selected": [],
-            "reason": "BULL sleeve defensive",
+            "reason": "; ".join(reasons),
             "picked_safe": safe,
         })
 
-    # Step 2: PIT NDX membership at signal date
-    # If PIT data is unavailable, mirror BULL sleeve weights (i.e., the NDX
-    # sleeve acts as extra BULL exposure) instead of going to cash.
+    # Step 2: PIT NDX membership at signal date.
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
     if len(pit_tickers) == 0:
-        bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
-        return (bq_weights, "NDX_FALLBACK_BULL", {
-            "bull_regime": bq_regime,
-            "selected": list(bq_weights.keys()),
-            "reason": "PIT NDX data unavailable; mirroring BULL sleeve",
+        proxy_weights = {SPY_TICKER: 1.0}
+        return (proxy_weights, "NDX_FALLBACK_SPY", {
+            **gate_diag,
+            "selected": [SPY_TICKER],
+            "reason": "PIT NDX data unavailable; using SPY proxy",
         })
+
     # Filter to PIT-listed tickers with usable price at signal date.
     # A ticker that delisted before sig_d may still appear in yearly PIT
     # membership; selecting it would trigger the holding-period haircut bug.
@@ -133,8 +169,7 @@ def compute_ndx_weights(
             continue
         m = sig_13612U(s)
         if pd.notna(m) and m > 0:
-            score = m
-            momenta[t] = score
+            momenta[t] = m
 
     # Step 4: top SELECT_K by raw momentum score, equal-weight 1/SELECT_K each.
     # Partial fill (CPM-style) if < SELECT_K positive candidates; rest in safe.
@@ -145,12 +180,11 @@ def compute_ndx_weights(
     weights = {t: per_slot for t in selected}
     cash_share = 1.0 - n_pick * per_slot
     if cash_share > 1e-9:
-        cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
-        safe = _pick_safe(cpm_monthly)
         weights[safe] = weights.get(safe, 0.0) + cash_share
+
     regime = "NDX_ACTIVE" if n_pick == SELECT_K else f"NDX_PARTIAL_{n_pick}"
     return (weights, regime, {
-        "bull_regime": "decoupled",
+        **gate_diag,
         "n_candidates": len(sorted_by_mom),
         "selected": selected,
         "momenta": {t: momenta[t] for t in selected},
@@ -275,12 +309,16 @@ if __name__ == "__main__":
     print(f"\nNDX sleeve allocation (signal date: {sig_d.date()})")
     print(f"Regime: {regime}")
     if regime == "NDX_ACTIVE" or regime.startswith("NDX_PARTIAL"):
-        print(f"BULL gate state: {diag.get('bull_regime')}")
+        print("Gate state: "
+              f"canary={diag.get('canary_ok')} "
+              f"trend={diag.get('trend_ok')} "
+              f"vol20<252={diag.get('vol_ok')}")
         print(f"\nTop-{SELECT_K} by raw 13612U momentum:")
         for t in diag["selected"]:
             score = diag["momenta"][t]
             weight_pct = weights[t] * 100
             print(f"  {t:<6} weight {weight_pct:.0f}%  momentum {score*100:+.2f}%")
     else:
-        print(f"  100% {CASH_TICKER} cash")
+        top_asset = next(iter(weights.keys()), CASH_TICKER)
+        print(f"  100% {top_asset}")
         print(f"  Reason: {diag.get('reason', '-')}")

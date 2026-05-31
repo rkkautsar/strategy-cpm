@@ -1,28 +1,29 @@
 # CPM-BULL-NDX
 
 **60% CPM + 20% BULL + 20% NDX.** Personal runbook. Sleeve-level
-canaries plus monthly sleeve-state gating are the defensive machinery.
+canaries plus trend/vol gates are the defensive machinery.
 
-- **Cross-asset Parity Momentum (CPM) (60%)** — 8-asset risky universe
+- **Cross-asset Parity Momentum (CPM) (60%)** - 8-asset risky universe
   (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), HYG OR TIP canary,
   EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-K=4,
   inverse-vol weights across all surviving positives, strict-4 partial-safe,
   timed best-safe (SHV/IEF).
-- **BULL (20%)** — HAA-Simple Extension on SPY with 3-layer monthly gate:
-  Canary (HYG OR TIP), Trend (SPY mom_13612U > 0), and RV Crossover
-  (vol_ok: Monthly realized volatility gate (RV_60d < RV_252d)).
-  Either fully invested in SPY (when all three pass) or fully in HAA
+- **BULL (20%)** - HAA-Simple Extension on SPY with 2-layer monthly gate:
+  Canary (TIP), Trend (SPY mom_13612U > 0).
+  Either fully invested in SPY (when both pass) or fully in HAA
   best-of-safe (SHV/IEF).
-- **NDX (20%)** — top-5 PIT Nasdaq-100 stocks by raw 13612U momentum
-  (positive only), 20% each, strictly gated on monthly BULL active state.
-  If BULL is active, NDX runs equal-weight top-5; if BULL is defensive,
+- **NDX (20%)** - top-5 PIT Nasdaq-100 stocks by raw 13612U momentum
+  (positive only), 20% each, independently gated by Canary (TIP),
+  Trend (SPY mom_13612U > 0), and RV Crossover
+  (vol_ok: rv_20d(SPY) < rv_252d(SPY)).
+  If all three pass, NDX runs equal-weight top-5; otherwise,
   NDX allocates 100% best_safe (SHV/IEF).
 
 Monthly rebalance on the last trading day of each calendar month, ETF +
 individual stocks, no leverage, 10 bps/side cost. Total-return prices
 (yfinance `auto_adjust=True`). Tax-advantaged accounts only.
 
-> ⚠️ **Not yet live-traded.** All validation is backtest.
+> WARNING: **Not yet live-traded.** All validation is backtest.
 
 ## Headline performance
 
@@ -55,7 +56,7 @@ Clean-window anchors (CPM-focused):
 CPM concentration (clean, per-asset share of risky sleeve exposure):
 SPHQ 20.9%, QQQ 16.9%, GLD 15.0%, EFA 11.7%, TLT 10.5%, VNQ 9.8%, EEM 8.1%, DBC 7.2%.
 
-NDX is a leveraged-beta expression of Nasdaq growth via top-5 raw 13612U momentum under monthly BULL gating. Treat it as a beta amplifier with bounded downside (20% weight + 4% single-name cap), because its +0.12 Sharpe edge vs plain BULL-gated QQQ is roughly offset by selection-stage survivorship bias (~-0.11).
+NDX is a leveraged-beta expression of Nasdaq growth via top-5 raw 13612U momentum under its own monthly TIP + SPY trend + SPY RV20<RV252 gate. Treat it as a beta amplifier with bounded downside (20% weight + 4% single-name cap), because its +0.12 Sharpe edge vs plain gated QQQ is roughly offset by selection-stage survivorship bias (~-0.11).
 
 Raw-momentum checkpoints:
 
@@ -66,7 +67,7 @@ Raw-momentum checkpoints:
 
 ## Alpha decomposition
 
-OLS daily-return regression `r_strat = alpha + beta · r_bench`:
+OLS daily-return regression `r_strat = alpha + beta * r_bench`:
 
 | Strategy | Benchmark | Alpha (%/yr) | Beta | Corr |
 |---|---|---:|---:|---:|
@@ -89,7 +90,7 @@ See `research/alpha_beta_refresh_2026_05_28.log`.
 mom_13612U(A)     = (r1 + r3 + r6 + r12) / 4                # Keller HAA canonical
 faber_score(A)    = (price[T] - SMA_10mo) / SMA_10mo        # Faber 2007
 vol_252d(A)       = annualized daily standard deviation of A over last 252d
-rv_60d(A)         = annualized daily standard deviation of A over last 60d
+rv_20d(A)         = annualized daily standard deviation of A over last 20d
 rv_252d(A)        = annualized daily standard deviation of A over last 252d
 eaa_score(A)      = faber_score(A) / vol_252d(A)            # EAA Vol-Adj (CPM sleeve)
 is_fully_valid(t) =
@@ -123,46 +124,41 @@ else:
 
 # ------------------------------------------------------------------------
 # BULL (20%) -- HAA-Simple Extension on SPY
-# 3-layer gate: Canary + Trend + RV Crossover
+# 2-layer gate: TIP Canary + SPY Trend
 # ------------------------------------------------------------------------
-canary_ok     = (mom_13612U(HYG) > 0) OR (mom_13612U(TIP) > 0)
-asset_mom_ok  = (mom_13612U(SPY) > 0)
-vol_ok        = (rv_60d(SPY) < rv_252d(SPY))  # Monthly realized volatility gate (RV_60d < RV_252d)
+canary_ok    = (mom_13612U(TIP) > 0)
+asset_mom_ok = (mom_13612U(SPY) > 0)
 
-if canary_ok AND asset_mom_ok AND vol_ok:
+if canary_ok AND asset_mom_ok:
     bull = {SPY: 1.0}
 else:
     bull = {best_safe: 1.0}
 
 # ------------------------------------------------------------------------
-# NDX (20%) -- monthly BULL-gated top-K PIT Nasdaq-100 momentum
+# NDX (20%) -- independent top-K PIT Nasdaq-100 momentum
 # ------------------------------------------------------------------------
-bull_active = (bull.get(SPY, 0.0) > 0)
+canary_ok = (mom_13612U(TIP) > 0)
+trend_ok  = (mom_13612U(SPY) > 0)
+vol_ok    = (rv_20d(SPY) < rv_252d(SPY))
 
-if not bull_active:
+if not (canary_ok AND trend_ok AND vol_ok):
     ndx = {best_safe: 1.0}
 else:
     pool     = PIT_NDX100_constituents(T)
     eligible = [t for t in pool if mom_13612U(t) > 0 and is_fully_valid(t)]
     picks    = top_K(eligible, key=lambda t: mom_13612U(t), K=5)
-    ndx      = {t: 0.20 for t in picks}               # 20% each, K=5
-    if len(picks) < 5:                                # partial-fill -> safe
-        ndx[best_safe] = 1.0 - 0.20 * len(picks)
+    if len(picks) == 0:
+        ndx = {best_safe: 1.0}
+    else:
+        ndx = {t: 0.20 for t in picks}               # 20% each, K=5
+        if len(picks) < 5:                           # partial-fill -> safe
+            ndx[best_safe] = 1.0 - 0.20 * len(picks)
 
 # ------------------------------------------------------------------------
 # Blend
 # ------------------------------------------------------------------------
 portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 ```
-
-### BULL volatility gate
-
-| Blocked-month cohort | Count | Mean fwd SPY | Fwd vol (ann) |
-|---|---:|---:|---:|
-| False-positive (market rose) | 27 (66%) | +3.06% | 11.8% |
-| True-positive (market fell) | 14 (34%) | -3.54% | 21.1% |
-
-"The RV gate is a volatility filter, not a direction predictor. False-positive months average +3.06% SPY return but at 11.8% forward vol; true-positive months average -3.54% at 21.1% vol. The vol asymmetry (~2:1) is the operative signal. Net effect: -0.81% CAGR drag offset by MaxDD compression and Calmar improvement (1.28 -> 1.37). Consistent with Moreira-Muir vol-managed logic. Known limitation: ~1-month lag on V-shaped recoveries."
 
 **Universe:**
 
@@ -172,10 +168,9 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | BULL (1) | SPY |
 | Safe pool (HAA best-of by 13612U) | SHV (ultra-short), IEF (7-10y) |
 | Cross-asset Parity Momentum (CPM) canary (2, OR) | HYG, TIP |
-| BULL canary (2, OR) | HYG, TIP |
+| BULL canary | TIP |
 | BULL trend gate | SPY mom_13612U > 0 |
-| BULL vol gate | vol_ok: Monthly realized volatility gate (RV_60d < RV_252d) |
-| NDX gate | monthly BULL active state (BULL_SPY) |
+| NDX gate | TIP canary AND SPY mom_13612U > 0 AND rv_20d(SPY) < rv_252d(SPY) |
 | NDX pool | point-in-time Nasdaq-100 (top-5 by raw 13612U momentum, 20% each) |
 
 **Method lineage:**
@@ -190,9 +185,9 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 | EAA Vol-Adj (Faber/Vol) ranker | Elastic Asset Allocation (Keller & Butler 2014) |
 | US factor-ETF universe (QQQ, SPHQ) | This work |
 | HYG breadth canary extension | Keller HAA-extension family |
-| Monthly sleeve-state gate (NDX follows BULL active state) | This work |
+| Independent NDX sleeve gate (TIP + SPY trend + RV20<RV252) | This work |
 | Top-K cross-sectional (NDX) | Jegadeesh & Titman 1993 |
-| PIT NDX-100 constituents | `index-constitution` library (≥ 2006-01) |
+| PIT NDX-100 constituents | `index-constitution` library (>= 2006-01) |
 | Deflated Sharpe | Bailey & Lopez de Prado 2012 |
 
 **Execution:**
@@ -201,18 +196,18 @@ portfolio = 0.60 * cpm + 0.20 * bull + 0.20 * ndx
 - Trade date: T+1 OPEN (next-day MOO).
 - Accounting: close-to-close on apply day; t+1 MOO honest monthly sleeve
   updates (weights chosen at signal date apply from next trading day open).
-- Cost: 10 bps/side on any state change (full A→B switch = 20 bps).
+- Cost: 10 bps/side on any state change (full A->B switch = 20 bps).
 - Cron: monthly, 10am SGT (first business day after month-end).
 
 **Performance-stat conventions:**
 
 - CAGR = `eq[-1] ** (1/years) - 1`, years = calendar_days / 365.25.
-- Sharpe = annualized at 0% rf (`daily.mean() · 252 / (daily.std() · sqrt(252))`).
+- Sharpe = annualized at 0% rf (`daily.mean() * 252 / (daily.std() * sqrt(252))`).
 - Excess Sharpe = excess.mean() * 252 / (excess.std(ddof=0) * sqrt(252)), excess_daily = strategy_daily - SHV_daily.
-- Vol = `std(daily) · sqrt(252)`, ddof=0.
+- Vol = `std(daily) * sqrt(252)`, ddof=0.
 - MaxDD = trough below highest prior peak.
 - Calmar = CAGR / |MaxDD|.
-- Alpha/beta: OLS daily returns, annualized as `alpha_daily · 252`.
+- Alpha/beta: OLS daily returns, annualized as `alpha_daily * 252`.
 
 ## Literature benchmarks
 
@@ -259,7 +254,7 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 - Stitched proxy series for pre-ETF history are documented in
   `cpm_live.py:load_panel`. Source: `data/proxy_adjusted_close_daily.csv`.
 - yfinance retroactively re-adjusts splits/dividends, causing minor drift
-  over time (±0.05 Sharpe across reproductions). Headline numbers use a
+  over time (+/-0.05 Sharpe across reproductions). Headline numbers use a
   frozen panel snapshot.
 - Third-party reproductions on yfinance ETF-only data typically land within
   Sharpe -0.05 to -0.15 of headline due to signal-date convention, cost
@@ -284,15 +279,15 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 
 - No vol targeting / leverage (max weight = 1.0 per sleeve).
 - No factor tilts, sector caps, or sleeve-level rebalance bands.
-- NDX risk gate is monthly BULL-state only.
+- NDX risk gate is sleeve-local: TIP canary + SPY trend + SPY RV20<RV252.
 - NDX stock picking depends on continuous PIT Nasdaq-100 constituent data;
   any data outage forces NDX to safe.
 
 ## Files
 
-- `cpm_live.py` — Cross-asset Parity Momentum (CPM) sleeve engine + monthly rebalance signal.
-- `bull_qqq_live.py` — BULL sleeve engine.
-- `ndx_sleeve_live.py` — NDX stock-picking sleeve engine.
-- `build_dashboard.py` — daily blend assembly + dashboard generation.
-- `cpm_dashboard.html` — generated dashboard.
-- `research/` — research scripts and audit logs.
+- `cpm_live.py` - Cross-asset Parity Momentum (CPM) sleeve engine + monthly rebalance signal.
+- `bull_qqq_live.py` - BULL sleeve engine.
+- `ndx_sleeve_live.py` - NDX stock-picking sleeve engine.
+- `build_dashboard.py` - daily blend assembly + dashboard generation.
+- `cpm_dashboard.html` - generated dashboard.
+- `research/` - research scripts and audit logs.
