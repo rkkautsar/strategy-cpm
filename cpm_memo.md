@@ -19,17 +19,15 @@ Scope: this memo evaluates CPM-Core (cross-asset top-4 Faber vol-adjusted moment
 
 ## 1. Executive summary
 
-1) LEAD - capital preservation and tail control.
-CPM is a capital-preservation-first momentum strategy. Drawdown-adjusted point gaps are large: Calmar 1.06 and Martin 3.96 versus 0.23-0.42 and 1.0-1.6 across the benchmark set, with MaxDD -12.67% versus -21.76% to -34.92%. Versus the AAA-style benchmark and 60/40, these are economically large point-estimate advantages, but clean-window difference CIs include zero, so the read is favorable but statistically unresolved over 18 years. Point-estimate advantage is not solely GFC-driven: CPM's worst clean drawdown is 2025-04-08 at -12.67%, while the GFC drawdown is -11.88% (extended continuous-curve, capturing the full episode), and ex-GFC point metrics still lead. Drawdown control is not solely canary-dependent: no-canary MaxDD is -15.01%, still shallower than every benchmark. MaxDD is intuitive but high-variance, so headline interpretation should pair MaxDD with Martin/Ulcer and paired-bootstrap difference framing. Drawdown differences are still significant versus naive 12m and buy-hold inverse-vol.
+- **RETURN PROFILE:** In-sample clean Sharpe is 1.1910, but forward expectation is about 0.72 (range 0.62-0.85) after selection, execution, and regime haircuts. This is risk-efficient and capital-preservation-first, not a raw-return maximizer.
 
-2) RETURN - real but modest.
-Signal quality survives stated selection tests (DSR z about 3.9-5.4 and selection inflation about 0.16-0.25 Sharpe), but production configuration should still be treated as selected in-sample. Forward Sharpe is about 0.72 (range 0.62-0.85). Raw-Sharpe differences versus the AAA-style benchmark and 60/40 are favorable in point estimate but statistically unresolved in the clean window.
+- **TAIL CONTROL:** Clean MaxDD is -12.67% versus -21.76% (AAA-style available-panel benchmark), -29.82% (60/40), -26.59% (naive 12m momentum), and -34.92% (buy-hold inverse-vol). Drawdown control is core-engine behavior, not canary-only: no-canary MaxDD is -15.01%, still shallower than every benchmark, while the canary adds about 2.35 points of crisis protection.
 
-3) RISK - execution discipline is load-bearing.
-Month-end signal alignment matters, and fill convention is a separate question. With a true month-end signal, T+1 MOO remains robust (1.1910 versus 1.2063 same-day MOC), but shifting the signal/rebalance calendar off month-end degrades performance (EOM+1 about 1.01; EOM+3 about 0.91). Turn-of-month premium is regime-cyclical, not a steady decay, and is dormant in the live tail. Canary is cheap crisis optionality: about -0.08 Sharpe drag in calm regimes in exchange for about 2.35 points of overall MaxDD protection (-15.01% no-canary to -12.67%), concentrated in crises.
+- **BENCHMARK INTERPRETATION:** Versus AAA-style and 60/40, point-estimate gaps are economically large, but clean-window difference CIs for Sharpe and drawdown-adjusted metrics include zero, so the edge is favorable but statistically unresolved over this 18-year sample. Significance still clears versus naive 12m and buy-hold inverse-vol.
 
-4) INVESTOR FIT - capital-preservation-first.
-CPM fits investors who want tail control plus a modest return profile. Practical relative headline is the 2021-22 inflation analog (2021-04..2022-12, n=21): CPM 1.21 versus 60/40 -0.19, where conventional portfolios have the least defense. B-regime conditional scenario is about 0.59 (just below the unconditional forward-range low of 0.62 by construction, since it conditions on a choppy regime persisting); still positive. CPM is not a raw-return or high-Sharpe maximizer.
+- **CRITICAL VULNERABILITY:** Month-end alignment is load-bearing. With true month-end signals, fill choice is robust (1.2063 same-day MOC versus 1.1910 T+1 MOO), but shifting the signal/rebalance calendar degrades results (EOM+1 about 1.01; EOM+3 about 0.91).
+
+- **INVESTOR FIT:** CPM fits tail-control-first investors with a modest return profile. Practical relative headline is the 2021-22 inflation analog (2021-04..2022-12, n=21): CPM 1.21 versus 60/40 -0.19. B-regime conditional scenario is about 0.59; still positive.
 
 Turnover:
 - Clean: 2.616 one-way per year, 13.4% fully-safe months.
@@ -37,7 +35,7 @@ Turnover:
 
 ## 2. Investment thesis and economic rationale
 
-Cross-asset time-series momentum persists through risk-on and risk-off cycles because investor flows, risk budgets, and macro regimes adjust gradually rather than instantly. CPM expresses this through a breadth-scaled cross-asset momentum pipeline: rank assets by 10-month trend strength per unit of realized volatility, keep only positive-trend assets, select the top four, inverse-volatility weight the surviving risky block, and route unused risk slots to the timed safe asset. "Parity" in CPM refers to inverse-volatility weighting of the risky block, not full covariance-based risk parity or ERC optimization. The strict-4 partial-safe rule makes risk exposure proportional to breadth: when fewer than four assets qualify, the missing slots go to SHV or IEF. The HYG-OR-TIP canary provides a broad risk-permission layer; the SHV/IEF selector distinguishes duration-friendly from duration-hostile defensive regimes. This maps to decomposition evidence: R plus U drive return, W is a smaller helper, and C, S, and P are protective layers concentrated in crisis regimes.
+Cross-asset time-series momentum persists through risk-on and risk-off cycles because investor flows, risk budgets, and macro regimes adjust gradually rather than instantly. CPM expresses this through a breadth-scaled cross-asset momentum pipeline: rank assets by 10-month trend strength per unit of realized volatility, keep only positive-trend assets, select the top four, inverse-volatility weight the surviving risky block, and route unused risk slots to the timed safe asset. "Parity" in CPM refers to inverse-volatility weighting of the risky block, not full covariance-based risk parity or ERC optimization. The strict-4 partial-safe rule makes risk exposure proportional to breadth: when fewer than four assets qualify, the missing slots go to SHV or IEF. The HYG-OR-TIP canary is intentionally permissive and acts as a light risk-permission layer; core drawdown control remains in the trend, screen, and inverse-vol engine (no-canary MaxDD -15.01% versus -12.67% with canary, with -15.01% still shallower than every benchmark). The SHV/IEF selector distinguishes duration-friendly from duration-hostile defensive regimes. This maps to decomposition evidence: R plus U drive return, W is a smaller helper, and C, S, and P are protective layers concentrated in crisis regimes.
 
 ### 2.1 Execution-timing cliff and operational risk
 
@@ -69,11 +67,24 @@ Subperiod day-1 attribution is empirical (not inference):
 | 2023-26 | 6.2 | 7.1 | 0.87x | 0.001 |
 
 Interpretation:
-- Turn-of-month premium is regime-cyclical, not steadily decaying. The 2018-22 revival contradicts a simple crowding-erosion story.
-- The stronger 2017-26 half is momentum-core driven, not turn-of-month inflated: day-1 bp is flat (14.8 to 14.9), while rest-of-month improved.
-- Forward turn-of-month haircut should be state-contingent: about 0.00-0.05 in calm regimes, up to about 0.15 in high-vol or crisis regimes, not a flat 0.10-0.20.
-- Execution alignment is a separate live risk: EOM to EOM+1 Sharpe falls 1.21 to 1.01, and EOM+3 is 0.91.
+- Turn-of-month premium is non-monotone across 5-year bins: 22.7 -> 9.4 -> 19.0 -> 6.2 bp. The 2018-22 rebound breaks a pure secular-crowding decay story.
+- Breadth link is weak: corr(TOM premium, RSP/SPY breadth) = +0.16.
+- Structural decay prior exists (McLean-Pontiff 2016 on post-publication anomaly compression), but TOM-specific evidence is durable (McConnell-Xu 2012: persisted over 100 years).
+- Working decomposition is about 50% cyclical/regime, 35% noise, 15% structural.
+- Forward policy is do not underwrite TOM (treat contribution as about 0).
+- This is low-cost: removing day-1 in 2023-26 is about -0.001 Sharpe, and 2023-26 Sharpe about 1.49 is not TOM-driven (day-1 is 4.2% of P&L).
+- Execution alignment is still a separate live risk: EOM to EOM+1 Sharpe falls 1.21 to 1.01, and EOM+3 is 0.91.
 - Production T+1 MOO still captures most of same-day MOC (1.191 versus 1.206 close-to-close).
+
+Illustrative tranching mitigation (not a production change):
+
+| Execution scheme | Sharpe std across EOM..EOM+3 | Change vs single-day | Peak Sharpe give-up vs single-day |
+|---|---:|---:|---:|
+| Single-day | 0.0560 | -- | -- |
+| 2-tranche (50/50) | 0.0468 | -16% | -0.022 |
+| 3-tranche (thirds) | 0.0389 | -31% | -0.047 |
+
+Read: tranching flattens the execution-offset cliff for about 0.02-0.05 peak Sharpe sacrifice. This is illustrative robustness evidence, not a production recommendation.
 
 ## 3. Strategy specification
 
@@ -116,6 +127,8 @@ This is strict-4 partial-safe behavior:
 
 - Canary is on if m_13612U(HYG) > 0 OR m_13612U(TIP) > 0.
 - Safe selector chooses argmax of m_13612U over {SHV, IEF}.
+
+Design intent: the OR canary is intentionally permissive and light. Core risk control does not rely on the canary: no-canary MaxDD is -15.01% versus -12.67% with canary, and -15.01% is still shallower than every benchmark MaxDD. A stricter AND gate would add de-risking the core engine does not need and would bleed return.
 
 ### 3.4 Parameter table
 
@@ -241,21 +254,14 @@ Use the clean headline as 1.1910 with CI [0.7866, 1.5969], not as a single preci
 
 ### 5.5 AAA-style available-panel benchmark and significance
 
-Headline benchmark set uses an AAA-style available-panel benchmark (Adaptive Asset Allocation class; Butler, Philbrick, Gordillo, Varadi; SSRN 2328254) plus investor alternatives. This available-panel implementation keeps EWJ and RWX excluded, with EFA and VNQ as stand-ins for EZU and IYR; this supersedes the older internal 8-of-10 factorial baseline for headline comparison.
+Benchmark hierarchy (Section 5.5 opening split):
 
-Benchmark glossary:
+| Tier | Benchmarks | Role in this memo |
+|---|---|---|
+| INTERNAL engineering baseline | AAA-like factorial baseline (internal all-OFF baseline, 000000) | Decomposition baseline in Section 6 only; not a headline comparator |
+| EXTERNAL peer comparators | AAA-style available-panel benchmark (headline), 60/40 (SPY/IEF), naive 12m momentum (no canary, equal-weight), buy-hold inverse-vol | Headline performance and significance comparisons in Section 5.5 |
 
-| Label | Role in this memo |
-|---|---|
-| CPM-Core | Main strategy under evaluation |
-| AAA-style available-panel benchmark | Primary external headline comparator |
-| AAA-like factorial baseline (internal all-OFF baseline) | Decomposition baseline only; not a headline comparator |
-| 60/40 (SPY/IEF) | Investor reference comparator |
-| Naive 12m momentum (no canary, equal-weight) | Simple dynamic baseline |
-| Buy-hold inverse-vol | Static baseline |
-| HAA/GTAA | Peer-context only |
-
-Headline comparator is AAA-style available-panel benchmark; 60/40 is the investor reference.
+Headline external comparator is AAA-style available-panel benchmark (Adaptive Asset Allocation class; Butler, Philbrick, Gordillo, Varadi; SSRN 2328254), with 60/40 as investor reference. This available-panel implementation keeps EWJ and RWX excluded, with EFA and VNQ as stand-ins for EZU and IYR.
 
 Clean window (2008-05-30 to 2026-05-22):
 
@@ -389,7 +395,7 @@ This 000000 AAA-like factorial baseline line is the internal decomposition basel
 - Baseline all-OFF (AAA-like factorial baseline, internal all-OFF baseline, 8-of-10 available assets): clean Sharpe 0.7869, MaxDD -23.21%, Calmar 0.3188; extended Sharpe 0.9040, Calmar 0.3626.
 - All-ON is production CPM: clean Sharpe 1.1910, MaxDD -12.67%, Calmar 1.0615; extended Sharpe 1.2643, MaxDD -15.93%, Calmar 0.8791.
 
-Factor mapping is C,U,R,S,W,P where OFF is the AAA-like factorial baseline and ON is CPM. [FLIP] means on-minus-off changes sign across backgrounds.
+Factor mapping is C,U,R,S,W,P where OFF is the AAA-like factorial baseline and ON is CPM. [FLIP] marks factors with sign changes across backgrounds.
 
 Clean-lens decomposition story:
 - R is top first-order driver (+0.2048 Sharpe, +0.2411 Calmar [FLIP]).
@@ -405,6 +411,8 @@ Clean-lens decomposition story:
 | Screen (S, positive-trend) | -0.0228 [FLIP] | +0.0463 [FLIP] | -0.0178 [FLIP] | +0.0346 [FLIP] |
 | Weighting only (W) | +0.0127 [FLIP] | +0.0646 [FLIP] | +0.1054 | +0.1217 [FLIP] |
 | Partial-safe (P) | +0.0482 | +0.0886 [FLIP] | +0.0282 [FLIP] | +0.0730 [FLIP] |
+
+[FLIP] legend: high regime dependency. Sign flips across backgrounds mean standalone value is non-linear and interaction-dependent (for example, Universe and Screen flips need interactions to produce positive Calmar).
 
 CPM key two-way interactions (Calmar deltas):
 
@@ -591,16 +599,18 @@ Clean Sharpe unless noted. Any extended-window references remain proxy-informed 
 
 | Check | Result |
 |---|---|
-| Universe SPY-swap (drop QQQ/SPHQ) | 1.01 (-0.18) \| AAA variant: 1.03 \| Keller-GTAA10: 0.99 \| Faber-GTAA5: 0.81; all remain in the same quality band, and all MaxDD are shallower than 13.7% |
+| Vol-lookback standardization (A1) | prod (rank252/wt504): Sharpe 1.1910, MaxDD -12.67%, Calmar 1.062; both-252: 1.1658, -12.97%, 1.014; both-504: 1.2039, -13.73%, 0.988; Sharpe band is 0.038 (~3%) |
+| US-equity de-tilt primary (A2) | Replace QQQ+SPHQ with SPY (SPY,EFA,EEM,VNQ,GLD,TLT,DBC): Sharpe 1.0122, Calmar 0.903, MaxDD -11.75%; still above SPY buy-hold Sharpe 0.660 and 60/40 Sharpe 0.795 |
+| Growth-engine ticker swaps (A2 secondary) | QQQ->VUG dSharpe -0.034; QQQ->IWF -0.036; QQQ->IWD Sharpe 1.1028; SPHQ->QUAL +0.004; SPHQ->MTUM -0.048 |
 | Top-K {3,4,5,6} | 0.95 / 1.19 / 1.09 / 1.02 |
 | Ranking momentum {Faber-voladj, 13612U, 12m, 6m, 3m} | 1.19 / 1.08 / 0.99 / 0.93 / 0.92 |
-| Risky-block inverse-vol lookback {252, 504} | gap <= 0.03, with 504 > 252 |
 | Interaction grid (80 cells; 40 distinct configs) | Production config (K=4, Faber-voladj, 504d, inverse-vol) is #1 on both Sharpe and Calmar; Sharpe median 0.94, IQR 0.92-0.98, min 0.83, max 1.19; 21% of cells > 1.0 and 5% > 1.1 |
 | Cost {0, 10, 30 bps/side} | 1.24 / 1.19 / 1.10 |
 | Weighting {inverse-vol, equal-weight} | 1.19 / 1.13 |
 | Subperiod {2008-16, 2017-26} | 1.00 / 1.38; rolling-36m Sharpe min 0.71 / median 1.41 / max 2.26 (never negative) |
 | Fill convention at fixed signal date {same-day MOC, T+1 MOO, T+1 close, T+2 open} | 1.2063 / 1.1910 / 1.15 / 1.15; lag cost from same-day to headline T+1 MOO is -0.015 Sharpe |
 | Signal/rebalance-date offset {EOM, EOM+1, EOM+2, EOM+3 bd} | 1.2063 / 1.01 / 0.97 / 0.91 |
+| Execution tranching illustration (A4) | Single-day std across EOM..EOM+3: 0.0560; 2-tranche 50/50: 0.0468 (-16%); 3-tranche thirds: 0.0389 (-31%); for about 0.02-0.05 peak Sharpe give-up |
 | Lookahead audit | none; signal is point-in-time (loc[:sig_d]) and execution is strictly future (> sig_d); headline 1.1910 is conservative true T+1-MOO re-accounting versus same-day MOC 1.2063 |
 
 ### 9.1 Leave-one-asset-out robustness (clean window)
@@ -627,6 +637,40 @@ Read:
 The 80-cell interaction grid shows the baseline is the literal argmax, with selection-on-peak bias of +0.25 Sharpe versus grid median and +0.025 versus the second-best cell. Cliffs exist: dropping Faber ranker to 6m costs about 0.26 Sharpe, and K=4 to K=3 costs about 0.24. Interactions are material: Faber leads at K=4 but trails 13612U at K=3, and with a 3m ranker the K optimum flips from 4 to 6.
 
 Mitigants: region and direction are stable across both windows (Faber + K=4-5 + inverse-vol stays top, and extended 1.2643 is also grid-top), and bootstrap CI is [0.7866, 1.5969]. Residual risks: execution discipline matters (a few-day slip to EOM+3 drops Sharpe to 0.91), and selection-on-peak inflation remains in the last about 0.025-0.06 Sharpe slice (504-vs-252 and inverse-vol-vs-equal at optimum). CPM should not be judged on the 1.19 peak alone; the defensible claim is economically favorable point estimates for the Faber / top-4 / inverse-vol family, with stronger statistical support versus naive 12m and buy-hold inverse-vol than versus the AAA-style benchmark and 60/40 (where clean-window difference CIs include zero). Treat 1.19 as in-sample peak, about 1.00 as selection-deflated in-sample, and about 0.72 (0.62-0.85) as forward expectation.
+
+### 9.2 A1 vol-lookback robustness (overfit-charge check)
+
+Clean-window results:
+
+| Config | Sharpe | MaxDD | Calmar |
+|---|---:|---:|---:|
+| prod (rank252/wt504) | 1.1910 | -12.67% | 1.062 |
+| both-252 (rank252/wt252) | 1.1658 | -12.97% | 1.014 |
+| both-504 (rank504/wt504) | 1.2039 | -13.73% | 0.988 |
+
+Read:
+- Sharpe band across all three is 0.038 (about 3%), a robust plateau rather than a tuned peak.
+- Production is not the Sharpe max (both-504 is higher at 1.2039).
+- Production wins on drawdown axis (shallowest MaxDD and highest Calmar), so rank252/wt504 is a mild capital-preservation tilt, not a Sharpe curve-fit.
+- Caveat: still single in-sample evidence.
+
+### 9.3 A2 US-equity de-tilt robustness (US-growth-beta-wrapper check)
+
+Primary test (replace QQQ+SPHQ with plain SPY):
+
+| Config | Universe | Sharpe | MaxDD | Calmar |
+|---|---|---:|---:|---:|
+| Production | QQQ,SPHQ,EFA,EEM,VNQ,GLD,TLT,DBC | 1.1910 | -12.67% | 1.062 |
+| De-tilt SPY | SPY,EFA,EEM,VNQ,GLD,TLT,DBC | 1.0122 | -11.75% | 0.903 |
+
+Secondary ticker-interchangeability checks:
+- QQQ->VUG dSharpe -0.034; QQQ->IWF -0.036; QQQ->IWD Sharpe 1.1028.
+- SPHQ->QUAL dSharpe +0.004; SPHQ->MTUM dSharpe -0.048.
+
+Read:
+- De-tilted CPM stays far above passive references (SPY buy-hold Sharpe 0.660; 60/40 Sharpe 0.795), so cross-asset edge survives de-tilting and does not collapse to benchmark.
+- Growth/quality tilt is real but layered: about 0.18 Sharpe enhancer on top of a robust cross-asset core, not the source of edge.
+- Near-interchangeable swap deltas rule out QQQ/SPHQ ticker-specific tech overfit.
 
 ## 10. Conclusion
 
@@ -693,3 +737,7 @@ In backtest over both windows, CPM's strongest claim is capital preservation and
 - research/memo_review_additions.md
 - research/memo_review_additions_compute.json
 - research/memo_fix_numbers.json
+- research/memo_review2_A1_A2_findings.md
+- research/memo_review2_A1_A2_findings.json
+- research/memo_review2_A4_C_findings.md
+- research/memo_review2_A4_C_findings.json
