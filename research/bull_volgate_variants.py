@@ -465,35 +465,66 @@ def write_md(o):
         gfc0 = v0["crises"]["2008 GFC"]["maxdd"]
         covid0 = v0["crises"]["2020 COVID"]["maxdd"]
         keeps_crash = (gfc - gfc0 > -0.02) and (covid - covid0 > -0.02)  # not >2pp deeper
+        # grind protection: 2018 Q4 + 2022 slow-bear DD not >3pp deeper than V0
+        q4 = per[vk]["crises"]["2018 Q4"]["maxdd"]; q40 = v0["crises"]["2018 Q4"]["maxdd"]
+        b22 = per[vk]["crises"]["2022 bear"]["maxdd"]; b220 = v0["crises"]["2022 bear"]["maxdd"]
+        keeps_grind = (q4 - q40 > -0.03) and (b22 - b220 > -0.03)
         ranked.append({
             "vk": vk, "label": m["variants"][vk], "sharpe": c["sharpe"], "calmar": c["calmar"],
             "maxdd": c["maxdd"], "cagr": c["cagr"], "fp_rate": w["false_positive_rate_pct"],
             "upside_rate": w["upside_vol_derisk_rate_pct"], "n_upside": w["n_upside_vol_derisk"],
-            "keeps_crash": keeps_crash})
-    A("Candidate scorecard (clean 18y; crash-protection retained = 2008 & 2020 DD not >2pp deeper than V0):\n")
-    A("| Variant | Sharpe | Calmar | MaxDD | CAGR | false-pos | upside-derisk | keeps crash? |")
-    A("|---|---:|---:|---:|---:|---:|---:|:--:|")
+            "keeps_crash": keeps_crash, "keeps_grind": keeps_grind})
+    A("Candidate scorecard (clean 18y). Crash-protection = 2008 & 2020 DD not >2pp deeper than V0; "
+      "grind-protection = 2018-Q4 & 2022 DD not >3pp deeper than V0 (the slow-bear catches the task "
+      "warns not to trade away):\n")
+    A("| Variant | Sharpe | Calmar | MaxDD | CAGR | false-pos | upside-derisk | keeps crash? | keeps grind? |")
+    A("|---|---:|---:|---:|---:|---:|---:|:--:|:--:|")
     for r in ranked:
         A(f"| {r['label']} | {r['sharpe']:.4f} | {r['calmar']:.4f} | {pct(r['maxdd'])} | "
           f"{pct(r['cagr'])} | {r['fp_rate']:.1f}% | {r['upside_rate']:.1f}% | "
-          f"{'Y' if r['keeps_crash'] else 'NO'} |")
+          f"{'Y' if r['keeps_crash'] else 'NO'} | {'Y' if r['keeps_grind'] else 'NO'} |")
     A("")
+    A("**Key failure mode -- downside gates trade away the 2018/2022 grind catches.** The DOWNSIDE "
+      "variants (V1, V3) de-risk LESS in slow grinds (they wait for realized DOWN-vol, which lags a "
+      "steady bleed), so they hold SPY through 2018-Q4 and 2022: BULL 2018-Q4 DD blows out to "
+      f"{pct(per['V1_downside_60_252']['crises']['2018 Q4']['maxdd'])} (V0 "
+      f"{pct(v0['crises']['2018 Q4']['maxdd'])}) and 2022 DD to "
+      f"{pct(per['V1_downside_60_252']['crises']['2022 bear']['maxdd'])} (V0 "
+      f"{pct(v0['crises']['2022 bear']['maxdd'])}). This is exactly the catch the task says not to "
+      "lose -- so the downside-only premise BACKFIRES here: the symmetric gate's 'upside punishment' "
+      "is also what front-runs the lagging trend filter in grinds.\n")
     # best = highest clean Sharpe among those that keep crash protection and reduce upside-derisk vs V0
     v0_upside = v0["whipsaw"]["upside_vol_derisk_rate_pct"]
     v0_fp = v0["whipsaw"]["false_positive_rate_pct"]
-    cands = [r for r in ranked if r["vk"] != order[0] and r["keeps_crash"]
+    cands = [r for r in ranked if r["vk"] != order[0] and r["keeps_crash"] and r["keeps_grind"]
              and r["upside_rate"] <= v0_upside + 1e-9]
     if cands:
         best = max(cands, key=lambda r: r["sharpe"])
-        A(f"**Best non-baseline variant (keeps crash protection AND reduces upside-vol-de-risk): "
-          f"{best['label']}.** Clean Sharpe {best['sharpe']:.4f} vs V0 {v0['clean']['sharpe']:.4f} "
-          f"({best['sharpe']-v0['clean']['sharpe']:+.4f}); Calmar {best['calmar']:.4f} vs "
-          f"{v0['clean']['calmar']:.4f}; upside-de-risk rate {best['upside_rate']:.1f}% vs V0 "
-          f"{v0_upside:.1f}%; false-pos {best['fp_rate']:.1f}% vs V0 {v0_fp:.1f}%.\n")
+        A(f"**Best non-baseline variant (keeps crash AND grind protection AND reduces "
+          f"upside-vol-de-risk): {best['label']}.** Clean Sharpe {best['sharpe']:.4f} vs V0 "
+          f"{v0['clean']['sharpe']:.4f} ({best['sharpe']-v0['clean']['sharpe']:+.4f}); Calmar "
+          f"{best['calmar']:.4f} vs {v0['clean']['calmar']:.4f}; upside-de-risk {best['upside_rate']:.1f}% "
+          f"vs V0 {v0_upside:.1f}%; false-pos {best['fp_rate']:.1f}% vs V0 {v0_fp:.1f}%. "
+          f"NOTE: it still TRAILS V0 on every headline risk-adjusted metric -- it is the 'least bad' "
+          f"alternative, not an improvement.\n")
     else:
-        A("**No non-baseline variant simultaneously keeps crash protection AND reduces the "
-          "upside-vol-de-risk rate below V0.** The symmetric gate is not cleanly beaten on the "
-          "stated objective; see scorecard for the per-variant tradeoffs.\n")
+        A("**No non-baseline variant simultaneously keeps BOTH crash and grind protection AND "
+          "reduces the upside-vol-de-risk rate below V0.** The symmetric RV60<RV252 gate is NOT "
+          "beaten on the stated objective. Ranking the candidates by least damage: the two EWMA "
+          "variants (V2b 0.97/0.99, then V2a 0.94/0.99) are closest -- they keep crash AND grind "
+          "protection and modestly cut the upside-de-risk rate (64.3% / 63.0% vs V0 68.8%), but at "
+          "the cost of -0.09 to -0.12 clean Sharpe, ~-0.13 Calmar, +1.2pp deeper MaxDD, and higher "
+          "turnover. The DOWNSIDE variants (V1, V3) are WORST: they raise the false-positive rate "
+          "(62-71% vs 59%) AND destroy the 2018/2022 grind catches. **Verdict: keep the production "
+          "symmetric gate.** The downside/EWMA hypotheses do not deliver a net improvement on this "
+          "sample.\n")
+    A("**On the live de-risk-into-strength concern.** Section 4 confirms V0 is OFF right now "
+      "(RV60 14.59% > RV252 12.43%, trailing-63d +6.83%) -- a genuine de-risk into a rally. The "
+      "EWMA variants (V2a/V2b/V3) would be ON; V1 downside would also be OFF. So EWMA *would* fix "
+      "the specific current OFF state, but the 18y backtest shows that flexibility nets out NEGATIVE "
+      "(lower Sharpe/Calmar, deeper DD) -- the symmetric gate's 'over-cautious' de-risks are, on "
+      "net, paid for by the crash/grind protection they buy. Re-risking into every rally is not "
+      "free.\n")
     A("**Overfitting / OOS caveats.** Windows (60/252) and EWMA lambdas (0.94/0.97/0.99) are a "
       "small principled set, NOT grid-tuned, but ANY gate swap mined on the same 18y sample risks "
       "in-sample selection. This would be a LIVE PRODUCTION CHANGE: requires OOS / walk-forward "

@@ -101,17 +101,21 @@ Is each variant ON (risk-on, 100% SPY) or OFF (de-risked to safe) right now? Bas
 
 ## 6. VERDICT
 
-Candidate scorecard (clean 18y; crash-protection retained = 2008 & 2020 DD not >2pp deeper than V0):
+Candidate scorecard (clean 18y). Crash-protection = 2008 & 2020 DD not >2pp deeper than V0; grind-protection = 2018-Q4 & 2022 DD not >3pp deeper than V0 (the slow-bear catches the task warns not to trade away):
 
-| Variant | Sharpe | Calmar | MaxDD | CAGR | false-pos | upside-derisk | keeps crash? |
-|---|---:|---:|---:|---:|---:|---:|:--:|
-| V0 symmetric RV60<RV252 (PROD) | 1.1005 | 0.8189 | -13.35% | 10.93% | 59.4% | 68.8% | Y |
-| V1 downside semi-dev 60<252 | 1.0036 | 0.7503 | -13.35% | 10.01% | 62.2% | 70.3% | Y |
-| V2a EWMA lam 0.94<0.99 | 0.9823 | 0.6787 | -14.54% | 9.87% | 63.0% | 63.0% | Y |
-| V2b EWMA lam 0.97<0.99 | 1.0101 | 0.6926 | -14.54% | 10.07% | 60.7% | 64.3% | Y |
-| V3 downside-EWMA 0.97<0.99 | 0.8551 | 0.5859 | -14.54% | 8.52% | 71.4% | 64.3% | Y |
+| Variant | Sharpe | Calmar | MaxDD | CAGR | false-pos | upside-derisk | keeps crash? | keeps grind? |
+|---|---:|---:|---:|---:|---:|---:|:--:|:--:|
+| V0 symmetric RV60<RV252 (PROD) | 1.1005 | 0.8189 | -13.35% | 10.93% | 59.4% | 68.8% | Y | Y |
+| V1 downside semi-dev 60<252 | 1.0036 | 0.7503 | -13.35% | 10.01% | 62.2% | 70.3% | Y | NO |
+| V2a EWMA lam 0.94<0.99 | 0.9823 | 0.6787 | -14.54% | 9.87% | 63.0% | 63.0% | Y | Y |
+| V2b EWMA lam 0.97<0.99 | 1.0101 | 0.6926 | -14.54% | 10.07% | 60.7% | 64.3% | Y | Y |
+| V3 downside-EWMA 0.97<0.99 | 0.8551 | 0.5859 | -14.54% | 8.52% | 71.4% | 64.3% | Y | NO |
 
-**Best non-baseline variant (keeps crash protection AND reduces upside-vol-de-risk): V2b EWMA lam 0.97<0.99.** Clean Sharpe 1.0101 vs V0 1.1005 (-0.0905); Calmar 0.6926 vs 0.8189; upside-de-risk rate 64.3% vs V0 68.8%; false-pos 60.7% vs V0 59.4%.
+**Key failure mode -- downside gates trade away the 2018/2022 grind catches.** The DOWNSIDE variants (V1, V3) de-risk LESS in slow grinds (they wait for realized DOWN-vol, which lags a steady bleed), so they hold SPY through 2018-Q4 and 2022: BULL 2018-Q4 DD blows out to -10.10% (V0 -2.14%) and 2022 DD to -9.73% (V0 -0.30%). This is exactly the catch the task says not to lose -- so the downside-only premise BACKFIRES here: the symmetric gate's 'upside punishment' is also what front-runs the lagging trend filter in grinds.
+
+**Best non-baseline variant (keeps crash AND grind protection AND reduces upside-vol-de-risk): V2b EWMA lam 0.97<0.99.** Clean Sharpe 1.0101 vs V0 1.1005 (-0.0905); Calmar 0.6926 vs 0.8189; upside-de-risk 64.3% vs V0 68.8%; false-pos 60.7% vs V0 59.4%. NOTE: it still TRAILS V0 on every headline risk-adjusted metric -- it is the 'least bad' alternative, not an improvement.
+
+**On the live de-risk-into-strength concern.** Section 4 confirms V0 is OFF right now (RV60 14.59% > RV252 12.43%, trailing-63d +6.83%) -- a genuine de-risk into a rally. The EWMA variants (V2a/V2b/V3) would be ON; V1 downside would also be OFF. So EWMA *would* fix the specific current OFF state, but the 18y backtest shows that flexibility nets out NEGATIVE (lower Sharpe/Calmar, deeper DD) -- the symmetric gate's 'over-cautious' de-risks are, on net, paid for by the crash/grind protection they buy. Re-risking into every rally is not free.
 
 **Overfitting / OOS caveats.** Windows (60/252) and EWMA lambdas (0.94/0.97/0.99) are a small principled set, NOT grid-tuned, but ANY gate swap mined on the same 18y sample risks in-sample selection. This would be a LIVE PRODUCTION CHANGE: requires OOS / walk-forward validation (e.g. freeze the variant pre-2015, test 2015+) and a paired bootstrap on the Sharpe/Calmar deltas before adoption. The downside/EWMA gates change the LIVE state vs baseline (section 4) -- confirm that flip is desired, not just a sample artifact.
 
