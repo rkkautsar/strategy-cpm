@@ -18,7 +18,7 @@ Current state: convention-locked monthly ETF implementation. Clean window uses f
 ## 1. Executive summary
 
 1) LEAD - capital preservation and tail control.
-CPM is a capital-preservation-first momentum strategy. Drawdown-adjusted point gaps are large: Calmar 1.06 and Martin 3.96 versus 0.23-0.42 and 1.0-1.6 across the benchmark set, with MaxDD -12.67% versus -21.76% to -34.92%. The edge is broad, not GFC-only: CPM's own worst drawdown is 2025-04-08 at -12.67%, while the GFC drawdown is -11.88% (extended continuous-curve, capturing the full episode), and ex-GFC point metrics still lead. The edge is canary-independent: no-canary MaxDD is -15.01%, still shallower than every benchmark. Honesty: versus canonical AAA and 60/40, significance tests are underpowered at this sample length. MaxDD and Calmar are single-path high-variance statistics, so difference-CIs are wide; this supports both a real structural edge and luck, not a no-edge claim. Drawdown differences are still significant versus naive 12m and buy-hold inverse-vol.
+CPM is a capital-preservation-first momentum strategy. Drawdown-adjusted point gaps are large: Calmar 1.06 and Martin 3.96 versus 0.23-0.42 and 1.0-1.6 across the benchmark set, with MaxDD -12.67% versus -21.76% to -34.92%; these gaps are structurally large but underpowered at 18 years versus canonical AAA and 60/40. The edge is broad, not GFC-only: CPM's own worst drawdown is 2025-04-08 at -12.67%, while the GFC drawdown is -11.88% (extended continuous-curve, capturing the full episode), and ex-GFC point metrics still lead. The edge is canary-independent: no-canary MaxDD is -15.01%, still shallower than every benchmark. Honesty: versus canonical AAA and 60/40, significance tests are underpowered at this sample length. MaxDD and Calmar are single-path high-variance statistics, so difference-CIs are wide; this supports both a real structural edge and luck, not a no-edge claim. Drawdown differences are still significant versus naive 12m and buy-hold inverse-vol.
 
 2) RETURN - real but modest.
 Signal quality is real, with DSR z about 3.9-5.4 and selection inflation about 0.16-0.25 Sharpe, so edge is not only a search artifact. Forward Sharpe is about 0.72 (range 0.62-0.85). Raw-Sharpe edge versus canonical AAA and 60/40 is within statistical noise.
@@ -144,6 +144,8 @@ Clean Sharpe is 1.1910 with bootstrap 95% CI [0.7866, 1.5969].
 | Extended | 1.2643 | 14.00% | 10.78% | -15.93% | 0.8791 | 3.9767 | 3.52% | 1.0007 |
 
 Extended Sharpe bootstrap (stationary block bootstrap, B=2000, block=21, seed=42): point 1.2643, 95% CI [0.9430, 1.5986], median 1.2619.
+
+The tighter extended CI is expected from larger N and slightly lower dispersion, not from data quality improvement: about 377 versus 217 monthly observations (roughly 1/sqrt(N), about 19% tighter) and 10.78% versus 11.16% volatility; the early extended segment remains proxy-backed, so clean remains decisive.
 
 MaxDD framing by window: clean-window worst drawdown is 2025-04-08 at -12.67%; extended-window worst drawdown is the 2006 proxy-era episode at -15.93%.
 
@@ -352,6 +354,7 @@ Stagflation defense in CPM comes from cross-asset rotation plus absolute-momentu
 
 Read:
 - Return engine is regime-robust: R and U stay positive in both halves; ranker edge survives post-2016.
+- W contribution compressed post-2016 (+0.09 to +0.02), consistent with inverse-vol as a small helper and with partial dependence on the bond-equity decorrelation regime that weakened around 2022; treat +0.02 as regime-contingent, not a primary forward lever.
 - Protective stack is crisis-concentrated: C, S, and P do most work in 2008-16; canary is cheap optionality, with about -0.08 Sharpe drag in 2017-26 for crisis insurance.
 - Independence check is strong: no-canary MaxDD is -15.01%, still better than every benchmark, so drawdown control is load-bearing in trend, screen, and inverse-vol layers.
 - Strong 2017-26 Sharpe is not driven by protection layers; forward reliability rests on R plus U, with C/S/P as crash insurance.
@@ -391,7 +394,7 @@ Read:
 - Practical headline relative result is the inflation analog: 2021-22 shows CPM 1.21 versus 60/40 -0.19.
 - B-regime conditional scenario is about 0.59 (just below the unconditional forward-range low of 0.62 by construction, since it conditions on a choppy regime persisting); still positive.
 - The 65/35 split is historical frequency from this sample's classifier, not a forward assumption; regime mix is non-stationary.
-- Use the three-row scenario table with your own regime prior; do not mix-weight to a single forward point estimate such as about 0.77.
+- Use the three-row scenario table with your own regime prior; do not collapse scenarios into a single mix-weighted forward point estimate.
 - This is scenario decomposition, not prediction.
 
 Selection-space disclosure (beyond the 80-cell grid):

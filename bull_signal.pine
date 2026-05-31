@@ -1,0 +1,148 @@
+//@version=6
+indicator("BULL Signal", overlay=true)
+
+// Extracted production spec (source of truth):
+// - Canary asset/config: TIP only (`CANARY_ASSETS = ["TIP"]`, `CANARY_RULE = "any_positive"`)
+//   bull_qqq_live.py:48-49.
+// - Canary gate rule: canary passes when TIP 13612U > 0 in `_macro_gate`
+//   bull_qqq_live.py:74-90.
+// - Trend gate rule: SPY trend passes when SPY 13612U > 0 in `_spy_trend_ok` -> `_trend_signal`
+//   bull_qqq_live.py:58-71,93-100.
+// - 13612U implementation used by BULL is imported from `cpm_live.sig_13612U` and is:
+//     r1 = p0/p1 - 1
+//     r3 = p0/p3 - 1
+//     r6 = p0/p6 - 1
+//     r12 = p0/p12 - 1
+//     sig_13612U = (r1 + r3 + r6 + r12) / 4
+//   cpm_live.py:269-280.
+//   Note: production here uses equal-weight average, not 12/4/2/1 weighted sum.
+// - Vol gate rule: daily simple returns (`pct_change`), annualized RV60 and RV252,
+//   gate ON when RV60 < RV252 (`vol_ok = rv_60 < rv_252`)
+//   bull_qqq_live.py:103-114.
+// - Combined gate: risk-on only when canary_ok AND spy_trend_ok AND vol_ok
+//   bull_qqq_live.py:156-159.
+// - Defensive selection: choose best safe asset from SAFE_POOL [SHV, IEF] by 13612U,
+//   fallback CASH_TICKER SHV when no score
+//   bull_qqq_live.py:43-44,132-141,159-168.
+// - Rebalance cadence: signal evaluated on month-end (`resample("ME").last()`),
+//   then applied T+1 open in backtest
+//   bull_qqq_live.py:148,198,212.
+//
+// This Pine indicator is a faithful visualization approximation of `bull_qqq_live.py`.
+// Differences vs Python backtest engine:
+// - Shows signal state only (not traded return path).
+// - Uses TradingView data/time alignment for monthly confirmation.
+// - T+1 MOO execution and transaction cost modeling are not simulated here.
+
+// Symbols (override if your TradingView feed uses different exchange prefixes)
+spySymbol = input.symbol("SPY", "SPY symbol")
+tipSymbol = input.symbol("TIP", "TIP symbol")
+shvSymbol = input.symbol("SHV", "SHV symbol")
+iefSymbol = input.symbol("IEF", "IEF symbol")
+
+// Pine tables cannot collapse by click; this toggle is the standard collapse control.
+showDetails = input.bool(false, "Show gate details")
+showBg = input.bool(true, "Regime background")
+
+f_13612u_from_close() =>
+    r1 = close / close[1] - 1.0
+    r3 = close / close[3] - 1.0
+    r6 = close / close[6] - 1.0
+    r12 = close / close[12] - 1.0
+    (r1 + r3 + r6 + r12) / 4.0
+
+f_fmt_pct(v) =>
+    na(v) ? "na" : str.tostring(v * 100.0, "#.00") + "%"
+
+// Monthly momentum gates (confirmed month bars only, no repaint lookahead)
+tip13612u_m = request.security(tipSymbol, "1M", f_13612u_from_close(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+spy13612u_m = request.security(spySymbol, "1M", f_13612u_from_close(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+canary_ok_eom = not na(tip13612u_m) and tip13612u_m > 0.0
+trend_ok_eom = not na(spy13612u_m) and spy13612u_m > 0.0
+
+// Daily RV gate from daily simple returns (annualized with sqrt(252))
+rv60_d = request.security(spySymbol, "1D", ta.stdev(close / close[1] - 1.0, 60) * math.sqrt(252.0), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+rv252_d = request.security(spySymbol, "1D", ta.stdev(close / close[1] - 1.0, 252) * math.sqrt(252.0), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+vol_ok_d = na(rv252_d) ? true : rv60_d < rv252_d
+
+// Monthly-latched full gate: update once on confirmed month rollover and hold intra-month.
+spy_month_time = request.security(spySymbol, "1M", time, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+month_change = ta.change(spy_month_time)
+is_new_month_signal = not na(month_change) and month_change != 0
+
+vol_ok_eom = na(rv252_d[1]) ? true : rv60_d[1] < rv252_d[1]
+rv60_eom = nz(rv60_d[1], rv60_d)
+rv252_eom = nz(rv252_d[1], rv252_d)
+
+var bool canary_ok = false
+var bool trend_ok = false
+var bool vol_ok_m = true
+var float rv60_m = na
+var float rv252_m = na
+var bool risk_on = false
+
+if barstate.isfirst
+    canary_ok := canary_ok_eom
+    trend_ok := trend_ok_eom
+    vol_ok_m := vol_ok_d
+    rv60_m := rv60_d
+    rv252_m := rv252_d
+    risk_on := canary_ok and trend_ok and vol_ok_m
+
+if is_new_month_signal
+    canary_ok := canary_ok_eom
+    trend_ok := trend_ok_eom
+    vol_ok_m := vol_ok_eom
+    rv60_m := rv60_eom
+    rv252_m := rv252_eom
+    risk_on := canary_ok and trend_ok and vol_ok_m
+
+// Defensive safe-pool pick (for display): best of SHV/IEF by monthly 13612U, fallback SHV
+shv13612u_m = request.security(shvSymbol, "1M", f_13612u_from_close(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+ief13612u_m = request.security(iefSymbol, "1M", f_13612u_from_close(), gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+
+safe_pick = na(shv13612u_m) and na(ief13612u_m) ? "SHV" :
+     na(ief13612u_m) ? "SHV" :
+     na(shv13612u_m) ? "IEF" :
+     (ief13612u_m > shv13612u_m ? "IEF" : "SHV")
+
+regime_text = risk_on ? "RISK-ON (SPY)" : "CASH (" + safe_pick + ")"
+
+bgcolor(showBg ? (risk_on ? color.new(color.green, 86) : color.new(color.red, 88)) : na)
+
+buy_signal = risk_on and not risk_on[1]
+sell_signal = not risk_on and risk_on[1]
+plotshape(buy_signal, title="BUY", style=shape.triangleup, location=location.belowbar, color=color.green, text="BUY")
+plotshape(sell_signal, title="SELL", style=shape.triangledown, location=location.abovebar, color=color.red, text="SELL")
+alertcondition(buy_signal, title="BULL BUY", message="BULL risk-ON (month-end)")
+alertcondition(sell_signal, title="BULL SELL", message="BULL risk-OFF (month-end)")
+
+var table gateTable = na
+var bool gateTableDetails = na
+if barstate.isfirst or na(gateTable) or gateTableDetails != showDetails
+    if not na(gateTable)
+        table.delete(gateTable)
+    gateTable := showDetails ? table.new(position.top_right, 2, 5, frame_color=color.gray, border_width=1) : table.new(position.top_right, 1, 1, frame_color=color.gray, border_width=1)
+    gateTableDetails := showDetails
+
+if barstate.islast
+    if showDetails
+        table.cell(gateTable, 0, 0, "Regime", text_size=size.tiny)
+        table.cell(gateTable, 1, 0, regime_text, text_color=risk_on ? color.lime : color.orange, text_size=size.tiny)
+
+        table.cell(gateTable, 0, 1, "Canary TIP", text_size=size.tiny)
+        table.cell(gateTable, 1, 1, (canary_ok ? "PASS " : "FAIL ") + f_fmt_pct(tip13612u_m), text_color=canary_ok ? color.lime : color.red, text_size=size.tiny)
+
+        table.cell(gateTable, 0, 2, "Trend SPY", text_size=size.tiny)
+        table.cell(gateTable, 1, 2, (trend_ok ? "PASS " : "FAIL ") + f_fmt_pct(spy13612u_m), text_color=trend_ok ? color.lime : color.red, text_size=size.tiny)
+
+        table.cell(gateTable, 0, 3, "Vol 60<252", text_size=size.tiny)
+        table.cell(gateTable, 1, 3, (vol_ok_m ? "PASS " : "FAIL ") + f_fmt_pct(rv60_m) + " vs " + f_fmt_pct(rv252_m), text_color=vol_ok_m ? color.lime : color.red, text_size=size.tiny)
+
+        table.cell(gateTable, 0, 4, "Safe", text_size=size.tiny)
+        table.cell(gateTable, 1, 4, safe_pick, text_size=size.tiny)
+    else
+        compactText = risk_on ? "BULL: RISK-ON" : "BULL: CASH (" + safe_pick + ")"
+        compactBg = risk_on ? color.new(color.green, 0) : color.new(color.orange, 0)
+        table.cell(gateTable, 0, 0, compactText, text_color=color.white, bgcolor=compactBg, text_size=size.small)
