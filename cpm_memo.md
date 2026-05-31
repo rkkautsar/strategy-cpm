@@ -35,7 +35,7 @@ Turnover:
 
 ## 2. Investment thesis and economic rationale
 
-CPM is a tail-control vehicle built on cross-asset momentum. The return engine is the R plus U stack (vol-adjusted Faber ranker plus CPM universe), with W as a smaller helper. C, S, and P are protective layers that reduce crash depth and speed recovery, with value concentrated in crisis regimes.
+Cross-asset time-series momentum persists through risk-on and risk-off cycles because investor flows, risk budgets, and macro regimes adjust gradually rather than instantly. CPM expresses this through a breadth-scaled cross-asset momentum pipeline: rank assets by 10-month trend strength per unit of realized volatility, keep only positive-trend assets, select the top four, inverse-volatility weight the surviving risky block, and route unused risk slots to the timed safe asset. "Parity" in CPM refers to inverse-volatility weighting of the risky block, not full covariance-based risk parity or ERC optimization. The strict-4 partial-safe rule makes risk exposure proportional to breadth: when fewer than four assets qualify, the missing slots go to SHV or IEF. The HYG-OR-TIP canary provides a broad risk-permission layer; the SHV/IEF selector distinguishes duration-friendly from duration-hostile defensive regimes. This maps to decomposition evidence: R plus U drive return, W is a smaller helper, and C, S, and P are protective layers concentrated in crisis regimes.
 
 ### 2.1 Execution-timing cliff and operational risk
 
@@ -74,7 +74,8 @@ Let monthly total return over h months be r_h = P_ME(t) / P_ME(t-h) - 1, measure
   - SMA_10m = simple average of the latest 10 sampled month-end closes, including the current signal month-end close.
   - m_faber = price / SMA_10m - 1.
 - Realized volatility:
-  - rv_252d = stdev(simple daily returns, 252d) * sqrt(252).
+  - rv_252d = stdev(simple daily returns, 252d) * sqrt(252), used in the rank score m_faber / rv_252d.
+  - rv_504d = stdev(simple daily returns, 504d) * sqrt(252), used for risky-block inverse-vol weighting.
 
 ### 3.2 CPM rule stack
 
@@ -86,7 +87,7 @@ Let monthly total return over h months be r_h = P_ME(t) / P_ME(t-h) - 1, measure
    - n_pos = number of surviving positives (0..4).
    - risky_fraction = min(n_pos, 4) / 4.
    - safe_fraction = 1 - risky_fraction.
-   - risky block uses inverse-vol weights across surviving positives with 504-day volatility window (covariance diagonal).
+   - risky block uses inverse-vol weights proportional to 1 / rv_504d across surviving positives.
    - safe block goes to timed SHV or IEF by 13612U.
 
 This is strict-4 partial-safe behavior:
@@ -111,7 +112,7 @@ This is strict-4 partial-safe behavior:
 | Trend positivity filter | Threshold | m_faber > 0 |
 | Risky block weighting | Rule | inverse-vol over surviving positives |
 | Risky fraction control | Rule | strict-4 partial-safe, min(n_pos,4)/4 |
-| Volatility lookback (covariance diagonal) | Window | 504 trading days |
+| Risky-block inverse-vol lookback | Window | 504 trading days |
 | Canary | Rule | m_13612U(HYG) > 0 OR m_13612U(TIP) > 0 |
 | Safe selector | Rule | argmax m_13612U over SHV, IEF |
 | Transaction cost | Side cost | 10 bps |
@@ -193,16 +194,16 @@ Use the clean headline as 1.1910 with CI [0.7866, 1.5969], not as a single preci
 | Clean | 2.616 | 13.4% |
 | Extended | 2.733 | 10.1% |
 
-### 5.5 Canonical benchmark set and significance
+### 5.5 AAA-style available-panel benchmark and significance
 
-Headline benchmark set uses canonical AAA (Adaptive Asset Allocation; Butler, Philbrick, Gordillo, Varadi; SSRN 2328254) plus investor alternatives. AAA here is the full 10-asset universe; this supersedes the older internal 8-of-10 factorial baseline for headline comparison.
+Headline benchmark set uses an AAA-style available-panel benchmark (Adaptive Asset Allocation class; Butler, Philbrick, Gordillo, Varadi; SSRN 2328254) plus investor alternatives. This available-panel implementation keeps EWJ and RWX excluded, with EFA and VNQ as stand-ins for EZU and IYR; this supersedes the older internal 8-of-10 factorial baseline for headline comparison.
 
 Clean window (2008-05-30 to 2026-05-22):
 
 | Series | Sharpe | CAGR | MaxDD | Calmar | Martin |
 |---|---:|---:|---:|---:|---:|
 | CPM | 1.19 | 13.44% | -12.67% | 1.06 | 3.96 |
-| Canonical AAA (SPY, EZU, EWJ, EEM, IYR, RWX, IEF, TLT, DBC, GLD) | 0.94 | 9.23% | -21.76% | 0.42 | 1.62 |
+| AAA-style available-panel benchmark | 0.94 | 9.23% | -21.76% | 0.42 | 1.62 |
 | 60/40 (SPY/IEF) | 0.79 | 8.75% | -29.82% | 0.29 | 1.40 |
 | Naive 12m momentum (no canary, equal-weight) | 0.65 | 8.14% | -26.59% | 0.31 | 1.02 |
 | Buy-hold inverse-vol | 0.69 | 8.15% | -34.92% | 0.23 | 1.11 |
@@ -211,7 +212,7 @@ Sharpe difference test (CPM minus benchmark, paired block bootstrap, 95% CI):
 
 | Comparator | dSharpe | 95% CI | Includes zero? |
 |---|---:|---|---|
-| Canonical AAA | +0.25 | [-0.069, +0.607] | Yes |
+| AAA-style available-panel benchmark | +0.25 | [-0.069, +0.607] | Yes |
 | 60/40 | +0.40 | [-0.069, +0.826] | Yes |
 | Naive 12m | +0.54 | [+0.178, +0.925] | No |
 | Buy-hold inverse-vol | +0.51 | [+0.086, +0.907] | No |
@@ -220,23 +221,24 @@ Drawdown-adjusted difference tests (CPM minus benchmark, paired block bootstrap,
 
 | Metric | Comparator | Point diff | 95% CI | Includes no-diff point? |
 |---|---|---:|---|---|
-| MaxDD gap (percentage points, positive = shallower CPM DD) | Canonical AAA | +9.10 | [-5.86, +13.54] | Yes |
+| MaxDD gap (percentage points, positive = shallower CPM DD) | AAA-style available-panel benchmark | +9.10 | [-5.86, +13.54] | Yes |
 | MaxDD gap (percentage points, positive = shallower CPM DD) | 60/40 | +17.16 | [-3.00, +23.71] | Yes |
 | MaxDD gap (percentage points, positive = shallower CPM DD) | Naive 12m | +13.92 | [+1.52, +31.09] | No |
 | MaxDD gap (percentage points, positive = shallower CPM DD) | Buy-hold inverse-vol | +22.25 | [+0.06, +30.21] | No |
-| Calmar difference (positive = better CPM) | Canonical AAA | +0.6399 | [-0.1162, +0.9142] | Yes |
+| Calmar difference (positive = better CPM) | AAA-style available-panel benchmark | +0.6399 | [-0.1162, +0.9142] | Yes |
 | Calmar difference (positive = better CPM) | 60/40 | +0.7713 | [-0.0213, +1.1070] | Yes |
 | Calmar difference (positive = better CPM) | Naive 12m | +0.7579 | [+0.1548, +1.1379] | No |
 | Calmar difference (positive = better CPM) | Buy-hold inverse-vol | +0.8313 | [+0.1109, +1.1800] | No |
-| Martin difference (positive = better CPM) | Canonical AAA | +2.3504 | [-0.1371, +3.8059] | Yes |
+| Martin difference (positive = better CPM) | AAA-style available-panel benchmark | +2.3504 | [-0.1371, +3.8059] | Yes |
 | Martin difference (positive = better CPM) | 60/40 | +2.5738 | [-0.3145, +4.5695] | Yes |
 | Martin difference (positive = better CPM) | Naive 12m | +2.9550 | [+0.7683, +4.7088] | No |
 | Martin difference (positive = better CPM) | Buy-hold inverse-vol | +2.8682 | [+0.4540, +4.7908] | No |
 
 Read:
-- Versus canonical AAA and 60/40, difference-CI tests are underpowered at this 18y sample length: Sharpe, MaxDD, and Calmar intervals are structurally wide.
+- Versus the AAA-style available-panel benchmark and 60/40, difference-CI tests are underpowered at this 18y sample length: Sharpe, MaxDD, and Calmar intervals are structurally wide.
 - Underpowered is not absent: evidence is consistent with both structural advantage and luck, not with a no-edge conclusion. Practical point gaps still matter: CPM MaxDD is -12.67% versus -21.76% to -34.92%.
 - Class-norm context: sub-significance versus 60/40 is not CPM-specific. Adaptive Asset Allocation (SSRN 2328254, 1995-2015) has in-sample dSharpe +0.084 (not significant), and the Keller/Keuning HAA paper variant (SSRN 4346906) over about 52 years has dSharpe +0.246 with CI [-0.058, +0.540] (still not significant).
+- Honesty on benchmark OOS: AAA-style did not decay after its 1995-2015 paper window (Sharpe 1.068 to 1.228 in 2016-2026), while CPM's roughly +0.24 Sharpe edge in that slice matches the full-clean gap but remains within bootstrap noise and is CPM-in-sample versus AAA-OOS (2016-2026 sits inside CPM's selection window), so it is not clean OOS evidence that CPM beats AAA.
 - CPM point edge is competitive or better: dSharpe versus 60/40 is +0.40, while peer 18y point edges are about +0.20 (HAA) and +0.18 (AAA). CPM Calmar is 1.06 versus peer 0.66-0.74 (HAA 0.656, AAA 0.743 at 18y) and 60/40 at 0.29. Peer comparisons use a monthly-close engine, so cross-engine comparison to mooex is approximate.
 - Canary independence is explicit: disabling canary moves MaxDD from -12.67% to -15.01%, and -15.01% still beats every benchmark MaxDD. Canary adds about 2.35 points of protection; drawdown control is load-bearing in the trend, screen, and inverse-vol stack, not dependent on canary signal quality.
 - Significance still clears versus naive 12m and buy-hold inverse-vol.
@@ -246,12 +248,12 @@ Extended window (per-series start where available):
 | Series | Start | Sharpe | CAGR | MaxDD | Calmar | Martin |
 |---|---|---:|---:|---:|---:|---:|
 | CPM | 1995-01-31 | 1.26 | 14.00% | -15.93% | 0.88 | 3.98 |
-| Canonical AAA | 2008-01-19 | 0.93 | 9.07% | -21.76% | 0.42 | 1.60 |
+| AAA-style available-panel benchmark | 2008-01-19 | 0.93 | 9.07% | -21.76% | 0.42 | 1.60 |
 | 60/40 | 1999-03-10 | 0.69 | 7.31% | -31.44% | 0.23 | 1.07 |
 | Naive 12m momentum | 1999-03-10 | 0.82 | 10.11% | -26.59% | 0.38 | 1.43 |
 | Buy-hold inverse-vol | 1999-03-10 | 0.84 | 9.56% | -35.61% | 0.27 | 1.44 |
 
-Canonical AAA remains limited by RWX inception plus momentum warmup; that is why canonical AAA does not extend to the 1995 CPM extended start in this framework.
+AAA-style available-panel benchmark remains limited by available-panel history plus momentum warmup; that is why it does not extend to the 1995 CPM extended start in this framework.
 
 ## 6. CPM 2^6 decomposition
 
@@ -322,6 +324,8 @@ Universe factor U is positive in Sharpe and Calmar by window (+0.0837 clean dSha
 
 Weighting appears as W factor in the decomposition: AAA baseline minimum-variance versus CPM inverse-vol over surviving positives. This is decomposition attribution, not a CPM variant family.
 
+The small factorial W effect (+0.0127 clean dSharpe) is measured against AAA minimum-variance, so it understates inverse-vol value because inverse-vol is the solver-free simplification of the same vol-aware idea. Against the naive equal-weight baseline at production settings, inverse-vol is 1.1910 versus 1.1317 clean Sharpe (+0.0593), with Calmar 1.0615 versus 1.0147 and MaxDD -12.67% versus -13.05%.
+
 ### 7.4 Asset concentration (CPM risky contribution share)
 
 | Asset | Clean share | Extended share |
@@ -339,7 +343,7 @@ Extended concentration summary: top holding is SPHQ at 16.4%, and top-3 share is
 
 ### 7.5 Cross-asset stagflation resilience and proxy caveats
 
-Stagflation defense in CPM comes from cross-asset rotation plus absolute-momentum screening. Historical 1970s proxy reconstructions are artifact-prone, so precise percentage outcomes are unreliable and are not used as headline evidence. Keep only the qualitative read: CPM can rotate into inflation-linked leaders when those trends dominate.
+Historical proxy tests suggest CPM's cross-asset design can rotate toward gold and commodity leadership in stagflationary regimes, but the 1970s results rely on lower-fidelity proxy data and should be treated as directional only.
 
 ### 7.6 Factor stability across halves (at-production marginal dSharpe)
 
@@ -421,7 +425,7 @@ Clean Sharpe unless noted.
 | Universe SPY-swap (drop QQQ/SPHQ) | 1.01 (-0.18) \| AAA variant: 1.03 \| Keller-GTAA10: 0.99 \| Faber-GTAA5: 0.81; all remain in the same quality band, and all MaxDD are shallower than 13.7% |
 | Top-K {3,4,5,6} | 0.95 / 1.19 / 1.09 / 1.02 |
 | Ranking momentum {Faber-voladj, 13612U, 12m, 6m, 3m} | 1.19 / 1.08 / 0.99 / 0.93 / 0.92 |
-| Covariance lookback {252, 504} | gap <= 0.03, with 504 > 252 |
+| Risky-block inverse-vol lookback {252, 504} | gap <= 0.03, with 504 > 252 |
 | Interaction grid (80 cells; 40 distinct configs) | Production config (K=4, Faber-voladj, 504d, inverse-vol) is #1 on both Sharpe and Calmar; Sharpe median 0.94, IQR 0.92-0.98, min 0.83, max 1.19; 21% of cells > 1.0 and 5% > 1.1 |
 | Cost {0, 10, 30 bps/side} | 1.24 / 1.19 / 1.10 |
 | Weighting {inverse-vol, equal-weight} | 1.19 / 1.13 |
@@ -432,7 +436,7 @@ Clean Sharpe unless noted.
 
 The 80-cell interaction grid shows the baseline is the literal argmax, with selection-on-peak bias of +0.25 Sharpe versus grid median and +0.025 versus the second-best cell. Cliffs exist: dropping Faber ranker to 6m costs about 0.26 Sharpe, and K=4 to K=3 costs about 0.24. Interactions are material: Faber leads at K=4 but trails 13612U at K=3, and with a 3m ranker the K optimum flips from 4 to 6.
 
-Mitigants: region and direction are stable across both windows (Faber + K=4-5 + inverse-vol stays top, and extended 1.2643 is also grid-top), and bootstrap CI is [0.7866, 1.5969]. Residual risks: execution discipline matters (a few-day slip to EOM+3 drops Sharpe to 0.91), and selection-on-peak inflation remains in the last about 0.025-0.06 Sharpe slice (504-vs-252 and inverse-vol-vs-equal at optimum). Treat 1.19 as in-sample peak, about 1.00 as selection-deflated in-sample, and about 0.72 (0.62-0.85) as forward expectation.
+Mitigants: region and direction are stable across both windows (Faber + K=4-5 + inverse-vol stays top, and extended 1.2643 is also grid-top), and bootstrap CI is [0.7866, 1.5969]. Residual risks: execution discipline matters (a few-day slip to EOM+3 drops Sharpe to 0.91), and selection-on-peak inflation remains in the last about 0.025-0.06 Sharpe slice (504-vs-252 and inverse-vol-vs-equal at optimum). CPM should not be judged on the 1.19 peak alone; the defensible claim is that the Faber / top-4 / inverse-vol family is materially better than the AAA-style available-panel benchmark, and the production configuration is the best observed representative of that family. Treat 1.19 as in-sample peak, about 1.00 as selection-deflated in-sample, and about 0.72 (0.62-0.85) as forward expectation.
 
 ## 10. Conclusion
 
@@ -456,7 +460,7 @@ In backtest over both windows, CPM's strongest claim is capital preservation and
 | top_k | 4 |
 | risky_weight_rule | inverse-vol over surviving positives |
 | risky_fraction_rule | strict-4 partial-safe, min(n_pos,4)/4 |
-| volatility_lookback_days (covariance diagonal) | 504 |
+| risky-block inverse-vol lookback | 504 trading days |
 | canary_rule | m_13612U(HYG) > 0 OR m_13612U(TIP) > 0 |
 | safe_rule | argmax m_13612U over SHV and IEF |
 | rebalance | monthly |
