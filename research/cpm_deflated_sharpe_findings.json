@@ -1,0 +1,79 @@
+{
+  "role": "analyst (read-only research; no production/memo edits; no commit)",
+  "purpose": "Forward (OOS) Sharpe expectation for CPM via Deflated Sharpe Ratio + selection-space DoF enumeration. Replaces the in-sample grid-family median (~1.02) as the honest forward central estimate.",
+  "anchor": {
+    "headline_clean_sharpe_ann": 1.1910,
+    "execution_model": "month-end signal, T+1 MOO fill, 10 bps/side",
+    "clean_window": ["2008-05-30", "2026-05-22"],
+    "n_daily_obs": 4524,
+    "n_months": 217
+  },
+  "inputs": {
+    "grid_sharpe_dist_ann": {
+      "n_cells": 80, "n_distinct_configs": 40,
+      "median": 0.9414, "mean": 0.9573, "std": 0.0726,
+      "iqr": [0.9215, 0.9817], "min": 0.8255, "max": 1.1910
+    },
+    "anchor_return_moments_daily": {"sr_period": 0.07502, "sr_ann": 1.1908, "skew": -0.3740, "excess_kurtosis": 4.0282},
+    "anchor_return_moments_monthly": {"sr_period": 0.40322, "sr_ann": 1.3968, "skew": 0.1514, "excess_kurtosis": -0.0506},
+    "single_config_SR_standard_error_ann_Lo_Mertens": 0.2403,
+    "bootstrap_clean_sharpe_CI": [0.7866, 1.1964, 1.5969],
+    "execution_cliff_rebal_day": {"EOM_sameday_MOC": 1.2063, "EOM+1": 1.01, "EOM+2": 0.97, "EOM+3": 0.91},
+    "subperiod_sharpe": {"2008_2016": 1.00, "2017_2026": 1.38, "rolling36m_min": 0.71, "rolling36m_median": 1.41}
+  },
+  "selection_space_DoF": {
+    "documented_grid": "K{3,4,5,6} x momentum{faber_voladj,13612U,12m,6m,3m} x lookback{252,504} x weighting{invvol,equal} = 80 cells (40 distinct; lookback degenerate under equal-weight)",
+    "undocumented_axes": [
+      "Canary rule: OR-vs-AND combinator (2) x canary asset pair selection (HYG/TIP vs LQD/IEF/etc, ~3-6)",
+      "13612U momentum horizon set {r1,r3,r6,r12} is itself a tuned form vs alternatives (r1,r4,r8,r12; r2,r4,r8,r12; equal-weight horizons) (~3-5)",
+      "strict-K partial-safe threshold: 4-of-8 slots chosen out of {1..8} (~5-8)",
+      "6-factor design (C,U,R,S,W,P): inclusion/exclusion lattice 2^6=64 nominal; ~6-10 explored on the additive ladder"
+    ],
+    "nominal_DoF_product_order_of_magnitude": "~1e3 to ~1e4",
+    "effective_independent_trials_N": {
+      "estimate_range": [50, 300],
+      "central": 150,
+      "rationale": "Trials are heavily correlated: cross-config SR std (0.073 ann) is far below the single-config SR standard error (0.24 ann), so configurations share most of the same return stream. Nominal product overstates independence by ~1-2 orders of magnitude. DSR verdict is insensitive to N across the entire plausible band."
+    }
+  },
+  "deflated_sharpe": {
+    "method": "Bailey & Lopez de Prado (2014). SR0 = expected max SR over N trials = sqrt(V_trials)*[(1-gamma)*Z^-1(1-1/N) + gamma*Z^-1(1-1/(N*e))], gamma=0.5772 (Euler-Mascheroni). DSR = PSR(SR0) = Phi( (SR_hat - SR0)*sqrt(n-1) / sqrt(1 - skew*SR_hat + ((kurt-1)/4)*SR_hat^2) ). All SR in per-period units; V_trials = grid SR variance de-annualized to the same frequency.",
+    "daily_frame": {
+      "SR0_expected_max_ann": {"N=40": 0.159, "N=80": 0.178, "N=200": 0.201, "N=500": 0.222, "N=1000": 0.236},
+      "DSR": 1.0000,
+      "z_range": [3.91, 4.48]
+    },
+    "monthly_frame": {
+      "DSR": 1.0000,
+      "z_range": [4.82, 5.39]
+    },
+    "interpretation": "DSR ~ 1.0 (z > 3.9 at every N up to 2000): the 1.19 Sharpe is statistically distinguishable from the expected maximum produced by searching this correlated family of trials. Selection-from-noise ALONE does not manufacture the result; real signal is present. BUT DSR answers 'is skill real', not 'what is forward SR'. The expected-max benchmark SR0 (ann 0.16-0.24) is the SELECTION-INFLATION haircut: ~0.16-0.25 of the 1.19 is attributable to picking the argmax of the search."
+  },
+  "selection_deflated_in_sample_sharpe": {
+    "value_ann": [0.94, 1.03],
+    "central": 1.00,
+    "note": "1.19 minus expected-max selection inflation (0.16-0.25). Convergent cross-check: equals the empirical peak-vs-median gap (1.19-0.94=0.25 grid median; 1.19-1.02=0.17 faber-family region median). Still ideal execution, still 2008-26 regime."
+  },
+  "forward_expectation_ladder_ann": {
+    "base_headline": 1.1910,
+    "x_selection_depeak": {"central": 0.82, "band": [0.79, 0.86], "after": [0.94, 1.02]},
+    "x_execution_realism": {"central": 0.85, "band": [0.765, 0.93], "note": "0.765 = full EOM+3 cliff (0.91/1.19); 0.93 = disciplined T+1 MOO; central assumes occasional slippage"},
+    "x_regime_nonstationarity": {"central": 0.88, "band": [0.80, 0.95], "note": "2008-26 trending/risk-on tailwind; subperiod 2017-26 SR 1.38 vs 2008-16 1.00; cross-asset momentum OOS decay literature ~0.5-0.7 of IS"},
+    "forward_central": 0.72,
+    "forward_range": [0.62, 0.85]
+  },
+  "verdict": {
+    "forward_sharpe_range": [0.62, 0.85],
+    "forward_central": 0.72,
+    "critique_band_assessment": "Critique's ~0.65-0.85 CONFIRMED and slightly widened on the downside to 0.62. Central ~0.72 (not 1.02).",
+    "headline_status": "1.19 = in-sample peak (argmax, ideal execution). ~1.00 = selection-deflated in-sample. ~0.72 (0.62-0.85) = forward/OOS central expectation.",
+    "honesty_note": "DSR is genuinely supportive (skill is real, not a noise artifact); the forward haircut is driven by selection de-peaking, execution realism, and regime non-stationarity, NOT by failing the deflation test."
+  },
+  "caveats": [
+    "DSR is assumption-sensitive: daily frame uses n=4524 (overstates independence for a monthly-rebalanced strategy) and heavy daily excess-kurtosis (4.03); monthly frame (n=217) is more honest on independence and gives an even higher z. Both yield DSR ~ 1.0, so the verdict is robust to frame.",
+    "V_trials uses the 80-cell grid variance only; the broader undocumented DoF would raise N and SR0 modestly (still << 1.19). Captured by the N=1000-2000 sensitivity.",
+    "Selection de-peak, execution, and regime factors are applied multiplicatively as independent haircuts; if execution slippage correlates with regime stress the low tail could be worse than 0.62.",
+    "Forward range is a reasoned synthesis, not a backtest of the forward period; it cannot be validated until OOS data accrues.",
+    "Grid SRs are daily-annualized (match anchor 1.1910); monthly-annualized SR of the same series is 1.40, a frequency-convention difference, not an error."
+  ]
+}
