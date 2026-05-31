@@ -2,11 +2,6 @@
 
 Current state: convention-locked monthly ETF implementation. Clean window uses full real-open coverage. Extended window includes proxy-backed pre-ETF segments. Metrics are post-cost and use month-end signal with next-session-open execution.
 
-## Current sleeve spec (production)
-
-- BULL sleeve: risk-on only when TIP 13612U > 0 and SPY 13612U > 0. Else 100% best-of-safe in {SHV, IEF} by 13612U.
-- NDX sleeve: risk-on only when TIP 13612U > 0 and SPY 13612U > 0 and SPY RV_20d < RV_252d. Else 100% best-of-safe in {SHV, IEF} by 13612U.
-
 ## 0. Header and metadata
 
 - Strategy: CPM (Cross-asset Parity Momentum).
