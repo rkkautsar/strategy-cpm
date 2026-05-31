@@ -60,7 +60,7 @@ DEFAULT_CASH = "SHV"
 
 # Engine parameters
 TOP_K_CANDIDATES = 4        # top-half of 8-asset universe (ceil(8/2))
-CORR_LOOKBACK_DAYS = 504    # rolling covariance lookback for inverse-vol weights (~2y)
+CORR_LOOKBACK_DAYS = 252    # rolling covariance lookback for inverse-vol weights (~1y)
 COST_BPS_PER_SIDE = 10
 # Pinned research/backtest evaluation cutoff for reproducibility (memo clean-window end).
 EVAL_END = pd.Timestamp("2026-05-22")
@@ -318,7 +318,7 @@ def canary_risk_state(n_pos: int | None) -> str | None:
 
 
 def inv_vol_weights(close: pd.DataFrame, picks: list, lookback: int) -> dict:
-    """Inverse-vol weights over `picks` using sigma_i from 504d covariance diag.
+    """Inverse-vol weights over `picks` using sigma_i from 252d covariance diag.
 
     Uses the same backward-only NaN handling as ranking-vol path:
       sigma_i = sqrt(diag(close[picks].ffill().pct_change().dropna(how='all').tail(lookback).cov()))
