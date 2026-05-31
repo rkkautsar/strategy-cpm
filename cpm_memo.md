@@ -258,7 +258,7 @@ Benchmark hierarchy (Section 5.5 opening split):
 
 | Tier | Benchmarks | Role in this memo |
 |---|---|---|
-| INTERNAL engineering baseline | AAA-like factorial baseline (internal all-OFF baseline, 000000) | Decomposition baseline in Section 6 only; not a headline comparator |
+| INTERNAL engineering baseline | AAA-like factorial baseline (internal all-OFF baseline, 000000) | Decomposition baseline in Section 6 summary and Appendix A details; not a headline comparator |
 | EXTERNAL peer comparators | AAA-style available-panel benchmark (headline), 60/40 (SPY/IEF), naive 12m momentum (no canary, equal-weight), buy-hold inverse-vol | Headline performance and significance comparisons in Section 5.5 |
 
 Headline external comparator is AAA-style available-panel benchmark (Adaptive Asset Allocation class; Butler, Philbrick, Gordillo, Varadi; SSRN 2328254), with 60/40 as investor reference. This available-panel implementation keeps EWJ and RWX excluded, with EFA and VNQ as stand-ins for EZU and IYR.
@@ -386,58 +386,13 @@ These are single-path statistics from one sample; read as robustness evidence, n
 
 ## 6. CPM 2^6 decomposition
 
-Extended-window figures in this section are proxy-informed robustness only; clean-window results remain the main decision lens.
+Extended-window references in this section are proxy-informed robustness only.
 
-The CPM 2^6 decomposition runs from an AAA-like factorial baseline (internal all-OFF baseline, 000000) to CPM all-ON (111111), where OFF uses 6-month momentum (R), minimum-variance weighting on weighted 126d/20d covariance (W), the 8-of-10 SPY-set universe (U; EWJ and RWX excluded, EFA and VNQ stand in for EZU and IYR slash-pairs per benchmark_audit), and no canary (C).
-
-This 000000 AAA-like factorial baseline line is the internal decomposition baseline only. It is not the headline external benchmark in Section 5.5.
-
-- Baseline all-OFF (AAA-like factorial baseline, internal all-OFF baseline, 8-of-10 available assets): clean Sharpe 0.7869, MaxDD -23.21%, Calmar 0.3188; extended Sharpe 0.9040, Calmar 0.3626.
-- All-ON is production CPM: clean Sharpe 1.1910, MaxDD -12.67%, Calmar 1.0615; extended Sharpe 1.2643, MaxDD -15.93%, Calmar 0.8791.
-
-Factor mapping is C,U,R,S,W,P where OFF is the AAA-like factorial baseline and ON is CPM. [FLIP] marks factors with sign changes across backgrounds.
-
-Clean-lens decomposition story:
-- R is top first-order driver (+0.2048 Sharpe, +0.2411 Calmar [FLIP]).
-- C is large contributor (+0.1104 Sharpe, +0.2172 Calmar [FLIP]) because the AAA-like factorial baseline has no canary.
-- U is moderate net positive and W is much stronger in the extended window; S is slightly Sharpe-negative but Calmar-positive (drawdown-control contribution).
-- P is diluted in marginal averages (+0.0482 Sharpe, +0.0886 Calmar [FLIP]) because it is inert when S is OFF and breadth stays 4; P value is concentrated in S x P (+0.0886 clean Calmar, +0.0752 extended Calmar).
-
-| Factor | CLEAN dSharpe | CLEAN dCalmar | EXT dSharpe | EXT dCalmar |
-|---|---:|---:|---:|---:|
-| Ranker (R) | +0.2048 | +0.2411 [FLIP] | +0.1110 | +0.1481 [FLIP] |
-| Canary (C) | +0.1104 | +0.2172 [FLIP] | +0.0728 | +0.1790 [FLIP] |
-| Universe (U) | +0.0837 [FLIP] | +0.0657 [FLIP] | +0.0824 [FLIP] | +0.0148 [FLIP] |
-| Screen (S, positive-trend) | -0.0228 [FLIP] | +0.0463 [FLIP] | -0.0178 [FLIP] | +0.0346 [FLIP] |
-| Weighting only (W) | +0.0127 [FLIP] | +0.0646 [FLIP] | +0.1054 | +0.1217 [FLIP] |
-| Partial-safe (P) | +0.0482 | +0.0886 [FLIP] | +0.0282 [FLIP] | +0.0730 [FLIP] |
-
-[FLIP] legend: high regime dependency. Sign flips across backgrounds mean standalone value is non-linear and interaction-dependent (for example, Universe and Screen flips need interactions to produce positive Calmar).
-
-CPM key two-way interactions (Calmar deltas):
-
-| Interaction | CLEAN dCalmar | EXT dCalmar |
-|---|---:|---:|
-| U x R | +0.1392 | +0.1012 |
-| S x P | +0.0886 | +0.0752 |
-| C x R | +0.0832 | +0.0497 |
-| R x S | +0.0570 | +0.0367 |
-| R x W | -0.0134 | -0.0045 |
-| S x W | -0.0165 | +0.0033 |
-
-Contribution ladder uses dependency order R -> C -> U -> W -> S -> P:
-
-| Step | Config (C,U,R,S,W,P) | CLEAN Sharpe | CLEAN Calmar | CLEAN MaxDD | EXT Sharpe | EXT Calmar | EXT MaxDD |
-|---|---|---:|---:|---:|---:|---:|---:|
-| Baseline (AAA-like factorial baseline) | 000000 | 0.7869 | 0.3188 | -23.21% | 0.9040 | 0.3626 | -23.21% |
-| +R | 001000 | 0.9128 | 0.3637 | -23.54% | 0.9645 | 0.3591 | -23.54% |
-| +C | 101000 | 1.0527 | 0.7203 | -12.96% | 1.0479 | 0.6347 | -13.90% |
-| +U | 111000 | 1.2062 | 0.7491 | -17.52% | 1.1707 | 0.6929 | -17.52% |
-| +W | 111010 | 1.1785 | 0.9606 | -14.22% | 1.2405 | 0.8887 | -15.93% |
-| +S | 111110 | 1.1491 | 1.0614 | -12.67% | 1.2533 | 0.9069 | -15.93% |
-| +P (all-ON production CPM) | 111111 | 1.1910 | 1.0615 | -12.67% | 1.2643 | 0.8791 | -15.93% |
-
-Clean ladder Calmar is monotone from 0.3188 to 1.0615. Extended ladder is not monotone: +R dips Calmar from 0.3626 to 0.3591 and +P dips Calmar from 0.9069 to 0.8791.
+Main-body takeaways:
+- R (ranking) and U (universe) drive most return contribution.
+- C, S, and P (canary, positive-trend screen, strict-4 partial-safe) are primarily protective and show up more in drawdown/Calmar improvement than in pure return lift.
+- W (weighting) is a modest helper, with contribution that varies by regime.
+- Exact first-order effects, interactions, ladder steps, and the [FLIP] regime-dependency detail are order-dependent and interaction-heavy; see Appendix A for the full decomposition tables and legend.
 
 ## 7. Design notes
 
@@ -445,7 +400,7 @@ Extended-window references in this section are proxy-informed robustness only.
 
 ### 7.1 Ranker comparison
 
-CPM ranker comparison remains vol-adjusted Faber versus plain 12-month momentum. Section 6 reports R-factor effects versus the AAA-like factorial baseline's native 6-month ranker (+0.2048 clean dSharpe), while this section isolates a different baseline (+0.1994 clean, +0.1488 extended).
+CPM ranker comparison remains vol-adjusted Faber versus plain 12-month momentum. Appendix A reports R-factor effects versus the AAA-like factorial baseline's native 6-month ranker (+0.2048 clean dSharpe), while this section isolates a different baseline (+0.1994 clean, +0.1488 extended).
 
 - Clean Sharpe lift: +0.1994, paired 95% CI [-0.0275, +0.4480].
 - Extended Sharpe lift: +0.1488, paired 95% CI [-0.0270, +0.3275].
@@ -599,9 +554,9 @@ Clean Sharpe unless noted. Any extended-window references remain proxy-informed 
 
 | Check | Result |
 |---|---|
-| Vol-lookback standardization (A1) | prod (rank252/wt504): Sharpe 1.1910, MaxDD -12.67%, Calmar 1.062; both-252: 1.1658, -12.97%, 1.014; both-504: 1.2039, -13.73%, 0.988; Sharpe band is 0.038 (~3%) |
-| US-equity de-tilt primary (A2) | Replace QQQ+SPHQ with SPY (SPY,EFA,EEM,VNQ,GLD,TLT,DBC): Sharpe 1.0122, Calmar 0.903, MaxDD -11.75%; still above SPY buy-hold Sharpe 0.660 and 60/40 Sharpe 0.795 |
-| Growth-engine ticker swaps (A2 secondary) | QQQ->VUG dSharpe -0.034; QQQ->IWF -0.036; QQQ->IWD Sharpe 1.1028; SPHQ->QUAL +0.004; SPHQ->MTUM -0.048 |
+| Volatility-lookback robustness | prod (rank252/wt504): Sharpe 1.1910, MaxDD -12.67%, Calmar 1.062; both-252: 1.1658, -12.97%, 1.014; both-504: 1.2039, -13.73%, 0.988; Sharpe band is 0.038 (~3%) |
+| US-equity de-tilt robustness (primary) | Replace QQQ+SPHQ with SPY (SPY,EFA,EEM,VNQ,GLD,TLT,DBC): Sharpe 1.0122, Calmar 0.903, MaxDD -11.75%; still above SPY buy-hold Sharpe 0.660 and 60/40 Sharpe 0.795 |
+| Growth-engine ticker-swap robustness (secondary) | QQQ->VUG dSharpe -0.034; QQQ->IWF -0.036; QQQ->IWD Sharpe 1.1028; SPHQ->QUAL +0.004; SPHQ->MTUM -0.048 |
 | Top-K {3,4,5,6} | 0.95 / 1.19 / 1.09 / 1.02 |
 | Ranking momentum {Faber-voladj, 13612U, 12m, 6m, 3m} | 1.19 / 1.08 / 0.99 / 0.93 / 0.92 |
 | Interaction grid (80 cells; 40 distinct configs) | Production config (K=4, Faber-voladj, 504d, inverse-vol) is #1 on both Sharpe and Calmar; Sharpe median 0.94, IQR 0.92-0.98, min 0.83, max 1.19; 21% of cells > 1.0 and 5% > 1.1 |
@@ -610,7 +565,7 @@ Clean Sharpe unless noted. Any extended-window references remain proxy-informed 
 | Subperiod {2008-16, 2017-26} | 1.00 / 1.38; rolling-36m Sharpe min 0.71 / median 1.41 / max 2.26 (never negative) |
 | Fill convention at fixed signal date {same-day MOC, T+1 MOO, T+1 close, T+2 open} | 1.2063 / 1.1910 / 1.15 / 1.15; lag cost from same-day to headline T+1 MOO is -0.015 Sharpe |
 | Signal/rebalance-date offset {EOM, EOM+1, EOM+2, EOM+3 bd} | 1.2063 / 1.01 / 0.97 / 0.91 |
-| Execution tranching illustration (A4) | Single-day std across EOM..EOM+3: 0.0560; 2-tranche 50/50: 0.0468 (-16%); 3-tranche thirds: 0.0389 (-31%); for about 0.02-0.05 peak Sharpe give-up |
+| Illustrative tranched-execution mitigation | Single-day std across EOM..EOM+3: 0.0560; 2-tranche 50/50: 0.0468 (-16%); 3-tranche thirds: 0.0389 (-31%); for about 0.02-0.05 peak Sharpe give-up |
 | Lookahead audit | none; signal is point-in-time (loc[:sig_d]) and execution is strictly future (> sig_d); headline 1.1910 is conservative true T+1-MOO re-accounting versus same-day MOC 1.2063 |
 
 ### 9.1 Leave-one-asset-out robustness (clean window)
@@ -638,7 +593,7 @@ The 80-cell interaction grid shows the baseline is the literal argmax, with sele
 
 Mitigants: region and direction are stable across both windows (Faber + K=4-5 + inverse-vol stays top, and extended 1.2643 is also grid-top), and bootstrap CI is [0.7866, 1.5969]. Residual risks: execution discipline matters (a few-day slip to EOM+3 drops Sharpe to 0.91), and selection-on-peak inflation remains in the last about 0.025-0.06 Sharpe slice (504-vs-252 and inverse-vol-vs-equal at optimum). CPM should not be judged on the 1.19 peak alone; the defensible claim is economically favorable point estimates for the Faber / top-4 / inverse-vol family, with stronger statistical support versus naive 12m and buy-hold inverse-vol than versus the AAA-style benchmark and 60/40 (where clean-window difference CIs include zero). Treat 1.19 as in-sample peak, about 1.00 as selection-deflated in-sample, and about 0.72 (0.62-0.85) as forward expectation.
 
-### 9.2 A1 vol-lookback robustness (overfit-charge check)
+### 9.2 Volatility-lookback robustness (overfit-charge check)
 
 Clean-window results:
 
@@ -654,7 +609,7 @@ Read:
 - Production wins on drawdown axis (shallowest MaxDD and highest Calmar), so rank252/wt504 is a mild capital-preservation tilt, not a Sharpe curve-fit.
 - Caveat: still single in-sample evidence.
 
-### 9.3 A2 US-equity de-tilt robustness (US-growth-beta-wrapper check)
+### 9.3 US-equity de-tilt robustness (US-growth-beta-wrapper check)
 
 Primary test (replace QQQ+SPHQ with plain SPY):
 
@@ -737,7 +692,62 @@ In backtest over both windows, CPM's strongest claim is capital preservation and
 - research/memo_review_additions.md
 - research/memo_review_additions_compute.json
 - research/memo_fix_numbers.json
-- research/memo_review2_A1_A2_findings.md
-- research/memo_review2_A1_A2_findings.json
-- research/memo_review2_A4_C_findings.md
-- research/memo_review2_A4_C_findings.json
+- research/memo_review2_lookback_detilt_findings.md
+- research/memo_review2_lookback_detilt_findings.json
+- research/memo_review2_tranching_tom_decay_findings.md
+- research/memo_review2_tranching_tom_decay_findings.json
+
+## Appendix A. CPM 2^6 decomposition details
+
+Extended-window figures in this section are proxy-informed robustness only; clean-window results remain the main decision lens.
+
+The CPM 2^6 decomposition runs from an AAA-like factorial baseline (internal all-OFF baseline, 000000) to CPM all-ON (111111), where OFF uses 6-month momentum (R), minimum-variance weighting on weighted 126d/20d covariance (W), the 8-of-10 SPY-set universe (U; EWJ and RWX excluded, EFA and VNQ stand in for EZU and IYR slash-pairs per benchmark_audit), and no canary.
+
+This 000000 AAA-like factorial baseline line is the internal decomposition baseline only. It is not the headline external benchmark in Section 5.5.
+
+- Baseline all-OFF (AAA-like factorial baseline, internal all-OFF baseline, 8-of-10 available assets): clean Sharpe 0.7869, MaxDD -23.21%, Calmar 0.3188; extended Sharpe 0.9040, Calmar 0.3626.
+- All-ON is production CPM: clean Sharpe 1.1910, MaxDD -12.67%, Calmar 1.0615; extended Sharpe 1.2643, MaxDD -15.93%, Calmar 0.8791.
+
+Factor mapping is C,U,R,S,W,P where OFF is the AAA-like factorial baseline and ON is CPM. [FLIP] marks factors with sign changes across backgrounds.
+
+Clean-lens decomposition story:
+- R is top first-order driver (+0.2048 Sharpe, +0.2411 Calmar [FLIP]).
+- C is large contributor (+0.1104 Sharpe, +0.2172 Calmar [FLIP]) because the AAA-like factorial baseline has no canary.
+- U is moderate net positive and W is much stronger in the extended window; S is slightly Sharpe-negative but Calmar-positive (drawdown-control contribution).
+- P is diluted in marginal averages (+0.0482 Sharpe, +0.0886 Calmar [FLIP]) because it is inert when S is OFF and breadth stays 4; P value is concentrated in S x P (+0.0886 clean Calmar, +0.0752 extended Calmar).
+
+| Factor | CLEAN dSharpe | CLEAN dCalmar | EXT dSharpe | EXT dCalmar |
+|---|---:|---:|---:|---:|
+| Ranker (R) | +0.2048 | +0.2411 [FLIP] | +0.1110 | +0.1481 [FLIP] |
+| Canary | +0.1104 | +0.2172 [FLIP] | +0.0728 | +0.1790 [FLIP] |
+| Universe (U) | +0.0837 [FLIP] | +0.0657 [FLIP] | +0.0824 [FLIP] | +0.0148 [FLIP] |
+| Screen (S, positive-trend) | -0.0228 [FLIP] | +0.0463 [FLIP] | -0.0178 [FLIP] | +0.0346 [FLIP] |
+| Weighting only (W) | +0.0127 [FLIP] | +0.0646 [FLIP] | +0.1054 | +0.1217 [FLIP] |
+| Partial-safe (P) | +0.0482 | +0.0886 [FLIP] | +0.0282 [FLIP] | +0.0730 [FLIP] |
+
+[FLIP] legend: high regime dependency. Sign flips across backgrounds mean standalone value is non-linear and interaction-dependent (for example, Universe and Screen flips need interactions to produce positive Calmar).
+
+CPM key two-way interactions (Calmar deltas):
+
+| Interaction | CLEAN dCalmar | EXT dCalmar |
+|---|---:|---:|
+| U x R | +0.1392 | +0.1012 |
+| S x P | +0.0886 | +0.0752 |
+| C x R | +0.0832 | +0.0497 |
+| R x S | +0.0570 | +0.0367 |
+| R x W | -0.0134 | -0.0045 |
+| S x W | -0.0165 | +0.0033 |
+
+Contribution ladder uses dependency order R -> C -> U -> W -> S -> P:
+
+| Step | Config (C,U,R,S,W,P) | CLEAN Sharpe | CLEAN Calmar | CLEAN MaxDD | EXT Sharpe | EXT Calmar | EXT MaxDD |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Baseline (AAA-like factorial baseline) | 000000 | 0.7869 | 0.3188 | -23.21% | 0.9040 | 0.3626 | -23.21% |
+| +R | 001000 | 0.9128 | 0.3637 | -23.54% | 0.9645 | 0.3591 | -23.54% |
+| +C | 101000 | 1.0527 | 0.7203 | -12.96% | 1.0479 | 0.6347 | -13.90% |
+| +U | 111000 | 1.2062 | 0.7491 | -17.52% | 1.1707 | 0.6929 | -17.52% |
+| +W | 111010 | 1.1785 | 0.9606 | -14.22% | 1.2405 | 0.8887 | -15.93% |
+| +S | 111110 | 1.1491 | 1.0614 | -12.67% | 1.2533 | 0.9069 | -15.93% |
+| +P (all-ON production CPM) | 111111 | 1.1910 | 1.0615 | -12.67% | 1.2643 | 0.8791 | -15.93% |
+
+Clean ladder Calmar is monotone from 0.3188 to 1.0615. Extended ladder is not monotone: +R dips Calmar from 0.3626 to 0.3591 and +P dips Calmar from 0.9069 to 0.8791.
