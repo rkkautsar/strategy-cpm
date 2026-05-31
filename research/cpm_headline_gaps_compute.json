@@ -1,0 +1,73 @@
+{
+  "convention": "mooex T+1 MOO exact, 10 bps/side, monthly month-end signal, CPM = cpm_live (HYG-OR-TIP canary)",
+  "windows": {
+    "clean": [
+      "2008-05-30",
+      "2026-05-22"
+    ],
+    "ext": [
+      "1999-03-10",
+      "2026-05-22"
+    ]
+  },
+  "anchor": {
+    "clean": {
+      "sharpe": 1.1909803390669518,
+      "maxdd_pct": -12.665167045183189,
+      "calmar": 1.0615310672378755,
+      "cagr_pct": 13.44446829021928,
+      "vol_pct": 11.158440234099363
+    },
+    "ext": {
+      "sharpe": 1.214178453760307,
+      "maxdd_pct": -15.928645980435107,
+      "calmar": 0.8607900273820914,
+      "cagr_pct": 13.711219609658375,
+      "vol_pct": 11.090241358837819
+    },
+    "clean_match_1910": "True"
+  },
+  "bootstrap_clean_sharpe": {
+    "point": 1.1908487026654373,
+    "low": 0.7866259434182457,
+    "median": 1.1963547464252078,
+    "high": 1.5968969960161845,
+    "B": 2000,
+    "block": 21,
+    "seed": 42,
+    "n_eff": 2000
+  },
+  "crisis_episodes": {
+    "GFC_2008_09": {
+      "peak": "2008-03-14",
+      "trough": "2008-10-14",
+      "depth_pct": -11.88,
+      "recovery": "2008-12-16",
+      "peak_to_trough_days": 214,
+      "trough_to_recovery_days": 63,
+      "recovered": true
+    },
+    "COVID_2020": {
+      "peak": "2020-03-06",
+      "trough": "2020-03-18",
+      "depth_pct": -10.06,
+      "recovery": "2020-04-15",
+      "peak_to_trough_days": 12,
+      "trough_to_recovery_days": 28,
+      "recovered": true
+    },
+    "bear_2022": {
+      "peak": "2021-11-24",
+      "trough": "2022-01-27",
+      "depth_pct": -7.64,
+      "recovery": "2022-03-08",
+      "peak_to_trough_days": 64,
+      "trough_to_recovery_days": 40,
+      "recovered": true
+    }
+  },
+  "mooex_coverage": {
+    "real": 245,
+    "fallback": 81
+  }
+}

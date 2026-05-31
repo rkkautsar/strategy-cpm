@@ -198,15 +198,52 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         for t in [x for x in needed if x in panel.columns]:
             col = panel[t]
             last_valid = col.last_valid_index()
-            delta_start = pull_start if last_valid is None else (last_valid + pd.Timedelta(days=1))
+            delta_start = pull_start if last_valid is None else last_valid
             if delta_start > pull_end:
                 continue
             try:
                 delta = _fetch_cached_adjusted_close(t, delta_start, pull_end, cache_dir)
                 if delta.empty:
                     continue
-                panel = panel.reindex(panel.index.union(delta.index))
-                panel.loc[delta.index, t] = delta.values
+
+                if last_valid is None:
+                    panel = panel.reindex(panel.index.union(delta.index))
+                    panel.loc[delta.index, t] = delta.values
+                    continue
+
+                ratio_date = None
+                if last_valid in delta.index and pd.notna(delta.loc[last_valid]) and delta.loc[last_valid] != 0:
+                    ratio_date = last_valid
+                else:
+                    overlap = col.dropna().index.intersection(delta.index)
+                    for d in overlap:
+                        if pd.notna(col.loc[d]) and pd.notna(delta.loc[d]) and delta.loc[d] != 0:
+                            ratio_date = d
+                            break
+
+                if ratio_date is not None:
+                    ratio = col.loc[ratio_date] / delta.loc[ratio_date]
+                    delta = delta * ratio
+                else:
+                    print(f"WARN: no overlap to rescale live refresh for {t}; appending raw scale", file=sys.stderr)
+
+                new_idx = delta.index[delta.index > last_valid]
+                if len(new_idx) == 0:
+                    continue
+
+                prev_val = col.loc[last_valid]
+                first_new_val = delta.loc[new_idx[0]]
+                if pd.notna(prev_val) and prev_val != 0 and pd.notna(first_new_val):
+                    first_ret = first_new_val / prev_val - 1.0
+                    if abs(first_ret) > 0.50:
+                        print(
+                            f"WARN: rejected live refresh for {t}; first appended return {first_ret:+.2%} exceeds 50% guard",
+                            file=sys.stderr,
+                        )
+                        continue
+
+                panel = panel.reindex(panel.index.union(new_idx))
+                panel.loc[new_idx, t] = delta.loc[new_idx].values
             except Exception as e:
                 print(f"WARN: could not refresh {t}: {e}", file=sys.stderr)
 

@@ -1,0 +1,1583 @@
+{
+  "meta": {
+    "eval_window": [
+      "1968-01",
+      "1985-12"
+    ],
+    "stag_windows": {
+      "bear_1973_74": [
+        "1973-01",
+        "1974-12"
+      ],
+      "stagflation_1977_82": [
+        "1977-01",
+        "1982-12"
+      ]
+    },
+    "data_sources": {
+      "sp500": "Shiller ie_data (datahub mirror datasets/s-and-p-500); price+dividend",
+      "cpi": "FRED CPIAUCSL",
+      "intermediate_treasury": "FRED GS5 (5y CMT yield) -> par-bond duration TR",
+      "credit": "FRED BAA (Moody's Baa corp yield) -> par-bond (N=20) duration TR",
+      "cash": "FRED TB3MS (3m T-bill)"
+    },
+    "constructions": {
+      "sp500_tr": "(P_t - P_{t-1} + D_t/12)/P_{t-1}",
+      "bond_tr": "income=y_{t-1}/12 ; price_ret=-Dmod_{t-1}*(y_t-y_{t-1}) ; duration-only (convexity omitted)",
+      "synthetic_tip": "nominal 5y Treasury TR + realized monthly CPIAUCSL inflation (same as canary_variant_test.py)",
+      "signal": "13612U = mean(1,3,6,12m returns); end-of-month t signal applied to month t+1"
+    },
+    "synthetic_tip_proxy_validation": {
+      "note": "No real TIPS pre-1997; cannot validate sign in 1970s directly.",
+      "overlap_era_sign_agreement_vs_real_TIP": 0.84,
+      "overlap_months": 300,
+      "source": "research/canary_variant_test_findings.json (2000-06+ overlap)"
+    },
+    "caveats": [
+      "Synthetic TIP is a CPI-accrual proxy; no real TIPS pre-1997. Sign-agreement vs real TIP = 0.84 in post-2000 overlap only.",
+      "1970s equity = Shiller S&P monthly (monthly-average price; not daily close).",
+      "Bond TR is a first-order par-bond duration reconstruction (convexity omitted); Baa duration N=20 is an assumption (long corporate).",
+      "Credit analog = Moody's Baa (investment-grade long corp), NOT high yield; HYG did not exist pre-1980. Baa is the longest-history credit-risk series.",
+      "Defensive asset = 3m T-bill; intermediate Treasuries as defensive would change defensive-leg returns (not tested here)."
+    ]
+  },
+  "full_period": {
+    "tip_only": {
+      "n_months": 216,
+      "total_return_pct": 370.98,
+      "cagr_pct": 8.99,
+      "vol_pct": 12.82,
+      "sharpe": 0.145,
+      "maxdd_pct": -39.16
+    },
+    "credit_or_tip": {
+      "n_months": 216,
+      "total_return_pct": 370.98,
+      "cagr_pct": 8.99,
+      "vol_pct": 12.82,
+      "sharpe": 0.145,
+      "maxdd_pct": -39.16
+    },
+    "credit_and_tip": {
+      "n_months": 216,
+      "total_return_pct": 450.76,
+      "cagr_pct": 9.94,
+      "vol_pct": 9.48,
+      "sharpe": 0.247,
+      "maxdd_pct": -22.56
+    },
+    "buyhold": {
+      "n_months": 216,
+      "total_return_pct": 360.46,
+      "cagr_pct": 8.85,
+      "vol_pct": 12.83,
+      "sharpe": 0.135,
+      "maxdd_pct": -39.16
+    }
+  },
+  "stagflation_windows": {
+    "bear_1973_74": {
+      "tip_only": {
+        "cagr_pct": -21.61,
+        "total_return_pct": -38.55,
+        "maxdd_pct": -39.16,
+        "sharpe": -2.102,
+        "dd_avoided_vs_buyhold_pp": 0.0
+      },
+      "credit_or_tip": {
+        "cagr_pct": -21.61,
+        "total_return_pct": -38.55,
+        "maxdd_pct": -39.16,
+        "sharpe": -2.102,
+        "dd_avoided_vs_buyhold_pp": 0.0
+      },
+      "credit_and_tip": {
+        "cagr_pct": -9.23,
+        "total_return_pct": -17.6,
+        "maxdd_pct": -22.56,
+        "sharpe": -1.825,
+        "dd_avoided_vs_buyhold_pp": 16.6
+      },
+      "buyhold": {
+        "cagr_pct": -21.61,
+        "total_return_pct": -38.55,
+        "maxdd_pct": -39.16,
+        "sharpe": -2.102,
+        "dd_avoided_vs_buyhold_pp": 0.0
+      }
+    },
+    "stagflation_1977_82": {
+      "tip_only": {
+        "cagr_pct": 10.78,
+        "total_return_pct": 84.8,
+        "maxdd_pct": -13.42,
+        "sharpe": 0.101,
+        "dd_avoided_vs_buyhold_pp": 0.0
+      },
+      "credit_or_tip": {
+        "cagr_pct": 10.78,
+        "total_return_pct": 84.8,
+        "maxdd_pct": -13.42,
+        "sharpe": 0.101,
+        "dd_avoided_vs_buyhold_pp": 0.0
+      },
+      "credit_and_tip": {
+        "cagr_pct": 10.19,
+        "total_return_pct": 78.96,
+        "maxdd_pct": -9.87,
+        "sharpe": 0.046,
+        "dd_avoided_vs_buyhold_pp": 3.55
+      },
+      "buyhold": {
+        "cagr_pct": 10.36,
+        "total_return_pct": 80.67,
+        "maxdd_pct": -13.42,
+        "sharpe": 0.072,
+        "dd_avoided_vs_buyhold_pp": 0.0
+      }
+    }
+  },
+  "sp500_real_context": {
+    "real_maxdd_full_pct": -49.94,
+    "real_maxdd_1973_74_pct": -49.94,
+    "nominal_maxdd_buyhold_full_pct": -39.16
+  },
+  "defensive_analysis": {
+    "tip_only": {
+      "n_defensive_months": 1,
+      "false_positive_def_months": 0,
+      "true_positive_def_months": 1,
+      "false_positive_rate_pct": 0.0,
+      "equity_down_months_total": 87,
+      "equity_down_months_caught": 1,
+      "down_month_capture_pct": 1.1,
+      "defensive_months": [
+        "1980-04"
+      ]
+    },
+    "credit_or_tip": {
+      "n_defensive_months": 1,
+      "false_positive_def_months": 0,
+      "true_positive_def_months": 1,
+      "false_positive_rate_pct": 0.0,
+      "equity_down_months_total": 87,
+      "equity_down_months_caught": 1,
+      "down_month_capture_pct": 1.1,
+      "defensive_months": [
+        "1980-04"
+      ]
+    },
+    "credit_and_tip": {
+      "n_defensive_months": 66,
+      "false_positive_def_months": 39,
+      "true_positive_def_months": 27,
+      "false_positive_rate_pct": 59.1,
+      "equity_down_months_total": 87,
+      "equity_down_months_caught": 27,
+      "down_month_capture_pct": 31.0,
+      "defensive_months": [
+        "1968-01",
+        "1968-02",
+        "1968-03",
+        "1968-04",
+        "1968-05",
+        "1968-06",
+        "1968-07",
+        "1969-02",
+        "1969-03",
+        "1969-04",
+        "1969-05",
+        "1969-07",
+        "1969-08",
+        "1969-09",
+        "1969-10",
+        "1969-11",
+        "1969-12",
+        "1970-01",
+        "1970-02",
+        "1970-03",
+        "1970-04",
+        "1970-05",
+        "1970-06",
+        "1970-07",
+        "1970-08",
+        "1970-09",
+        "1970-10",
+        "1973-09",
+        "1973-10",
+        "1974-05",
+        "1974-06",
+        "1974-07",
+        "1974-08",
+        "1974-09",
+        "1974-10",
+        "1974-11",
+        "1974-12",
+        "1975-01",
+        "1975-02",
+        "1975-03",
+        "1979-02",
+        "1979-04",
+        "1979-06",
+        "1979-11",
+        "1979-12",
+        "1980-01",
+        "1980-02",
+        "1980-03",
+        "1980-04",
+        "1980-05",
+        "1980-06",
+        "1980-09",
+        "1980-10",
+        "1980-11",
+        "1980-12",
+        "1981-01",
+        "1981-02",
+        "1981-03",
+        "1981-06",
+        "1981-08",
+        "1981-09",
+        "1981-10",
+        "1981-11",
+        "1984-06",
+        "1984-07",
+        "1984-08"
+      ]
+    }
+  },
+  "override_analysis": {
+    "definition": "override_or = month TIP 13612U<=0 AND Baa 13612U>0 (credit-OR-TIP stays risk-on though TIP says de-risk). Core user concern: does credit override HURT in stagflation?",
+    "n_override_or": 0,
+    "override_or_applied_sp_mean_pct": null,
+    "override_or_applied_sp_pct_negative": null,
+    "override_or_months": [],
+    "n_baa_neg_tip_pos": 65,
+    "baa_neg_tip_pos_months": [
+      {
+        "signal_month": "1967-12",
+        "applied_month": "1968-01",
+        "tip": 0.0216,
+        "baa": -0.034,
+        "sp_ret_pct": -0.02
+      },
+      {
+        "signal_month": "1968-01",
+        "applied_month": "1968-02",
+        "tip": 0.0326,
+        "baa": -0.0179,
+        "sp_ret_pct": -4.26
+      },
+      {
+        "signal_month": "1968-02",
+        "applied_month": "1968-03",
+        "tip": 0.0312,
+        "baa": -0.0124,
+        "sp_ret_pct": -1.56
+      },
+      {
+        "signal_month": "1968-03",
+        "applied_month": "1968-04",
+        "tip": 0.0236,
+        "baa": -0.0099,
+        "sp_ret_pct": 7.66
+      },
+      {
+        "signal_month": "1968-04",
+        "applied_month": "1968-05",
+        "tip": 0.0281,
+        "baa": -0.0207,
+        "sp_ret_pct": 2.56
+      },
+      {
+        "signal_month": "1968-05",
+        "applied_month": "1968-06",
+        "tip": 0.0179,
+        "baa": -0.0154,
+        "sp_ret_pct": 2.94
+      },
+      {
+        "signal_month": "1968-06",
+        "applied_month": "1968-07",
+        "tip": 0.037,
+        "baa": -0.0052,
+        "sp_ret_pct": 0.05
+      },
+      {
+        "signal_month": "1969-01",
+        "applied_month": "1969-02",
+        "tip": 0.0238,
+        "baa": -0.0054,
+        "sp_ret_pct": -0.24
+      },
+      {
+        "signal_month": "1969-02",
+        "applied_month": "1969-03",
+        "tip": 0.0224,
+        "baa": -0.0015,
+        "sp_ret_pct": -1.91
+      },
+      {
+        "signal_month": "1969-03",
+        "applied_month": "1969-04",
+        "tip": 0.0325,
+        "baa": -0.0172,
+        "sp_ret_pct": 2.28
+      },
+      {
+        "signal_month": "1969-04",
+        "applied_month": "1969-05",
+        "tip": 0.0404,
+        "baa": -0.0074,
+        "sp_ret_pct": 3.51
+      },
+      {
+        "signal_month": "1969-06",
+        "applied_month": "1969-07",
+        "tip": 0.0319,
+        "baa": -0.0051,
+        "sp_ret_pct": -4.2
+      },
+      {
+        "signal_month": "1969-07",
+        "applied_month": "1969-08",
+        "tip": 0.0215,
+        "baa": -0.0135,
+        "sp_ret_pct": -0.28
+      },
+      {
+        "signal_month": "1969-08",
+        "applied_month": "1969-09",
+        "tip": 0.0257,
+        "baa": -0.0167,
+        "sp_ret_pct": 0.63
+      },
+      {
+        "signal_month": "1969-09",
+        "applied_month": "1969-10",
+        "tip": 0.0069,
+        "baa": -0.0253,
+        "sp_ret_pct": 1.35
+      },
+      {
+        "signal_month": "1969-10",
+        "applied_month": "1969-11",
+        "tip": 0.0182,
+        "baa": -0.0309,
+        "sp_ret_pct": 1.0
+      },
+      {
+        "signal_month": "1969-11",
+        "applied_month": "1969-12",
+        "tip": 0.0235,
+        "baa": -0.0247,
+        "sp_ret_pct": -5.03
+      },
+      {
+        "signal_month": "1969-12",
+        "applied_month": "1970-01",
+        "tip": 0.0194,
+        "baa": -0.0468,
+        "sp_ret_pct": -0.59
+      },
+      {
+        "signal_month": "1970-01",
+        "applied_month": "1970-02",
+        "tip": 0.0201,
+        "baa": -0.0459,
+        "sp_ret_pct": -3.2
+      },
+      {
+        "signal_month": "1970-02",
+        "applied_month": "1970-03",
+        "tip": 0.0401,
+        "baa": -0.0325,
+        "sp_ret_pct": 2.01
+      },
+      {
+        "signal_month": "1970-03",
+        "applied_month": "1970-04",
+        "tip": 0.0731,
+        "baa": -0.0006,
+        "sp_ret_pct": -2.75
+      },
+      {
+        "signal_month": "1970-04",
+        "applied_month": "1970-05",
+        "tip": 0.0542,
+        "baa": -0.0003,
+        "sp_ret_pct": -11.2
+      },
+      {
+        "signal_month": "1970-05",
+        "applied_month": "1970-06",
+        "tip": 0.0344,
+        "baa": -0.0262,
+        "sp_ret_pct": -0.27
+      },
+      {
+        "signal_month": "1970-06",
+        "applied_month": "1970-07",
+        "tip": 0.0462,
+        "baa": -0.0328,
+        "sp_ret_pct": 0.52
+      },
+      {
+        "signal_month": "1970-07",
+        "applied_month": "1970-08",
+        "tip": 0.0618,
+        "baa": -0.0294,
+        "sp_ret_pct": 3.26
+      },
+      {
+        "signal_month": "1970-08",
+        "applied_month": "1970-09",
+        "tip": 0.0607,
+        "baa": -0.0238,
+        "sp_ret_pct": 6.32
+      },
+      {
+        "signal_month": "1970-09",
+        "applied_month": "1970-10",
+        "tip": 0.0716,
+        "baa": -0.0106,
+        "sp_ret_pct": 2.49
+      },
+      {
+        "signal_month": "1973-08",
+        "applied_month": "1973-09",
+        "tip": 0.0316,
+        "baa": -0.0034,
+        "sp_ret_pct": 2.0
+      },
+      {
+        "signal_month": "1973-09",
+        "applied_month": "1973-10",
+        "tip": 0.0581,
+        "baa": -0.0049,
+        "sp_ret_pct": 4.24
+      },
+      {
+        "signal_month": "1974-04",
+        "applied_month": "1974-05",
+        "tip": 0.0377,
+        "baa": -0.0065,
+        "sp_ret_pct": -2.7
+      },
+      {
+        "signal_month": "1974-05",
+        "applied_month": "1974-06",
+        "tip": 0.0393,
+        "baa": -0.0161,
+        "sp_ret_pct": 0.46
+      },
+      {
+        "signal_month": "1974-06",
+        "applied_month": "1974-07",
+        "tip": 0.0479,
+        "baa": -0.0261,
+        "sp_ret_pct": -11.34
+      },
+      {
+        "signal_month": "1974-07",
+        "applied_month": "1974-08",
+        "tip": 0.0517,
+        "baa": -0.0307,
+        "sp_ret_pct": -3.76
+      },
+      {
+        "signal_month": "1974-08",
+        "applied_month": "1974-09",
+        "tip": 0.0503,
+        "baa": -0.0384,
+        "sp_ret_pct": -10.01
+      },
+      {
+        "signal_month": "1974-09",
+        "applied_month": "1974-10",
+        "tip": 0.0676,
+        "baa": -0.0567,
+        "sp_ret_pct": 2.38
+      },
+      {
+        "signal_month": "1974-10",
+        "applied_month": "1974-11",
+        "tip": 0.088,
+        "baa": -0.0658,
+        "sp_ret_pct": 3.74
+      },
+      {
+        "signal_month": "1974-11",
+        "applied_month": "1974-12",
+        "tip": 0.1047,
+        "baa": -0.0577,
+        "sp_ret_pct": -6.09
+      },
+      {
+        "signal_month": "1974-12",
+        "applied_month": "1975-01",
+        "tip": 0.1103,
+        "baa": -0.0419,
+        "sp_ret_pct": 8.64
+      },
+      {
+        "signal_month": "1975-01",
+        "applied_month": "1975-02",
+        "tip": 0.1019,
+        "baa": -0.0439,
+        "sp_ret_pct": 10.81
+      },
+      {
+        "signal_month": "1975-02",
+        "applied_month": "1975-03",
+        "tip": 0.1095,
+        "baa": -0.0172,
+        "sp_ret_pct": 4.98
+      },
+      {
+        "signal_month": "1979-01",
+        "applied_month": "1979-02",
+        "tip": 0.0538,
+        "baa": -0.0049,
+        "sp_ret_pct": -1.05
+      },
+      {
+        "signal_month": "1979-03",
+        "applied_month": "1979-04",
+        "tip": 0.0665,
+        "baa": -0.0073,
+        "sp_ret_pct": 2.43
+      },
+      {
+        "signal_month": "1979-05",
+        "applied_month": "1979-06",
+        "tip": 0.0793,
+        "baa": -0.0005,
+        "sp_ret_pct": 2.42
+      },
+      {
+        "signal_month": "1979-10",
+        "applied_month": "1979-11",
+        "tip": 0.0354,
+        "baa": -0.0547,
+        "sp_ret_pct": -0.32
+      },
+      {
+        "signal_month": "1979-11",
+        "applied_month": "1979-12",
+        "tip": 0.0423,
+        "baa": -0.0713,
+        "sp_ret_pct": 4.41
+      },
+      {
+        "signal_month": "1979-12",
+        "applied_month": "1980-01",
+        "tip": 0.0712,
+        "baa": -0.0595,
+        "sp_ret_pct": 3.32
+      },
+      {
+        "signal_month": "1980-01",
+        "applied_month": "1980-02",
+        "tip": 0.0726,
+        "baa": -0.0635,
+        "sp_ret_pct": 4.4
+      },
+      {
+        "signal_month": "1980-02",
+        "applied_month": "1980-03",
+        "tip": 0.0074,
+        "baa": -0.1238,
+        "sp_ret_pct": -8.77
+      },
+      {
+        "signal_month": "1980-04",
+        "applied_month": "1980-05",
+        "tip": 0.0795,
+        "baa": -0.0933,
+        "sp_ret_pct": 5.04
+      },
+      {
+        "signal_month": "1980-05",
+        "applied_month": "1980-06",
+        "tip": 0.1606,
+        "baa": -0.0003,
+        "sp_ret_pct": 6.87
+      },
+      {
+        "signal_month": "1980-08",
+        "applied_month": "1980-09",
+        "tip": 0.0739,
+        "baa": -0.0027,
+        "sp_ret_pct": 2.84
+      },
+      {
+        "signal_month": "1980-09",
+        "applied_month": "1980-10",
+        "tip": 0.0599,
+        "baa": -0.0192,
+        "sp_ret_pct": 3.33
+      },
+      {
+        "signal_month": "1980-10",
+        "applied_month": "1980-11",
+        "tip": 0.0617,
+        "baa": -0.0334,
+        "sp_ret_pct": 4.62
+      },
+      {
+        "signal_month": "1980-11",
+        "applied_month": "1980-12",
+        "tip": 0.0273,
+        "baa": -0.0465,
+        "sp_ret_pct": -1.24
+      },
+      {
+        "signal_month": "1980-12",
+        "applied_month": "1981-01",
+        "tip": 0.0169,
+        "baa": -0.0662,
+        "sp_ret_pct": 0.01
+      },
+      {
+        "signal_month": "1981-01",
+        "applied_month": "1981-02",
+        "tip": 0.0489,
+        "baa": -0.0363,
+        "sp_ret_pct": -3.07
+      },
+      {
+        "signal_month": "1981-02",
+        "applied_month": "1981-03",
+        "tip": 0.0639,
+        "baa": -0.0213,
+        "sp_ret_pct": 4.15
+      },
+      {
+        "signal_month": "1981-05",
+        "applied_month": "1981-06",
+        "tip": 0.023,
+        "baa": -0.0144,
+        "sp_ret_pct": 0.86
+      },
+      {
+        "signal_month": "1981-07",
+        "applied_month": "1981-08",
+        "tip": 0.0256,
+        "baa": -0.0212,
+        "sp_ret_pct": 0.81
+      },
+      {
+        "signal_month": "1981-08",
+        "applied_month": "1981-09",
+        "tip": 0.032,
+        "baa": -0.0045,
+        "sp_ret_pct": -8.3
+      },
+      {
+        "signal_month": "1981-09",
+        "applied_month": "1981-10",
+        "tip": 0.0317,
+        "baa": -0.028,
+        "sp_ret_pct": 1.73
+      },
+      {
+        "signal_month": "1981-10",
+        "applied_month": "1981-11",
+        "tip": 0.064,
+        "baa": -0.0113,
+        "sp_ret_pct": 3.05
+      },
+      {
+        "signal_month": "1984-05",
+        "applied_month": "1984-06",
+        "tip": 0.0043,
+        "baa": -0.0103,
+        "sp_ret_pct": -1.85
+      },
+      {
+        "signal_month": "1984-06",
+        "applied_month": "1984-07",
+        "tip": 0.0131,
+        "baa": -0.008,
+        "sp_ret_pct": -0.91
+      },
+      {
+        "signal_month": "1984-07",
+        "applied_month": "1984-08",
+        "tip": 0.0319,
+        "baa": -0.0044,
+        "sp_ret_pct": 9.21
+      }
+    ]
+  },
+  "signal_calendar": {
+    "bear_1973_74": [
+      {
+        "signal_month": "1972-12",
+        "applied_month": "1973-01",
+        "tip_sig": 0.0372,
+        "baa_sig": 0.0628,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.99
+      },
+      {
+        "signal_month": "1973-01",
+        "applied_month": "1973-02",
+        "tip_sig": 0.0311,
+        "baa_sig": 0.0602,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -3.32
+      },
+      {
+        "signal_month": "1973-02",
+        "applied_month": "1973-03",
+        "tip_sig": 0.026,
+        "baa_sig": 0.0492,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.34
+      },
+      {
+        "signal_month": "1973-03",
+        "applied_month": "1973-04",
+        "tip_sig": 0.0316,
+        "baa_sig": 0.0408,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.63
+      },
+      {
+        "signal_month": "1973-04",
+        "applied_month": "1973-05",
+        "tip_sig": 0.0468,
+        "baa_sig": 0.0347,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.57
+      },
+      {
+        "signal_month": "1973-05",
+        "applied_month": "1973-06",
+        "tip_sig": 0.0379,
+        "baa_sig": 0.0389,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.99
+      },
+      {
+        "signal_month": "1973-06",
+        "applied_month": "1973-07",
+        "tip_sig": 0.05,
+        "baa_sig": 0.0303,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.21
+      },
+      {
+        "signal_month": "1973-07",
+        "applied_month": "1973-08",
+        "tip_sig": 0.0171,
+        "baa_sig": 0.0225,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.63
+      },
+      {
+        "signal_month": "1973-08",
+        "applied_month": "1973-09",
+        "tip_sig": 0.0316,
+        "baa_sig": -0.0034,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 2.0
+      },
+      {
+        "signal_month": "1973-09",
+        "applied_month": "1973-10",
+        "tip_sig": 0.0581,
+        "baa_sig": -0.0049,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 4.24
+      },
+      {
+        "signal_month": "1973-10",
+        "applied_month": "1973-11",
+        "tip_sig": 0.075,
+        "baa_sig": 0.0219,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -6.85
+      },
+      {
+        "signal_month": "1973-11",
+        "applied_month": "1973-12",
+        "tip_sig": 0.0669,
+        "baa_sig": 0.0206,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -6.8
+      },
+      {
+        "signal_month": "1973-12",
+        "applied_month": "1974-01",
+        "tip_sig": 0.0709,
+        "baa_sig": 0.0178,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.7
+      },
+      {
+        "signal_month": "1974-01",
+        "applied_month": "1974-02",
+        "tip_sig": 0.0753,
+        "baa_sig": 0.0161,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.47
+      },
+      {
+        "signal_month": "1974-02",
+        "applied_month": "1974-03",
+        "tip_sig": 0.091,
+        "baa_sig": 0.0208,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 4.58
+      },
+      {
+        "signal_month": "1974-03",
+        "applied_month": "1974-04",
+        "tip_sig": 0.0647,
+        "baa_sig": 0.0189,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -4.81
+      },
+      {
+        "signal_month": "1974-04",
+        "applied_month": "1974-05",
+        "tip_sig": 0.0377,
+        "baa_sig": -0.0065,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -2.7
+      },
+      {
+        "signal_month": "1974-05",
+        "applied_month": "1974-06",
+        "tip_sig": 0.0393,
+        "baa_sig": -0.0161,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 0.46
+      },
+      {
+        "signal_month": "1974-06",
+        "applied_month": "1974-07",
+        "tip_sig": 0.0479,
+        "baa_sig": -0.0261,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -11.34
+      },
+      {
+        "signal_month": "1974-07",
+        "applied_month": "1974-08",
+        "tip_sig": 0.0517,
+        "baa_sig": -0.0307,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -3.76
+      },
+      {
+        "signal_month": "1974-08",
+        "applied_month": "1974-09",
+        "tip_sig": 0.0503,
+        "baa_sig": -0.0384,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -10.01
+      },
+      {
+        "signal_month": "1974-09",
+        "applied_month": "1974-10",
+        "tip_sig": 0.0676,
+        "baa_sig": -0.0567,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 2.38
+      },
+      {
+        "signal_month": "1974-10",
+        "applied_month": "1974-11",
+        "tip_sig": 0.088,
+        "baa_sig": -0.0658,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 3.74
+      },
+      {
+        "signal_month": "1974-11",
+        "applied_month": "1974-12",
+        "tip_sig": 0.1047,
+        "baa_sig": -0.0577,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -6.09
+      }
+    ],
+    "stagflation_1977_82": [
+      {
+        "signal_month": "1976-12",
+        "applied_month": "1977-01",
+        "tip_sig": 0.1118,
+        "baa_sig": 0.1088,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -0.53
+      },
+      {
+        "signal_month": "1977-01",
+        "applied_month": "1977-02",
+        "tip_sig": 0.0754,
+        "baa_sig": 0.1017,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.36
+      },
+      {
+        "signal_month": "1977-02",
+        "applied_month": "1977-03",
+        "tip_sig": 0.0712,
+        "baa_sig": 0.0863,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -0.05
+      },
+      {
+        "signal_month": "1977-03",
+        "applied_month": "1977-04",
+        "tip_sig": 0.063,
+        "baa_sig": 0.0757,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.19
+      },
+      {
+        "signal_month": "1977-04",
+        "applied_month": "1977-05",
+        "tip_sig": 0.071,
+        "baa_sig": 0.0722,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.07
+      },
+      {
+        "signal_month": "1977-05",
+        "applied_month": "1977-06",
+        "tip_sig": 0.0638,
+        "baa_sig": 0.0741,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.9
+      },
+      {
+        "signal_month": "1977-06",
+        "applied_month": "1977-07",
+        "tip_sig": 0.0703,
+        "baa_sig": 0.0803,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.29
+      },
+      {
+        "signal_month": "1977-07",
+        "applied_month": "1977-08",
+        "tip_sig": 0.0666,
+        "baa_sig": 0.0777,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.07
+      },
+      {
+        "signal_month": "1977-08",
+        "applied_month": "1977-09",
+        "tip_sig": 0.0601,
+        "baa_sig": 0.0764,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.17
+      },
+      {
+        "signal_month": "1977-09",
+        "applied_month": "1977-10",
+        "tip_sig": 0.057,
+        "baa_sig": 0.0685,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.19
+      },
+      {
+        "signal_month": "1977-10",
+        "applied_month": "1977-11",
+        "tip_sig": 0.0398,
+        "baa_sig": 0.054,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.99
+      },
+      {
+        "signal_month": "1977-11",
+        "applied_month": "1977-12",
+        "tip_sig": 0.0457,
+        "baa_sig": 0.0461,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -0.08
+      },
+      {
+        "signal_month": "1977-12",
+        "applied_month": "1978-01",
+        "tip_sig": 0.0336,
+        "baa_sig": 0.038,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -3.39
+      },
+      {
+        "signal_month": "1978-01",
+        "applied_month": "1978-02",
+        "tip_sig": 0.0342,
+        "baa_sig": 0.022,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -0.97
+      },
+      {
+        "signal_month": "1978-02",
+        "applied_month": "1978-03",
+        "tip_sig": 0.038,
+        "baa_sig": 0.0248,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.27
+      },
+      {
+        "signal_month": "1978-03",
+        "applied_month": "1978-04",
+        "tip_sig": 0.0425,
+        "baa_sig": 0.0242,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 4.83
+      },
+      {
+        "signal_month": "1978-04",
+        "applied_month": "1978-05",
+        "tip_sig": 0.0446,
+        "baa_sig": 0.0207,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 5.51
+      },
+      {
+        "signal_month": "1978-05",
+        "applied_month": "1978-06",
+        "tip_sig": 0.0444,
+        "baa_sig": 0.0082,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.68
+      },
+      {
+        "signal_month": "1978-06",
+        "applied_month": "1978-07",
+        "tip_sig": 0.0407,
+        "baa_sig": 0.0015,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -0.06
+      },
+      {
+        "signal_month": "1978-07",
+        "applied_month": "1978-08",
+        "tip_sig": 0.042,
+        "baa_sig": 0.0098,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 7.33
+      },
+      {
+        "signal_month": "1978-08",
+        "applied_month": "1978-09",
+        "tip_sig": 0.0575,
+        "baa_sig": 0.0241,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.4
+      },
+      {
+        "signal_month": "1978-09",
+        "applied_month": "1978-10",
+        "tip_sig": 0.0573,
+        "baa_sig": 0.0296,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.77
+      },
+      {
+        "signal_month": "1978-10",
+        "applied_month": "1978-11",
+        "tip_sig": 0.0594,
+        "baa_sig": 0.0173,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -5.44
+      },
+      {
+        "signal_month": "1978-11",
+        "applied_month": "1978-12",
+        "tip_sig": 0.0504,
+        "baa_sig": 0.0025,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.92
+      },
+      {
+        "signal_month": "1978-12",
+        "applied_month": "1979-01",
+        "tip_sig": 0.0469,
+        "baa_sig": 0.0007,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 4.19
+      },
+      {
+        "signal_month": "1979-01",
+        "applied_month": "1979-02",
+        "tip_sig": 0.0538,
+        "baa_sig": -0.0049,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -1.05
+      },
+      {
+        "signal_month": "1979-02",
+        "applied_month": "1979-03",
+        "tip_sig": 0.0633,
+        "baa_sig": 0.0072,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 2.34
+      },
+      {
+        "signal_month": "1979-03",
+        "applied_month": "1979-04",
+        "tip_sig": 0.0665,
+        "baa_sig": -0.0073,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 2.43
+      },
+      {
+        "signal_month": "1979-04",
+        "applied_month": "1979-05",
+        "tip_sig": 0.0712,
+        "baa_sig": 0.0012,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.89
+      },
+      {
+        "signal_month": "1979-05",
+        "applied_month": "1979-06",
+        "tip_sig": 0.0793,
+        "baa_sig": -0.0005,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 2.42
+      },
+      {
+        "signal_month": "1979-06",
+        "applied_month": "1979-07",
+        "tip_sig": 0.104,
+        "baa_sig": 0.019,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.43
+      },
+      {
+        "signal_month": "1979-07",
+        "applied_month": "1979-08",
+        "tip_sig": 0.1037,
+        "baa_sig": 0.0307,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 5.02
+      },
+      {
+        "signal_month": "1979-08",
+        "applied_month": "1979-09",
+        "tip_sig": 0.094,
+        "baa_sig": 0.0231,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.54
+      },
+      {
+        "signal_month": "1979-09",
+        "applied_month": "1979-10",
+        "tip_sig": 0.0784,
+        "baa_sig": 0.0091,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -3.35
+      },
+      {
+        "signal_month": "1979-10",
+        "applied_month": "1979-11",
+        "tip_sig": 0.0354,
+        "baa_sig": -0.0547,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -0.32
+      },
+      {
+        "signal_month": "1979-11",
+        "applied_month": "1979-12",
+        "tip_sig": 0.0423,
+        "baa_sig": -0.0713,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 4.41
+      },
+      {
+        "signal_month": "1979-12",
+        "applied_month": "1980-01",
+        "tip_sig": 0.0712,
+        "baa_sig": -0.0595,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 3.32
+      },
+      {
+        "signal_month": "1980-01",
+        "applied_month": "1980-02",
+        "tip_sig": 0.0726,
+        "baa_sig": -0.0635,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 4.4
+      },
+      {
+        "signal_month": "1980-02",
+        "applied_month": "1980-03",
+        "tip_sig": 0.0074,
+        "baa_sig": -0.1238,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -8.77
+      },
+      {
+        "signal_month": "1980-03",
+        "applied_month": "1980-04",
+        "tip_sig": -0.002,
+        "baa_sig": -0.1472,
+        "tip_on": false,
+        "baa_on": false,
+        "sp_ret_pct": -1.16
+      },
+      {
+        "signal_month": "1980-04",
+        "applied_month": "1980-05",
+        "tip_sig": 0.0795,
+        "baa_sig": -0.0933,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 5.04
+      },
+      {
+        "signal_month": "1980-05",
+        "applied_month": "1980-06",
+        "tip_sig": 0.1606,
+        "baa_sig": -0.0003,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 6.87
+      },
+      {
+        "signal_month": "1980-06",
+        "applied_month": "1980-07",
+        "tip_sig": 0.1712,
+        "baa_sig": 0.0315,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 4.97
+      },
+      {
+        "signal_month": "1980-07",
+        "applied_month": "1980-08",
+        "tip_sig": 0.1247,
+        "baa_sig": 0.0283,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 3.51
+      },
+      {
+        "signal_month": "1980-08",
+        "applied_month": "1980-09",
+        "tip_sig": 0.0739,
+        "baa_sig": -0.0027,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 2.84
+      },
+      {
+        "signal_month": "1980-09",
+        "applied_month": "1980-10",
+        "tip_sig": 0.0599,
+        "baa_sig": -0.0192,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 3.33
+      },
+      {
+        "signal_month": "1980-10",
+        "applied_month": "1980-11",
+        "tip_sig": 0.0617,
+        "baa_sig": -0.0334,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 4.62
+      },
+      {
+        "signal_month": "1980-11",
+        "applied_month": "1980-12",
+        "tip_sig": 0.0273,
+        "baa_sig": -0.0465,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -1.24
+      },
+      {
+        "signal_month": "1980-12",
+        "applied_month": "1981-01",
+        "tip_sig": 0.0169,
+        "baa_sig": -0.0662,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 0.01
+      },
+      {
+        "signal_month": "1981-01",
+        "applied_month": "1981-02",
+        "tip_sig": 0.0489,
+        "baa_sig": -0.0363,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -3.07
+      },
+      {
+        "signal_month": "1981-02",
+        "applied_month": "1981-03",
+        "tip_sig": 0.0639,
+        "baa_sig": -0.0213,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 4.15
+      },
+      {
+        "signal_month": "1981-03",
+        "applied_month": "1981-04",
+        "tip_sig": 0.088,
+        "baa_sig": 0.0201,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.3
+      },
+      {
+        "signal_month": "1981-04",
+        "applied_month": "1981-05",
+        "tip_sig": 0.0447,
+        "baa_sig": 0.0093,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.61
+      },
+      {
+        "signal_month": "1981-05",
+        "applied_month": "1981-06",
+        "tip_sig": 0.023,
+        "baa_sig": -0.0144,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 0.86
+      },
+      {
+        "signal_month": "1981-06",
+        "applied_month": "1981-07",
+        "tip_sig": 0.0517,
+        "baa_sig": 0.0016,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.01
+      },
+      {
+        "signal_month": "1981-07",
+        "applied_month": "1981-08",
+        "tip_sig": 0.0256,
+        "baa_sig": -0.0212,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 0.81
+      },
+      {
+        "signal_month": "1981-08",
+        "applied_month": "1981-09",
+        "tip_sig": 0.032,
+        "baa_sig": -0.0045,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": -8.3
+      },
+      {
+        "signal_month": "1981-09",
+        "applied_month": "1981-10",
+        "tip_sig": 0.0317,
+        "baa_sig": -0.028,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 1.73
+      },
+      {
+        "signal_month": "1981-10",
+        "applied_month": "1981-11",
+        "tip_sig": 0.064,
+        "baa_sig": -0.0113,
+        "tip_on": true,
+        "baa_on": false,
+        "sp_ret_pct": 3.05
+      },
+      {
+        "signal_month": "1981-11",
+        "applied_month": "1981-12",
+        "tip_sig": 0.1542,
+        "baa_sig": 0.0479,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.18
+      },
+      {
+        "signal_month": "1981-12",
+        "applied_month": "1982-01",
+        "tip_sig": 0.1231,
+        "baa_sig": 0.0437,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -4.8
+      },
+      {
+        "signal_month": "1982-01",
+        "applied_month": "1982-02",
+        "tip_sig": 0.078,
+        "baa_sig": 0.0202,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -1.91
+      },
+      {
+        "signal_month": "1982-02",
+        "applied_month": "1982-03",
+        "tip_sig": 0.0858,
+        "baa_sig": 0.0225,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -2.74
+      },
+      {
+        "signal_month": "1982-03",
+        "applied_month": "1982-04",
+        "tip_sig": 0.105,
+        "baa_sig": 0.0558,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 5.47
+      },
+      {
+        "signal_month": "1982-04",
+        "applied_month": "1982-05",
+        "tip_sig": 0.1102,
+        "baa_sig": 0.0683,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.57
+      },
+      {
+        "signal_month": "1982-05",
+        "applied_month": "1982-06",
+        "tip_sig": 0.1126,
+        "baa_sig": 0.0735,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": -5.27
+      },
+      {
+        "signal_month": "1982-06",
+        "applied_month": "1982-07",
+        "tip_sig": 0.0805,
+        "baa_sig": 0.0493,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.24
+      },
+      {
+        "signal_month": "1982-07",
+        "applied_month": "1982-08",
+        "tip_sig": 0.1177,
+        "baa_sig": 0.0752,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 0.79
+      },
+      {
+        "signal_month": "1982-08",
+        "applied_month": "1982-09",
+        "tip_sig": 0.1557,
+        "baa_sig": 0.1047,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 12.1
+      },
+      {
+        "signal_month": "1982-09",
+        "applied_month": "1982-10",
+        "tip_sig": 0.1736,
+        "baa_sig": 0.1505,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 8.88
+      },
+      {
+        "signal_month": "1982-10",
+        "applied_month": "1982-11",
+        "tip_sig": 0.2177,
+        "baa_sig": 0.2019,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 4.5
+      },
+      {
+        "signal_month": "1982-11",
+        "applied_month": "1982-12",
+        "tip_sig": 0.1773,
+        "baa_sig": 0.1949,
+        "tip_on": true,
+        "baa_on": true,
+        "sp_ret_pct": 1.36
+      }
+    ]
+  }
+}

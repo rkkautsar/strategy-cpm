@@ -1,0 +1,77 @@
+{
+  "title": "CPM headline number set -- definitive",
+  "role": "analyst (read-only re production; no production/memo edits; no commit)",
+  "strategy": "CPM = production cpm_live.compute_target_weights (IV4; canary HYG-OR-TIP unchanged)",
+  "convention": "mooex T+1 MOO exact (real auto_adjust opens), 10 bps/side, monthly month-end signal",
+  "windows": {
+    "clean": ["2008-05-30", "2026-05", "18y full real-open coverage, decisive"],
+    "ext": ["1999-03-10", "2026-05", "27y, partially proxy-backed pre-2006"]
+  },
+  "anchor_gate": {
+    "clean": {"sharpe": 1.19098, "maxdd_pct": -12.67, "calmar": 1.0615, "expected": "1.1910 / -12.67% / 1.0615", "match": "CONFIRMED exact"},
+    "ext_validated_build": {"sharpe": 1.2142, "maxdd_pct": -15.93, "calmar": 0.8608},
+    "mooex_coverage": {"real_rebal_days": 245, "proxy_fallback_days": 81}
+  },
+  "headline": {
+    "clean": {
+      "sharpe": 1.1910, "cagr_pct": 13.44, "vol_pct": 11.16, "maxdd_pct": -12.67,
+      "calmar": 1.0615, "martin": 3.9646, "ulcer_pct": 3.39, "excess_sharpe_vs_shv": 1.0719
+    },
+    "ext_validated_build": {
+      "sharpe": 1.2142, "cagr_pct": 13.71, "vol_pct": 11.09, "maxdd_pct": -15.93,
+      "calmar": 0.8608, "martin": 3.8201, "ulcer_pct": 3.59, "excess_sharpe_vs_shv": 1.0062
+    },
+    "ext_cpm_iv4_final_variant": {
+      "sharpe": 1.2161, "cagr_pct": 13.78, "vol_pct": 11.13, "maxdd_pct": -15.93,
+      "calmar": 0.8654, "martin": 3.8409, "ulcer_pct": 3.59,
+      "note": "within-noise proxy-tail harness difference; clean identical"
+    }
+  },
+  "crisis_episodes_cpm_equity": {
+    "GFC": {"peak": "2008-03-14", "trough": "2008-10-14", "depth_pct": -11.88, "peak_to_trough_days": 214, "recovery": "2008-12-16", "trough_to_recovery_days": 63},
+    "COVID": {"peak": "2020-03-06", "trough": "2020-03-18", "depth_pct": -10.06, "peak_to_trough_days": 12, "recovery": "2020-04-15", "trough_to_recovery_days": 28},
+    "2022": {"peak": "2021-11-24", "trough": "2022-01-27", "depth_pct": -7.64, "peak_to_trough_days": 64, "recovery": "2022-03-08", "trough_to_recovery_days": 40}
+  },
+  "crisis_within_window_maxdd": {
+    "GFC_2007_10_2009_06": {"maxdd_pct": -11.88, "return_pct": 9.86},
+    "COVID_2020_02_2020_06": {"maxdd_pct": -10.06, "return_pct": 8.00},
+    "bear_2022_calendar": {"maxdd_pct": -6.33, "return_pct": -0.50},
+    "dotcom_2000_03_2002_12_ref": {"maxdd_pct": -6.03, "return_pct": 28.44}
+  },
+  "bootstrap_clean_sharpe": {
+    "method": "stationary block bootstrap, B=2000, block=21, seed=42",
+    "point": 1.1910, "low_2_5": 0.7866, "median_50": 1.1964, "high_97_5": 1.5969,
+    "note": "low/high reproduce cpm_iv4_final exactly; median is the filled value. Paired form applies only to a difference of two series; single-series Sharpe CI is un-paired by definition."
+  },
+  "turnover_and_safe_months": {
+    "source": "cpm_vol_gate_test_findings Sec 3, V0 NONE (production)",
+    "clean": {"oneway_turnover_per_yr": 2.616, "pct_months_fully_safe": 13.4, "approx_count": 29, "n_months": 217},
+    "ext": {"oneway_turnover_per_yr": 2.768, "pct_months_fully_safe": 11.0, "approx_count": 36, "n_months": 327}
+  },
+  "concentration_recited": {
+    "source": "cpm_iv4_final_numbers_findings Sec 7 (re-cited, unchanged)",
+    "shares": {
+      "SPHQ": {"clean": 20.9, "ext": 15.6},
+      "QQQ": {"clean": 16.9, "ext": 13.6},
+      "GLD": {"clean": 15.0, "ext": 13.8},
+      "EFA": {"clean": 11.7, "ext": 12.3},
+      "TLT": {"clean": 10.5, "ext": 13.9},
+      "VNQ": {"clean": 9.8, "ext": 12.6},
+      "EEM": {"clean": 8.1, "ext": 9.6},
+      "DBC": {"clean": 7.2, "ext": 8.5}
+    },
+    "top_holding": "SPHQ 20.9% clean / 15.6% ext",
+    "top3_share": {"clean": 52.8, "ext": 43.0}
+  },
+  "confidence": {
+    "clean": "high (anchor reproduces exactly)",
+    "ext_tail": "medium (within-noise harness split confined to proxy-backed pre-2006)"
+  },
+  "caveats": [
+    "All post-cost 10 bps/side, mooex T+1 MOO exact with real auto_adjust opens.",
+    "CPM has no equity vol gate (gate only affects BULL/blend, out of scope).",
+    "Ext 27y partially proxy-backed pre-2006 (81/326 rebal days close-to-close fallback).",
+    "Crisis 2022 framing-dependent: global episode -7.64% vs within-calendar -6.33%.",
+    "No BULL/blend computed -- CPM only."
+  ]
+}

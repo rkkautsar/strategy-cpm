@@ -54,9 +54,10 @@ BULL_BLEND = BULL_W  # alias used by chart helpers below
 BOOTSTRAP_SINGLE_B = 2000
 BOOTSTRAP_PAIRED_B = 5000
 FORWARD_SHARPE_GUIDANCE = (
-    "The realized backtest Sharpe is 1.370. Retail-data reproductions may be modestly lower due to "
-    "implementation differences. For capital planning, use materially lower forward assumptions, such as "
-    "0.7-1.0 Sharpe, and treat 1.3+ as an upside case until live/paper trading confirms signal fidelity."
+    "The realized backtest metrics are Sharpe 1.4155, CAGR 16.51%, MaxDD -12.26%, and Calmar 1.3467. "
+    "Retail-data reproductions may be modestly lower due to implementation differences. For capital planning, "
+    "use materially lower forward assumptions, such as 0.7-1.0 Sharpe, and treat 1.3+ as an upside case until "
+    "live/paper trading confirms signal fidelity."
 )
 
 # matplotlib styling
@@ -2311,8 +2312,8 @@ def main():
     sleeve_rows = [
         {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
         {"strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
-         "sharpe": 1.2485, "excess_sharpe": float("nan"), "cagr": 0.1274, "vol": 0.1005,
-         "max_drawdown": -0.1068, "ulcer": float("nan"), "calmar": 1.1928, "martin": 4.3538},
+         "sharpe": 1.2777, "excess_sharpe": float("nan"), "cagr": 0.1255, "vol": 0.1005,
+         "max_drawdown": -0.1068, "ulcer": float("nan"), "calmar": 1.1746, "martin": 4.3538},
         {"strategy": "Cross-asset Parity Momentum (CPM)", **perf_metrics(art.cpm, cash_daily)},
         {"strategy": "Cross-asset Parity Momentum (CPM, clean window)",
          "sharpe": 1.1910, "excess_sharpe": float("nan"), "cagr": 0.1344, "vol": 0.1116,
@@ -2397,13 +2398,13 @@ def main():
     ndx_metrics = perf_metrics(art.ndx, cash_daily) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     cpm_bull_60_40_clean_anchor = {
         "strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
-        "sharpe": 1.2485,
+        "sharpe": 1.2777,
         "excess_sharpe": float("nan"),
-        "cagr": 0.1274,
+        "cagr": 0.1255,
         "vol": 0.1005,
         "max_drawdown": -0.1068,
         "ulcer": float("nan"),
-        "calmar": 1.1928,
+        "calmar": 1.1746,
         "martin": 4.3538,
     }
     research_compare_rows = [
@@ -2552,7 +2553,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <div class='card'>
 <ul>
 <li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Inverse-vol weights all surviving positives with strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on (HYG OR TIP) 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_60d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple Extension:</strong> 100% SPY when gated on TIP 13612U &gt; 0 canary, SPY 13612U &gt; 0 trend, and SPY RV_60d &lt; RV_252d realized volatility crossover gate. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, gated strictly by monthly BULL active state (when BULL is off, NDX is off).</li>
 </ul>
 </div>
@@ -2658,7 +2659,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary>BULL-SPY Sleeve ({int(BULL_BLEND*100)}%) -- 3-layer regime gate (canary + trend + RV crossover)</summary>
 <ul>
 <li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market).</li>
-<li><strong>Canary gate:</strong> (HYG OR TIP) 13612U &gt; 0 (HAA-simple TIP canary plus credit breadth extension).</li>
+<li><strong>Canary gate:</strong> TIP 13612U &gt; 0 (HAA-Simple-style TIP canary).</li>
 <li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical).</li>
 <li><strong>Realized volatility crossover gate:</strong> <code>{BULL_TICKER}</code> RV_60d &lt; RV_252d (annualized daily realized volatility).</li>
 <li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>

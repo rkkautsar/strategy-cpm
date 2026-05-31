@@ -1,0 +1,57 @@
+{
+  "task": "fill computable n/a cells in cpm_bull_two_sleeve_memo.md",
+  "role": "analyst (read-only re production; no memo/production edit; no commit)",
+  "item1_ext_excess_sharpe_vs_SHV": {
+    "harness": "exec_lag_moo_validation_2026_05_30 (mooex T+1 MOO exact, 10 bps/side), cpm_live.perf_metrics excess vs SHV proxy",
+    "windows": {
+      "clean": [
+        "2008-05-30",
+        "2026-05-22"
+      ],
+      "ext": [
+        "1999-03-10",
+        "2026-05-22"
+      ]
+    },
+    "anchor_gate": {
+      "cpm_clean_raw_sharpe": 1.191,
+      "cpm_ext_raw_sharpe": 1.2142,
+      "bull_ext_raw_sharpe": 0.9196,
+      "cpm_clean_excess_xref": 1.0719,
+      "bull_clean_excess_xref": 0.9552,
+      "all_confirmed": true
+    },
+    "fills": {
+      "CPM_ext_excess_sharpe": 1.006,
+      "CPM_ext_excess_sharpe_full": 1.0061620069381263,
+      "BULL_ext_excess_sharpe": 0.7,
+      "BULL_ext_excess_sharpe_full": 0.699553854826177
+    }
+  },
+  "item2_KxV_interaction": {
+    "source": "research/factorial_decomposition_2026_05_30.json (bull cells, balanced 2^3 estimator)",
+    "estimator_validated": {
+      "VxS_clean_calmar": 0.1433,
+      "VxS_ext_calmar": 0.1151,
+      "S_main_clean_calmar": 0.1367
+    },
+    "KxV_full_precision": {
+      "sharpe_clean": -0.0361,
+      "sharpe_ext": -0.0408,
+      "calmar_clean": -0.0203,
+      "calmar_ext": -0.0338
+    },
+    "finding": "memo published clean -0.036 = K x V CLEAN Sharpe interaction (-0.0361), mislabeled in a dCalmar column",
+    "recommended_fill_ext": -0.041,
+    "recommended_basis": "K x V EXT Sharpe interaction, consistent with published clean -0.036",
+    "calmar_alternative": {
+      "clean": -0.02,
+      "ext": -0.034
+    }
+  },
+  "confidence": {
+    "item1": "high",
+    "item2": "high on numbers, medium on intended metric (Sharpe-vs-Calmar label inconsistency)"
+  },
+  "next_handoff": "fixer"
+}
