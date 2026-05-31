@@ -47,6 +47,7 @@ from cpm_live import (
 
 CPM_W, BULL_W = 0.60, 0.40
 OPEN_CACHE = Path("/tmp/cpm_open_cache")
+OPEN_CACHE_INTRADAY_SANITY_MAX = 0.50
 OHLC_TICKERS = ['SPY','QQQ','SPHQ','EFA','EEM','VNQ','GLD','TLT','DBC','SHV','IEF','HYG','TIP']
 
 # Explicit gates (signature (daily_spy_close, sig_d) -> (bool, diag)).
@@ -66,6 +67,22 @@ GATE_RV20 = gate_rv(20)
 GATE_RV60 = gate_rv(60)
 
 
+def _assert_open_cache_adjusted(opens_df, closes_df, threshold=OPEN_CACHE_INTRADAY_SANITY_MAX):
+    intraday_abs = (closes_df / opens_df - 1.0).abs().replace([np.inf, -np.inf], np.nan)
+    bad_mask = intraday_abs > threshold
+    if not bool(bad_mask.to_numpy().any()):
+        return
+    bad = intraday_abs.where(bad_mask).stack(dropna=True)
+    dt, ticker = bad.idxmax()
+    val = float(bad.max())
+    raise ValueError(
+        "Open-cache contamination detected: "
+        f"{ticker} {pd.Timestamp(dt).date()} has |close/open - 1|={val:.2%} "
+        f"(>{threshold:.0%}) in {OPEN_CACHE}. "
+        "Regenerate cache with yfinance auto_adjust=True for BOTH Open and Close."
+    )
+
+
 def load_open_close():
     """Return (open_df, close_df) of REAL yfinance auto_adjust OHLC, aligned union index."""
     opens, closes = {}, {}
@@ -74,7 +91,10 @@ def load_open_close():
         d = pd.read_csv(p, parse_dates=[0], index_col=0)
         opens[t] = d["Open"]
         closes[t] = d["Close"]
-    return pd.DataFrame(opens).sort_index(), pd.DataFrame(closes).sort_index()
+    opens_df = pd.DataFrame(opens).sort_index()
+    closes_df = pd.DataFrame(closes).sort_index()
+    _assert_open_cache_adjusted(opens_df, closes_df)
+    return opens_df, closes_df
 
 
 # ---------------------------------------------------------------------------
