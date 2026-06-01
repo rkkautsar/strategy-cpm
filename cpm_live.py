@@ -34,7 +34,7 @@ PROXY_PATH = LOCAL_PROXY if LOCAL_PROXY.exists() else ARTIFACTS_PROXY
 # CPM risky universe (8 risky ETFs): US factor + international + diversifiers.
 # Universe binding: DBC (live 2006-02-03). Canonical backtest 2007-02-28
 # (DBC live + 12mo signal warmup, 19.3y).
-# HYG canary uses VWEHX mutual fund pre-2007-04 + live HYG post.
+# TIP canary uses VIPSX mutual fund stitch pre-live ETF period.
 #
 # CPM risky universe (8 assets, all live since 2006-02; DBC inception is the
 # binding constraint).
@@ -52,16 +52,15 @@ RISKY_UNIVERSE = (US_EQUITY + US_FACTOR + INTERNATIONAL + REAL_ESTATE
                    + DIVERSIFIERS)
 SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
-# CPM canary: HYG OR TIP (any positive, dual confirmation).
-# Dual confirmation canary reduces false risk-on signals.
-CANARY_ASSETS = ["HYG", "TIP"]
-CANARY_RULE = "any_positive"  # "any_positive" or "all_positive"
+# CPM canary: TIP-only (13612U > 0).
+CANARY_ASSETS = ["TIP"]
+CANARY_RULE = "any_positive"  # TIP-only gate
 
 DEFAULT_CASH = "SHV"
 
 # Engine parameters
 TOP_K_CANDIDATES = 4        # top-half of 8-asset universe (ceil(8/2))
-CORR_LOOKBACK_DAYS = 252    # rolling covariance lookback for inverse-vol weights (~1y)
+CORR_LOOKBACK_DAYS = 252    # rolling covariance lookback (~1y)
 COST_BPS_PER_SIDE = 10
 # Pinned research/backtest evaluation cutoff for reproducibility (memo clean-window end).
 EVAL_END = pd.Timestamp("2026-05-22")
@@ -143,10 +142,10 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         panel = pd.DataFrame()
 
     # Stitched series from data/ (overwrites same-named column in proxy panel).
-    # HYG = VWEHX mutual fund pre-2007-04 + live HYG post.
-    # GLD/TIP: clean stitches for canary usage pre-live-ETF.
+    # TIP canary uses VIPSX stitch pre-live ETF period.
+    # HYG stitch remains available as legacy data, not a canary dependency.
     # Audited stitches (each replaces same-named column from proxy file):
-    # - HYG <- VWEHX (Vanguard HY mutual fund), 1980-01+, auditable
+    # - HYG <- VWEHX (Vanguard HY mutual fund), 1980-01+, auditable legacy
     # - TIP <- VIPSX (Vanguard TIPS), 2000-06+, auditable
     # - SHV <- VFISX (Vanguard Short-Term Treasury), 1991-10+, auditable
     # - IEF <- VFITX (Vanguard Intermediate-Term Treasury), 1991-10+, auditable
@@ -440,7 +439,7 @@ def compute_target_weights(
     n_canary_pos = sum(1 for s in canary_scores if s > 0)
     if CANARY_RULE == "any_positive":
         if n_canary_pos == 0:
-            return {safe: 1.0}, None, "DEFENSIVE", safe  # defensive only when both HYG and TIP fail
+            return {safe: 1.0}, None, "DEFENSIVE", safe  # defensive when TIP fails
     elif CANARY_RULE == "all_positive":
         if n_canary_pos < len(canary_scores):
             return {safe: 1.0}, None, "DEFENSIVE", safe
@@ -475,7 +474,7 @@ def compute_target_weights(
     
     # Strict-4 partial-safe fallback:
     #   risky fraction = min(n_pos, 4) / 4, safe fraction = 1 - risky fraction
-    #   n_pos in {1,2,3}: hold all positives, inverse-vol weighted, then scale risky block
+    #   n_pos in {1,2,3}: hold all positives, equal-weighted, then scale risky block
     #   n_pos=4: select min-var 3-of-4 (equal-weight variance objective), full risk on subset
     if len(positive) == 0:
         return {safe: 1.0}, None, "DEFENSIVE", safe
@@ -490,8 +489,7 @@ def compute_target_weights(
     risky_fraction = min(n_pos, 4) / 4.0
     safe_fraction = 1.0 - risky_fraction
 
-    csub = close_panel.loc[:sig_d]
-    risky_w = inv_vol_weights(csub, picks, CORR_LOOKBACK_DAYS)
+    risky_w = {t: 1.0 / len(picks) for t in picks}
     out = {t: w * risky_fraction for t, w in risky_w.items()}
     if safe_fraction > 0:
         out[safe] = out.get(safe, 0.0) + safe_fraction
