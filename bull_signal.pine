@@ -3,11 +3,11 @@ indicator("BULL Signal", overlay=true)
 
 // Extracted production spec (source of truth):
 // - Canary asset/config: TIP only (`CANARY_ASSETS = ["TIP"]`, `CANARY_RULE = "any_positive"`)
-//   bull_qqq_live.py:48-49.
+//   bull_spy_live.py:48-49.
 // - Canary gate rule: canary passes when TIP 13612U > 0 in `_macro_gate`
-//   bull_qqq_live.py:74-90.
+//   bull_spy_live.py:74-90.
 // - Trend gate rule: SPY trend passes when SPY 13612U > 0 in `_spy_trend_ok` -> `_trend_signal`
-//   bull_qqq_live.py:58-71,93-100.
+//   bull_spy_live.py:58-71,93-100.
 // - 13612U implementation used by BULL is imported from `cpm_live.sig_13612U` and is:
 //     r1 = p0/p1 - 1
 //     r3 = p0/p3 - 1
@@ -17,15 +17,15 @@ indicator("BULL Signal", overlay=true)
 //   cpm_live.py:269-280.
 //   Note: production here uses equal-weight average, not 12/4/2/1 weighted sum.
 // - Combined gate: risk-on only when canary_ok AND spy_trend_ok
-//   bull_qqq_live.py (compute_bull_qqq_weights).
+//   bull_spy_live.py (compute_bull_spy_weights).
 // - Defensive selection: choose best safe asset from SAFE_POOL [SHV, IEF] by 13612U,
 //   fallback CASH_TICKER SHV when no score
-//   bull_qqq_live.py:43-44,132-141.
+//   bull_spy_live.py:43-44,132-141.
 // - Rebalance cadence: signal evaluated on month-end (`resample("ME").last()`),
 //   then applied T+1 open in backtest
-//   bull_qqq_live.py:148,198,212.
+//   bull_spy_live.py:148,198,212.
 //
-// This Pine indicator is a faithful visualization approximation of `bull_qqq_live.py`.
+// This Pine indicator is a faithful visualization approximation of `bull_spy_live.py`.
 // Differences vs Python backtest engine:
 // - Shows signal state only (not traded return path).
 // - Uses TradingView data/time alignment for monthly confirmation.

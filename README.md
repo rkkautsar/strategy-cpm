@@ -286,7 +286,7 @@ Script + log + JSON in `research/bootstrap_ci_2026_05_28.{py,log,json}`.
 ## Files
 
 - `cpm_live.py` - Cross-asset Parity Momentum (CPM) sleeve engine + monthly rebalance signal.
-- `bull_qqq_live.py` - BULL sleeve engine.
+- `bull_spy_live.py` - BULL sleeve engine.
 - `ndx_sleeve_live.py` - NDX stock-picking sleeve engine.
 - `build_dashboard.py` - daily blend assembly + dashboard generation.
 - `cpm_dashboard.html` - generated dashboard.
