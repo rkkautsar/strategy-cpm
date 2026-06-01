@@ -299,69 +299,67 @@ Boundary-year note: 2008 and 2026 are partial years for at least one series and 
 | Longest underwater | 789 days | 903 days | 787 days |
 
 
-### 5.9 HAA benchmark and decomposition
+### 5.9 HAA benchmark and coupled decomposition
 
 Canonical HAA head-to-head (same engine, costs, and window handling):
 
 | Strategy | Window | Sharpe | Calmar | MaxDD | CAGR |
 |---|---|---:|---:|---:|---:|
-| HAA | Clean | 0.87 | 0.64 | -14.68% | 9.37% |
-| CPM | Clean | 1.17 | 1.01 | -12.97% | 13.15% |
+| HAA | Clean | 0.8670 | 0.6386 | -14.68% | 9.37% |
+| CPM | Clean | 1.1658 | 1.0137 | -12.97% | 13.15% |
 
-Mechanism-vs-universe split (clean):
+Mechanism x universe 2x2 (clean):
 
 | Configuration | Sharpe | Calmar | MaxDD |
 |---|---:|---:|---:|
-| HAA baseline | 0.87 | 0.64 | -14.68% |
-| CPM machinery on HAA universe | 0.96 | 0.64 | -15.69% |
-| CPM full | 1.17 | 1.01 | -12.97% |
+| HAA mechanics on HAA universe (canonical HAA) | 0.8670 | 0.6386 | -14.68% |
+| CPM mechanics on HAA universe | 0.9575 | 0.6350 | -15.69% |
+| HAA mechanics on CPM universe | 1.0189 | 0.7693 | -14.96% |
+| CPM mechanics on CPM universe (CPM both-252) | 1.1658 | 1.0137 | -12.97% |
 
-Edge split (clean):
-- Machinery piece: +0.09 Sharpe, about 0.00 Calmar, MaxDD slightly worse by 1.01 pp.
-- Universe piece: +0.21 Sharpe, +0.38 Calmar, MaxDD better by 2.72 pp.
-- Total CPM minus HAA: +0.30 Sharpe, +0.38 Calmar, +1.71 pp MaxDD improvement.
+Extended note for HAA mechanics on CPM universe: Sharpe 1.1141, Calmar 0.8156, MaxDD -15.35%.
 
-HAA-to-CPM factorial ladder (2^5 cube, clean background-averaged unless noted) complements Appendix A's AAA-to-CPM decomposition.
+Read:
+- Universe lift on HAA mechanics: +0.15 Sharpe and +0.13 Calmar.
+- CPM machinery added on CPM universe: +0.15 Sharpe and +0.24 Calmar.
+- CPM machinery added on HAA universe: +0.09 Sharpe and about 0.00 Calmar.
+- Universe and machinery are complements; both are material on CPM universe.
 
-Per-factor main effects:
+Coupling the trend metric across ranker and screen is essential to a realistic decomposition: mixing a fast 13612U rank with a slow Faber screen is a speed mismatch no live strategy runs, and it understates the machinery. With the metric coupled, the machinery earns +0.244 Calmar when paired with the CPM universe, so universe and machinery read as complements rather than competing contributions.
 
-| Factor | dSharpe | dCalmar | dMaxDD | Robust? |
+Coupled per-factor main effects (clean, background-averaged):
+
+| Factor | dSharpe | dCalmar | dMaxDD | Sign-flip? |
 |---|---:|---:|---:|---|
-| Universe | +0.1821 | +0.2295 | +0.75pp | yes (no sign flip) |
-| Risk-adjusted ranker | +0.0634 | +0.0603 | +0.56pp | sign-flips across backgrounds |
-| Inverse-vol weighting | +0.0297 | +0.0192 | +0.68pp | Calmar flips |
-| Credit canary (HYG-or-TIP) | +0.0257 | +0.0777 | +0.13pp | Calmar robust |
-| Trend screen | +0.0032 | -0.0414 | -1.02pp | flips, mildly negative |
+| Trend metric (13612U -> Faber, coupled rank+screen) | +0.020 | -0.030 | -1.10pp | yes |
+| Vol-adjustment (raw -> /rv_252d rank denominator) | +0.047 | +0.049 | +0.64pp | yes (Sharpe, Calmar) |
+| Weighting (equal -> inverse-vol) | +0.024 | +0.010 | +0.60pp | yes (Sharpe, Calmar) |
+| Canary (TIP-only -> HYG-or-TIP) | +0.024 | +0.077 | +0.14pp | no (Calmar, MaxDD) |
+| Universe (HAA set -> CPM set) | +0.192 | +0.236 | +0.83pp | no (Sharpe, Calmar) |
 
-Extended main effects for completeness (dSharpe/dCalmar): Universe +0.1154/+0.1013; Credit canary +0.0332/+0.0310; Risk-adjusted ranker +0.0265/-0.0091; Inverse-vol weighting +0.0198/+0.0194; Trend screen -0.0096/-0.0371.
-
-Sequential ladder (canonical order: credit canary -> risk-adjusted ranker -> inverse-vol weighting -> trend screen -> universe):
+Sequential ladder (trend metric -> vol-adjustment -> weighting -> canary -> universe):
 
 | Step | Sharpe | Calmar | MaxDD |
 |---|---:|---:|---:|
 | HAA baseline | 0.8670 | 0.6386 | -14.68% |
-| +Credit canary | 0.8929 | 0.7689 | -13.35% |
-| +Risk-adjusted ranker | 0.9053 | 0.7088 | -14.12% |
-| +Inverse-vol weighting | 0.9576 | 0.7618 | -12.97% |
-| +Trend screen | 0.9575 | 0.6350 | -15.69% |
-| +Universe (=CPM) | 1.1658 | 1.0137 | -12.97% |
+| +Trend metric (coupled rank+screen) | 0.8708 | 0.5678 | -16.63% |
+| +Vol-adjustment | 0.8980 | 0.5606 | -16.63% |
+| +Weighting | 0.9653 | 0.5977 | -15.69% |
+| +Canary | 0.9575 | 0.6350 | -15.69% |
+| +Universe (CPM both-252) | 1.1658 | 1.0137 | -12.97% |
 
-Order-dependence note: adding universe first captures most of the edge immediately (HAA 0.8670/0.6386 -> +Universe 1.0189/0.7693), then mechanism factors layer additively; either way the universe swap is where the edge lives.
+Faber vs 13612U head-to-head inside full CPM stack (vol-adjust kept):
 
-Key two-way interactions (clean Calmar):
+| Variant | Window | Sharpe | Calmar | MaxDD | CAGR |
+|---|---|---:|---:|---:|---:|
+| CPM-Faber | Clean | 1.1658 | 1.0137 | -12.97% | 13.15% |
+| CPM-13612U | Clean | 1.1540 | 0.9876 | -13.32% | 13.15% |
+| CPM-Faber | Extended | 1.2004 | 0.8571 | -15.73% | 13.48% |
+| CPM-13612U | Extended | 1.1808 | 0.7170 | -18.72% | 13.42% |
 
-| Interaction | Delta |
-|---|---:|
-| Risk-adjusted ranker x universe | +0.0787 |
-| Trend screen x universe | +0.0537 |
-| Inverse-vol weighting x universe | -0.0163 |
-| Credit canary x universe | +0.0140 |
+Honest read: Faber edge is drawdown insurance, not return (clean CAGR is identical at 13.15%). Clean window is marginal and within noise (+0.012 Sharpe). Extended window is materially better (+0.14 Calmar, about 3pp shallower MaxDD, concentrated in 2000-02 and 2008). Production Faber choice is crisis drawdown insurance; clean window is a close call versus faster 13612U. Metric swap is robustly negative on HAA universe, but at worst a wash on CPM universe.
 
-Reading: risk-adjusted ranker and trend screen pay off mostly on the CPM universe (complements to the universe, not standalone gains); credit canary is roughly universe-independent.
-
-Honest takeaway: universe is the only first-order robust driver; credit canary is the only robustly valuable mechanism delta (largest Calmar step); ranker and weighting are second-order and interaction-dependent; trend-screen change is immaterial-to-negative.
-
-Caveat: this is one in-sample path; many mechanism effects flip sign across backgrounds, so trust direction and robustness over tiny decimals.
+Methodology note: trend metric is coupled across ranker and screen because they share speed; mixing fast rank with slow screen is an artifact.
 
 
 ## 6. CPM decomposition (2^6, faithful AAA baseline to production CPM)
