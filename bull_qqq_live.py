@@ -100,6 +100,16 @@ def _spy_trend_ok(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[bool, dic
     return _trend_signal(monthly[BULL_TICKER], sig_d)
 
 
+def _vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
+    """Compatibility shim for legacy research harness imports.
+
+    The BULL sleeve no longer uses a volatility crossover gate in production.
+    Keep this symbol so older research modules that import/monkeypatch
+    ``bull_qqq_live._vol_gate_ok`` continue to load.
+    """
+    return True, {"compat_shim": True, "reason": "vol_gate_removed"}
+
+
 # ---------- Allocation ----------
 
 def _canary_state(monthly: pd.DataFrame, sig_d: pd.Timestamp) -> str | None:
