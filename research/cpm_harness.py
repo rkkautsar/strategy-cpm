@@ -50,9 +50,9 @@ DEFAULT_END = pd.Timestamp("2026-05-22")
 CONVENTION = "mooex"
 
 ANCHOR = {
-    "Sharpe": 1.1658,
-    "MaxDD": -0.1297,
-    "Calmar": 1.0137,
+    "Sharpe": 1.2622,
+    "MaxDD": -0.1135,
+    "Calmar": 1.2196,
 }
 ANCHOR_TOL = {
     "Sharpe": 5e-4,

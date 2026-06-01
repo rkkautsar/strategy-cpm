@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
@@ -345,6 +346,32 @@ def inv_vol_weights(close: pd.DataFrame, picks: list, lookback: int) -> dict:
     return {t: inv[t] / z for t in picks}
 
 
+def _ret_window(close, picks, lookback):
+    """Trailing return matrix, mirrors cpm_live.inv_vol_weights window exactly."""
+    rets = close[picks].ffill().pct_change().dropna(how="all").tail(lookback)
+    return rets
+
+
+def _min_var_subset(close, sig_d, candidates, lookback, m):
+    """Minimize equal-weight portfolio variance over m-of-candidates."""
+    if len(candidates) <= m:
+        return list(candidates)
+    rets = _ret_window(close.loc[:sig_d], candidates, lookback)
+    if len(rets) < lookback:
+        return list(candidates)
+    cov = rets.cov()
+    if cov.isna().any().any():
+        return list(candidates)
+    w = 1.0 / m
+    best, best_v = None, np.inf
+    for combo in combinations(candidates, m):
+        sub = cov.loc[list(combo), list(combo)].values
+        v = float(w * w * sub.sum())
+        if v < best_v:
+            best_v, best = v, combo
+    return list(best) if best else list(candidates)
+
+
 def zscore(s: pd.Series) -> pd.Series:
     sd = s.std()
     if pd.isna(sd) or sd == 0:
@@ -447,15 +474,20 @@ def compute_target_weights(
     positive = top[top.index.map(lambda t: faber.get(t, -np.inf) > 0)]
     
     # Strict-4 partial-safe fallback:
-    #   risky fraction = min(n_picks, 4) / 4, safe fraction = 1 - risky fraction
-    #   n_picks in {1,2,3}: hold all positives, inverse-vol weighted, then scale risky block
-    #   n_picks=4: fully risky, inverse-vol across all 4 positives
+    #   risky fraction = min(n_pos, 4) / 4, safe fraction = 1 - risky fraction
+    #   n_pos in {1,2,3}: hold all positives, inverse-vol weighted, then scale risky block
+    #   n_pos=4: select min-var 3-of-4 (equal-weight variance objective), full risk on subset
     if len(positive) == 0:
         return {safe: 1.0}, None, "DEFENSIVE", safe
 
-    picks = list(positive.index)
-    n_picks = len(picks)
-    risky_fraction = min(n_picks, 4) / 4.0
+    positive_picks = list(positive.index)
+    n_pos = len(positive_picks)
+    if n_pos == 4:
+        picks = _min_var_subset(close_panel, sig_d, positive_picks, CORR_LOOKBACK_DAYS, 3)
+    else:
+        picks = positive_picks
+
+    risky_fraction = min(n_pos, 4) / 4.0
     safe_fraction = 1.0 - risky_fraction
 
     csub = close_panel.loc[:sig_d]
