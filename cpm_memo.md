@@ -321,16 +321,47 @@ Edge split (clean):
 - Universe piece: +0.21 Sharpe, +0.38 Calmar, MaxDD better by 2.72 pp.
 - Total CPM minus HAA: +0.30 Sharpe, +0.38 Calmar, +1.71 pp MaxDD improvement.
 
-Honest headline:
-- About 70% of Sharpe edge versus HAA comes from universe choice (growth/quality/gold tilt).
-- About 30% comes from machinery.
-- Among machinery deltas, credit canary is the only robust helper on drawdown-adjusted metrics (clean Calmar +0.0777).
-- Ranker and weighting are second-order and interaction-dependent.
-- Trend-screen metric swap is near-zero to mildly negative standalone.
+HAA-to-CPM factorial ladder (2^5 cube, clean background-averaged unless noted) complements Appendix A's AAA-to-CPM decomposition.
 
-Caveat:
-- Many machinery effects flip sign across backgrounds. Trust direction and robustness, not tiny decimal precision.
-- This is one in-sample path.
+Per-factor main effects:
+
+| Factor | dSharpe | dCalmar | dMaxDD | Robust? |
+|---|---:|---:|---:|---|
+| Universe | +0.1821 | +0.2295 | +0.75pp | yes (no sign flip) |
+| Risk-adjusted ranker | +0.0634 | +0.0603 | +0.56pp | sign-flips across backgrounds |
+| Inverse-vol weighting | +0.0297 | +0.0192 | +0.68pp | Calmar flips |
+| Credit canary (HYG-or-TIP) | +0.0257 | +0.0777 | +0.13pp | Calmar robust |
+| Trend screen | +0.0032 | -0.0414 | -1.02pp | flips, mildly negative |
+
+Extended main effects for completeness (dSharpe/dCalmar): Universe +0.1154/+0.1013; Credit canary +0.0332/+0.0310; Risk-adjusted ranker +0.0265/-0.0091; Inverse-vol weighting +0.0198/+0.0194; Trend screen -0.0096/-0.0371.
+
+Sequential ladder (canonical order: credit canary -> risk-adjusted ranker -> inverse-vol weighting -> trend screen -> universe):
+
+| Step | Sharpe | Calmar | MaxDD |
+|---|---:|---:|---:|
+| HAA baseline | 0.8670 | 0.6386 | -14.68% |
+| +Credit canary | 0.8929 | 0.7689 | -13.35% |
+| +Risk-adjusted ranker | 0.9053 | 0.7088 | -14.12% |
+| +Inverse-vol weighting | 0.9576 | 0.7618 | -12.97% |
+| +Trend screen | 0.9575 | 0.6350 | -15.69% |
+| +Universe (=CPM) | 1.1658 | 1.0137 | -12.97% |
+
+Order-dependence note: adding universe first captures most of the edge immediately (HAA 0.8670/0.6386 -> +Universe 1.0189/0.7693), then mechanism factors layer additively; either way the universe swap is where the edge lives.
+
+Key two-way interactions (clean Calmar):
+
+| Interaction | Delta |
+|---|---:|
+| Risk-adjusted ranker x universe | +0.0787 |
+| Trend screen x universe | +0.0537 |
+| Inverse-vol weighting x universe | -0.0163 |
+| Credit canary x universe | +0.0140 |
+
+Reading: risk-adjusted ranker and trend screen pay off mostly on the CPM universe (complements to the universe, not standalone gains); credit canary is roughly universe-independent.
+
+Honest takeaway: universe is the only first-order robust driver; credit canary is the only robustly valuable mechanism delta (largest Calmar step); ranker and weighting are second-order and interaction-dependent; trend-screen change is immaterial-to-negative.
+
+Caveat: this is one in-sample path; many mechanism effects flip sign across backgrounds, so trust direction and robustness over tiny decimals.
 
 
 ## 6. CPM decomposition (2^6, faithful AAA baseline to production CPM)
