@@ -4,9 +4,9 @@ from pathlib import Path
 import numpy as np, pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import bull_qqq_live
-if not hasattr(bull_qqq_live, "_vol_gate_ok"):
-    bull_qqq_live._vol_gate_ok = lambda *a, **k: (True, {})
+import bull_spy_live
+if not hasattr(bull_spy_live, "_vol_gate_ok"):
+    bull_spy_live._vol_gate_ok = lambda *a, **k: (True, {})
 import exec_lag_moo_validation_2026_05_30 as H
 from cpm_live import load_panel
 

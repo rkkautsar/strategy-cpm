@@ -20,7 +20,7 @@ import pandas as pd
 import index_constitution as ic
 
 from cpm_live import sig_13612U
-from bull_qqq_live import CASH_TICKER, SAFE_POOL, _pick_safe
+from bull_spy_live import CASH_TICKER, SAFE_POOL, _pick_safe
 
 ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"

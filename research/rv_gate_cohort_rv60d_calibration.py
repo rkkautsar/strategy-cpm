@@ -6,7 +6,7 @@ Identical methodology to research/rv_gate_cohort_calibration.py, except the
 vol gate is the PRODUCTION gate computed on RV_60d (the engine's
 _vol_gate_ok uses rv_60 < rv_252). The original study text described
 RV_20d; production has since swapped RV_20d -> RV_60d. This harness pulls
-vol_ok directly from bull_qqq_live.compute_bull_qqq_weights so the cohort
+vol_ok directly from bull_spy_live.compute_bull_spy_weights so the cohort
 split matches production exactly.
 
 Cohort definition (unchanged from original):
@@ -28,7 +28,7 @@ ROOT = Path('/Users/rkautsar/personal/scripts/strategy_cpm')
 sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
-import bull_qqq_live
+import bull_spy_live
 
 
 def run_cohort_analysis():
@@ -49,10 +49,10 @@ def run_cohort_analysis():
     md.append("# RV-Gate Cohort Calibration Findings -- RV_60d (Production-Matching)\n")
     md.append("Analysis of the Realized-Volatility (RV) gate in the BULL-SPY standalone sleeve, "
               "computed on **RV_60d** to match the production gate.\n")
-    md.append("Production gate (`bull_qqq_live._vol_gate_ok`): gate is ON when `RV_60d < RV_252d` "
+    md.append("Production gate (`bull_spy_live._vol_gate_ok`): gate is ON when `RV_60d < RV_252d` "
               "(annualized from daily returns). A **blocked month** occurs when both macro `canary_ok` "
               "and `spy_trend_ok` are TRUE, but `vol_ok` is FALSE (meaning `RV_60d >= RV_252d`).\n")
-    md.append("`vol_ok` is taken directly from `compute_bull_qqq_weights`, so the cohort split is "
+    md.append("`vol_ok` is taken directly from `compute_bull_spy_weights`, so the cohort split is "
               "production-exact (no caveat).\n")
     md.append("Cohorts split blocked months by the sign of the forward 1-month SPY total return:\n")
     md.append("- **FALSE-POSITIVE (FP) cohort** (forward SPY > 0): gains the gate forfeited.\n")
@@ -81,7 +81,7 @@ def run_cohort_analysis():
             all_fwd_returns.append(spy_ret)
             all_fwd_vols.append(fwd_vol)
 
-            weights, regime, diag = bull_qqq_live.compute_bull_qqq_weights(panel, sig_d)
+            weights, regime, diag = bull_spy_live.compute_bull_spy_weights(panel, sig_d)
             canary_ok = diag.get("canary_ok", False)
             spy_trend_ok = diag.get("spy_trend_ok", False)
             vol_ok = diag.get("vol_ok", False)
@@ -220,7 +220,7 @@ def run_cohort_analysis():
     md.append("\n## Notes on Methodology\n")
     md.append("- Panel loaded from 1995-01-01 (warmup) to 2026-05-22.\n")
     md.append("- Monthly signal dates = last trading day of each month within the window.\n")
-    md.append("- `vol_ok` sourced from production `compute_bull_qqq_weights` (RV_60d gate), no reimplementation.\n")
+    md.append("- `vol_ok` sourced from production `compute_bull_spy_weights` (RV_60d gate), no reimplementation.\n")
     md.append("- Forward vol = annualized std (sqrt(252)) of daily SPY pct-change from sig_d to next sig_d.\n")
     md.append("- FP/TP split on forward 1-month SPY total return sign (FP > 0, TP <= 0).\n")
 

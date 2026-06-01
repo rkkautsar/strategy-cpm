@@ -14,8 +14,8 @@ also BULL standalone and a BULL/CPM 60/40 reference.
 
 Gate structure + safe pool held FIXED; only the held risk asset varies.
 This is achieved by:
-  * monkeypatching bull_qqq_live.BULL_TICKER (read at call time by
-    compute_bull_qqq_weights / run_bull_qqq_backtest), and
+  * monkeypatching bull_spy_live.BULL_TICKER (read at call time by
+    compute_bull_spy_weights / run_bull_spy_backtest), and
   * monkeypatching ndx_sleeve_live.compute_ndx_weights so the NDX gate keys on
     the *current* BULL ticker instead of the hardcoded "SPY".
 
@@ -44,10 +44,10 @@ import yfinance as yf
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import bull_qqq_live
+import bull_spy_live
 import ndx_sleeve_live
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics, sig_13612U
-from bull_qqq_live import run_bull_qqq_backtest, compute_bull_qqq_weights
+from bull_spy_live import run_bull_spy_backtest, compute_bull_spy_weights
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
 
 CACHE = Path("/tmp/bull_choice_cache")
@@ -140,13 +140,13 @@ _orig_compute_ndx = ndx_sleeve_live.compute_ndx_weights
 
 def patched_compute_ndx_weights(cpm_panel, ndx_panel, sig_d):
     """Copy of ndx_sleeve_live.compute_ndx_weights with the gate keyed on the
-    *current* bull_qqq_live.BULL_TICKER rather than hardcoded 'SPY'."""
+    *current* bull_spy_live.BULL_TICKER rather than hardcoded 'SPY'."""
     import index_constitution as ic
     from ndx_sleeve_live import SELECT_K, _pick_safe
 
-    bt = bull_qqq_live.BULL_TICKER
+    bt = bull_spy_live.BULL_TICKER
     cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
-    bull_weights, _, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
+    bull_weights, _, _ = compute_bull_spy_weights(cpm_panel, sig_d)
     bull_active = any(w > 0 for t, w in bull_weights.items() if t == bt)
 
     if not bull_active:
@@ -157,7 +157,7 @@ def patched_compute_ndx_weights(cpm_panel, ndx_panel, sig_d):
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
     if len(pit_tickers) == 0:
-        bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
+        bq_weights, bq_regime, _ = compute_bull_spy_weights(cpm_panel, sig_d)
         return (bq_weights, "NDX_FALLBACK_BULL",
                 {"bull_regime": bq_regime, "selected": list(bq_weights.keys()),
                  "reason": "PIT NDX data unavailable; mirroring BULL sleeve"})
@@ -216,7 +216,7 @@ def bull_turnover(panel: pd.DataFrame, ticker: str, start, end) -> float:
     prev = {}
     tot = 0.0
     for sd in sigs:
-        w, _, _ = compute_bull_qqq_weights(panel, sd, panel[ticker])
+        w, _, _ = compute_bull_spy_weights(panel, sd, panel[ticker])
         keys = set(w) | set(prev)
         tot += sum(abs(w.get(k, 0.0) - prev.get(k, 0.0)) for k in keys) / 2.0
         prev = w
@@ -230,15 +230,15 @@ def run_variant(ticker: str, base_panel: pd.DataFrame, ndx_panel: pd.DataFrame,
                 run_start: pd.Timestamp, end: pd.Timestamp) -> dict:
     """Backtest CPM/BULL/NDX over [run_start, end]; return dict of daily series."""
     panel = build_panel_with(ticker, base_panel)
-    bull_qqq_live.BULL_TICKER = ticker
+    bull_spy_live.BULL_TICKER = ticker
     ndx_sleeve_live.compute_ndx_weights = patched_compute_ndx_weights
     try:
         cpm, _ = run_cpm_backtest(panel, run_start, end)
-        bull = run_bull_qqq_backtest(panel, run_start, end)
+        bull = run_bull_spy_backtest(panel, run_start, end)
         ndx, _ = run_ndx_backtest(panel, ndx_panel, run_start, end)
     finally:
         ndx_sleeve_live.compute_ndx_weights = _orig_compute_ndx
-        bull_qqq_live.BULL_TICKER = "SPY"
+        bull_spy_live.BULL_TICKER = "SPY"
     common = cpm.index.intersection(bull.index).intersection(ndx.index)
     cpm = cpm.reindex(common); bull = bull.reindex(common); ndx = ndx.reindex(common).fillna(0.0)
     blend3 = CPM_W * cpm + BULL_W * bull + NDX_W * ndx

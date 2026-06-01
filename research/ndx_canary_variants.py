@@ -57,7 +57,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import index_constitution as ic
 from cpm_live import load_panel, perf_metrics, sig_13612U
-from bull_qqq_live import SAFE_POOL, _pick_safe, CASH_TICKER
+from bull_spy_live import SAFE_POOL, _pick_safe, CASH_TICKER
 from ndx_sleeve_live import load_ndx_panel, SELECT_K, COST_BPS_PER_SIDE, DELISTING_HAIRCUT
 
 COST = COST_BPS_PER_SIDE

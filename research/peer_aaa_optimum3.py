@@ -32,7 +32,7 @@ import pandas as pd
 import yfinance as yf
 from scipy.optimize import minimize
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
-import bull_qqq_live as bql
+import bull_spy_live as bql
 from build_dashboard import haa_balanced
 
 COST_BPS = 10

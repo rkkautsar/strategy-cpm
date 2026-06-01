@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
 
 def main():
@@ -40,7 +40,7 @@ def main():
     # 2. Compute sleeves for CLEAN window
     print("Running backtests for Clean Window (2008-05-30 -> 2026-05-22)...")
     cpm_cl, _ = run_cpm_backtest(panel, start_cl, end_cl)
-    bull_cl = run_bull_qqq_backtest(panel, start_cl, end_cl)
+    bull_cl = run_bull_spy_backtest(panel, start_cl, end_cl)
     if ndx_panel is not None:
         ndx_cl, _ = run_ndx_backtest(panel, ndx_panel, start_cl, end_cl)
     else:
@@ -54,7 +54,7 @@ def main():
     # 3. Compute sleeves for STRESS window
     print("Running backtests for Stress Window (1999-03-10 -> 2026-05-22)...")
     cpm_st, _ = run_cpm_backtest(panel, start_st, end_st)
-    bull_st = run_bull_qqq_backtest(panel, start_st, end_st)
+    bull_st = run_bull_spy_backtest(panel, start_st, end_st)
     if ndx_panel is not None:
         ndx_st, _ = run_ndx_backtest(panel, ndx_panel, start_st, end_st)
     else:

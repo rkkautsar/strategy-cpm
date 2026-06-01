@@ -13,7 +13,7 @@ ROOT = Path('/Users/rkautsar/personal/scripts/strategy_cpm')
 sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
-import bull_qqq_live
+import bull_spy_live
 
 def run_cohort_analysis():
     print("Loading daily data panel from 1995-01-01 for signal stability warmup...")
@@ -60,7 +60,7 @@ def run_cohort_analysis():
             all_fwd_returns.append(spy_ret)
             all_fwd_vols.append(fwd_vol)
             
-            weights, regime, diag = bull_qqq_live.compute_bull_qqq_weights(panel, sig_d)
+            weights, regime, diag = bull_spy_live.compute_bull_spy_weights(panel, sig_d)
             canary_ok = diag.get("canary_ok", False)
             spy_trend_ok = diag.get("spy_trend_ok", False)
             vol_ok = diag.get("vol_ok", False)

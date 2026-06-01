@@ -24,10 +24,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# bull_qqq_live bit-rotted (no _vol_gate_ok); CPM sleeve path does not need it.
-import bull_qqq_live
-if not hasattr(bull_qqq_live, "_vol_gate_ok"):
-    bull_qqq_live._vol_gate_ok = lambda *a, **k: (True, {})
+# bull_spy_live bit-rotted (no _vol_gate_ok); CPM sleeve path does not need it.
+import bull_spy_live
+if not hasattr(bull_spy_live, "_vol_gate_ok"):
+    bull_spy_live._vol_gate_ok = lambda *a, **k: (True, {})
 
 import exec_lag_moo_validation_2026_05_30 as H
 import cpm_benchmarks_proper as B

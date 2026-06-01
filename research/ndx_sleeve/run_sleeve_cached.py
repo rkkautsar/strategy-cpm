@@ -22,7 +22,7 @@ import pandas as pd
 import index_constitution as ic
 
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics, sig_13612U
-from bull_qqq_live import run_bull_qqq_backtest, compute_bull_qqq_weights, CASH_TICKER
+from bull_spy_live import run_bull_spy_backtest, compute_bull_spy_weights, CASH_TICKER
 from ndx_momentum_sleeve import load_ndx_panel
 import ndx_momentum_sleeve as nms
 
@@ -53,7 +53,7 @@ def get_cpm_r(start, end_):
 
 def get_bull_r(start, end_):
     return cached_returns("bull", lambda start, end:
-        run_bull_qqq_backtest(load_panel(start=pd.Timestamp("1993-01-01")), start, end),
+        run_bull_spy_backtest(load_panel(start=pd.Timestamp("1993-01-01")), start, end),
         start=start, end=end_)
 
 
@@ -83,7 +83,7 @@ def _run_ndx(start, end_, top_k, select_k, downside_lb, freq) -> pd.Series:
 
     for sd in sig_dates:
         # Gate
-        bq_w, bq_regime, _ = compute_bull_qqq_weights(panel, sd)
+        bq_w, bq_regime, _ = compute_bull_spy_weights(panel, sd)
         if not bq_regime.startswith("BULL_QQQ"):
             target = {CASH_TICKER: 1.0}
         else:

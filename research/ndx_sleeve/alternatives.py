@@ -21,7 +21,7 @@ import pandas as pd
 import index_constitution as ic
 
 from cpm_live import load_panel, perf_metrics, sig_13612U
-from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
+from bull_spy_live import compute_bull_spy_weights, CASH_TICKER
 from ndx_sleeve_live import load_ndx_panel
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
@@ -178,7 +178,7 @@ def run_alt_sleeve(start, end_, mom_name="13612U", sel_name="downside-vol",
 
     weights_for_date = {}
     for sd in sig_dates:
-        bq_w, bq_regime, _ = compute_bull_qqq_weights(panel, sd)
+        bq_w, bq_regime, _ = compute_bull_spy_weights(panel, sd)
         if not bq_regime.startswith("BULL_QQQ"):
             target = {CASH_TICKER: 1.0}
         else:

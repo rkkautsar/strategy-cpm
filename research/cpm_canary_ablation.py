@@ -39,7 +39,7 @@ from cpm_live import (
     RISKY_UNIVERSE, SAFE_POOL, DEFAULT_CASH,
     TOP_K_CANDIDATES, CORR_LOOKBACK_DAYS,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 # Windows
 START_CL, END_CL = pd.Timestamp("2008-05-30"), pd.Timestamp("2026-05-22")
@@ -250,8 +250,8 @@ def main():
 
     # BULL sleeve (fixed across all variants)
     print("Running BULL sleeve (clean + stress) ...")
-    bull_cl = run_bull_qqq_backtest(panel, START_CL, END_CL)
-    bull_st = run_bull_qqq_backtest(panel, START_ST, END_ST)
+    bull_cl = run_bull_spy_backtest(panel, START_CL, END_CL)
+    bull_st = run_bull_spy_backtest(panel, START_ST, END_ST)
 
     rows = []
     diag_C0 = None

@@ -13,7 +13,7 @@ ROOT = Path('/Users/rkautsar/personal/scripts/strategy_cpm')
 sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel
 
 def compute_perf(daily_ret, cash_daily=None):
@@ -97,7 +97,7 @@ def main():
     print('Running backtests...')
     stress_start = pd.Timestamp('1999-03-10')
     cpm_raw, _ = cpm.run_cpm_backtest(panel, stress_start, end_date)
-    bull_raw = run_bull_qqq_backtest(panel, stress_start, end_date)
+    bull_raw = run_bull_spy_backtest(panel, stress_start, end_date)
     ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, stress_start, end_date)
     
     common = cpm_raw.index.intersection(bull_raw.index).intersection(ndx_raw.index)

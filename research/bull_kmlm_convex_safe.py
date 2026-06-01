@@ -31,10 +31,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import cpm_live
-import bull_qqq_live
+import bull_spy_live
 import ndx_sleeve_live
 from cpm_live import load_panel, perf_metrics, run_cpm_backtest
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
 from build_dashboard import build_artifacts, CPM_W, BULL_W, NDX_W
 
@@ -54,8 +54,8 @@ CRISES = {
 _ORIG = {
     "cpm_best_safe": cpm_live.best_safe,
     "cpm_safe_pool": list(cpm_live.SAFE_POOL),
-    "bull_pick_safe": bull_qqq_live._pick_safe,
-    "bull_safe_pool": list(bull_qqq_live.SAFE_POOL),
+    "bull_pick_safe": bull_spy_live._pick_safe,
+    "bull_safe_pool": list(bull_spy_live.SAFE_POOL),
     "ndx_pick_safe": ndx_sleeve_live._pick_safe,
 }
 
@@ -63,8 +63,8 @@ _ORIG = {
 def restore():
     cpm_live.best_safe = _ORIG["cpm_best_safe"]
     cpm_live.SAFE_POOL = list(_ORIG["cpm_safe_pool"])
-    bull_qqq_live._pick_safe = _ORIG["bull_pick_safe"]
-    bull_qqq_live.SAFE_POOL = list(_ORIG["bull_safe_pool"])
+    bull_spy_live._pick_safe = _ORIG["bull_pick_safe"]
+    bull_spy_live.SAFE_POOL = list(_ORIG["bull_safe_pool"])
     ndx_sleeve_live._pick_safe = _ORIG["ndx_pick_safe"]
 
 
@@ -142,28 +142,28 @@ def apply_variant(variant: str, panel: pd.DataFrame) -> pd.DataFrame:
         return panel
     if variant == "D1":
         cpm_live.SAFE_POOL = ["SHV", "IEF", "KMLM"]
-        bull_qqq_live.SAFE_POOL = ["SHV", "IEF", "KMLM"]
+        bull_spy_live.SAFE_POOL = ["SHV", "IEF", "KMLM"]
         return panel
     if variant == "D2":
         panel = add_smix(panel)
         cpm_live.SAFE_POOL = ["SHV", "IEF", "SMIX50"]
-        bull_qqq_live.SAFE_POOL = ["SHV", "IEF", "SMIX50"]
+        bull_spy_live.SAFE_POOL = ["SHV", "IEF", "SMIX50"]
         cpm_live.best_safe = lambda monthly, sig_d, safe_pool: "SMIX50"
-        bull_qqq_live._pick_safe = lambda monthly: "SMIX50"
+        bull_spy_live._pick_safe = lambda monthly: "SMIX50"
         ndx_sleeve_live._pick_safe = lambda monthly: "SMIX50"
         return panel
     if variant == "D3":
         cpm_live.SAFE_POOL = ["SHV", "IEF", "KMLM"]
-        bull_qqq_live.SAFE_POOL = ["SHV", "IEF", "KMLM"]
+        bull_spy_live.SAFE_POOL = ["SHV", "IEF", "KMLM"]
         cpm_live.best_safe = lambda monthly, sig_d, safe_pool: "KMLM"
-        bull_qqq_live._pick_safe = lambda monthly: "KMLM"
+        bull_spy_live._pick_safe = lambda monthly: "KMLM"
         ndx_sleeve_live._pick_safe = lambda monthly: "KMLM"
         return panel
     if variant == "D4":
         panel = add_smix(panel)
         # CPM keeps SHV/IEF (best_safe untouched). BULL + NDX get convex safe.
-        bull_qqq_live.SAFE_POOL = ["SHV", "IEF", "SMIX50"]
-        bull_qqq_live._pick_safe = lambda monthly: "SMIX50"
+        bull_spy_live.SAFE_POOL = ["SHV", "IEF", "SMIX50"]
+        bull_spy_live._pick_safe = lambda monthly: "SMIX50"
         ndx_sleeve_live._pick_safe = lambda monthly: "SMIX50"
         return panel
     raise ValueError(variant)
@@ -194,7 +194,7 @@ def blend_turnover(panel, ndx_panel, start, end) -> float:
     prev = {}
     tos = []
     for sd in sig:
-        bw, _, _ = bull_qqq_live.compute_bull_qqq_weights(panel, sd, panel["SPY"])
+        bw, _, _ = bull_spy_live.compute_bull_spy_weights(panel, sd, panel["SPY"])
         cw = cpm_by.get(sd, {})
         nw = ndx_by.get(sd, {})
         blend = {}
@@ -217,7 +217,7 @@ def run_window(variant, panel, ndx_panel, start, end, cash, want_turnover=True):
     panel = apply_variant(variant, panel)
     art = build_artifacts(panel, ndx_panel, start, end, include_records=False)
     cpm_d, _ = run_cpm_backtest(panel, start, end)
-    bull_d = run_bull_qqq_backtest(panel, start, end)
+    bull_d = run_bull_spy_backtest(panel, start, end)
     to = blend_turnover(panel, ndx_panel, start, end) if want_turnover else None
     out = {
         "blend": metrics_row(art.blend, cash, to),

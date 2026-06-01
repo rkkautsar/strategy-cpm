@@ -13,10 +13,10 @@ Spec:
   Else     -> 100% SHV (ultra-short Treasury cash)
 
 Usage:
-    python bull_qqq_live.py allocate                  # show this month's target
-    python bull_qqq_live.py allocate --signal-date 2026-04-30
-    python bull_qqq_live.py backtest                  # backtest
-    python bull_qqq_live.py backtest --start 2010-01-01
+    python bull_spy_live.py allocate                  # show this month's target
+    python bull_spy_live.py allocate --signal-date 2026-04-30
+    python bull_spy_live.py backtest                  # backtest
+    python bull_spy_live.py backtest --start 2010-01-01
 """
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ def _vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]
 
     The BULL sleeve no longer uses a volatility crossover gate in production.
     Keep this symbol so older research modules that import/monkeypatch
-    ``bull_qqq_live._vol_gate_ok`` continue to load.
+    ``bull_spy_live._vol_gate_ok`` continue to load.
     """
     return True, {"compat_shim": True, "reason": "vol_gate_removed"}
 
@@ -137,7 +137,7 @@ def _pick_safe(monthly: pd.DataFrame) -> str:
     return max(scores, key=scores.get) if scores else CASH_TICKER
 
 
-def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp,
+def compute_bull_spy_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp,
                               daily_spy: pd.Series | None = None) -> tuple[dict, str, dict]:
     """Returns (weights, regime_label, diagnostics).
     regime: 'BULL_<asset>' or 'CASH'. Safe leg uses best-of(SAFE_POOL) by 13612U."""
@@ -168,7 +168,7 @@ def compute_bull_qqq_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp,
 
 # ---------- Backtest ----------
 
-def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp,
+def run_bull_spy_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp,
                            cost_bps: float = COST_BPS_PER_SIDE) -> pd.Series:
     """Run BULL-SPY backtest.
 
@@ -195,7 +195,7 @@ def run_bull_qqq_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Time
     state_per_day = pd.Series("", index=common, dtype=object)  # for cost calc
 
     for i, sig_d in enumerate(sigs):
-        month_weights, _, _ = compute_bull_qqq_weights(panel, sig_d, panel[BULL_TICKER])
+        month_weights, _, _ = compute_bull_spy_weights(panel, sig_d, panel[BULL_TICKER])
 
         future = common[common > sig_d]
         if len(future) < 1:
@@ -256,7 +256,7 @@ def cmd_allocate(args):
     print(f"Asset mom:   {BULL_TICKER} 13612U momentum > 0 (HAA standard, circuit breaker)")
     print()
 
-    weights, regime, diag = compute_bull_qqq_weights(panel, sig_d)
+    weights, regime, diag = compute_bull_spy_weights(panel, sig_d)
 
     print(f"Macro gate diagnostics:")
     print(f"  TIP 13612U = {diag['tip_sig']:+.4f} ({'+' if diag['tip_sig']>0 else '-'})")
@@ -289,21 +289,21 @@ def cmd_backtest(args):
     print(f"\nRunning BULL backtest {start.date()} -> {end.date()} ...")
     cost_bps = 0 if args.no_cost else COST_BPS_PER_SIDE
 
-    bull_qqq = run_bull_qqq_backtest(panel, start, end, cost_bps=cost_bps)
+    bull_spy = run_bull_spy_backtest(panel, start, end, cost_bps=cost_bps)
     fcp_rets, _ = run_cpm_backtest(panel, start, end, cost_bps=cost_bps)
     qqq = panel["QQQ"].ffill().pct_change().fillna(0).loc[start:end]
     spy = panel["SPY"].ffill().pct_change().fillna(0).loc[start:end]
 
-    common = fcp_rets.index.intersection(bull_qqq.index)
+    common = fcp_rets.index.intersection(bull_spy.index)
     w_b = PROD_BULL_WEIGHT
     w_f = 1 - w_b
-    blend = w_f * fcp_rets.loc[common] + w_b * bull_qqq.loc[common]
+    blend = w_f * fcp_rets.loc[common] + w_b * bull_spy.loc[common]
     prod_label = f"{int(w_f*100)}% CPM + {int(w_b*100)}% BULL (2-sleeve)"
     print("Note: PROD blend is 60/20/20 CPM-BULL-NDX (see build_dashboard.py); this CLI prints the 2-sleeve diagnostic.")
 
     strategies = [
         (prod_label, blend),
-        ("BULL", bull_qqq),
+        ("BULL", bull_spy),
         ("CPM-9", fcp_rets),
         ("QQQ buy-hold", qqq),
         ("SPY buy-hold", spy),
@@ -320,7 +320,7 @@ def cmd_backtest(args):
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         df = pd.DataFrame({
-            "PROD_blend": blend, "BULL_QQQ": bull_qqq,
+            "PROD_blend": blend, "BULL_QQQ": bull_spy,
             "FCP_only": fcp_rets, "QQQ": qqq, "SPY": spy,
         })
         df.to_csv(f"{out}_daily.csv")

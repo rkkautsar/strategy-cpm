@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
 import ndx_sleeve_live as ndx
-import bull_qqq_live as bull
+import bull_spy_live as bull
 
 # ---------- Inline Helpers ----------
 
@@ -314,7 +314,7 @@ def main():
     for win_name, start in windows.items():
         panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
         panel = cpm.load_panel(start=panel_start, end=end)
-        bull_raw = bull.run_bull_qqq_backtest(panel, start, end)
+        bull_raw = bull.run_bull_spy_backtest(panel, start, end)
         ndx_raw, _ = ndx.run_ndx_backtest(panel, ndx_panel, start, end)
         sleeve_cache[win_name] = {
             "panel": panel,

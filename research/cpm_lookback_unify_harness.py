@@ -67,7 +67,7 @@ OHLC_TICKERS = ['SPY', 'QQQ', 'SPHQ', 'EFA', 'EEM', 'VNQ', 'GLD', 'TLT', 'DBC',
 # --------------------------------------------------------------------------
 # mooex T+1 MOO-exact harness (replicated from
 # research/exec_lag_moo_validation_2026_05_30._segment_returns_conv; the source
-# module no longer imports cleanly because bull_qqq_live dropped _vol_gate_ok,
+# module no longer imports cleanly because bull_spy_live dropped _vol_gate_ok,
 # so the CPM-only segment runner is inlined here, byte-faithful to that logic).
 # --------------------------------------------------------------------------
 def _assert_open_cache_adjusted(opens_df, closes_df, threshold=OPEN_CACHE_INTRADAY_SANITY_MAX):

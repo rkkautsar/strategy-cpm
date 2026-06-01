@@ -19,7 +19,7 @@ from ndx_sleeve_live import (
 )
 from vol_cap import compute_dd_circuit_scale, DD_CIRCUIT_SCALE
 import index_constitution as ic
-from bull_qqq_live import compute_bull_qqq_weights
+from bull_spy_live import compute_bull_spy_weights
 
 
 def fetch_credit():
@@ -75,7 +75,7 @@ def compute_ndx_weights_custom_canary(cpm_panel, ndx_panel, sig_d,
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
     if len(pit_tickers) == 0:
-        bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
+        bq_weights, bq_regime, _ = compute_bull_spy_weights(cpm_panel, sig_d)
         return (bq_weights, "NDX_FALLBACK_BULL", {"selected": list(bq_weights.keys())})
     monthly = cpm_panel.loc[:sig_d].resample("ME").last()
     available = []

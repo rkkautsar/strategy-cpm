@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "research"))
 
 import cpm_live
-import bull_qqq_live
+import bull_spy_live
 from cpm_live import (
     load_panel, compute_target_weights,
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH, COST_BPS_PER_SIDE,
@@ -247,17 +247,17 @@ def make_canary_cpm_wf(E, canary_fn):
 
 
 def patch_bull_canary(canary_fn):
-    orig = bull_qqq_live._macro_gate
+    orig = bull_spy_live._macro_gate
     def mg(monthly, sig_d):
         ok = canary_fn(monthly)
         return (bool(ok) if ok is not None else False, {})
-    bull_qqq_live._macro_gate = mg
+    bull_spy_live._macro_gate = mg
     return orig
 
 
 def make_safe_wf(E, kind, close):
     def wf(sd):
-        ob, op = cpm_live.best_safe, bull_qqq_live._pick_safe
+        ob, op = cpm_live.best_safe, bull_spy_live._pick_safe
         cpm_live.best_safe = lambda monthly, sig_d, safe_pool, _k=kind: _safe_by(monthly, _k)
         try:
             return compute_target_weights(close, sd)[0]
@@ -396,7 +396,7 @@ def main():
             cpm_full = E.cpm_sleeve(cpm_wf)
             bull_full = E.bull_sleeve(GATE_RV60)
         finally:
-            bull_qqq_live._macro_gate = orig_mg
+            bull_spy_live._macro_gate = orig_mg
         canary_metrics[key] = {
             "cpm_clean": E.met_window(cpm_full, "clean"),
             "cpm_ext": E.met_window(cpm_full, "ext"),
@@ -456,15 +456,15 @@ def main():
         ("IEF only", "IEF", "S2"),
         ("static 50/50 SHV+IEF", "BLEND5050", "S3"),
     ]
-    saved_pool = (cpm_live.SAFE_POOL, bull_qqq_live.SAFE_POOL)
+    saved_pool = (cpm_live.SAFE_POOL, bull_spy_live.SAFE_POOL)
     cpm_live.SAFE_POOL = ["SHV", "IEF", "BLEND5050"]
-    bull_qqq_live.SAFE_POOL = ["SHV", "IEF", "BLEND5050"]
+    bull_spy_live.SAFE_POOL = ["SHV", "IEF", "BLEND5050"]
     safe_metrics = {}
     try:
         for label, kind, key in safe_defs:
-            ob, op = cpm_live.best_safe, bull_qqq_live._pick_safe
+            ob, op = cpm_live.best_safe, bull_spy_live._pick_safe
             cpm_live.best_safe = lambda monthly, sig_d, safe_pool, _k=kind: _safe_by(monthly, _k)
-            bull_qqq_live._pick_safe = lambda monthly, _k=kind: _safe_by(monthly, _k)
+            bull_spy_live._pick_safe = lambda monthly, _k=kind: _safe_by(monthly, _k)
             try:
                 cpm_wf = lambda sd: compute_target_weights(close2, sd)[0]
                 cpm_full, _ = eng._segment_returns_conv(close2, daily_ret2, cpm_wf, E.ext_start,
@@ -474,7 +474,7 @@ def main():
                                                     E.end, "mooex", GATE_RV60)
             finally:
                 cpm_live.best_safe = ob
-                bull_qqq_live._pick_safe = op
+                bull_spy_live._pick_safe = op
             safe_metrics[key] = {
                 "cpm_clean": E.met_window(cpm_full, "clean"),
                 "cpm_ext": E.met_window(cpm_full, "ext"),
@@ -483,7 +483,7 @@ def main():
                 "label": label,
             }
     finally:
-        cpm_live.SAFE_POOL, bull_qqq_live.SAFE_POOL = saved_pool
+        cpm_live.SAFE_POOL, bull_spy_live.SAFE_POOL = saved_pool
 
     base_safe = safe_metrics["S0"]
     ok_safe, msg_safe = check_anchor(base_safe["bl_clean"], base_safe["bl_ext"], "safe S0")

@@ -34,7 +34,7 @@ from cpm_live import (
     load_panel, perf_metrics, compute_target_weights, faber_sma_xs,
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH, COST_BPS_PER_SIDE,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 CLEAN_START = pd.Timestamp("2008-05-30")
 STRESS_START = pd.Timestamp("1999-03-10")
@@ -194,7 +194,7 @@ def main():
     # Precompute BULL sleeves per window (variant-independent)
     bull = {}
     for wname, (s, e) in windows.items():
-        bull[wname] = run_bull_qqq_backtest(panel, s, e)
+        bull[wname] = run_bull_spy_backtest(panel, s, e)
 
     # Run all variants both windows
     results = {}   # (variant, window) -> dict

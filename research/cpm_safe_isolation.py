@@ -15,7 +15,7 @@ Variants (vary ONLY the safe-selection rule, everything else fixed):
   S4: best of SHV/IEF by 3-month return.
   S5: best of SHV/IEF by 12-month return.
 
-Mechanism: monkeypatch cpm_live.best_safe and bull_qqq_live._pick_safe with a
+Mechanism: monkeypatch cpm_live.best_safe and bull_spy_live._pick_safe with a
 rule-specific selector. The 50/50 variant uses a synthetic daily-rebalanced
 SHV+IEF blend column injected into the panel.
 
@@ -33,9 +33,9 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cpm_live
-import bull_qqq_live
+import bull_spy_live
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
-from bull_qqq_live import run_bull_qqq_backtest, compute_bull_qqq_weights
+from bull_spy_live import run_bull_spy_backtest, compute_bull_spy_weights
 
 try:
     from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
@@ -53,7 +53,7 @@ FINDINGS = Path(__file__).resolve().parent / "cpm_safe_isolation_findings.md"
 
 # Saved production callables (restored when running PROD-as-shipped path).
 _PROD_BEST_SAFE = cpm_live.best_safe
-_PROD_PICK_SAFE = bull_qqq_live._pick_safe
+_PROD_PICK_SAFE = bull_spy_live._pick_safe
 
 
 # ---------- Safe-rule selectors ----------
@@ -95,12 +95,12 @@ def _safe_by(monthly: pd.DataFrame, kind: str) -> str:
 def patch_rule(kind: str):
     """Monkeypatch both sleeves' safe selection with the given rule."""
     cpm_live.best_safe = lambda monthly, sig_d, safe_pool, _k=kind: _safe_by(monthly, _k)
-    bull_qqq_live._pick_safe = lambda monthly, _k=kind: _safe_by(monthly, _k)
+    bull_spy_live._pick_safe = lambda monthly, _k=kind: _safe_by(monthly, _k)
 
 
 def restore_prod():
     cpm_live.best_safe = _PROD_BEST_SAFE
-    bull_qqq_live._pick_safe = _PROD_PICK_SAFE
+    bull_spy_live._pick_safe = _PROD_PICK_SAFE
 
 
 # ---------- Turnover ----------
@@ -117,7 +117,7 @@ def blend_turnover(panel, start, end, w_cpm, w_bull):
     combined = []
     for sig_d in sigs:
         cw, _, _, _ = cpm_live.compute_target_weights(close, sig_d)
-        bw, _, _ = compute_bull_qqq_weights(panel, sig_d, panel["SPY"])
+        bw, _, _ = compute_bull_spy_weights(panel, sig_d, panel["SPY"])
         cmb = {}
         for t, x in cw.items():
             cmb[t] = cmb.get(t, 0.0) + w_cpm * x
@@ -146,17 +146,17 @@ def cal_year_return(daily, year):
 
 
 def run_window(panel, kind, start, end, cash_daily, w_cpm, w_bull, prod_path=False):
-    _saved_pool = (cpm_live.SAFE_POOL, bull_qqq_live.SAFE_POOL)
+    _saved_pool = (cpm_live.SAFE_POOL, bull_spy_live.SAFE_POOL)
     if prod_path:
         restore_prod()
         # Use the real production pool (exclude synthetic BLEND5050) so the
         # baseline reproduction is bit-clean.
         cpm_live.SAFE_POOL = ["SHV", "IEF"]
-        bull_qqq_live.SAFE_POOL = ["SHV", "IEF"]
+        bull_spy_live.SAFE_POOL = ["SHV", "IEF"]
     else:
         patch_rule(kind)
     cpm, _ = run_cpm_backtest(panel, start, end)
-    bull = run_bull_qqq_backtest(panel, start, end)
+    bull = run_bull_spy_backtest(panel, start, end)
     common = cpm.index.intersection(bull.index)
     cpm = cpm.reindex(common)
     bull = bull.reindex(common)
@@ -165,7 +165,7 @@ def run_window(panel, kind, start, end, cash_daily, w_cpm, w_bull, prod_path=Fal
     mc = perf_metrics(cpm, cash_daily)
     to = blend_turnover(panel, start, end, w_cpm, w_bull)
     if prod_path:
-        cpm_live.SAFE_POOL, bull_qqq_live.SAFE_POOL = _saved_pool
+        cpm_live.SAFE_POOL, bull_spy_live.SAFE_POOL = _saved_pool
     return {
         "blend": mb, "cpm": mc, "blend_daily": blend, "cpm_daily": cpm,
         "turnover": to,
@@ -193,7 +193,7 @@ def s0_timing_diagnostic(panel, start, end):
     recs = []
     for i, sig_d in enumerate(sigs):
         cw, _, cregime, csafe = cpm_live.compute_target_weights(close, sig_d)
-        bw, bregime, _ = compute_bull_qqq_weights(panel, sig_d, panel["SPY"])
+        bw, bregime, _ = compute_bull_spy_weights(panel, sig_d, panel["SPY"])
         # CPM defensive if any safe-pool ticker in weights
         cpm_safe_w = sum(v for t, v in cw.items() if t in ("SHV", "IEF"))
         cpm_safe_pick = next((t for t in cw if t in ("SHV", "IEF")), None)
@@ -235,7 +235,7 @@ def main():
 
     # Ensure synthetic blend visible to cols filters in both sleeves.
     cpm_live.SAFE_POOL = ["SHV", "IEF", "BLEND5050"]
-    bull_qqq_live.SAFE_POOL = ["SHV", "IEF", "BLEND5050"]
+    bull_spy_live.SAFE_POOL = ["SHV", "IEF", "BLEND5050"]
 
     cash_daily = panel["SHV"].ffill().pct_change().dropna()
 
@@ -297,7 +297,7 @@ def write_findings(results, v0_prod, ok, match_patch, diag_clean, diag_stress):
       "[SHV, IEF]) earn its keep vs simpler fixed safe rules? Safe asset is "
       "shared by CPM and BULL; the safe rule is varied on BOTH sleeves "
       "consistently.\n")
-    A("Method: monkeypatch `cpm_live.best_safe` and `bull_qqq_live._pick_safe` "
+    A("Method: monkeypatch `cpm_live.best_safe` and `bull_spy_live._pick_safe` "
       "(measurement only, no production files edited). 50/50 uses a synthetic "
       "daily-rebalanced SHV+IEF blend column. Blend = 0.60*CPM + 0.40*BULL. "
       "Excess Sharpe vs SHV cash. Turnover = annual one-way, combined "

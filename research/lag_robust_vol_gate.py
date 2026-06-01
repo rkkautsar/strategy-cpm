@@ -3,7 +3,7 @@
 Question
 --------
 The production BULL sleeve's fast RV_20d-vs-RV_252d crossover gate
-(bull_qqq_live._vol_gate_ok) carries the same-day-close lookahead: under an
+(bull_spy_live._vol_gate_ok) carries the same-day-close lookahead: under an
 honest 1-trading-day execution lag (exec_lag=1) its clean BULL Sharpe edge
 collapses (audit: BULL lag delta -0.173; gate-off lag delta +0.001).
 
@@ -14,7 +14,7 @@ signal does not react to the bar it executes on.
 Method
 ------
 Reuse the audit harness UNCHANGED (lookahead_audit_2026_05_30.py) for timing,
-CPM sleeve, blend, and metrics. We ONLY swap bull_qqq_live._vol_gate_ok via
+CPM sleeve, blend, and metrics. We ONLY swap bull_spy_live._vol_gate_ok via
 monkeypatch (binary variants) or wrap the BULL weight fn (continuous S5).
 
 All variants measured under HONEST exec_lag=1 unless the row says same-day.
@@ -42,15 +42,15 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import bull_qqq_live
-from bull_qqq_live import BULL_TICKER, CASH_TICKER, compute_bull_qqq_weights
+import bull_spy_live
+from bull_spy_live import BULL_TICKER, CASH_TICKER, compute_bull_spy_weights
 import lookahead_audit_2026_05_30 as audit
 from cpm_live import perf_metrics
 
 CPM_W, BULL_W = audit.CPM_W, audit.BULL_W
 
 # Save the production gate so we can restore it.
-_ORIG_VOL_GATE = bull_qqq_live._vol_gate_ok
+_ORIG_VOL_GATE = bull_spy_live._vol_gate_ok
 
 
 # --------------------------------------------------------------------------
@@ -129,7 +129,7 @@ BINARY_VARIANTS = {
 TARGET_VOL = 0.15
 
 def bull_weight_fn_voltgt(panel, sig_d):
-    w, regime, diag = compute_bull_qqq_weights(panel, sig_d, panel[BULL_TICKER])
+    w, regime, diag = compute_bull_spy_weights(panel, sig_d, panel[BULL_TICKER])
     if BULL_TICKER not in w:  # gate off -> already in safe
         return w
     sub = panel[BULL_TICKER].loc[:sig_d].pct_change().dropna()
@@ -155,19 +155,19 @@ def run_bull(panel, start, end, exec_lag, gate=None, weight_fn=None):
     """Returns BULL daily series. If gate given, monkeypatch _vol_gate_ok.
     If weight_fn given (S5), use audit._segment_returns directly."""
     if weight_fn is not None:
-        cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(bull_qqq_live.SAFE_POOL)
+        cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(bull_spy_live.SAFE_POOL)
                           + ["HYG", "TIP"]) & set(panel.columns))
         close = panel[cols]
         daily_ret = panel.ffill().pct_change()
         wf = lambda sd: weight_fn(panel, sd)
         r = audit._segment_returns(close, daily_ret, wf, start, end, exec_lag,
-                                   bull_qqq_live.COST_BPS_PER_SIDE)
+                                   bull_spy_live.COST_BPS_PER_SIDE)
         return r.loc[(r.index >= start) & (r.index <= end)]
-    bull_qqq_live._vol_gate_ok = gate if gate is not None else _ORIG_VOL_GATE
+    bull_spy_live._vol_gate_ok = gate if gate is not None else _ORIG_VOL_GATE
     try:
         return audit.bull_sleeve(panel, start, end, exec_lag)
     finally:
-        bull_qqq_live._vol_gate_ok = _ORIG_VOL_GATE
+        bull_spy_live._vol_gate_ok = _ORIG_VOL_GATE
 
 
 def metrics(daily, cash_daily, label):

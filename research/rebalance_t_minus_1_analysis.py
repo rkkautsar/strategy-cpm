@@ -19,7 +19,7 @@ ROOT = Path('/Users/rkautsar/personal/scripts/strategy_cpm')
 sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
-import bull_qqq_live as bull
+import bull_spy_live as bull
 import ndx_sleeve_live as ndx
 
 def get_prior_trading_day(index, date):
@@ -76,8 +76,8 @@ def run_analysis():
             cpm_diff_count += 1
 
         # 2. BULL Decision
-        bull_w_t, bull_regime_t, bull_diag_t = bull.compute_bull_qqq_weights(panel, T)
-        bull_w_t1, bull_regime_t1, bull_diag_t1 = bull.compute_bull_qqq_weights(panel, T1)
+        bull_w_t, bull_regime_t, bull_diag_t = bull.compute_bull_spy_weights(panel, T)
+        bull_w_t1, bull_regime_t1, bull_diag_t1 = bull.compute_bull_spy_weights(panel, T1)
 
         active_t = any(w > 0 for ticker, w in bull_w_t.items() if ticker == "SPY")
         active_t1 = any(w > 0 for ticker, w in bull_w_t1.items() if ticker == "SPY")
@@ -147,7 +147,7 @@ def run_analysis():
 
     # (a) Original T-signal/T+1-MOO
     cpm_ret_a, _ = cpm.run_cpm_backtest(panel, start_dt, end_dt)
-    bull_ret_a = bull.run_bull_qqq_backtest(panel, start_dt, end_dt)
+    bull_ret_a = bull.run_bull_spy_backtest(panel, start_dt, end_dt)
     ndx_ret_a, _ = ndx.run_ndx_backtest(panel, ndx_panel, start_dt, end_dt)
 
     common_a = cpm_ret_a.index.intersection(bull_ret_a.index).intersection(ndx_ret_a.index)
@@ -163,7 +163,7 @@ def run_analysis():
     
     # Save original functions
     orig_compute_target_weights = cpm.compute_target_weights
-    orig_compute_bull_weights = bull.compute_bull_qqq_weights
+    orig_compute_bull_weights = bull.compute_bull_spy_weights
     orig_compute_ndx_weights = ndx.compute_ndx_weights
 
     # Define patch implementations
@@ -184,17 +184,17 @@ def run_analysis():
 
     # Inject patches
     cpm.compute_target_weights = patched_cpm_weights
-    bull.compute_bull_qqq_weights = patched_bull_weights
+    bull.compute_bull_spy_weights = patched_bull_weights
     ndx.compute_ndx_weights = patched_ndx_weights
 
     try:
         cpm_ret_b, _ = cpm.run_cpm_backtest(panel, start_dt, end_dt)
-        bull_ret_b = bull.run_bull_qqq_backtest(panel, start_dt, end_dt)
+        bull_ret_b = bull.run_bull_spy_backtest(panel, start_dt, end_dt)
         ndx_ret_b, _ = ndx.run_ndx_backtest(panel, ndx_panel, start_dt, end_dt)
     finally:
         # ALWAYS restore original functions in case of exceptions
         cpm.compute_target_weights = orig_compute_target_weights
-        bull.compute_bull_qqq_weights = orig_compute_bull_weights
+        bull.compute_bull_spy_weights = orig_compute_bull_weights
         ndx.compute_ndx_weights = orig_compute_ndx_weights
 
     common_b = cpm_ret_b.index.intersection(bull_ret_b.index).intersection(ndx_ret_b.index)

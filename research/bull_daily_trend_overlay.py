@@ -29,9 +29,9 @@ sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
-import bull_qqq_live as bull_mod
-from bull_qqq_live import (
-    run_bull_qqq_backtest, compute_bull_qqq_weights, _pick_safe,
+import bull_spy_live as bull_mod
+from bull_spy_live import (
+    run_bull_spy_backtest, compute_bull_spy_weights, _pick_safe,
     BULL_TICKER, COST_BPS_PER_SIDE,
 )
 from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel
@@ -46,7 +46,7 @@ def monthly_sig_dates(panel, start, end):
 
 def build_bull_overlay(panel, start, end, sma_window, reentry, cost_bps=COST_BPS_PER_SIDE,
                        daily_overlay=True):
-    """Reimplements run_bull_qqq_backtest with a daily SMA intramonth exit.
+    """Reimplements run_bull_spy_backtest with a daily SMA intramonth exit.
 
     Returns (daily_returns, exit_active_mask, events).
       exit_active_mask: bool Series, True on days the overlay is holding safe
@@ -69,7 +69,7 @@ def build_bull_overlay(panel, start, end, sma_window, reentry, cost_bps=COST_BPS
     events = []
 
     for i, sig_d in enumerate(sigs):
-        mw, regime, diag = compute_bull_qqq_weights(panel, sig_d, panel[BULL_TICKER])
+        mw, regime, diag = compute_bull_spy_weights(panel, sig_d, panel[BULL_TICKER])
         monthly = panel.loc[:sig_d].resample("ME").last()
         safe = _pick_safe(monthly)
 

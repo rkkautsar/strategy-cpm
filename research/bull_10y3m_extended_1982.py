@@ -37,8 +37,8 @@ Canary TIP: repo TIP proxy (2000-06+) spliced backward with a SYNTHETIC,
 Gate data: FRED T10Y3M (1982-01-04+, daily), cached research/_macro_cache/.
 
 Conventions: production T+1 close-to-close execution
-(bull_qqq_live.run_bull_qqq_backtest, 10 bps/side), gates monkeypatched into
-bull_qqq_live._vol_gate_ok. This is consistent across the full 1982-2026 window
+(bull_spy_live.run_bull_spy_backtest, 10 bps/side), gates monkeypatched into
+bull_spy_live._vol_gate_ok. This is consistent across the full 1982-2026 window
 (real-open MOO data only exists 1999+, so we use the production close-to-close
 backtester for apples-to-apples over the extended history; numbers differ
 slightly from the mooex clean-window study, noted).
@@ -56,7 +56,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cpm_live import load_panel, perf_metrics, COST_BPS_PER_SIDE
-import bull_qqq_live
+import bull_spy_live
 
 CACHE = Path(__file__).resolve().parent / "_macro_cache"
 CACHE.mkdir(exist_ok=True)
@@ -224,29 +224,29 @@ def make_gate_rv60_yc(spread):
 
 # ----------------------- backtest + metrics -----------------------
 def run_bull(panel, gate, start, end):
-    orig = bull_qqq_live._vol_gate_ok
-    bull_qqq_live._vol_gate_ok = gate
+    orig = bull_spy_live._vol_gate_ok
+    bull_spy_live._vol_gate_ok = gate
     try:
-        return bull_qqq_live.run_bull_qqq_backtest(panel, start, end,
+        return bull_spy_live.run_bull_spy_backtest(panel, start, end,
                                                    cost_bps=COST_BPS_PER_SIDE)
     finally:
-        bull_qqq_live._vol_gate_ok = orig
+        bull_spy_live._vol_gate_ok = orig
 
 
 def regime_stats(panel, gate, start, end):
     """months, safe months, flips, turnover/yr under a gate."""
-    orig = bull_qqq_live._vol_gate_ok
-    bull_qqq_live._vol_gate_ok = gate
+    orig = bull_spy_live._vol_gate_ok
+    bull_spy_live._vol_gate_ok = gate
     try:
         midx = (pd.DataFrame({"x": 1}, index=panel.index)
                 .groupby(pd.Grouper(freq="ME")).tail(1))
         sigs = midx.index[(midx.index >= start) & (midx.index <= end)].tolist()
         regimes = []
         for sd in sigs:
-            w, lab, _ = bull_qqq_live.compute_bull_qqq_weights(panel, sd, panel["SPY"])
+            w, lab, _ = bull_spy_live.compute_bull_spy_weights(panel, sd, panel["SPY"])
             regimes.append("SPY" if "SPY" in w else "SAFE")
     finally:
-        bull_qqq_live._vol_gate_ok = orig
+        bull_spy_live._vol_gate_ok = orig
     n = len(regimes)
     n_safe = sum(1 for r in regimes if r == "SAFE")
     flips = sum(1 for i in range(1, n) if regimes[i] != regimes[i - 1])
@@ -326,7 +326,7 @@ def main():
             "window_full": [str(FULL_START.date()), str(end.date())],
             "window_clean": [str(CLEAN_START.date()), str(end.date())],
             "cost_bps": COST_BPS_PER_SIDE,
-            "convention": "T+1 close-to-close (production run_bull_qqq_backtest), gates monkeypatched",
+            "convention": "T+1 close-to-close (production run_bull_spy_backtest), gates monkeypatched",
             "ief_duration": IEF_DURATION,
             "provenance": prov,
             "sources": {

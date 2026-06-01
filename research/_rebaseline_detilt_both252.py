@@ -4,9 +4,9 @@ from pathlib import Path
 import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import bull_qqq_live
-if not hasattr(bull_qqq_live, "_vol_gate_ok"):
-    bull_qqq_live._vol_gate_ok = lambda *a, **k: (True, {})
+import bull_spy_live
+if not hasattr(bull_spy_live, "_vol_gate_ok"):
+    bull_spy_live._vol_gate_ok = lambda *a, **k: (True, {})
 import memo_review2_lookback_detilt_harness as M
 from cpm_live import RISKY_UNIVERSE
 

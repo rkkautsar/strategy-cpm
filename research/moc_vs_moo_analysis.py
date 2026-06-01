@@ -9,7 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import cpm_live as cpm
-import bull_qqq_live as bull_qqq
+import bull_spy_live as bull_spy
 import ndx_sleeve_live as ndx_sleeve
 import build_dashboard as bd
 
@@ -78,23 +78,23 @@ def run_cpm_backtest_with_offset(panel, start, end, offset, cost_bps=cpm.COST_BP
                 
     return raw_returns, weights_history
 
-def run_bull_qqq_backtest_with_offset(panel, start, end, offset, cost_bps=bull_qqq.COST_BPS_PER_SIDE):
-    if bull_qqq.BULL_TICKER not in panel.columns:
-        raise ValueError(f"{bull_qqq.BULL_TICKER} not in panel")
-    if bull_qqq.CASH_TICKER not in panel.columns:
-        raise ValueError(f"{bull_qqq.CASH_TICKER} not in panel")
+def run_bull_spy_backtest_with_offset(panel, start, end, offset, cost_bps=bull_spy.COST_BPS_PER_SIDE):
+    if bull_spy.BULL_TICKER not in panel.columns:
+        raise ValueError(f"{bull_spy.BULL_TICKER} not in panel")
+    if bull_spy.CASH_TICKER not in panel.columns:
+        raise ValueError(f"{bull_spy.CASH_TICKER} not in panel")
 
     daily_rets = panel.ffill().pct_change()
     monthly_idx = pd.DataFrame({"x": 1}, index=panel.index).groupby(pd.Grouper(freq="ME")).tail(1)
     sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
 
     common = panel.index[(panel.index >= start) & (panel.index <= end)]
-    all_tickers = {bull_qqq.BULL_TICKER, bull_qqq.CASH_TICKER, *bull_qqq.SAFE_POOL}
+    all_tickers = {bull_spy.BULL_TICKER, bull_spy.CASH_TICKER, *bull_spy.SAFE_POOL}
     weights_per_day = {t: pd.Series(0.0, index=common) for t in all_tickers}
     state_per_day = pd.Series("", index=common, dtype=object)  # for cost calc
 
     for i, sig_d in enumerate(sigs):
-        month_weights, _, _ = bull_qqq.compute_bull_qqq_weights(panel, sig_d, panel[bull_qqq.BULL_TICKER])
+        month_weights, _, _ = bull_spy.compute_bull_spy_weights(panel, sig_d, panel[bull_spy.BULL_TICKER])
 
         future = common[common > sig_d]
         if len(future) < offset:
@@ -201,7 +201,7 @@ def main():
     # ------------------ (a) PRODUCTION MOO (offset=1) ------------------
     print("Running Production (a) T+1-MOO (offset=1)...")
     cpm_moo, _ = run_cpm_backtest_with_offset(panel, START_SIGNALS, CLEAN_END, offset=1)
-    bull_moo = run_bull_qqq_backtest_with_offset(panel, START_SIGNALS, CLEAN_END, offset=1)
+    bull_moo = run_bull_spy_backtest_with_offset(panel, START_SIGNALS, CLEAN_END, offset=1)
     ndx_moo = run_ndx_backtest_with_offset(panel, ndx_panel, START_SIGNALS, CLEAN_END, offset=1)
     
     common_moo = cpm_moo.index.intersection(bull_moo.index).intersection(ndx_moo.index)
@@ -213,7 +213,7 @@ def main():
     # ------------------ (b) ALTERNATIVE MOC (offset=2) ------------------
     print("Running Alternative (b) T+1-MOC (offset=2)...")
     cpm_moc, _ = run_cpm_backtest_with_offset(panel, START_SIGNALS, CLEAN_END, offset=2)
-    bull_moc = run_bull_qqq_backtest_with_offset(panel, START_SIGNALS, CLEAN_END, offset=2)
+    bull_moc = run_bull_spy_backtest_with_offset(panel, START_SIGNALS, CLEAN_END, offset=2)
     ndx_moc = run_ndx_backtest_with_offset(panel, ndx_panel, START_SIGNALS, CLEAN_END, offset=2)
     
     common_moc = cpm_moc.index.intersection(bull_moc.index).intersection(ndx_moc.index)

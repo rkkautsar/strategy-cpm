@@ -18,7 +18,7 @@ sys.path.insert(0, "/Users/rkautsar/personal/scripts/strategy_cpm")
 import pandas as pd
 import numpy as np
 from cpm_live import load_panel, perf_metrics
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from vol_cap import (compute_donchian_circuit_scale,
                       compute_dd_circuit_scale,
                       DONCHIAN_CIRCUIT_WINDOW, DD_CIRCUIT_THRESHOLD,
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     panel = load_panel(start=pd.Timestamp("1993-01-01"))
     start, end = pd.Timestamp("2008-04-30"), pd.Timestamp("2026-05-22")
 
-    bull_raw = run_bull_qqq_backtest(panel, start, end)
+    bull_raw = run_bull_spy_backtest(panel, start, end)
     common = bull_raw.index[(bull_raw.index >= start) & (bull_raw.index <= end)]
     bull_raw = bull_raw.reindex(common)
     sigs = (pd.DataFrame({"x": 1}, index=common).groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())

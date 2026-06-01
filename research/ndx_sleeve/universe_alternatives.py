@@ -25,7 +25,7 @@ import pandas as pd
 import index_constitution as ic
 
 from cpm_live import load_panel, perf_metrics, sig_13612U
-from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
+from bull_spy_live import compute_bull_spy_weights, CASH_TICKER
 from ndx_sleeve_live import load_ndx_panel  # reuse NDX panel for tickers
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
@@ -105,7 +105,7 @@ def _run_universe_sleeve(start, end_, index_name, select_k, cost_bps=10):
     weights_for_date = {}
     for sd in sig_dates:
         # Gate by BULL-QQQ regime
-        bq_w, bq_regime, _ = compute_bull_qqq_weights(panel, sd)
+        bq_w, bq_regime, _ = compute_bull_spy_weights(panel, sd)
         if not bq_regime.startswith("BULL_QQQ"):
             target = {CASH_TICKER: 1.0}
         else:
@@ -207,10 +207,10 @@ def main():
     print()
     print("## As 10% sleeve in 60/30 CPM/BULL + 10% [variant]")
     from cpm_live import run_cpm_backtest
-    from bull_qqq_live import run_bull_qqq_backtest
+    from bull_spy_live import run_bull_spy_backtest
     panel = load_panel(start=pd.Timestamp("1993-01-01"))
     cpm_r, _ = run_cpm_backtest(panel, start, end)
-    bull_r = run_bull_qqq_backtest(panel, start, end)
+    bull_r = run_bull_spy_backtest(panel, start, end)
 
     base_df = pd.concat([cpm_r.rename("c"), bull_r.rename("b")], axis=1).dropna()
     base_blend = base_df["c"]*0.7 + base_df["b"]*0.3

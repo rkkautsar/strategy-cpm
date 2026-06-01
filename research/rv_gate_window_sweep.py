@@ -3,7 +3,7 @@
 changed; NO commit). Sensitivity sweep of the BULL sleeve realized-volatility
 gate SHORT window.
 
-Production BULL vol gate (bull_qqq_live._vol_gate_ok / compute_bull_qqq_weights):
+Production BULL vol gate (bull_spy_live._vol_gate_ok / compute_bull_spy_weights):
     gate ON  <=>  rv_60d(SPY) < rv_252d(SPY)
 The 60-day SHORT window is a tuned parameter with no in-memo sensitivity sweep.
 This script sweeps SHORT in {20, 40, 60, 80, 120} against the SAME 252d long
@@ -24,7 +24,7 @@ ANCHOR GATE (abort on mismatch):
 
 Reuses production engine via research/exec_lag_moo_validation_2026_05_30.py helpers
 (cpm_sleeve_conv, bull_sleeve_conv, gate_rv factory). The gate factory monkeypatches
-bull_qqq_live._vol_gate_ok inside bull_sleeve_conv and restores it after.
+bull_spy_live._vol_gate_ok inside bull_sleeve_conv and restores it after.
 
 Writes research/rv_gate_window_sweep_findings.md (+ .json).
 """

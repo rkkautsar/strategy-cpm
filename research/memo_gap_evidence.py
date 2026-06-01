@@ -271,9 +271,9 @@ def section_B(panel, end, cash, intraday, overnight, cpm_base, bull_base):
     cpm_wdf = build_weights_df(close, lambda sd: compute_target_weights(close, sd)[0], EXT_START, end)
     cpm_risky = cpm_wdf[[c for c in RISKY_UNIVERSE if c in cpm_wdf.columns]].sum(axis=1)
     # BULL exposure: SPY weight from bull weight fn.
-    import bull_qqq_live
+    import bull_spy_live
     bclose = panel
-    bull_wdf = build_weights_df(panel, lambda sd: bull_qqq_live.compute_bull_qqq_weights(panel, sd, panel["SPY"])[0],
+    bull_wdf = build_weights_df(panel, lambda sd: bull_spy_live.compute_bull_spy_weights(panel, sd, panel["SPY"])[0],
                                 EXT_START, end)
     bull_risky = bull_wdf[["SPY"]].sum(axis=1) if "SPY" in bull_wdf.columns else pd.Series(0.0, index=panel.index)
     common = cpm_risky.index.intersection(bull_risky.index)

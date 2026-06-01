@@ -61,7 +61,7 @@ OFFSETS = [("EOM", ("eom", 0)), ("EOM+1", ("eom", 1)),
 
 # ----- inlined weight builders (bit-identical to the cited source modules; copied
 #       to avoid importing exec_lag_moo_validation, which references a now-removed
-#       bull_qqq_live._vol_gate_ok at module load) -----
+#       bull_spy_live._vol_gate_ok at module load) -----
 # AAA-style: cpm_benchmarks_proper.make_canonical_aaa_wf (canonical 10-asset).
 MACRO = Path(__file__).resolve().parent / "_macro_cache"
 AAA_UNIVERSE = ["SPY", "EZU", "EWJ", "EEM", "IYR", "RWX", "IEF", "TLT", "DBC", "GLD"]

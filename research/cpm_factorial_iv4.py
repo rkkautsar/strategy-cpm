@@ -45,7 +45,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import bull_qqq_live  # noqa: F401 (harness side parity)
+import bull_spy_live  # noqa: F401 (harness side parity)
 from cpm_live import (
     load_panel, perf_metrics, sig_13612U, best_safe, faber_sma_xs, inv_vol_weights,
     compute_target_weights, RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH,

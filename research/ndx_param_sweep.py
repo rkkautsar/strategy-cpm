@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics, sig_13612U
-from bull_qqq_live import run_bull_qqq_backtest, compute_bull_qqq_weights, CASH_TICKER, SAFE_POOL, _pick_safe
+from bull_spy_live import run_bull_spy_backtest, compute_bull_spy_weights, CASH_TICKER, SAFE_POOL, _pick_safe
 from ndx_sleeve_live import load_ndx_panel
 import index_constitution as ic
 
@@ -43,7 +43,7 @@ def compute_ndx_weights_param(
 ) -> tuple[dict, str, dict]:
     # Step 1: Gate on monthly BULL active state.
     cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
-    bull_weights, _, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
+    bull_weights, _, _ = compute_bull_spy_weights(cpm_panel, sig_d)
     bull_active = any(w > 0 for t, w in bull_weights.items() if t == "SPY")
 
     if not bull_active:
@@ -58,7 +58,7 @@ def compute_ndx_weights_param(
     pit = ic.constituents_at("nasdaq100", sig_d.strftime("%Y-%m-%d"))
     pit_tickers = set(pit["symbol"].tolist())
     if len(pit_tickers) == 0:
-        bq_weights, bq_regime, _ = compute_bull_qqq_weights(cpm_panel, sig_d)
+        bq_weights, bq_regime, _ = compute_bull_spy_weights(cpm_panel, sig_d)
         return (bq_weights, "NDX_FALLBACK_BULL", {
             "bull_regime": bq_regime,
             "selected": list(bq_weights.keys()),
@@ -208,7 +208,7 @@ def run_sweep():
     bull_rets = {}
     for win_lbl, start_dt in windows.items():
         cpm_raw, _ = run_cpm_backtest(panel, start_dt, end)
-        bull_raw = run_bull_qqq_backtest(panel, start_dt, end)
+        bull_raw = run_bull_spy_backtest(panel, start_dt, end)
         cpm_rets[win_lbl] = cpm_raw
         bull_rets[win_lbl] = bull_raw
 

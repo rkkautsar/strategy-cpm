@@ -50,7 +50,7 @@ from cpm_live import (
     CORR_LOOKBACK_DAYS,
     COST_BPS_PER_SIDE,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 FINDINGS = Path(__file__).resolve().parent / "cpm_ranker_remainder_findings.md"
 
@@ -375,7 +375,7 @@ def main():
     eaa_ranks_w = {}
     for wname, (s, e) in windows.items():
         print(f"\n=== Window {wname}: {s.date()} -> {e.date()} ===")
-        bull = run_bull_qqq_backtest(panel, s, e)
+        bull = run_bull_spy_backtest(panel, s, e)
         eaa_ranks_w[wname] = eaa_ranks_by_month(panel, s, e)
         results[wname] = {}
         for vname, cfg in VARIANTS.items():

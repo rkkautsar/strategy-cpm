@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 import cpm_live as cl
 from cpm_live import load_panel, perf_metrics
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
 from vol_cap import compute_lqd_ief_circuit_scale, LQD_IEF_EMA_SPAN
 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
     # Compute shared sleeves (BULL no circuit; NDX with LQD/IEF circuit)
     print("Computing BULL and NDX once for blend reuse ...")
-    bull_raw = run_bull_qqq_backtest(panel, start, end)
+    bull_raw = run_bull_spy_backtest(panel, start, end)
     ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
     common_idx = bull_raw.index.intersection(ndx_raw.index)
     bull_raw = bull_raw.reindex(common_idx); ndx_raw = ndx_raw.reindex(common_idx).fillna(0.0)

@@ -41,7 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import exec_lag_moo_validation_2026_05_30 as H
 from cpm_live import load_panel, perf_metrics, sig_13612U, COST_BPS_PER_SIDE
-import bull_qqq_live
+import bull_spy_live
 from bull_tiponly_recompute import (
     bull_wf, run_bull_cell, met, win, cal2022, _pick_safe_pool, BULL_PROD_SAFE,
 )
@@ -286,7 +286,7 @@ def main():
     out = {"meta": {"conv": CONV, "cost_bps": COST,
                     "clean": [str(CLEAN_START.date()), str(end.date())],
                     "ext": [str(EXT_START.date()), str(end.date())],
-                    "prod_bull_canary": list(bull_qqq_live.CANARY_ASSETS),
+                    "prod_bull_canary": list(bull_spy_live.CANARY_ASSETS),
                     "taus": TAUS,
                     "crises": {k: list(v) for k, v in CRISES.items()},
                     "note_ext": ("ext window 1999-03-10; TIP real data from 2000-06 so canary "

@@ -2,14 +2,14 @@
 """Throwaway research (analyst role; read-only re production; writes only to
 research/; NO production/memo files changed; NO commit). Recomputes the CANONICAL
 two-sleeve number set under the NEW production spec where the BULL canary was
-changed to TIP-ONLY (bull_qqq_live.CANARY_ASSETS=["TIP"]). CPM is UNCHANGED
+changed to TIP-ONLY (bull_spy_live.CANARY_ASSETS=["TIP"]). CPM is UNCHANGED
 (HYG-OR-TIP). This regenerates the headline that REPLACES the old
 1.2485/-10.68%/1.1928 (which assumed BULL HYG-OR-TIP).
 
 Sleeves are taken from the PRODUCTION modules via the canonical harness
 exec_lag_moo_validation_2026_05_30 (H):
   - CPM : H.cpm_sleeve_conv  -> cpm_live.compute_target_weights (HYG-OR-TIP, unchanged)
-  - BULL: H.bull_sleeve_conv -> bull_qqq_live.compute_bull_qqq_weights, which now
+  - BULL: H.bull_sleeve_conv -> bull_spy_live.compute_bull_spy_weights, which now
           reads the production CANARY_ASSETS=["TIP"] => BULL TIP-only. Slow vol gate
           GATE_RV60 (rv_60d<rv_252d) monkeypatched in (= production gate).
   - NDX : moc_vs_moo_analysis.run_ndx_backtest_with_offset(offset=1) (PROD 60/20/20 only).
@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import exec_lag_moo_validation_2026_05_30 as H
 from cpm_live import load_panel, perf_metrics, sig_13612U, COST_BPS_PER_SIDE
-import bull_qqq_live
+import bull_spy_live
 import ndx_sleeve_live as ndx_sleeve
 from moc_vs_moo_analysis import run_ndx_backtest_with_offset
 
@@ -171,8 +171,8 @@ def main():
     # ---- sleeves ----
     cpm, _ = H.cpm_sleeve_conv(panel, intraday, overnight, EXT_START, end, CONV)
     # BULL reads production CANARY_ASSETS (now ["TIP"]) -> TIP-only.
-    assert bull_qqq_live.CANARY_ASSETS == ["TIP"], \
-        f"production BULL canary must be TIP-only, got {bull_qqq_live.CANARY_ASSETS}"
+    assert bull_spy_live.CANARY_ASSETS == ["TIP"], \
+        f"production BULL canary must be TIP-only, got {bull_spy_live.CANARY_ASSETS}"
     bull, _ = H.bull_sleeve_conv(panel, intraday, overnight, EXT_START, end, CONV, H.GATE_RV60)
     common = cpm.index.intersection(bull.index)
     cpm = cpm.reindex(common); bull = bull.reindex(common)
@@ -206,7 +206,7 @@ def main():
     out = {"meta": {"conv": CONV, "cost_bps": COST,
                     "clean": [str(CLEAN_START.date()), str(end.date())],
                     "stress": [str(EXT_START.date()), str(end.date())],
-                    "prod_bull_canary": list(bull_qqq_live.CANARY_ASSETS),
+                    "prod_bull_canary": list(bull_spy_live.CANARY_ASSETS),
                     "cpm_canary": "HYG-OR-TIP (unchanged)",
                     "ndx_convention": "T+1 MOO offset=1 (close-to-close; exact-open engine "
                                       "unsupported for per-stock PIT NDX universe + delisting)",
@@ -320,12 +320,12 @@ def write_md(o):
     A("Role: analyst (hypothesis-driven, read-only re production; writes only to research/; "
       "no production/memo files changed; no commit). Harness "
       "`research/bull_tiponly_recompute.py`. Production BULL canary was changed to TIP-ONLY "
-      "(`bull_qqq_live.CANARY_ASSETS=[\"TIP\"]`); CPM is UNCHANGED (HYG-OR-TIP). This file is the "
+      "(`bull_spy_live.CANARY_ASSETS=[\"TIP\"]`); CPM is UNCHANGED (HYG-OR-TIP). This file is the "
       "FRESH number set that REPLACES the old 60/40 headline 1.2485 / -10.68% / 1.1928 (which "
       "assumed BULL HYG-OR-TIP).\n")
     A(f"**Sleeves from production modules** via canonical harness "
       f"`exec_lag_moo_validation_2026_05_30`: CPM = `cpm_live.compute_target_weights` "
-      f"(HYG-OR-TIP, unchanged); BULL = `bull_qqq_live.compute_bull_qqq_weights` reading "
+      f"(HYG-OR-TIP, unchanged); BULL = `bull_spy_live.compute_bull_spy_weights` reading "
       f"production `CANARY_ASSETS={m['prod_bull_canary']}` (TIP-only) + slow vol gate "
       f"rv_60d<rv_252d; NDX = production sleeve (PROD 60/20/20 only).\n")
     A(f"**Conventions (canonical):** T+1 MOO exact (`mooex`, real auto_adjust opens), post-cost "

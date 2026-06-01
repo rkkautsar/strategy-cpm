@@ -14,7 +14,7 @@ Execution identical to the headline convention everywhere:
 
 Windows: CLEAN 18y 2008-05-30.. ; EXT 27y 1999-03-10..
 
-Reads code from cpm_live.py, bull_qqq_live.py, build_dashboard.py to define
+Reads code from cpm_live.py, bull_spy_live.py, build_dashboard.py to define
 factors. Writes JSON next to this file. No production files touched.
 """
 import sys, math, json, itertools
@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import bull_qqq_live
+import bull_spy_live
 from cpm_live import (
     load_panel, perf_metrics, sig_13612U, best_safe, faber_sma_xs, min_vol_pair,
     COST_BPS_PER_SIDE, CORR_LOOKBACK_DAYS, TOP_K_CANDIDATES,
@@ -127,7 +127,7 @@ def cpm_wf(close, daily, sig_d, U, R, P, C):
 # Common to both ends (fixed-on, NOT a factor): SPY 13612U>0 trend gate.
 
 def _pick_safe_pool(monthly, pool):
-    """Production bull_qqq_live._pick_safe generalized to an explicit pool:
+    """Production bull_spy_live._pick_safe generalized to an explicit pool:
     max 13612U over pool members, fallback SHV."""
     scores = {}
     for s in pool:

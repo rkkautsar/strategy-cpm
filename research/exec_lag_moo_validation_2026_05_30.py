@@ -37,8 +37,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import bull_qqq_live
-from bull_qqq_live import BULL_TICKER, CASH_TICKER, compute_bull_qqq_weights
+import bull_spy_live
+from bull_spy_live import BULL_TICKER, CASH_TICKER, compute_bull_spy_weights
 import lookahead_audit_2026_05_30 as audit
 from cpm_live import (
     load_panel, compute_target_weights, perf_metrics,
@@ -51,7 +51,7 @@ OPEN_CACHE_INTRADAY_SANITY_MAX = 0.50
 OHLC_TICKERS = ['SPY','QQQ','SPHQ','EFA','EEM','VNQ','GLD','TLT','DBC','SHV','IEF','HYG','TIP']
 
 # Explicit gates (signature (daily_spy_close, sig_d) -> (bool, diag)).
-_ORIG_VOL_GATE = bull_qqq_live._vol_gate_ok
+_ORIG_VOL_GATE = bull_spy_live._vol_gate_ok
 
 def gate_rv(fast, slow=252):
     def g(daily_spy, sig_d):
@@ -226,17 +226,17 @@ def cpm_sleeve_conv(panel, intraday, overnight, start, end, convention):
 
 
 def bull_sleeve_conv(panel, intraday, overnight, start, end, convention, gate):
-    bull_qqq_live._vol_gate_ok = gate
+    bull_spy_live._vol_gate_ok = gate
     try:
-        cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(bull_qqq_live.SAFE_POOL)
+        cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(bull_spy_live.SAFE_POOL)
                           + ["HYG", "TIP"]) & set(panel.columns))
         close = panel[cols]
         daily_ret = panel.ffill().pct_change()
-        wf = lambda sd: compute_bull_qqq_weights(panel, sd, panel[BULL_TICKER])[0]
+        wf = lambda sd: compute_bull_spy_weights(panel, sd, panel[BULL_TICKER])[0]
         return _segment_returns_conv(close, daily_ret, wf, start, end, convention,
-                                     bull_qqq_live.COST_BPS_PER_SIDE, intraday, overnight)
+                                     bull_spy_live.COST_BPS_PER_SIDE, intraday, overnight)
     finally:
-        bull_qqq_live._vol_gate_ok = _ORIG_VOL_GATE
+        bull_spy_live._vol_gate_ok = _ORIG_VOL_GATE
 
 
 def met(daily, cash, label):
@@ -345,15 +345,15 @@ def main():
                 print(f"  BULL {gname} {conv}: real={fb[0]} fallback={fb[1]}")
     print()
 
-    # SANITY: T+0 MOC bull reproduces production run_bull_qqq_backtest (RV_60d staged or RV_20d?).
-    print("=== SANITY: T+0 MOC vs production run_bull_qqq_backtest (clean 18y) ===")
+    # SANITY: T+0 MOC bull reproduces production run_bull_spy_backtest (RV_60d staged or RV_20d?).
+    print("=== SANITY: T+0 MOC vs production run_bull_spy_backtest (clean 18y) ===")
     for gname, gate in gates:
-        bull_qqq_live._vol_gate_ok = gate
+        bull_spy_live._vol_gate_ok = gate
         try:
-            prod = bull_qqq_live.run_bull_qqq_backtest(panel, clean_start, end,
-                                                       cost_bps=bull_qqq_live.COST_BPS_PER_SIDE)
+            prod = bull_spy_live.run_bull_spy_backtest(panel, clean_start, end,
+                                                       cost_bps=bull_spy_live.COST_BPS_PER_SIDE)
         finally:
-            bull_qqq_live._vol_gate_ok = _ORIG_VOL_GATE
+            bull_spy_live._vol_gate_ok = _ORIG_VOL_GATE
         mine = bull_series[(gname, "moc")].loc[clean_start:end]
         mp = perf_metrics(prod, cash_daily)
         mm = perf_metrics(mine, cash_daily)

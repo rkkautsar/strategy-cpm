@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, "/Users/rkautsar/personal/scripts/strategy_fcp")
 import numpy as np, pandas as pd, yfinance as yf
 from fcp_live import load_panel, run_fcp_backtest, sig_13612W, perf_metrics
-import bull_qqq_live as bqq
+import bull_spy_live as bqq
 
 panel = load_panel(start=pd.Timestamp("1985-01-01"))
 END = panel.index[-1]
@@ -46,7 +46,7 @@ log(f"Panel ready. Backtest window 32y: {START_32.date()} to {END.date()}")
 # Compute production blend
 def run_prod(start, end):
     fcp, _ = run_fcp_backtest(panel, start, end)
-    bull = bqq.run_bull_qqq_backtest(panel, start, end)
+    bull = bqq.run_bull_spy_backtest(panel, start, end)
     common = fcp.index.intersection(bull.index)
     return 0.8 * fcp.loc[common] + 0.2 * bull.loc[common]
 
@@ -147,7 +147,7 @@ def run_blend_no_rotation(start, end):
     bqq.BULL_BY_STATE = {}  # disable rotation
     try:
         fcp, _ = run_fcp_backtest(panel, start, end)
-        bull = bqq.run_bull_qqq_backtest(panel, start, end)
+        bull = bqq.run_bull_spy_backtest(panel, start, end)
         common = fcp.index.intersection(bull.index)
         return 0.8 * fcp.loc[common] + 0.2 * bull.loc[common]
     finally:

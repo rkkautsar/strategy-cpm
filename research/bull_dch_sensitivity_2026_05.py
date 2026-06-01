@@ -16,7 +16,7 @@ sys.path.insert(0, "/Users/rkautsar/personal/scripts/strategy_cpm")
 import pandas as pd
 import numpy as np
 from cpm_live import load_panel, perf_metrics, sig_13612U, best_safe
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from vol_cap import compute_dd_circuit_scale, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE
 
 
@@ -78,7 +78,7 @@ def apply_circuit(returns, holding_spy, sigs, trigger):
 
 
 def run_bull(panel, start, end):
-    bull_raw = run_bull_qqq_backtest(panel, start, end)
+    bull_raw = run_bull_spy_backtest(panel, start, end)
     holding_spy, sigs = determine_sleeve_state(panel, start, end)
     holding_spy = holding_spy.reindex(bull_raw.index).fillna(False)
     return bull_raw, holding_spy, sigs

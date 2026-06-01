@@ -45,7 +45,7 @@ from cpm_live import (
     CORR_LOOKBACK_DAYS,
     COST_BPS_PER_SIDE,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 FINDINGS = Path(__file__).resolve().parent / "cpm_ranker_13612u_vol_findings.md"
 
@@ -302,7 +302,7 @@ def main():
     bull_cache = {}
     for wname, (s, e) in windows.items():
         print(f"\n=== Window {wname}: {s.date()} -> {e.date()} ===")
-        bull = run_bull_qqq_backtest(panel, s, e)
+        bull = run_bull_spy_backtest(panel, s, e)
         bull_cache[wname] = bull
         results[wname] = {}
         for vname, cfg in variants.items():

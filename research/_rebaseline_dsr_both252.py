@@ -7,9 +7,9 @@ from scipy import stats
 from scipy.stats import norm
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import bull_qqq_live
-if not hasattr(bull_qqq_live, "_vol_gate_ok"):
-    bull_qqq_live._vol_gate_ok = lambda *a, **k: (True, {})
+import bull_spy_live
+if not hasattr(bull_spy_live, "_vol_gate_ok"):
+    bull_spy_live._vol_gate_ok = lambda *a, **k: (True, {})
 import exec_lag_moo_validation_2026_05_30 as H
 import cpm_benchmarks_proper as B
 from cpm_live import perf_metrics

@@ -32,7 +32,7 @@ from cpm_live import (
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH,
     CANARY_RULE, CORR_LOOKBACK_DAYS, COST_BPS_PER_SIDE,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 FINDINGS = ROOT / "research" / "cpm_screen_2x2_findings.md"
 WINDOWS = {
@@ -261,7 +261,7 @@ def main():
     for wname, (start, end) in WINDOWS.items():
         shv = panel["SHV"].ffill().pct_change().loc[start:end].fillna(0.0)
         emit(f"[{wname}] computing BULL sleeve (variant-independent) ...")
-        bull = run_bull_qqq_backtest(panel, start, end)
+        bull = run_bull_spy_backtest(panel, start, end)
         for v in ["C0", "A", "B", "D"]:
             kc, am = VARIANTS[v]
             cpm_daily, hist, diag = run_variant_backtest(panel, start, end, kc, am)

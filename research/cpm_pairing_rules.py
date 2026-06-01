@@ -34,7 +34,7 @@ from cpm_live import (
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, CANARY_RULE, DEFAULT_CASH,
     TOP_K_CANDIDATES, CORR_LOOKBACK_DAYS, COST_BPS_PER_SIDE,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 VOL_LOOKBACK = 252
 
@@ -292,7 +292,7 @@ def main():
 
     for win, (s, e) in windows.items():
         print(f"\n--- Window {win}: {s.date()} -> {e.date()} ---")
-        bull = run_bull_qqq_backtest(panel, s, e)
+        bull = run_bull_spy_backtest(panel, s, e)
         sleeves[win] = bull
         for v, rule in RULES.items():
             cpm, wh = run_cpm_ruled(panel, s, e, rule)

@@ -35,7 +35,7 @@ from cpm_live import (
     load_panel, run_cpm_backtest, perf_metrics,
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH, CORR_LOOKBACK_DAYS,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from sklearn.covariance import LedoitWolf
 
 PROD_MIN_VOL_PAIR = cpm_live.min_vol_pair  # save to restore
@@ -257,8 +257,8 @@ def main():
 
     # BULL sleeve (constant across variants) for both windows
     log("Computing BULL sleeve (constant across variants) ...")
-    bull_cl = run_bull_qqq_backtest(panel, START_CL, END_CL)
-    bull_st = run_bull_qqq_backtest(panel, START_ST, END_ST)
+    bull_cl = run_bull_spy_backtest(panel, START_CL, END_CL)
+    bull_st = run_bull_spy_backtest(panel, START_ST, END_ST)
 
     # ---- E0 reproduction check ----
     log("\n=== E0 reproduction check ===")

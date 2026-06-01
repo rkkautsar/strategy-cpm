@@ -41,7 +41,7 @@ from cpm_live import (
     min_vol_pair,
     perf_metrics,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 CLEAN_START = pd.Timestamp("2008-05-30")
 STRESS_START = pd.Timestamp("1999-03-10")
@@ -392,7 +392,7 @@ def main():
     com = prod_cpm.index.intersection(var_cpm.index)
     diff = float((prod_cpm.reindex(com) - var_cpm.reindex(com)).abs().max())
     mp = perf_metrics(prod_cpm, cash_daily)
-    bull_cl = run_bull_qqq_backtest(panel, CLEAN_START, END, cost_bps=COST)
+    bull_cl = run_bull_spy_backtest(panel, CLEAN_START, END, cost_bps=COST)
     cb = prod_cpm.index.intersection(bull_cl.index)
     blend0 = 0.6 * prod_cpm.reindex(cb) + 0.4 * bull_cl.reindex(cb)
     mb = perf_metrics(blend0, cash_daily)
@@ -405,7 +405,7 @@ def main():
         print(f"WARNING: C0 metric reproduction off. cpm_ok={repro_cpm} blend_ok={repro_bl}")
 
     # ---- BULL sleeves (fixed across variants) ----
-    bull_st = run_bull_qqq_backtest(panel, STRESS_START, END, cost_bps=COST)
+    bull_st = run_bull_spy_backtest(panel, STRESS_START, END, cost_bps=COST)
 
     rows_cpm, rows_bl = [], []
     crisis_rows = []

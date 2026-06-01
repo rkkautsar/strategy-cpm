@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 import pandas as pd
 import numpy as np
 import cpm_live as cpm
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel
 
 def calc_stats(r_strategy, r_SHV):
@@ -46,7 +46,7 @@ def run_window_analysis(panel, ndx_panel, start_date, end_date):
     
     # Execute backtests
     cpm_raw, _ = cpm.run_cpm_backtest(panel, start, end)
-    bull_raw = run_bull_qqq_backtest(panel, start, end)
+    bull_raw = run_bull_spy_backtest(panel, start, end)
     ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
     
     # Intersection alignment (keep index consistent)

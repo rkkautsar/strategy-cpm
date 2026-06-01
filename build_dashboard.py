@@ -40,8 +40,8 @@ from cpm_live import (
     load_panel, run_cpm_backtest,
     perf_metrics, compute_target_weights, sig_13612U,
 )
-from bull_qqq_live import (
-    run_bull_qqq_backtest, compute_bull_qqq_weights,
+from bull_spy_live import (
+    run_bull_spy_backtest, compute_bull_spy_weights,
     BULL_TICKER, CASH_TICKER,
 )
 
@@ -578,7 +578,7 @@ def bull_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
     sig_dates = monthly_idx.index[mask].tolist()
     records = []
     for sd in sig_dates:
-        w, regime, diag = compute_bull_qqq_weights(panel, sd)
+        w, regime, diag = compute_bull_spy_weights(panel, sd)
         records.append({"sig_d": sd, "weights": w, "regime": regime, "diag": diag})
     _BULL_RECORDS_CACHE[key] = records
     return records
@@ -635,7 +635,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                                                 EXT 30y window skips these for speed)
     """
     cpm, _ = run_cpm_backtest(panel, start, end)
-    bull_raw = run_bull_qqq_backtest(panel, start, end)
+    bull_raw = run_bull_spy_backtest(panel, start, end)
     if ndx_panel is not None:
         from ndx_sleeve_live import run_ndx_backtest
         ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
@@ -1973,7 +1973,7 @@ def _ndx_sector_summary(picks: list) -> str:
 
 
 def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
-                         bull_qqq_rets: pd.Series | None = None,
+                         bull_spy_rets: pd.Series | None = None,
                          ndx_rets: pd.Series | None = None,
                          art = None) -> str:
     # Pull current allocation from precomputed records (no recomputation).
@@ -2003,7 +2003,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     if bull_rec is not None:
         bq_w, bq_regime, bq_diag = bull_rec["weights"], bull_rec["regime"], bull_rec["diag"]
     else:
-        bq_w, bq_regime, bq_diag = compute_bull_qqq_weights(panel, sig_d)
+        bq_w, bq_regime, bq_diag = compute_bull_spy_weights(panel, sig_d)
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
     cstate = bq_diag.get("state", "---")
@@ -2072,7 +2072,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                 prev_bq_w = prev_bull_rec["weights"] if prev_bull_rec else {}
                 prev_ndx_w = prev_ndx_rec["weights"] if prev_ndx_rec else {}
             else:
-                prev_bq_w, _, _ = compute_bull_qqq_weights(panel, prev_sd) if prev_sd is not None else ({}, None, {})
+                prev_bq_w, _, _ = compute_bull_spy_weights(panel, prev_sd) if prev_sd is not None else ({}, None, {})
                 prev_ndx_w, _, _ = compute_ndx_weights(panel, ndx_panel_data, prev_sd) if prev_sd is not None else ({}, None, {})
         except Exception:
             prev_bq_w, prev_ndx_w = {}, {}
@@ -2276,7 +2276,7 @@ def main():
         cands = panel.index[panel.index <= prev_month_end]
         sig_d = cands[-1] if len(cands) > 0 else today
     alloc_html = current_alloc_html(panel, sig_d,
-                                       bull_qqq_rets=art.bull,
+                                       bull_spy_rets=art.bull,
                                        ndx_rets=art.ndx,
                                        art=art)
 

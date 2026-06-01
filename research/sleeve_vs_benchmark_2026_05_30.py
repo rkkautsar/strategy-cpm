@@ -22,12 +22,12 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from scipy.optimize import minimize
-import bull_qqq_live
+import bull_spy_live
 from cpm_live import (
     load_panel, compute_target_weights, perf_metrics, sig_13612U, best_safe,
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH, COST_BPS_PER_SIDE,
 )
-from bull_qqq_live import BULL_TICKER, CASH_TICKER, compute_bull_qqq_weights
+from bull_spy_live import BULL_TICKER, CASH_TICKER, compute_bull_spy_weights
 import exec_lag_moo_validation_2026_05_30 as H
 
 import yfinance as yf
@@ -172,7 +172,7 @@ def main():
     cpm, _ = H.cpm_sleeve_conv(panel, intraday, overnight, ext_start, end, CONV)
     # BULL uses production default _vol_gate_ok (slow RV_60d). Pass it explicitly.
     bull, _ = H.bull_sleeve_conv(panel, intraday, overnight, ext_start, end, CONV,
-                                 bull_qqq_live._vol_gate_ok)
+                                 bull_spy_live._vol_gate_ok)
 
     # --- benchmarks ---
     aaa_cols = sorted(set(BENCH_AAA_UNIVERSE + BENCH_SAFE + ["TIP"]) & set(panel.columns))

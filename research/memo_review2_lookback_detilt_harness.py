@@ -28,8 +28,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# bull_qqq_live no longer exposes _vol_gate_ok; shim so H imports (we never use BULL here).
-import bull_qqq_live as _bq
+# bull_spy_live no longer exposes _vol_gate_ok; shim so H imports (we never use BULL here).
+import bull_spy_live as _bq
 if not hasattr(_bq, "_vol_gate_ok"):
     _bq._vol_gate_ok = lambda *a, **k: (True, {})
 

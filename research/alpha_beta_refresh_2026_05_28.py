@@ -5,7 +5,7 @@ sys.path.insert(0, "/Users/rkautsar/personal/scripts/strategy_cpm")
 import pandas as pd
 import numpy as np
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
 from build_dashboard import (
     bench_aaa_tip, bench_haa_simple, bench_qqq_12mo_trend,
@@ -20,7 +20,7 @@ def main():
     end = pd.Timestamp("2026-05-22")
 
     cpm, _ = run_cpm_backtest(panel, start, end)
-    bull_raw = run_bull_qqq_backtest(panel, start, end)
+    bull_raw = run_bull_spy_backtest(panel, start, end)
     ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
     common = cpm.index.intersection(bull_raw.index).intersection(ndx_raw.index)
     cpm = cpm.reindex(common)

@@ -45,9 +45,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import bull_qqq_live  # noqa: F401 (harness parity)
-if not hasattr(bull_qqq_live, "_vol_gate_ok"):
-    bull_qqq_live._vol_gate_ok = lambda *a, **k: True
+import bull_spy_live  # noqa: F401 (harness parity)
+if not hasattr(bull_spy_live, "_vol_gate_ok"):
+    bull_spy_live._vol_gate_ok = lambda *a, **k: True
 from cpm_live import (
     load_panel, perf_metrics, sig_13612U, best_safe, faber_sma_xs, inv_vol_weights,
     compute_target_weights, RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH,

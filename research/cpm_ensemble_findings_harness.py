@@ -50,7 +50,7 @@ from cpm_execution_cliff import gen_sig_dates
 
 # NOTE: exec_lag_moo_validation_2026_05_30 (the memo mooex harness) and
 # cpm_robust_param_sweep both fail to import now because they reference a
-# removed bull_qqq_live._vol_gate_ok at module import time. The functions we
+# removed bull_spy_live._vol_gate_ok at module import time. The functions we
 # need from them (load_open_close, _segment_returns_conv, cpm_weights_param)
 # do NOT depend on that symbol, so they are inlined VERBATIM below to keep the
 # mooex T+1 MOO accounting and the parametrized prod-mirror engine identical.
@@ -65,7 +65,7 @@ COST = 10
 # ---------------------------------------------------------------------------
 # Inlined from exec_lag_moo_validation_2026_05_30.py (load_open_close + the
 # mooex segment engine) -- VERBATIM logic, copied only because that module's
-# top-level import of bull_qqq_live._vol_gate_ok is now broken.
+# top-level import of bull_spy_live._vol_gate_ok is now broken.
 # ---------------------------------------------------------------------------
 OPEN_CACHE = Path("/tmp/cpm_open_cache")
 OPEN_CACHE_INTRADAY_SANITY_MAX = 0.50

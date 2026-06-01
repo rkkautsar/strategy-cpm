@@ -303,8 +303,8 @@ def main():
     cpm_p25 = run_cpm_wf(close, daily, intraday, overnight,
                          lambda sd: compute_target_weights(close, sd)[0], end, cost=25)
     bull_p25, _ = H.bull_sleeve_conv(panel, intraday, overnight, EXT_START, end, CONV, H.GATE_RV60)
-    # bull cost is internal to bull_sleeve_conv (uses bull_qqq_live.COST); rerun bull at 25 bps:
-    import bull_qqq_live as BQ
+    # bull cost is internal to bull_sleeve_conv (uses bull_spy_live.COST); rerun bull at 25 bps:
+    import bull_spy_live as BQ
     _bull_cost = BQ.COST_BPS_PER_SIDE
     BQ.COST_BPS_PER_SIDE = 25
     try:
@@ -488,7 +488,7 @@ def write_md(o):
       "4 decimals and the variant weight fn matches production to 1e-9.")
     A("- EXT/stress window (1999-03-10..) is partially proxy-backed pre-2006-2008 for the CPM "
       "trend universe; the clean 18y window has full real-open coverage and is the decisive lens.")
-    A("- Bull leg slippage penalty (25 bps) is applied via bull_qqq_live.COST_BPS_PER_SIDE for the "
+    A("- Bull leg slippage penalty (25 bps) is applied via bull_spy_live.COST_BPS_PER_SIDE for the "
       "penalized-slippage row only; conventions moo/moc1 keep the 10 bps headline cost and stress "
       "ONLY the fill timing.")
 

@@ -193,7 +193,7 @@ def make_gate_rvN(fast):
 
 def part_b1_ext_bull():
     import bull_10y3m_extended_1982 as E
-    import bull_qqq_live
+    import bull_spy_live
     panel, _t10y3m, prov = E.build_extended_panel()
     end = min(E.END, panel.index[-1])
     cash = panel["SHV"].ffill().pct_change().dropna()
@@ -221,18 +221,18 @@ def part_b1_ext_bull():
 
     def regime_series(gate, start, end):
         """monthly risk_on (decision made end of month t, applies month t+1)."""
-        orig = bull_qqq_live._vol_gate_ok
-        bull_qqq_live._vol_gate_ok = gate
+        orig = bull_spy_live._vol_gate_ok
+        bull_spy_live._vol_gate_ok = gate
         out = {}
         try:
             midx = (pd.DataFrame({"x": 1}, index=panel.index)
                     .groupby(pd.Grouper(freq="ME")).tail(1))
             sigs = midx.index[(midx.index >= start) & (midx.index <= end)].tolist()
             for sd in sigs:
-                w, lab, _ = bull_qqq_live.compute_bull_qqq_weights(panel, sd, panel["SPY"])
+                w, lab, _ = bull_spy_live.compute_bull_spy_weights(panel, sd, panel["SPY"])
                 out[sd] = ("SPY" in w)
         finally:
-            bull_qqq_live._vol_gate_ok = orig
+            bull_spy_live._vol_gate_ok = orig
         return pd.Series(out).sort_index()
 
     res = {"anchor_clean_rv60": None, "windows": {}}

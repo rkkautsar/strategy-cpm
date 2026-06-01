@@ -42,7 +42,7 @@ companion downside/EWMA study research/bull_volgate_variants*):
   a band/conf combo, all reported on Calmar/Martin (prior round led with Sharpe).
 
 CONVENTION (canonical): T+1 MOO exact ("mooex", real auto_adjust opens),
-10 bps/side, monthly month-end signal. Reuses bull_qqq_live engine indirectly
+10 bps/side, monthly month-end signal. Reuses bull_spy_live engine indirectly
 via the bull_volgate_variants harness (which wraps exec_lag_moo_validation_
 2026_05_30._segment_returns_conv). ANCHOR: BULL symmetric clean Sharpe 1.1005 /
 Calmar 0.8189 / Martin 3.0714 / MaxDD -13.35%.

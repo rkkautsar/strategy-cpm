@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import exec_lag_moo_validation_2026_05_30 as H
 from cpm_live import load_panel, perf_metrics, sig_13612U, COST_BPS_PER_SIDE
-import bull_qqq_live
+import bull_spy_live
 from bull_tiponly_recompute import bull_wf, run_bull_cell, met, win, cal2022
 
 CONV = "mooex"
@@ -158,7 +158,7 @@ def main():
 
     out = {"meta": {"conv": CONV, "cost_bps": COST,
                     "clean": [str(CLEAN_START.date()), str(end.date())],
-                    "prod_bull_canary": list(bull_qqq_live.CANARY_ASSETS),
+                    "prod_bull_canary": list(bull_spy_live.CANARY_ASSETS),
                     "ladder": {
                         "a_SPY": "SPY buy-hold (always 100% SPY)",
                         "b_HAA_Simple": "TIP canary + SPY 13612U>0 -> SPY, else best{SHV,IEF}; NO vol gate (K=0,V=0,S=1)",

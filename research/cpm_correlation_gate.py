@@ -37,7 +37,7 @@ ROOT = Path("/Users/rkautsar/personal/scripts/strategy_cpm")
 sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 FINDINGS = ROOT / "research" / "cpm_correlation_gate_findings.md"
 
@@ -313,7 +313,7 @@ def main():
     for wname, (s, e) in WINDOWS.items():
         s, e = pd.Timestamp(s), pd.Timestamp(e)
         cpm_v0, diag0, turn0 = run_cpm_with_gate(panel, s, e, gate_fn=None)
-        bull = run_bull_qqq_backtest(panel, s, e)
+        bull = run_bull_spy_backtest(panel, s, e)
         common = cpm_v0.index.intersection(bull.index)
         cpm_v0 = cpm_v0.reindex(common)
         bull = bull.reindex(common)

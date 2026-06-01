@@ -9,9 +9,9 @@ ROOT = Path("/Users/rkautsar/personal/scripts/strategy_cpm")
 sys.path.insert(0, str(ROOT))
 
 import cpm_live
-import bull_qqq_live
+import bull_spy_live
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel
 
 def get_stitched_series(panel, target_ticker, proxy_ticker, inception_date):
@@ -39,10 +39,10 @@ def get_stitched_series(panel, target_ticker, proxy_ticker, inception_date):
 
 def run_backtest_with_safe_pool(panel, ndx_panel, start_date, end_date, safe_pool):
     cpm_live.SAFE_POOL = safe_pool
-    bull_qqq_live.SAFE_POOL = safe_pool
+    bull_spy_live.SAFE_POOL = safe_pool
     
     cpm, cpm_hist = run_cpm_backtest(panel, start_date, end_date)
-    bull = run_bull_qqq_backtest(panel, start_date, end_date)
+    bull = run_bull_spy_backtest(panel, start_date, end_date)
     ndx, _ = run_ndx_backtest(panel, ndx_panel, start_date, end_date)
     
     common = cpm.index.intersection(bull.index).intersection(ndx.index)

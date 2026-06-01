@@ -9,7 +9,7 @@ Current production spec:
               momentum -> vol-Faber ranker -> positive-trend screen -> top-4 ->
               inverse-vol weight ALL surviving positives -> strict-4 partial-safe
               -> HYG-OR-TIP canary -> timed best-safe SHV/IEF).
-  20% BULL -> bull_qqq_live (HAA-Simple Ext on SPY; 3-layer monthly gate:
+  20% BULL -> bull_spy_live (HAA-Simple Ext on SPY; 3-layer monthly gate:
               HYG-OR-TIP canary, SPY 13612U trend, RV_60d<RV_252d vol crossover).
   20% NDX  -> ndx_sleeve_live (top-5 PIT NDX by raw 13612U, monthly BULL-gated).
 
@@ -295,7 +295,7 @@ def write_md(o):
       "number set to correct the STALE README headline surface (README PROD clean was ~1.503 / "
       "17.93% / -11.62% / 1.54, built on the OLD CPM and a different NDX execution convention).\n")
     A("**Production spec:** 60% CPM (`cpm_live.compute_target_weights`, IV4 single-stage inverse-vol "
-      "top-4) + 20% BULL (`bull_qqq_live`, HAA-Simple Ext SPY, RV_60d<RV_252d vol gate + "
+      "top-4) + 20% BULL (`bull_spy_live`, HAA-Simple Ext SPY, RV_60d<RV_252d vol gate + "
       "first-segment entry-cost fix) + 20% NDX (`ndx_sleeve_live`, top-5 PIT NDX raw 13612U, "
       "monthly BULL-gated). Monthly rebalance, 10 bps/side.\n")
     A(f"**Execution convention:** CPM & BULL on {m['conv_cpm_bull']}; NDX on {m['conv_ndx']}. The "

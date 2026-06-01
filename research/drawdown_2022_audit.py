@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cpm_live as cpm
-import bull_qqq_live as bull
+import bull_spy_live as bull
 import ndx_sleeve_live as ndx
 
 def cum_return(rets):
@@ -54,7 +54,7 @@ def main():
     # 2. Run actual backtests
     print("Running actual backtests...")
     cpm_ret, cpm_hist = cpm.run_cpm_backtest(panel, start, end)
-    bull_ret = bull.run_bull_qqq_backtest(panel, start, end)
+    bull_ret = bull.run_bull_spy_backtest(panel, start, end)
     ndx_ret, ndx_hist = ndx.run_ndx_backtest(panel, ndx_panel, start, end)
     
     # Ensure indices are aligned
@@ -93,7 +93,7 @@ def main():
     
     bull_state_per_day = pd.Series("", index=common_idx, dtype=object)
     for i, sig_d in enumerate(sigs):
-        month_weights, _, _ = bull.compute_bull_qqq_weights(panel, sig_d, panel[bull.BULL_TICKER])
+        month_weights, _, _ = bull.compute_bull_spy_weights(panel, sig_d, panel[bull.BULL_TICKER])
         future = common_idx[common_idx > sig_d]
         if len(future) < 1:
             continue
@@ -341,7 +341,7 @@ def main():
     bull.SAFE_POOL = ["SHV"]
     
     cpm_ret_shv, cpm_hist_shv = cpm.run_cpm_backtest(panel, start, end)
-    bull_ret_shv = bull.run_bull_qqq_backtest(panel, start, end)
+    bull_ret_shv = bull.run_bull_spy_backtest(panel, start, end)
     ndx_ret_shv, ndx_hist_shv = ndx.run_ndx_backtest(panel, ndx_panel, start, end)
     
     cpm.SAFE_POOL = orig_cpm_safe_pool

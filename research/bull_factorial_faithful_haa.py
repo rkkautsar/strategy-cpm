@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO / "research"))
 from cpm_live import (load_panel, perf_metrics, sig_13612U, COST_BPS_PER_SIDE,
                       _fetch_cached_adjusted_close)
 import exec_lag_moo_validation_2026_05_30 as H
-import bull_qqq_live as BULL
+import bull_spy_live as BULL
 
 CONV = "mooex"
 PROD_SAFE = ["SHV", "IEF"]   # production safe pool, held across all factorial cells
@@ -63,7 +63,7 @@ def make_wf(close, daily, canary_on, vol_on, safe_pool=PROD_SAFE):
             canary_ok = (pd.notna(tipm) and tipm > 0)
         # common SPY trend
         spy_trend_ok = pd.notna(spym) and spym > 0
-        # vol gate (mirror bull_qqq_live._vol_gate_ok on SPY prices)
+        # vol gate (mirror bull_spy_live._vol_gate_ok on SPY prices)
         if vol_on:
             sub = spy_close.loc[:sig_d].pct_change().dropna()
             if len(sub) < 252:
@@ -137,7 +137,7 @@ def main():
     mismatches = 0
     for sd in sigs:
         mine = wf_on(sd)
-        prod, _, _ = BULL.compute_bull_qqq_weights(panel, sd, panel["SPY"])
+        prod, _, _ = BULL.compute_bull_spy_weights(panel, sd, panel["SPY"])
         # normalize keys/values
         mk = {k: round(v, 6) for k, v in mine.items() if v != 0}
         pk = {k: round(v, 6) for k, v in prod.items() if v != 0}
@@ -146,7 +146,7 @@ def main():
     gate_allon = (mismatches == 0)
 
     # ---- GATE 2: production BULL native engine clean Sharpe (~1.081 target) ----
-    bull_native = BULL.run_bull_qqq_backtest(panel, clean_start, end, cost_bps=COST_BPS_PER_SIDE)
+    bull_native = BULL.run_bull_spy_backtest(panel, clean_start, end, cost_bps=COST_BPS_PER_SIDE)
     bn = met(bull_native.loc[(bull_native.index >= clean_start) & (bull_native.index <= end)], cash)
 
     # ---- SAFE-POOL immateriality check: {IEF,BIL} vs {SHV,IEF} ----

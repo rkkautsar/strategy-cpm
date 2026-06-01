@@ -7,7 +7,7 @@ BULL active state) earn its keep over a no-gate (canary+trend-only) NDX baseline
 Mirrors the BULL drop-vol-gate analysis (research/bull_gate_baseline_attribution.py).
 
 NDX gate architecture (confirmed from ndx_sleeve_live.compute_ndx_weights +
-bull_qqq_live.compute_bull_qqq_weights):
+bull_spy_live.compute_bull_spy_weights):
   - NDX is ACTIVE (holds top-5 PIT Nasdaq-100 stocks by raw 13612U momentum)
     iff the BULL sleeve is risk-on: canary_ok AND spy_trend_ok AND vol_ok.
     canary_ok = TIP 13612U > 0; spy_trend_ok = SPY 13612U > 0;
@@ -46,8 +46,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from cpm_live import load_panel, perf_metrics, sig_13612U, COST_BPS_PER_SIDE
 import ndx_sleeve_live as ndx_sleeve
-import bull_qqq_live as B
-from bull_qqq_live import _macro_gate, _spy_trend_ok, _vol_gate_ok, _pick_safe
+import bull_spy_live as B
+from bull_spy_live import _macro_gate, _spy_trend_ok, _vol_gate_ok, _pick_safe
 
 CLEAN_START = pd.Timestamp("2008-05-30")
 EXT_START = pd.Timestamp("1999-03-10")
@@ -96,7 +96,7 @@ def compute_ndx_weights_variant(cpm_panel, ndx_panel, sig_d, use_vol: bool):
     pit_tickers = set(pit["symbol"].tolist())
     if len(pit_tickers) == 0:
         # PIT unavailable -> mirror BULL (extra BULL exposure). Production parity.
-        bw, _, _ = B.compute_bull_qqq_weights(cpm_panel, sig_d)
+        bw, _, _ = B.compute_bull_spy_weights(cpm_panel, sig_d)
         return (bw, "NDX_FALLBACK_BULL", {"selected": list(bw.keys())})
 
     monthly = ndx_panel.loc[:sig_d].resample("ME").last()

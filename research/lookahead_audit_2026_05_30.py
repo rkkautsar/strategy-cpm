@@ -1,7 +1,7 @@
 """Throwaway research: same-day signal->execution lookahead audit for 60/40 CPM-BULL.
 
 Reuses production SIGNAL/WEIGHT functions unchanged (compute_target_weights,
-compute_bull_qqq_weights) and ONLY varies the execution-timing of how the
+compute_bull_spy_weights) and ONLY varies the execution-timing of how the
 resulting monthly weight vector is applied to daily returns.
 
 Lag convention
@@ -39,8 +39,8 @@ from cpm_live import (
     load_panel, compute_target_weights, perf_metrics,
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, DEFAULT_CASH, COST_BPS_PER_SIDE,
 )
-from bull_qqq_live import compute_bull_qqq_weights, BULL_TICKER, CASH_TICKER
-import bull_qqq_live
+from bull_spy_live import compute_bull_spy_weights, BULL_TICKER, CASH_TICKER
+import bull_spy_live
 
 CPM_W, BULL_W = 0.60, 0.40
 
@@ -108,11 +108,11 @@ def cpm_sleeve(panel, start, end, exec_lag, cost_bps=COST_BPS_PER_SIDE):
     return r.loc[(r.index >= start) & (r.index <= end)]
 
 
-def bull_sleeve(panel, start, end, exec_lag, cost_bps=bull_qqq_live.COST_BPS_PER_SIDE):
-    cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(bull_qqq_live.SAFE_POOL) + ["HYG", "TIP"]) & set(panel.columns))
+def bull_sleeve(panel, start, end, exec_lag, cost_bps=bull_spy_live.COST_BPS_PER_SIDE):
+    cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(bull_spy_live.SAFE_POOL) + ["HYG", "TIP"]) & set(panel.columns))
     close = panel[cols]
     daily_ret = panel.ffill().pct_change()
-    wf = lambda sd: compute_bull_qqq_weights(panel, sd, panel[BULL_TICKER])[0]
+    wf = lambda sd: compute_bull_spy_weights(panel, sd, panel[BULL_TICKER])[0]
     r = _segment_returns(close, daily_ret, wf, start, end, exec_lag, cost_bps)
     return r.loc[(r.index >= start) & (r.index <= end)]
 

@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import pandas as pd
 import cpm_live as cpm
 from cpm_live import load_panel, compute_live_weights
-from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER
+from bull_spy_live import compute_bull_spy_weights, CASH_TICKER
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 
 CPM_WEIGHT = 0.6
@@ -39,7 +39,7 @@ def main() -> None:
     sig_d = candidates[-1] if len(candidates) > 0 else today
 
     cpm_w, pair, cpm_regime, safe = compute_live_weights(panel, sig_d)
-    bull_w, bull_regime, bull_diag = compute_bull_qqq_weights(panel, sig_d)
+    bull_w, bull_regime, bull_diag = compute_bull_spy_weights(panel, sig_d)
     ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel, sig_d)
 
     # Combined portfolio

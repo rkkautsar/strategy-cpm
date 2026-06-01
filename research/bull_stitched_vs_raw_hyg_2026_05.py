@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 from cpm_live import load_panel, perf_metrics, sig_13612U, best_safe
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 from vol_cap import compute_dd_circuit_scale, DD_CIRCUIT_THRESHOLD, DD_CIRCUIT_SCALE
 
 
@@ -46,7 +46,7 @@ def run_bull_with_canary_override(panel, start, end, hyg_series_to_use, use_dd=T
         # Align and join
         hyg_aligned = hyg_series_to_use.reindex(panel_local.index)
         panel_local["HYG_stitched"] = hyg_aligned
-    bull_raw = run_bull_qqq_backtest(panel_local, start, end)
+    bull_raw = run_bull_spy_backtest(panel_local, start, end)
     if not use_dd:
         return bull_raw, bull_raw
     sigs = (pd.DataFrame({"x": 1}, index=bull_raw.index)
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     rows.append(summary("   - no DD (just canary + asset_mom)", raw_h))
     # D: HAA-Simple SPY (TIP only) for reference
     # Use canary override technique: set HYG_stitched to all NaN so canary degenerates to TIP-only via fallback
-    # But bull_qqq_live likely treats missing as no-canary; simpler: run with a series of all-negative HYG so HYG never triggers
+    # But bull_spy_live likely treats missing as no-canary; simpler: run with a series of all-negative HYG so HYG never triggers
     nan_hyg = pd.Series(np.nan, index=raw_hyg.index)
     # Actually with all-NaN HYG, the canary checks would return NaN-not-positive, leaving only TIP. Test.
     try:

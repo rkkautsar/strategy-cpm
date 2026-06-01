@@ -20,7 +20,7 @@ helpers). Full BULL stack (canary AND trend AND vol). Vol gate is the only leg
 varied.
 
 MODERN harness: exec_lag_moo_validation_2026_05_30 (mooex T+1, 10bps/side),
-production bull_qqq_live BULL sleeve + 60/40 CPM-BULL blend, gate monkeypatched.
+production bull_spy_live BULL sleeve + 60/40 CPM-BULL blend, gate monkeypatched.
 ANCHOR-GATED on 60d BULL clean Sharpe ~1.0813 and 60/40 blend ~1.2485.
 
 Writes research/vol_gate_timing_hysteresis_findings.md (+ .json).
@@ -245,8 +245,8 @@ def run_1970s():
 # ===========================================================================
 def run_modern():
     import exec_lag_moo_validation_2026_05_30 as H
-    import bull_qqq_live
-    from bull_qqq_live import BULL_TICKER, compute_bull_qqq_weights
+    import bull_spy_live
+    from bull_spy_live import BULL_TICKER, compute_bull_spy_weights
     from cpm_live import load_panel, perf_metrics, COST_BPS_PER_SIDE
 
     CONV = "mooex"
@@ -317,16 +317,16 @@ def run_modern():
         bull_series[name] = bull
         common = common.intersection(bull.index)
         # monthly weights/regime with this gate (turnover + fully-safe count)
-        bull_qqq_live._vol_gate_ok = gate
+        bull_spy_live._vol_gate_ok = gate
         try:
             recs = []
             for d2 in me:
                 if d2 < EXT_START or d2 > end:
                     continue
-                w, regime, _ = compute_bull_qqq_weights(panel, d2, spy_close)
+                w, regime, _ = compute_bull_spy_weights(panel, d2, spy_close)
                 recs.append((d2, regime, w))
         finally:
-            bull_qqq_live._vol_gate_ok = H._ORIG_VOL_GATE
+            bull_spy_live._vol_gate_ok = H._ORIG_VOL_GATE
         weight_diag[name] = recs
 
     cpm = cpm.reindex(common)

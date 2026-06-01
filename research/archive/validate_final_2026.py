@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, "/Users/rkautsar/personal/scripts/strategy_fcp")
 import numpy as np, pandas as pd, yfinance as yf
 from fcp_live import load_panel, run_fcp_backtest, sig_13612W
-import bull_qqq_live as bqq
+import bull_spy_live as bqq
 
 panel = load_panel(start=pd.Timestamp("1985-01-01"))
 END = panel.index[-1]
@@ -39,7 +39,7 @@ log(f"Panel ready: {panel.index[0].date()} -> {panel.index[-1].date()}\n")
 
 def run_prod(start, end):
     fcp, _ = run_fcp_backtest(panel, start, end)
-    bull = bqq.run_bull_qqq_backtest(panel, start, end)
+    bull = bqq.run_bull_spy_backtest(panel, start, end)
     common = fcp.index.intersection(bull.index)
     return 0.8 * fcp.loc[common] + 0.2 * bull.loc[common]
 
@@ -120,7 +120,7 @@ for wname, ws, we in windows:
     try:
         blend = run_prod(ws, we)
         fcp, _ = run_fcp_backtest(panel, ws, we)
-        bull = bqq.run_bull_qqq_backtest(panel, ws, we)
+        bull = bqq.run_bull_spy_backtest(panel, ws, we)
         spy = panel["SPY"].ffill().pct_change().loc[ws:we].fillna(0)
         pm = stats(blend); fm = stats(fcp); bm = stats(bull); sm = stats(spy)
         log(f"  {wname:11s} Sh={pm['sharpe']:5.2f} {pm['cagr']*100:5.1f}%  Sh={fm['sharpe']:5.2f}  Sh={bm['sharpe']:6.2f}  Sh={sm['sharpe']:5.2f}")

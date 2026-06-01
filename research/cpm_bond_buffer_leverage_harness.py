@@ -31,12 +31,12 @@ ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(HERE))
 
-import bull_qqq_live  # noqa: F401 (harness parity; H reads bull_qqq_live._vol_gate_ok)
-# exec_lag module is stale vs current bull_qqq_live (vol gate renamed/removed).
+import bull_spy_live  # noqa: F401 (harness parity; H reads bull_spy_live._vol_gate_ok)
+# exec_lag module is stale vs current bull_spy_live (vol gate renamed/removed).
 # We only use H._segment_returns_conv + H.load_open_close (gate-independent), so
 # stub the attribute the module reads at import time. No bull sleeve is used here.
-if not hasattr(bull_qqq_live, "_vol_gate_ok"):
-    bull_qqq_live._vol_gate_ok = lambda *a, **k: (True, {})
+if not hasattr(bull_spy_live, "_vol_gate_ok"):
+    bull_spy_live._vol_gate_ok = lambda *a, **k: (True, {})
 
 # PROD BASELINE UPDATE: CPM is now standardized to BOTH-252 (rank-vol AND
 # weight-vol both 252d; cpm_live.CORR_LOOKBACK_DAYS = 252). The both-252 prod

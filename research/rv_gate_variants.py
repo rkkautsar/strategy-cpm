@@ -12,13 +12,13 @@ ROOT = Path('/Users/rkautsar/personal/scripts/strategy_cpm')
 sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
-import bull_qqq_live
+import bull_spy_live
 import ndx_sleeve_live
 
 def get_bull_weights(panel, sig_d, variant):
     monthly = panel.loc[:sig_d].resample('ME').last()
-    canary_ok, mdiag = bull_qqq_live._macro_gate(monthly, sig_d)
-    spy_trend_ok, tdiag = bull_qqq_live._spy_trend_ok(monthly, sig_d)
+    canary_ok, mdiag = bull_spy_live._macro_gate(monthly, sig_d)
+    spy_trend_ok, tdiag = bull_spy_live._spy_trend_ok(monthly, sig_d)
     
     sub = panel['SPY'].loc[:sig_d].pct_change().dropna()
     if len(sub) < 252:
@@ -29,7 +29,7 @@ def get_bull_weights(panel, sig_d, variant):
         vol_ok = v20 < v252
         v_ratio = v252 / v20
         
-    safe = bull_qqq_live._pick_safe(monthly)
+    safe = bull_spy_live._pick_safe(monthly)
     
     weights = {}
     if not (canary_ok and spy_trend_ok):
@@ -112,7 +112,7 @@ def compute_ndx_weights_cascade(cpm_panel, ndx_panel, sig_d):
     pit = ic.constituents_at('nasdaq100', sig_d.strftime('%Y-%m-%d'))
     pit_tickers = set(pit['symbol'].tolist())
     if len(pit_tickers) == 0:
-        bq_weights, bq_regime, _ = bull_qqq_live.compute_bull_qqq_weights(cpm_panel, sig_d)
+        bq_weights, bq_regime, _ = bull_spy_live.compute_bull_spy_weights(cpm_panel, sig_d)
         return (bq_weights, 'NDX_FALLBACK_BULL', {
             'bull_regime': bq_regime,
             'selected': list(bq_weights.keys()),
@@ -242,7 +242,7 @@ def main():
         cpm_rets, _ = cpm.run_cpm_backtest(panel, start, end, cost_bps=10)
         
         # Prod V0 (uses production files as they are)
-        prod_bull = bull_qqq_live.run_bull_qqq_backtest(panel, start, end, cost_bps=10)
+        prod_bull = bull_spy_live.run_bull_spy_backtest(panel, start, end, cost_bps=10)
         prod_ndx, _ = ndx_sleeve_live.run_ndx_backtest(panel, ndx_panel, start, end, cost_bps=10)
         common_prod = cpm_rets.index.intersection(prod_bull.index).intersection(prod_ndx.index)
         prod_blend = 0.60 * cpm_rets.reindex(common_prod) + 0.20 * prod_bull.reindex(common_prod) + 0.20 * prod_ndx.reindex(common_prod)
@@ -256,7 +256,7 @@ def main():
         common = panel.index[(panel.index >= start) & (panel.index <= end)]
         state_per_day = pd.Series('', index=common, dtype=object)
         for i, sig_d in enumerate(sigs):
-            weights, _, _ = bull_qqq_live.compute_bull_qqq_weights(panel, sig_d, panel['SPY'])
+            weights, _, _ = bull_spy_live.compute_bull_spy_weights(panel, sig_d, panel['SPY'])
             future = common[common > sig_d]
             if len(future) < 1: continue
             apply_from = future[0]

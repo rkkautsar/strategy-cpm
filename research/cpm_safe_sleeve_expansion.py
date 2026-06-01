@@ -40,10 +40,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# Shim: current bull_qqq_live refactored away _vol_gate_ok (now _macro_gate).
+# Shim: current bull_spy_live refactored away _vol_gate_ok (now _macro_gate).
 # The H harness references it at import time; we only need its mooex segment
 # engine + load_open_close (no BULL sleeve here), so provide a harmless stub.
-import bull_qqq_live as _bull
+import bull_spy_live as _bull
 if not hasattr(_bull, "_vol_gate_ok"):
     _bull._vol_gate_ok = lambda *a, **k: (True, {})
 

@@ -40,7 +40,7 @@ from cpm_live import (
     RISKY_UNIVERSE, SAFE_POOL, CANARY_ASSETS, CANARY_RULE, DEFAULT_CASH,
     TOP_K_CANDIDATES, CORR_LOOKBACK_DAYS,
 )
-from bull_qqq_live import run_bull_qqq_backtest
+from bull_spy_live import run_bull_spy_backtest
 
 FINDINGS = ROOT / "research" / "cpm_equity_rsi_screen_findings.md"
 
@@ -250,7 +250,7 @@ def main():
     # ---------- V0 verification ----------
     print("V0 verification ...")
     cpm0_cl, hist0_cl = run_variant(panel, None, CLEAN_S, CLEAN_E)
-    bull_cl = run_bull_qqq_backtest(panel, CLEAN_S, CLEAN_E)
+    bull_cl = run_bull_spy_backtest(panel, CLEAN_S, CLEAN_E)
     c_cl = cpm0_cl.index.intersection(bull_cl.index)
     blend0_cl = 0.6 * cpm0_cl.reindex(c_cl) + 0.4 * bull_cl.reindex(c_cl)
     m0 = perf_metrics(blend0_cl, cash)
@@ -266,7 +266,7 @@ def main():
         fh.close()
         sys.exit(1)
 
-    bull_st = run_bull_qqq_backtest(panel, STRESS_S, STRESS_E)
+    bull_st = run_bull_spy_backtest(panel, STRESS_S, STRESS_E)
 
     # ---------- Section 1: main metrics V0 vs V_RSI70 ----------
     print("Backtest variants ...")

@@ -36,13 +36,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import cpm_live
-import bull_qqq_live
+import bull_spy_live
 import research.exec_lag_moo_validation_2026_05_30 as H
 from cpm_live import (
     load_panel, perf_metrics, faber_sma_xs, sig_13612U, best_safe, inv_vol_weights,
     RISKY_UNIVERSE, SAFE_POOL, DEFAULT_CASH, TOP_K_CANDIDATES, CORR_LOOKBACK_DAYS,
 )
-from bull_qqq_live import BULL_TICKER
+from bull_spy_live import BULL_TICKER
 
 CLEAN = pd.Timestamp("2008-05-30")
 EXT = pd.Timestamp("1999-03-10")
@@ -53,8 +53,8 @@ ANCHOR = {"cpm": 1.1910, "bull": 1.0813, "blend": 1.2485}
 
 _PROD_CPM = cpm_live.compute_target_weights
 _PROD_CANARY_CPM = list(cpm_live.CANARY_ASSETS)
-_PROD_CANARY_BULL = list(bull_qqq_live.CANARY_ASSETS)
-_PROD_MACRO = bull_qqq_live._macro_gate
+_PROD_CANARY_BULL = list(bull_spy_live.CANARY_ASSETS)
+_PROD_MACRO = bull_spy_live._macro_gate
 
 
 # ---------------------------------------------------------------------------
@@ -120,15 +120,15 @@ def reset_cpm_canary():
 
 def set_bull_canary(mode):
     if mode == "none":
-        bull_qqq_live._macro_gate = _bull_macro_always_on
+        bull_spy_live._macro_gate = _bull_macro_always_on
     else:
-        bull_qqq_live._macro_gate = _PROD_MACRO
-        bull_qqq_live.CANARY_ASSETS = ["TIP"] if mode == "tip" else ["HYG", "TIP"]
+        bull_spy_live._macro_gate = _PROD_MACRO
+        bull_spy_live.CANARY_ASSETS = ["TIP"] if mode == "tip" else ["HYG", "TIP"]
 
 
 def reset_bull_canary():
-    bull_qqq_live._macro_gate = _PROD_MACRO
-    bull_qqq_live.CANARY_ASSETS = list(_PROD_CANARY_BULL)
+    bull_spy_live._macro_gate = _PROD_MACRO
+    bull_spy_live.CANARY_ASSETS = list(_PROD_CANARY_BULL)
 
 
 # ---------------------------------------------------------------------------

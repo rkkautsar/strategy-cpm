@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from cpm_live import load_panel, perf_metrics, sig_13612U
-from bull_qqq_live import compute_bull_qqq_weights, CASH_TICKER, _absolute_momentum
+from bull_spy_live import compute_bull_spy_weights, CASH_TICKER, _absolute_momentum
 
 CACHE_DIR = Path(__file__).resolve().parent / "cache"
 CACHE_DIR.mkdir(exist_ok=True)
@@ -63,15 +63,15 @@ def gate_check(panel, sig_d, canary_tickers, trend_asset=None):
 
 
 def run_gated_asset(panel, asset, start, end_, canary_tickers, trend_filter=None,
-                    use_bull_qqq_regime=False, cost_bps=10):
+                    use_bull_spy_regime=False, cost_bps=10):
     """Hold `asset` when gate ON, CASH_TICKER when OFF. Monthly rebalance, T+1."""
     sig_dates = panel.resample("ME").last().index
     sig_dates = sig_dates[(sig_dates >= start) & (sig_dates <= end_)]
 
     weights_for_date = {}
     for sd in sig_dates:
-        if use_bull_qqq_regime:
-            _, bq_regime, _ = compute_bull_qqq_weights(panel, sd)
+        if use_bull_spy_regime:
+            _, bq_regime, _ = compute_bull_spy_weights(panel, sd)
             gate_on = bq_regime.startswith("BULL_QQQ")
         else:
             trend_a = asset if trend_filter else None
@@ -109,14 +109,14 @@ def run_gated_asset(panel, asset, start, end_, canary_tickers, trend_filter=None
 
 
 def cached_gated(panel, asset, start, end_, canary_tickers, trend_filter=False,
-                 use_bull_qqq_regime=False):
+                 use_bull_spy_regime=False):
     path = cache_key(asset=asset, start=start, end=end_,
                      canary=tuple(sorted(canary_tickers)),
-                     trend=trend_filter, bull_qqq=use_bull_qqq_regime)
+                     trend=trend_filter, bull_spy=use_bull_spy_regime)
     if path.exists():
         return pd.read_parquet(path)["r"]
     r = run_gated_asset(panel, asset, start, end_, canary_tickers, trend_filter,
-                        use_bull_qqq_regime)
+                        use_bull_spy_regime)
     pd.DataFrame({"r": r}).to_parquet(path)
     return r
 
@@ -169,7 +169,7 @@ def main():
             r2 = cached_gated(panel, asset, start, end, tickers, trend_filter=True)
             print(fmt(f"{asset} + {name} + trend", r2))
         # Full BULL-QQQ regime gate (for QQQ this is identical to "BULL-QQQ overlay")
-        r_bq = cached_gated(panel, asset, start, end, [], use_bull_qqq_regime=True)
+        r_bq = cached_gated(panel, asset, start, end, [], use_bull_spy_regime=True)
         print(fmt(f"{asset} + full BULL-QQQ regime gate", r_bq))
         print()
 

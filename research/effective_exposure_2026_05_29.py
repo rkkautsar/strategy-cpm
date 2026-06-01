@@ -5,7 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 import cpm_live
-from bull_qqq_live import compute_bull_qqq_weights
+from bull_spy_live import compute_bull_spy_weights
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 
 panel = cpm_live.load_panel()
@@ -25,7 +25,7 @@ results = []
 
 for sd in sig_dates:
     cpm_w, _, _, _ = cpm_live.compute_target_weights(panel, sd)
-    bull_w, _, _ = compute_bull_qqq_weights(panel, sd)
+    bull_w, _, _ = compute_bull_spy_weights(panel, sd)
     ndx_w, _, _ = compute_ndx_weights(panel, ndx_panel, sd)
     
     # Portfolio combined weights

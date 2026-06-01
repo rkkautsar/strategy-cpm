@@ -13,11 +13,11 @@ ROOT = Path('/Users/rkautsar/personal/scripts/strategy_cpm')
 sys.path.insert(0, str(ROOT))
 
 import cpm_live as cpm
-import bull_qqq_live
+import bull_spy_live
 from ndx_sleeve_live import run_ndx_backtest, load_ndx_panel
 
 # ----------------- MONKEY-PATCHING FOR TOGGLING RV GATE -----------------
-original_vol_gate_ok = bull_qqq_live._vol_gate_ok
+original_vol_gate_ok = bull_spy_live._vol_gate_ok
 RV_GATE_ACTIVE = True
 
 def patched_vol_gate_ok(daily_spy, sig_d):
@@ -29,7 +29,7 @@ def patched_vol_gate_ok(daily_spy, sig_d):
     else:
         return vol_ok_actual, diag
 
-bull_qqq_live._vol_gate_ok = patched_vol_gate_ok
+bull_spy_live._vol_gate_ok = patched_vol_gate_ok
 
 def run_backtest_suite(panel, ndx_panel, start_date, end_date, rv_active):
     global RV_GATE_ACTIVE
@@ -40,7 +40,7 @@ def run_backtest_suite(panel, ndx_panel, start_date, end_date, rv_active):
     
     # Run backtests
     cpm_raw, _ = cpm.run_cpm_backtest(panel, start, end)
-    bull_raw = bull_qqq_live.run_bull_qqq_backtest(panel, start, end)
+    bull_raw = bull_spy_live.run_bull_spy_backtest(panel, start, end)
     ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
     
     # Align indices
@@ -146,7 +146,7 @@ def main():
         shv_fwd_returns = []
         excess_fwd_returns = []
         
-        # Set RV gate active to make sure compute_bull_qqq_weights calculates original/actual values
+        # Set RV gate active to make sure compute_bull_spy_weights calculates original/actual values
         global RV_GATE_ACTIVE
         RV_GATE_ACTIVE = True
         
@@ -154,7 +154,7 @@ def main():
             if i + 1 >= len(sigs):
                 continue # Skip last signal as we cannot compute forward 1-month return
             
-            weights, regime, diag = bull_qqq_live.compute_bull_qqq_weights(panel, sig_d)
+            weights, regime, diag = bull_spy_live.compute_bull_spy_weights(panel, sig_d)
             
             canary_ok = diag.get("canary_ok", False)
             spy_trend_ok = diag.get("spy_trend_ok", False)
@@ -230,7 +230,7 @@ def main():
         
         for i, sig_d in enumerate(sigs):
             # Compute monthly parameters
-            weights_a, regime_a, diag_a = bull_qqq_live.compute_bull_qqq_weights(panel, sig_d)
+            weights_a, regime_a, diag_a = bull_spy_live.compute_bull_spy_weights(panel, sig_d)
             
             canary_ok = diag_a.get("canary_ok", False)
             spy_trend_ok = diag_a.get("spy_trend_ok", False)

@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import cpm_live
-import bull_qqq_live
+import bull_spy_live
 import research.exec_lag_moo_validation_2026_05_30 as H
 import research.canary_variant_test as cvt
 from cpm_live import load_panel, perf_metrics, sig_13612U
@@ -64,21 +64,21 @@ def set_cpm(mode):
 
 def set_bull(mode):
     if mode == "none":
-        bull_qqq_live._macro_gate = cvt._bull_macro_always_on
+        bull_spy_live._macro_gate = cvt._bull_macro_always_on
         return
-    bull_qqq_live._macro_gate = cvt._PROD_MACRO
+    bull_spy_live._macro_gate = cvt._PROD_MACRO
     if mode == "tip":
-        bull_qqq_live.CANARY_ASSETS = ["TIP"]; bull_qqq_live.CANARY_RULE = "any_positive"
+        bull_spy_live.CANARY_ASSETS = ["TIP"]; bull_spy_live.CANARY_RULE = "any_positive"
     elif mode == "hygortip":
-        bull_qqq_live.CANARY_ASSETS = ["HYG", "TIP"]; bull_qqq_live.CANARY_RULE = "any_positive"
+        bull_spy_live.CANARY_ASSETS = ["HYG", "TIP"]; bull_spy_live.CANARY_RULE = "any_positive"
     elif mode == "hygandtip":
-        bull_qqq_live.CANARY_ASSETS = ["HYG", "TIP"]; bull_qqq_live.CANARY_RULE = "all_positive"
+        bull_spy_live.CANARY_ASSETS = ["HYG", "TIP"]; bull_spy_live.CANARY_RULE = "all_positive"
 
 
 def reset():
     cvt.reset_cpm_canary(); cvt.reset_bull_canary()
     cpm_live.CANARY_RULE = "any_positive"
-    bull_qqq_live.CANARY_RULE = "any_positive"
+    bull_spy_live.CANARY_RULE = "any_positive"
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +182,7 @@ def main():
     cpm_series = {}
     out["cpm_sleeve"] = {}
     for mode in MODES:
-        set_cpm(mode); cvt.reset_bull_canary(); bull_qqq_live.CANARY_RULE = "any_positive"
+        set_cpm(mode); cvt.reset_bull_canary(); bull_spy_live.CANARY_RULE = "any_positive"
         s = cvt.run_cpm(panel, intr, on, EXT, end)
         cpm_series[(mode, "real")] = s
         rec = {"clean": cvt.metrics(cvt.win(s, CLEAN, end), cash),

@@ -16,7 +16,7 @@ to STRENGTHEN the BULL sleeve beyond the current rv_60d<rv_252d (rv60) vol gate:
 Each gate tested two ways via the canonical mooex harness
 (exec_lag_moo_validation_2026_05_30): as an ADDED gate (macro AND rv60) and as a
 REPLACEMENT for rv60 (macro only). BULL weight engine = production
-bull_qqq_live.compute_bull_qqq_weights (TIP-only canary + SPY 13612U trend +
+bull_spy_live.compute_bull_spy_weights (TIP-only canary + SPY 13612U trend +
 vol gate slot). CPM unchanged (HYG-OR-TIP).
 
 Conventions (canonical): T+1 MOO exact (mooex, real auto_adjust opens), 10
@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import exec_lag_moo_validation_2026_05_30 as H
 from cpm_live import load_panel, perf_metrics, COST_BPS_PER_SIDE
-import bull_qqq_live
+import bull_spy_live
 
 CONV = "mooex"
 CLEAN_START = pd.Timestamp("2008-05-30")
@@ -150,18 +150,18 @@ def cal_ret(s, lo, hi):
 def bull_positions(panel, gate, start, end):
     """Re-derive monthly BULL regime (SPY vs safe) under a patched gate.
     Returns (n_months, n_safe_months, n_flips, turnover_per_yr)."""
-    orig = bull_qqq_live._vol_gate_ok
-    bull_qqq_live._vol_gate_ok = gate
+    orig = bull_spy_live._vol_gate_ok
+    bull_spy_live._vol_gate_ok = gate
     try:
         monthly_idx = (pd.DataFrame({"x": 1}, index=panel.index)
                        .groupby(pd.Grouper(freq="ME")).tail(1))
         sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
         regimes = []
         for sd in sigs:
-            w, lab, _ = bull_qqq_live.compute_bull_qqq_weights(panel, sd, panel[bull_qqq_live.BULL_TICKER])
-            regimes.append("SPY" if bull_qqq_live.BULL_TICKER in w else "SAFE")
+            w, lab, _ = bull_spy_live.compute_bull_spy_weights(panel, sd, panel[bull_spy_live.BULL_TICKER])
+            regimes.append("SPY" if bull_spy_live.BULL_TICKER in w else "SAFE")
     finally:
-        bull_qqq_live._vol_gate_ok = orig
+        bull_spy_live._vol_gate_ok = orig
     n = len(regimes)
     n_safe = sum(1 for r in regimes if r == "SAFE")
     flips = sum(1 for i in range(1, n) if regimes[i] != regimes[i - 1])
@@ -299,7 +299,7 @@ def main():
                     "sources": {
                         "VIX/VIX3M": "yfinance ^VIX, ^VIX3M (auto_adjust close)",
                         "yield_curve": "FRED T10Y2Y, T10Y3M (daily, percent spread)",
-                        "sleeves": "production cpm_live + bull_qqq_live via exec_lag_moo_validation_2026_05_30 (mooex)",
+                        "sleeves": "production cpm_live + bull_spy_live via exec_lag_moo_validation_2026_05_30 (mooex)",
                     }},
            "anchor": anchor, "variants": rows, "verdict": verdict}
     Path(__file__).with_suffix(".json").write_text(json.dumps(out, indent=2, default=float))
@@ -326,7 +326,7 @@ def write_md(o):
       "strengthen the BULL sleeve's risk-adjusted return / crash protection beyond the current "
       "rv_60d<rv_252d (rv60) vol gate -- either ADDED to rv60 or REPLACING it?\n")
     A("**Sleeves:** production `cpm_live` (CPM, HYG-OR-TIP, UNCHANGED) and "
-      "`bull_qqq_live.compute_bull_qqq_weights` (BULL: TIP-only canary + SPY 13612U trend + a "
+      "`bull_spy_live.compute_bull_spy_weights` (BULL: TIP-only canary + SPY 13612U trend + a "
       "vol-gate slot that we swap) via canonical harness `exec_lag_moo_validation_2026_05_30`. "
       "BULL weight engine and CPM are untouched; only the BULL vol-gate slot is monkeypatched.\n")
     A(f"**Conventions:** T+1 MOO exact (`mooex`, real auto_adjust opens), {m['cost_bps']} bps/side. "

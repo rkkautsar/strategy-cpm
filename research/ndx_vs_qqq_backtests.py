@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from cpm_live import load_panel, run_cpm_backtest, perf_metrics, sig_13612U
-from bull_qqq_live import run_bull_qqq_backtest, compute_bull_qqq_weights, CASH_TICKER, SAFE_POOL, _pick_safe
+from bull_spy_live import run_bull_spy_backtest, compute_bull_spy_weights, CASH_TICKER, SAFE_POOL, _pick_safe
 from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
 import ndx_sleeve_live
 
@@ -18,7 +18,7 @@ def run_bull_gated_qqq_backtest(panel, start, end, cost_bps=10.0):
 
     for i, sig_d in enumerate(sigs):
         # Determine if BULL is active (holding SPY)
-        bull_weights, _, _ = compute_bull_qqq_weights(panel, sig_d)
+        bull_weights, _, _ = compute_bull_spy_weights(panel, sig_d)
         bull_active = any(w > 0 for t, w in bull_weights.items() if t == 'SPY')
         
         if bull_active:
@@ -111,7 +111,7 @@ def run_all():
         
         # 1. Component backtests
         cpm, _ = run_cpm_backtest(panel, start, end)
-        bull_raw = run_bull_qqq_backtest(panel, start, end)
+        bull_raw = run_bull_spy_backtest(panel, start, end)
         ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
         qqq_gated_raw = run_bull_gated_qqq_backtest(panel, start, end)
 
