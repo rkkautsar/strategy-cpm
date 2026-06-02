@@ -49,6 +49,7 @@ from ndx_sleeve_live import (
     compute_ndx_weights,
     run_ndx_backtest,
     COST_BPS_PER_SIDE as NDX_COST_BPS_PER_SIDE,
+    PRICES_FILE as NDX_PRICES_FILE,
 )
 
 # Production blend: 60% CPM + 20% BULL-SPY + 20% NDX
@@ -582,12 +583,88 @@ def _load_macro_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[object, pd.Da
     return moo_engine, intraday, overnight
 
 
+def _rebuild_ndx_constituent_opens_cache() -> None:
+    """Build adjusted Open/Close cache for NDX constituents from the refreshed close panel."""
+    if not NDX_PRICES_FILE.exists():
+        raise FileNotFoundError(
+            f"NDX constituent close panel missing at {NDX_PRICES_FILE}; cannot rebuild opens cache."
+        )
+
+    closes = pd.read_parquet(NDX_PRICES_FILE)
+    if closes.empty or len(closes.columns) == 0:
+        raise ValueError(f"NDX constituent close panel empty at {NDX_PRICES_FILE}; cannot rebuild opens cache.")
+
+    tickers = sorted(map(str, closes.columns))
+    start = pd.Timestamp(closes.index.min()).strftime("%Y-%m-%d")
+    end = (pd.Timestamp(closes.index.max()) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+    import yfinance as yf
+
+    print(
+        f"NDX opens cache miss at {NDX_OPENS_CACHE_PATH}; rebuilding from {NDX_PRICES_FILE} "
+        f"for {len(tickers)} tickers ({start}..{end})."
+    )
+
+    opens: dict[str, pd.Series] = {}
+    ycloses: dict[str, pd.Series] = {}
+    chunks = [tickers[i:i + 25] for i in range(0, len(tickers), 25)]
+
+    for ci, chunk in enumerate(chunks, start=1):
+        chunk_df = None
+        for attempt in range(1, 4):
+            try:
+                chunk_df = yf.download(
+                    chunk,
+                    start=start,
+                    end=end,
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True,
+                    group_by="ticker",
+                    timeout=60,
+                )
+                break
+            except Exception as exc:
+                print(f"  NDX opens chunk {ci}/{len(chunks)} attempt {attempt}/3 failed: {exc}")
+
+        if chunk_df is None:
+            continue
+
+        if isinstance(chunk_df.columns, pd.MultiIndex):
+            lvl0 = chunk_df.columns.get_level_values(0)
+            for t in chunk:
+                if t not in lvl0:
+                    continue
+                sub = chunk_df[t]
+                if "Open" in sub and sub["Open"].notna().any():
+                    opens[t] = sub["Open"]
+                    ycloses[t] = sub["Close"]
+        else:
+            t = chunk[0]
+            if "Open" in chunk_df and chunk_df["Open"].notna().any():
+                opens[t] = chunk_df["Open"]
+                ycloses[t] = chunk_df["Close"]
+
+        got = sum(1 for t in chunk if t in opens)
+        print(f"  NDX opens chunk {ci}/{len(chunks)} got {got}/{len(chunk)}")
+
+    open_df = pd.DataFrame(opens).sort_index().reindex(columns=tickers)
+    yclose_df = pd.DataFrame(ycloses).sort_index().reindex(columns=tickers)
+    fetched = int(open_df.notna().any().sum())
+    if fetched == 0:
+        raise RuntimeError("Failed to fetch any NDX constituent opens from yfinance.")
+
+    out = pd.concat({"Open": open_df, "Close": yclose_df}, axis=1)
+    NDX_OPENS_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    out.to_parquet(NDX_OPENS_CACHE_PATH)
+    print(f"NDX opens cache rebuilt: {NDX_OPENS_CACHE_PATH} ({fetched}/{len(tickers)} tickers).")
+
+
 def _load_ndx_constituent_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load NDX constituent overnight/intraday legs from cached adjusted opens."""
     if not NDX_OPENS_CACHE_PATH.exists():
-        raise FileNotFoundError(
-            f"NDX constituent opens cache missing at {NDX_OPENS_CACHE_PATH}; cannot render NDX mooex."
-        )
+        _rebuild_ndx_constituent_opens_cache()
+
     cache = pd.read_parquet(NDX_OPENS_CACHE_PATH)
     if not isinstance(cache.columns, pd.MultiIndex) or {"Open", "Close"} - set(cache.columns.get_level_values(0)):
         raise ValueError(
