@@ -1,0 +1,2 @@
+- SUPERSEDED invvol-3 strict-3 / 1.2667 family: superseded design / pre-4-30 re-pin; NOT production; do not source numbers from here.
+- PRE-REBASELINE both-252 / 1.1658 family: superseded design / pre-4-30 re-pin; NOT production; do not source numbers from here.
