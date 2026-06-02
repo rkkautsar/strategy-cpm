@@ -30,7 +30,7 @@ def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:
 
 
 def main() -> None:
-    panel = load_panel(start=pd.Timestamp("2018-01-01"))
+    panel = load_panel(start=pd.Timestamp("2018-01-01"), live=True)
     ndx_panel = load_ndx_panel()
     # Use last completed month-end as signal date
     today = pd.Timestamp.today().normalize()

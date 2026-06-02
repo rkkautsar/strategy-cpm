@@ -2310,9 +2310,12 @@ def main():
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
     panel = load_panel(start=panel_start, end=requested_end, live=False)
+    live_panel = load_panel(start=panel_start, end=requested_end, live=True)
     end = min(requested_end, panel.index[-1])
+    live_end = min(requested_end, live_panel.index[-1])
     cash_daily = panel["SHV"].ffill().pct_change().dropna()
-    print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
+    print(f"Panel (frozen): {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
+    print(f"Panel (live):   {live_panel.index[0].date()} -> {live_panel.index[-1].date()}, {len(live_panel.columns)} assets")
     
     # Compute all sleeves, overlays, and per-signal records ONCE.
     # Every downstream chart/table pulls from `art` (no more drift between
@@ -2325,6 +2328,7 @@ def main():
         print("  NDX panel data not found; skipping NDX sleeve.")
         ndx_panel = None
     art = build_artifacts(panel, ndx_panel, start, end)
+    live_art = build_artifacts(live_panel, ndx_panel, start, live_end)
     prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)})"
 
     print(f"Running peer strategies ...")
@@ -2400,21 +2404,25 @@ def main():
     period_summary = period_summary_html(art.blend)
 
     # Current allocation: the signal fires on the last business day of a month at close.
-    # Show the latest FINALIZED month-end signal present in the panel: the most recent
+    # Show the latest FINALIZED month-end signal present in the live panel: the most recent
     # business-month-end (BME) that has occurred, snapped to the actual last trading day
     # on/before it. Before the month-end business day the panel stays on the prior month.
-    today = panel.index[-1]
-    bme = pd.date_range(panel.index[0], today, freq="BME")
-    if len(bme):
-        sig_d = panel.index[panel.index <= bme[-1]][-1]
+    today_live = live_panel.index[-1]
+    bme_live = pd.date_range(live_panel.index[0], today_live, freq="BME")
+    if len(bme_live):
+        sig_d_live = live_panel.index[live_panel.index <= bme_live[-1]][-1]
     else:
-        prev_month_end = today.replace(day=1) - pd.Timedelta(days=1)
-        cands = panel.index[panel.index <= prev_month_end]
-        sig_d = cands[-1] if len(cands) > 0 else today
-    alloc_html = current_alloc_html(panel, sig_d,
-                                       bull_spy_rets=art.bull,
-                                       ndx_rets=art.ndx,
-                                       art=art)
+        prev_month_end_live = today_live.replace(day=1) - pd.Timedelta(days=1)
+        cands_live = live_panel.index[live_panel.index <= prev_month_end_live]
+        sig_d_live = cands_live[-1] if len(cands_live) > 0 else today_live
+    alloc_html = current_alloc_html(
+        live_panel,
+        sig_d_live,
+        bull_spy_rets=live_art.bull,
+        ndx_rets=live_art.ndx,
+        art=live_art,
+    )
+    sig_d = sig_d_live
 
     # Audit-block values
     import subprocess
@@ -2424,7 +2432,7 @@ def main():
             text=True, timeout=2).strip()
     except Exception:
         git_sha = "unknown"
-    panel_index_last = panel.index[-1].date()
+    panel_index_last = live_panel.index[-1].date()
     try:
         from ndx_sleeve_live import load_ndx_panel
         _np = load_ndx_panel()
@@ -2433,9 +2441,9 @@ def main():
         ndx_snapshot_date = "unknown"
 
     # Trade due date = first trading day AFTER signal date (T+1 OPEN)
-    next_idx_pos = panel.index.searchsorted(sig_d) + 1
-    trade_due_date = panel.index[next_idx_pos].date() if next_idx_pos < len(panel.index) else "future"
-    age_days = (pd.Timestamp.today().normalize() - pd.Timestamp(sig_d)).days
+    next_idx_pos = live_panel.index.searchsorted(sig_d_live) + 1
+    trade_due_date = live_panel.index[next_idx_pos].date() if next_idx_pos < len(live_panel.index) else "future"
+    age_days = (pd.Timestamp.today().normalize() - pd.Timestamp(sig_d_live)).days
     if age_days <= 7:
         age_status = "<span style='color:#1d8348;font-weight:600'>CURRENT</span>"
     elif age_days <= 35:
@@ -2444,15 +2452,17 @@ def main():
         age_status = f"<span style='color:#c0392b;font-weight:600'>STALE (next signal end of month)</span>"
     
     # Per-sleeve breakdown of the PROD blend.
+    cpm_metrics = perf_metrics(art.cpm, cash_daily)
+    cpm_bull_60_40_clean = 0.60 * art.cpm + 0.40 * art.bull
+    cpm_bull_60_40_clean_metrics = perf_metrics(cpm_bull_60_40_clean, cash_daily)
     sleeve_rows = [
         {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
-        {"strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
-         "sharpe": 1.2685, "excess_sharpe": float("nan"), "cagr": 0.1265, "vol": 0.0980,
-         "max_drawdown": -0.1119, "ulcer": float("nan"), "calmar": 1.1312, "martin": 4.4093},
-        {"strategy": "Cross-asset Parity Momentum (CPM)", **perf_metrics(art.cpm, cash_daily)},
+        {"strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",           **cpm_bull_60_40_clean_metrics},
+        {"strategy": "Cross-asset Parity Momentum (CPM)", **cpm_metrics},
         {"strategy": "Cross-asset Parity Momentum (CPM, clean window)",
-         "sharpe": 1.2557, "excess_sharpe": float("nan"), "cagr": 0.1313, "vol": 0.1028,
-         "max_drawdown": -0.1303, "ulcer": float("nan"), "calmar": 1.0076, "martin": 4.2571},
+         "sharpe": 1.2373, "excess_sharpe": float("nan"), "cagr": 0.1292, "vol": 0.1028,
+         "max_drawdown": -0.1303, "ulcer": float("nan"), "calmar": 0.9912,
+         "martin": cpm_metrics.get("martin", float("nan"))},
         {"strategy": "BULL-SPY (20% weight)",                         **perf_metrics(art.bull, cash_daily)},
         {"strategy": "NDX (20% weight)",                              **perf_metrics(art.ndx, cash_daily)},
     ]
@@ -2533,14 +2543,7 @@ def main():
     ndx_metrics = perf_metrics(art.ndx, cash_daily) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     cpm_bull_60_40_clean_anchor = {
         "strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
-        "sharpe": 1.2685,
-        "excess_sharpe": float("nan"),
-        "cagr": 0.1265,
-        "vol": 0.0980,
-        "max_drawdown": -0.1119,
-        "ulcer": float("nan"),
-        "calmar": 1.1312,
-        "martin": 4.4093,
+        **cpm_bull_60_40_clean_metrics,
     }
     research_compare_rows = [
         {"strategy": f"CPM-BULL-NDX {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} (PRODUCTION, live window)", **prod_metrics},
@@ -2654,7 +2657,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <div class='card'>
 <p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> | CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> | Vol <strong>{prod_metrics['vol']*100:.2f}%</strong> | MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
 {perf_table_html(perf_rows, compact=True)}
-<p style='margin:10px 0 6px;font-size:0.86rem;color:#555'>Production blend vs two-sleeve (no NDX) (clean window: 2008-05-30 -> 2026-05-22).</p>
+<p style='margin:10px 0 6px;font-size:0.86rem;color:#555'>Production blend vs two-sleeve (no NDX) (clean window: 2008-05-30 -> {cpm_module.EVAL_END.date()}).</p>
 {perf_table_html(research_compare_rows, compact=True)}
 {fig_to_html(fig_eq_dd_headline)}
 <details>

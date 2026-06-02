@@ -63,7 +63,10 @@ TOP_K_CANDIDATES = 4        # top-half of 8-asset universe (ceil(8/2))
 CORR_LOOKBACK_DAYS = 252    # rolling covariance lookback (~1y)
 COST_BPS_PER_SIDE = 10
 # Pinned research/backtest evaluation cutoff for reproducibility (memo clean-window end).
-EVAL_END = pd.Timestamp("2026-05-22")
+# Invariant: EVAL_END must be a trading day present in all RISKY_UNIVERSE +
+# SAFE_POOL + CANARY_ASSETS feeds; frozen-path freshness guard asserts
+# last-valid >= EVAL_END for every required asset.
+EVAL_END = pd.Timestamp("2026-04-30")
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
 # PRODUCTION strategy is 60% CPM + 20% BULL-SPY + 20% NDX.
@@ -124,6 +127,48 @@ def _fetch_cached_adjusted_close(
     if not s.empty:  # never cache empty/failed pulls (avoids day-stable empty-cache poisoning)
         s.to_csv(cache_path, header=True)
     return s
+
+
+def _live_freshness_floor(reference_date: pd.Timestamp) -> pd.Timestamp:
+    """Freshness floor for live-panel publish checks.
+
+    If reference_date is a business month-end signal date, require freshness to that
+    exact day. Otherwise require freshness to the latest completed business month-end.
+    """
+    ref = pd.Timestamp(reference_date).normalize()
+    bme = pd.offsets.BMonthEnd()
+    if bme.is_on_offset(ref):
+        return ref
+    return ref - pd.offsets.BMonthEnd(1)
+
+
+def _assert_live_panel_fresh(
+    panel: pd.DataFrame,
+    reference_date: pd.Timestamp,
+    required_assets: list[str],
+) -> None:
+    """Fail loud when live panel cannot support current publish signal timing."""
+    freshness_floor = _live_freshness_floor(reference_date)
+    stale_assets = []
+    for asset in required_assets:
+        if asset not in panel.columns:
+            stale_assets.append((asset, None))
+            continue
+        last_valid = panel[asset].last_valid_index()
+        if last_valid is None or last_valid < freshness_floor:
+            stale_assets.append((asset, last_valid))
+    if stale_assets:
+        stale_msg = ", ".join(
+            f"{asset}={(lv.date().isoformat() if lv is not None else 'missing')}"
+            for asset, lv in stale_assets
+        )
+        raise ValueError(
+            "Live panel stale for publish path; "
+            f"expected last-valid >= {freshness_floor.date().isoformat()} "
+            "for all required assets (RISKY_UNIVERSE+SAFE_POOL+CANARY_ASSETS). "
+            f"reference_date={pd.Timestamp(reference_date).date().isoformat()}. "
+            f"{stale_msg}"
+        )
 
 
 def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
@@ -249,10 +294,38 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
 
     if start:
         panel = panel[panel.index >= start - pd.DateOffset(months=15)]  # keep warmup
-    if end is not None:
-        panel = panel[panel.index <= end]
-    elif not live:
-        panel = panel.loc[:EVAL_END]
+
+    if live:
+        if end is not None:
+            panel = panel[panel.index <= end]
+            reference_date = min(pd.Timestamp(end).normalize(), pd.Timestamp.today().normalize())
+        else:
+            reference_date = pd.Timestamp.today().normalize()
+        required_assets = list(dict.fromkeys(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS))
+        _assert_live_panel_fresh(panel, reference_date=reference_date, required_assets=required_assets)
+    else:
+        cap_end = EVAL_END if end is None else min(pd.Timestamp(end), EVAL_END)
+        panel = panel.loc[:cap_end]
+        if cap_end == EVAL_END:
+            required_assets = list(dict.fromkeys(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS))
+            stale_assets = []
+            for asset in required_assets:
+                if asset not in panel.columns:
+                    stale_assets.append((asset, None))
+                    continue
+                last_valid = panel[asset].last_valid_index()
+                if last_valid is None or last_valid < EVAL_END:
+                    stale_assets.append((asset, last_valid))
+            if stale_assets:
+                stale_msg = ", ".join(
+                    f"{asset}={(lv.date().isoformat() if lv is not None else 'missing')}"
+                    for asset, lv in stale_assets
+                )
+                raise ValueError(
+                    f"Frozen panel stale at EVAL_END={EVAL_END.date().isoformat()}; "
+                    f"expected last-valid >= EVAL_END for all required assets. {stale_msg}"
+                )
+
     return panel.sort_index()
 
 

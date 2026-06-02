@@ -46,13 +46,13 @@ except ImportError:  # pragma: no cover - script-style fallback
 
 CLEAN_START = pd.Timestamp("2008-05-30")
 EXT_START = pd.Timestamp("1999-03-10")
-DEFAULT_END = pd.Timestamp("2026-05-22")
+DEFAULT_END = pd.Timestamp("2026-04-30")
 CONVENTION = "mooex"
 
 ANCHOR = {
-    "Sharpe": 1.255673,
+    "Sharpe": 1.237313,
     "MaxDD": -0.130317,
-    "Calmar": 1.007646,
+    "Calmar": 0.9912,
 }
 ANCHOR_TOL = {
     "Sharpe": 5e-4,
