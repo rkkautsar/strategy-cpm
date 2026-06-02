@@ -32,6 +32,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -85,12 +86,30 @@ def _assert_open_cache_adjusted(opens_df, closes_df, threshold=OPEN_CACHE_INTRAD
 
 def load_open_close():
     """Return (open_df, close_df) of REAL yfinance auto_adjust OHLC, aligned union index."""
+    OPEN_CACHE.mkdir(parents=True, exist_ok=True)
+
     opens, closes = {}, {}
     for t in OHLC_TICKERS:
         p = OPEN_CACHE / f"{t}.csv"
+        if not p.exists():
+            d = yf.download(t, start="1999-01-01", auto_adjust=True, progress=False, threads=False)
+            if isinstance(d.columns, pd.MultiIndex):
+                lvl0 = d.columns.get_level_values(0)
+                lvl1 = d.columns.get_level_values(1)
+                if "Open" in lvl0 and "Close" in lvl0:
+                    d.columns = lvl0
+                elif "Open" in lvl1 and "Close" in lvl1:
+                    d.columns = lvl1
+                else:
+                    d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
+            d = d[["Open", "Close"]].dropna()
+            d.index.name = "Date"
+            d.to_csv(p)
+
         d = pd.read_csv(p, parse_dates=[0], index_col=0)
         opens[t] = d["Open"]
         closes[t] = d["Close"]
+
     opens_df = pd.DataFrame(opens).sort_index()
     closes_df = pd.DataFrame(closes).sort_index()
     _assert_open_cache_adjusted(opens_df, closes_df)
