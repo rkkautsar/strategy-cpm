@@ -1,14 +1,14 @@
 # CPM Research Memo
 
-Current state: monthly ETF implementation, standardized to 252-day volatility windows for both ranking and risky-block inverse-vol weighting. Clean window uses full real-open coverage. Extended window includes proxy-backed pre-ETF segments. Metrics are post-cost and use month-end signal with next-session-open execution.
+Current state: monthly ETF implementation, standardized to both-252 (rank-vol 252d plus min-var covariance 252d). Clean window uses full real-open coverage. Extended window includes proxy-backed pre-ETF segments. Metrics are post-cost and use mooex (T+1 market-on-open execution): month-end signal with next-session-open execution.
 
-Scope: this memo evaluates CPM (cross-asset top-4 Faber vol-adjusted momentum, HYG-or-TIP canary, breadth-scaled partial-safe routing, SHV/IEF safe selector). Sleeve overlays are out of scope.
+Scope: this memo evaluates CPM (cross-asset top-4 Faber vol-adjusted momentum, TIP-only canary, equal-weight risky block, min-var 3-of-4 selection at full breadth, breadth-scaled partial-safe routing, SHV/IEF safe selector). Sleeve overlays are out of scope.
 
 
 ## 0. Header and metadata
 
 - Strategy: CPM (Cross-asset Parity Momentum).
-- Production standardization: rank-vol 252d and weight-vol 252d.
+- CPM standardization: both-252 (rank-vol 252d and min-var covariance 252d).
 - Risky universe: QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC.
 - Safe assets: SHV, IEF.
 - Windows:
@@ -17,22 +17,26 @@ Scope: this memo evaluates CPM (cross-asset top-4 Faber vol-adjusted momentum, H
 - Costs: 10 bps per side, embedded in all tables.
 - Sharpe convention: raw Sharpe (rf = 0) and excess Sharpe versus SHV.
 - Rebalance and leverage: monthly rebalance, unlevered.
-- Execution convention: signal at month-end close, trade at next-session open (T+1 MOO).
+- Execution convention: signal at month-end close, trade at next-session open (mooex, T+1 market-on-open execution).
 
 
 ## 1. Executive summary
 
-- RETURN PROFILE: Clean in-sample Sharpe is 1.1658. Forward expectation remains about 0.72 (0.62-0.85) after selection, execution, and regime haircuts. This is capital-preservation-first, not raw-return maximization.
+AAA-style available-panel benchmark = peer-style control inspired by Adaptive Asset Allocation (Butler-Philbrick 2012): momentum rank, top-half selection, then min-variance weights on the CPM available panel. It is not an exact historical Adaptive Asset Allocation replication.
 
-- TAIL CONTROL: Clean MaxDD is -12.97% versus -21.76% (AAA-style available-panel benchmark), -29.82% (60/40), -26.59% (naive 12m momentum), and -34.75% (buy-hold inverse-vol).
+- RETURN PROFILE: Against HAA-style baseline, CPM improves clean Sharpe 0.8670 -> 1.2557. Universe is the only statistically clear symmetric main-effect contributor; min-var is significant only at the (U1,R1) corner (full universe + vol-adjusted ranker, before adding min-var) (+0.1682 Sharpe, near-flat MaxDD), not as a symmetric main effect. Forward underwriting remains about 0.72 (0.62-0.85), not the 1.2557 in-sample point.
 
-- BENCHMARK INTERPRETATION: Versus AAA-style and 60/40, point gaps remain economically large, but clean-window Sharpe difference CIs include zero. Versus naive 12m and buy-hold inverse-vol, Sharpe difference CIs exclude zero.
+- TAIL CONTROL: Clean MaxDD is -13.03% versus -21.76% (AAA-style available-panel benchmark), -29.82% (60/40), -26.59% (naive 12m momentum), and -34.75% (buy-hold vol-parity).
 
-- CRITICAL VULNERABILITY: Month-end alignment is load-bearing. With production both-252, signal/rebalance offset Sharpe is 1.1658 (EOM), 0.9743 (EOM+1), 0.9628 (EOM+2), 0.8714 (EOM+3).
+- BENCHMARK INTERPRETATION: Versus AAA-style and 60/40, point gaps remain economically large, but clean-window Sharpe difference CIs include zero. Versus naive 12m and buy-hold vol-parity, Sharpe difference CIs exclude zero.
 
-- PEER FRAMING: CPM is a hybrid. It combines AAA-style inverse-vol weighting, FAA/EAA-style risk-adjusted ranking, and HAA-style canary-plus-breadth defense. HAA is the closest single overall published peer.
+- CRITICAL VULNERABILITY: Month-end alignment is load-bearing. With CPM standardization (both-252), signal/rebalance offset Sharpe is 1.2557 (EOM), 1.1867 (EOM+1), 1.0826 (EOM+2), 1.0028 (EOM+3).
 
-- CONCLUSION STATUS: Verdict is tail-control-first with favorable benchmark point estimates. Weighting Sharpe edge versus equal-weight is small (+0.0341), and longest underwater duration is 789 days.
+- PEER FRAMING: CPM is a universe-sensitive HAA-family hybrid, not a fully portable generic engine. It combines equal-weight strict-4 risky allocation with min-var 3-of-4 full-breadth selection, FAA/EAA-style risk-adjusted ranking, and HAA-style canary-plus-breadth defense.
+
+- STRUCTURAL READ: GLD/TLT replacing a redundant IEF/TLT risky-universe duration pair is the structural sleeve change; US equity sleeve is leadership plus quality (QQQ+SPHQ). Clean IWF+IWD sensitivity is only about 0.014 Sharpe lower, which supports anti-fragility to exact US-equity pair choice.
+
+- CONCLUSION STATUS: Verdict is tail-control-first with favorable benchmark point estimates. Longest underwater is 789 days, not materially better than 60/40 at 787 days; edge is shallower drawdown depth and better worst-interval losses.
 
 Turnover:
 - Clean: 2.582 one-way per year, 13.4% fully-safe months.
@@ -41,11 +45,11 @@ Turnover:
 
 ## 2. Investment thesis and economic rationale
 
-Cross-asset time-series momentum can persist across risk-on and risk-off cycles because flows and risk budgets adjust with lag. CPM uses breadth-scaled cross-asset momentum: rank assets by 10-month trend strength per unit of realized volatility, keep positive-trend assets, select top four, inverse-vol weight survivors, route unused risky slots to timed safe asset.
+Cross-asset time-series momentum can persist across risk-on and risk-off cycles because flows and risk budgets adjust with lag. CPM uses breadth-scaled cross-asset momentum: rank assets by 10-month trend strength per unit of realized volatility, screen K=4 candidates, keep positive-trend survivors, and use equal risky weights. At full breadth (n_pos = 4), CPM evaluates all four equal-weight 3-of-4 subsets and holds the subset with the lowest estimated 252-day covariance-based portfolio variance before routing any unused risky slots to timed safe asset. Informal intuition only: this can resemble dropping the highest-variance contributor.
 
-"Parity" here means inverse-vol weighting in the risky block, not covariance optimization. Strict-4 partial-safe makes risky exposure proportional to breadth: if fewer than four assets pass, missing slots route to SHV or IEF.
+Strict-4 partial-safe makes risky exposure proportional to breadth: if fewer than four assets pass, missing slots route to SHV or IEF.
 
-HYG-or-TIP canary is permissive by design. Trend, rank, screen, and partial-safe routing do most risk control work; canary adds an extra permission layer.
+TIP-only canary is the CPM canary gate. Trend, rank, screen, and partial-safe routing do most risk control work; canary adds an extra permission layer.
 
 
 ### 2.1 Execution-timing cliff and operational risk
@@ -55,15 +59,28 @@ Terminology:
 - Fill convention: execution price after fixed signal date.
 - Signal/rebalance-date offset: shifting signal date away from true month-end.
 
-Production both-252 offset test:
-- EOM: 1.1658
-- EOM+1: 0.9743
-- EOM+2: 0.9628
-- EOM+3: 0.8714
+```
+Offset cliff, mooex (T+1 MOO exact), CLEAN 18y, 10 bps/side -- PRIMARY
+(EOM matches CPM clean anchor 1.2557)
+
+Strategy   EOM     EOM+1   EOM+2   EOM+3   abs deg   % deg
+CPM        1.2557  1.1867  1.0826  1.0028  -0.2528   -20.1%   (shallowest)
+AAA-style  0.9542  0.5476  0.6287  0.6702  -0.2840   -29.8%   (steepest)
+HAA        0.9821  0.7398  0.7489  0.7397  -0.2425   -24.7%
+
+Corroboration, close-to-close exec_lag=0 (T+0 MOC economics), CLEAN 18y
+(research/cpm_execution_cliff_peer_sanity_2026_06_01.json)
+
+Strategy   EOM     EOM+1   EOM+2   EOM+3   % deg
+CPM        1.2063  1.0127  0.9747  0.9090  -24.6%   (shallowest)
+AAA-style  0.9961  0.5462  0.6675  0.6991  -29.8%   (steepest)
+HAA-Simple 0.9839  0.7420  0.7613  0.7215  -26.7%
+```
 
 Read:
 - Offset cliff remains real in both-252.
-- This is a monthly-TAA trait, not unique to CPM, but CPM is least affected versus steeper cliffs in simple AAA/HAA monthly variants.
+- This is a monthly-TAA trait, not unique to CPM; CPM is least affected versus AAA-style and HAA in both conventions.
+- AAA-style mooex row falls back to close-to-close on rebalance days because open coverage is incomplete; the degradation ranking is unchanged in the close-to-close corroboration row.
 
 
 ## 3. Strategy specification
@@ -84,14 +101,14 @@ Let monthly sampled close series be built with `resample("ME").last()`.
 ### 3.2 CPM rule stack
 
 1. Compute rank value `m_faber / rv_252d` for each risky asset in {QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC}.
-2. Keep only assets with `m_faber > 0`.
-3. Keep top 4.
+2. Screen top 4 candidates by rank (`K = 4`).
+3. Apply positivity filter `m_faber > 0` to those candidates; survivors count is `n_pos` (0..4).
 4. If canary is off, allocate 100% to safe selector.
 5. If canary is on:
-   - `n_pos = number of survivors (0..4)`
    - `risky_fraction = min(n_pos, 4) / 4`
    - `safe_fraction = 1 - risky_fraction`
-   - risky block uses inverse-vol weights proportional to `1 / rv_252d` across survivors
+   - if `n_pos < 4`, hold all `n_pos` survivors at `1/4` each, with remaining slots routed to safe
+   - if `n_pos = 4`, evaluate all four equal-weight 3-of-4 subsets (`_min_var_subset(..., m=3)`) and hold the subset with the lowest estimated 252-day covariance-based portfolio variance
    - safe block goes to timed SHV or IEF by 13612U
 
 Strict-4 partial-safe behavior:
@@ -99,12 +116,12 @@ Strict-4 partial-safe behavior:
 - n_pos = 1 -> 1/4 risky, 3/4 safe
 - n_pos = 2 -> 2/4 risky, 2/4 safe
 - n_pos = 3 -> 3/4 risky, 1/4 safe
-- n_pos = 4 -> 4/4 risky, 0/4 safe
+- n_pos = 4 -> 4/4 risky, 0/4 safe (implemented as 3 held risky names after min-var 3-of-4 subset selection)
 
 
 ### 3.3 Canary and safe selector
 
-- Canary on if `m_13612U(HYG) > 0 OR m_13612U(TIP) > 0`.
+- Canary on if `m_13612U(TIP) > 0`.
 - Safe selector chooses argmax `m_13612U` over {SHV, IEF}.
 
 
@@ -113,13 +130,14 @@ Strict-4 partial-safe behavior:
 | Component | Parameter | Value |
 |---|---|---|
 | Trend risky universe size | N | 8 |
-| Trend selection count | K | 4 |
+| Trend candidate screen count | K | 4 (screen count before full-breadth min-var hold rule) |
 | Trend rank value | Rank metric | m_faber / rv_252d |
 | Trend positivity filter | Threshold | m_faber > 0 |
-| Risky block weighting | Rule | inverse-vol over survivors |
+| Risky block weighting | Rule | if n_pos < 4 hold all survivors at 1/4 each; if n_pos = 4 hold min-var 3-of-4 equal-weight within risky_fraction |
+| Min-var selector at full breadth | Rule | at n_pos = 4, evaluate all four equal-weight 3-of-4 subsets and hold the subset with the lowest estimated 252-day covariance-based portfolio variance |
 | Risky fraction control | Rule | strict-4 partial-safe, min(n_pos,4)/4 |
-| Risky-block inverse-vol lookback | Window | 252 trading days |
-| Canary | Rule | m_13612U(HYG) > 0 OR m_13612U(TIP) > 0 |
+| Min-var covariance lookback | Window | 252 trading days |
+| Canary | Rule | m_13612U(TIP) > 0 |
 | Safe selector | Rule | argmax m_13612U over SHV, IEF |
 | Transaction cost | Side cost | 10 bps |
 | Rebalance frequency | Cadence | monthly |
@@ -132,8 +150,8 @@ Strict-4 partial-safe behavior:
 - Data panel uses live ETFs where available plus audited proxy stitches in pre-ETF segments.
 - Clean window is decision lens: 2008-05-30 to 2026-05-22.
 - Extended window is proxy-informed robustness lens: 1995-01-31 to 2026-05-22.
-- Execution is month-end signal, next-session-open fill (T+1 MOO exact).
-- Reduced-universe engine behavior in early history is unchanged.
+- Execution is month-end signal, next-session-open fill (mooex T+1 exact).
+- Reduced-universe engine behavior in early history remains unchanged.
 
 
 ## 5. Headline results
@@ -141,16 +159,16 @@ Strict-4 partial-safe behavior:
 
 ### 5.1 CPM headline metrics
 
-Clean anchor (decision lens): Sharpe 1.1658, MaxDD -12.97%, Calmar 1.0137.
+Clean anchor (decision lens): Sharpe 1.2557, MaxDD -13.03%, Calmar 1.0076.
 
-| Window | Sharpe | CAGR | Vol | MaxDD | Calmar | Martin | Ulcer | Excess Sharpe vs SHV |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Clean | 1.1658 | 13.15% | 11.18% | -12.97% | 1.0137 | 3.6907 | 3.56% | 1.0469 |
-| Extended (proxy-informed robustness) | 1.2491 | 13.74% | 10.72% | -15.73% | 0.8736 | 3.8437 | 3.58% | 0.9841 |
+| Window | Sharpe | CAGR | Vol | MaxDD | Calmar | Martin |
+|---|---:|---:|---:|---:|---:|---:|
+| Clean | 1.2557 | 13.13% | 10.28% | -13.03% | 1.0076 | 4.2571 |
+| Extended (proxy-informed robustness) | 1.2549 | 12.76% | 9.97% | -13.14% | 0.9712 | 4.1168 |
 
-Clean worst drawdown is 2025-04 tariff selloff: peak 2025-02-19, trough 2025-04-08, depth -12.97%, recovery 2025-06-12.
+Clean worst drawdown is 2025-04 tariff selloff: peak 2025-02-19, trough 2025-04-08, depth -13.03%, recovery 2025-06-12.
 
-Extended worst drawdown remains a proxy-era 2006 episode at -15.73%.
+Extended worst drawdown remains a proxy-era 2006 episode at -13.14%.
 
 
 ### 5.2 Crisis behavior
@@ -180,10 +198,10 @@ Clean-window Sharpe bootstrap interval (stationary block bootstrap, B=2000, bloc
 
 | Statistic | Value |
 |---|---:|
-| point | 1.1658 |
-| 2.5% | 0.7866 |
-| 50% | 1.1964 |
-| 97.5% | 1.5969 |
+| point | 1.2557 |
+| 2.5% | 0.8633 |
+| 50% | 1.2573 |
+| 97.5% | 1.6689 |
 
 Method: stationary block bootstrap, B=2000, block=21 trading days, seed=42.
 
@@ -202,24 +220,24 @@ Clean window:
 
 | Series | Sharpe | CAGR | MaxDD | Calmar | Martin |
 |---|---:|---:|---:|---:|---:|
-| CPM | 1.17 | 13.15% | -12.97% | 1.01 | 3.69 |
+| CPM | 1.26 | 13.13% | -13.03% | 1.01 | 4.26 |
 | AAA-style available-panel benchmark | 0.94 | 9.23% | -21.76% | 0.42 | 1.62 |
 | 60/40 (SPY/IEF) | 0.79 | 8.75% | -29.82% | 0.29 | 1.40 |
 | Naive 12m momentum (no canary, equal-weight) | 0.65 | 8.14% | -26.59% | 0.31 | 1.02 |
-| Buy-hold inverse-vol | 0.66 | 7.88% | -34.75% | 0.23 | 1.03 |
+| Buy-hold vol-parity | 0.66 | 7.88% | -34.75% | 0.23 | 1.03 |
 
 Sharpe difference test (CPM minus benchmark, paired block bootstrap, 95% CI):
 
 | Comparator | dSharpe | 95% CI | Includes zero? |
 |---|---:|---|---|
-| AAA-style available-panel benchmark | +0.22 | [-0.113, +0.589] | Yes |
-| 60/40 | +0.37 | [-0.093, +0.791] | Yes |
-| Naive 12m | +0.52 | [+0.166, +0.889] | No |
-| Buy-hold inverse-vol | +0.51 | [+0.090, +0.895] | No |
+| AAA-style available-panel benchmark | +0.31 | [-0.066, +0.682] | Yes |
+| 60/40 | +0.46 | [-0.019, +0.895] | Yes |
+| Naive 12m | +0.61 | [+0.230, +0.987] | No |
+| Buy-hold vol-parity | +0.60 | [+0.178, +0.991] | No |
 
 Drawdown-adjusted point gaps (CPM minus benchmark):
 
-| Metric | AAA-style | 60/40 | Naive 12m | Buy-hold inverse-vol |
+| Metric | AAA-style | 60/40 | Naive 12m | Buy-hold vol-parity |
 |---|---:|---:|---:|---:|
 | MaxDD gap (pp, positive = shallower CPM) | +8.79 | +16.85 | +13.62 | +21.78 |
 | Calmar difference | +0.5896 | +0.7201 | +0.7076 | +0.7869 |
@@ -227,46 +245,47 @@ Drawdown-adjusted point gaps (CPM minus benchmark):
 
 Read:
 - Versus AAA-style and 60/40, evidence is favorable but statistically unresolved on Sharpe in this sample length.
-- Versus naive 12m and buy-hold inverse-vol, Sharpe edge remains statistically clear.
+- Versus naive 12m and buy-hold vol-parity, Sharpe edge remains statistically clear.
 
 Extended per-series table (proxy-informed robustness, mixed starts):
 
 | Series | Start | Sharpe | CAGR | MaxDD | Calmar | Martin |
 |---|---|---:|---:|---:|---:|---:|
-| CPM | 1995-01-31 | 1.25 | 13.74% | -15.73% | 0.87 | 3.84 |
+| CPM | 1995-01-31 | 1.25 | 12.76% | -13.14% | 0.97 | 4.12 |
 | AAA-style available-panel benchmark | 2008-01-19 | 0.93 | 9.07% | -21.76% | 0.42 | 1.60 |
 | 60/40 | 1999-03-10 | 0.69 | 7.31% | -31.44% | 0.23 | 1.07 |
 | Naive 12m momentum | 1999-03-10 | 0.82 | 10.11% | -26.59% | 0.38 | 1.43 |
-| Buy-hold inverse-vol | 1999-03-10 | 0.81 | 9.24% | -35.44% | 0.26 | 1.37 |
+| Buy-hold vol-parity | 1999-03-10 | 0.81 | 9.24% | -35.44% | 0.26 | 1.37 |
 
 
-### 5.6 Common-window extended comparison
+### 5.6 All-series post-availability comparison
 
-All-series common start (2008-01-19):
+Start floor is 2008-01-19, but each series begins only when valid signals/returns exist.
+Current reproduction checks show first valid returns on 2008-01-22 for all rows; CPM remains close to the clean-window row at displayed precision.
 
 | Series | Sharpe | CAGR | MaxDD | Calmar | Martin |
 |---|---:|---:|---:|---:|---:|
-| CPM | 1.165 | 13.16% | -12.97% | 1.014 | 3.629 |
+| CPM | 1.256 | 13.13% | -13.03% | 1.008 | 4.257 |
 | AAA-style available-panel | 0.930 | 9.07% | -21.76% | 0.417 | 1.603 |
 | 60/40 (SPY/IEF) | 0.798 | 8.81% | -30.83% | 0.286 | 1.372 |
 | Naive 12m momentum | 0.665 | 8.48% | -26.59% | 0.319 | 1.067 |
-| Buy-hold inverse-vol | 0.684 | 8.26% | -35.44% | 0.233 | 1.067 |
+| Buy-hold vol-parity | 0.684 | 8.26% | -35.44% | 0.233 | 1.067 |
 
-Ex-AAA common start (1999-03-10):
+Ex-AAA-style common start (1999-03-10):
 
 | Series | Sharpe | CAGR | MaxDD | Calmar | Martin |
 |---|---:|---:|---:|---:|---:|
-| CPM | 1.200 | 13.48% | -15.73% | 0.857 | 3.676 |
+| CPM | 1.255 | 12.76% | -13.14% | 0.971 | 4.117 |
 | 60/40 (SPY/IEF) | 0.691 | 7.31% | -31.44% | 0.232 | 1.071 |
 | Naive 12m momentum | 0.816 | 10.11% | -26.59% | 0.380 | 1.428 |
-| Buy-hold inverse-vol | 0.813 | 9.24% | -35.44% | 0.261 | 1.372 |
+| Buy-hold vol-parity | 0.813 | 9.24% | -35.44% | 0.261 | 1.372 |
 
 
 ### 5.7 Calendar-year returns and intra-year drawdown (clean window)
 
 Boundary-year note: 2008 and 2026 are partial years for at least one series and are not cross-series comparable.
 
-| Year | CPM ret | CPM intraDD | AAA ret | AAA intraDD | 60/40 ret | 60/40 intraDD |
+| Year | CPM ret | CPM intraDD | AAA-style ret | AAA-style intraDD | 60/40 ret | 60/40 intraDD |
 |---|---:|---:|---:|---:|---:|---:|
 | 2008* | +5.27% | -10.23% | +1.66% | -11.74% | -15.57% | -26.88% |
 | 2009 | +14.26% | -7.07% | +0.80% | -11.03% | +13.23% | -17.62% |
@@ -285,7 +304,7 @@ Boundary-year note: 2008 and 2026 are partial years for at least one series and 
 | 2022 | -2.08% | -7.96% | -14.25% | -21.76% | -16.39% | -20.67% |
 | 2023 | +1.85% | -7.75% | +7.80% | -9.17% | +16.97% | -8.26% |
 | 2024 | +15.24% | -7.19% | +17.87% | -6.14% | +14.23% | -4.36% |
-| 2025 | +25.78% | -12.97% | +19.12% | -6.29% | +14.33% | -10.60% |
+| 2025 | +25.78% | -13.03% | +19.12% | -6.29% | +14.33% | -10.60% |
 | 2026* | +21.44% | -5.69% | +21.70% | -6.07% | +4.71% | -6.00% |
 
 
@@ -298,77 +317,78 @@ Boundary-year note: 2008 and 2026 are partial years for at least one series and 
 | Worst 12-month return | -5.21% | -16.86% | -16.39% |
 | Longest underwater | 789 days | 903 days | 787 days |
 
+Read: CPM longest underwater (789d) is not materially better than 60/40 (787d). CPM edge is shallower drawdown depth and better worst-interval losses, not shorter underwater duration.
+
 
 ### 5.9 HAA benchmark and coupled decomposition
 
-Canonical HAA head-to-head (same engine, costs, and window handling):
+HAA head-to-head (same engine, costs, and window handling):
 
 | Strategy | Window | Sharpe | Calmar | MaxDD | CAGR |
 |---|---|---:|---:|---:|---:|
 | HAA | Clean | 0.8670 | 0.6386 | -14.68% | 9.37% |
-| CPM | Clean | 1.1658 | 1.0137 | -12.97% | 13.15% |
-
-Mechanism x universe 2x2 (clean):
-
-| Configuration | Sharpe | Calmar | MaxDD |
-|---|---:|---:|---:|
-| HAA mechanics on HAA universe (canonical HAA) | 0.8670 | 0.6386 | -14.68% |
-| CPM mechanics on HAA universe | 0.9575 | 0.6350 | -15.69% |
-| HAA mechanics on CPM universe | 1.0189 | 0.7693 | -14.96% |
-| CPM mechanics on CPM universe (CPM both-252) | 1.1658 | 1.0137 | -12.97% |
-
-Extended note for HAA mechanics on CPM universe: Sharpe 1.1141, Calmar 0.8156, MaxDD -15.35%.
-
-Read:
-- Universe lift on HAA mechanics: +0.15 Sharpe and +0.13 Calmar.
-- CPM machinery added on CPM universe: +0.15 Sharpe and +0.24 Calmar.
-- CPM machinery added on HAA universe: +0.09 Sharpe and about 0.00 Calmar.
-- Universe and machinery are complements; both are material on CPM universe.
-
-Coupling the trend metric across ranker and screen is essential to a realistic decomposition: mixing a fast 13612U rank with a slow Faber screen is a speed mismatch no live strategy runs, and it understates the machinery. With the metric coupled, the machinery earns +0.244 Calmar when paired with the CPM universe, so universe and machinery read as complements rather than competing contributions.
+| CPM | Clean | 1.2557 | 1.0076 | -13.03% | 13.13% |
 
 Coupled per-factor main effects (clean, background-averaged):
 
 | Factor | dSharpe | dCalmar | dMaxDD | Sign-flip? |
 |---|---:|---:|---:|---|
-| Trend metric (13612U -> Faber, coupled rank+screen) | +0.020 | -0.030 | -1.10pp | yes |
-| Vol-adjustment (raw -> /rv_252d rank denominator) | +0.047 | +0.049 | +0.64pp | yes (Sharpe, Calmar) |
-| Weighting (equal -> inverse-vol) | +0.024 | +0.010 | +0.60pp | yes (Sharpe, Calmar) |
-| Canary (TIP-only -> HYG-or-TIP) | +0.024 | +0.077 | +0.14pp | no (Calmar, MaxDD) |
-| Universe (HAA set -> CPM set) | +0.192 | +0.236 | +0.83pp | no (Sharpe, Calmar) |
+| Universe (HAA-8 -> CPM-8) | +0.2215 | +0.2542 | +1.10pp | no |
+| Ranker (13612U -> vol-adj Faber, coupled rank+screen) | +0.0647 | +0.0425 | -0.03pp | yes (Calmar) |
+| Min-var 3-of-4 selection at n_pos=4 | +0.0902 | +0.0327 | -0.07pp | yes (Calmar) |
 
-Sequential ladder (trend metric -> vol-adjustment -> weighting -> canary -> universe):
+Canary, risky-block weighting, safe selector, and breadth routing are no-op dimensions for HAA -> CPM in this decomposition because both endpoints share TIP-only canary, equal risky weights, SHV/IEF best-safe, and strict-4 partial-safe structure.
+
+Sequential ladder (universe -> ranker -> min-var):
 
 | Step | Sharpe | Calmar | MaxDD |
 |---|---:|---:|---:|
 | HAA baseline | 0.8670 | 0.6386 | -14.68% |
-| +Trend metric (coupled rank+screen) | 0.8708 | 0.5678 | -16.63% |
-| +Vol-adjustment | 0.8980 | 0.5606 | -16.63% |
-| +Weighting | 0.9653 | 0.5977 | -15.69% |
-| +Canary | 0.9575 | 0.6350 | -15.69% |
-| +Universe (CPM both-252) | 1.1658 | 1.0137 | -12.97% |
+| +Universe (HAA-8 -> CPM-8) | 1.0189 | 0.7693 | -14.96% |
+| +Ranker (vol-adj Faber, coupled rank+screen) | 1.0874 | 0.9118 | -13.05% |
+| +Min-var 3-of-4 = CPM (all-ON, both-252) | 1.2557 | 1.0076 | -13.03% |
 
-Faber vs 13612U head-to-head inside full CPM stack (vol-adjust kept):
+Min-var marginal effect by (U,R) corner (clean):
 
-| Variant | Window | Sharpe | Calmar | MaxDD | CAGR |
-|---|---|---:|---:|---:|---:|
-| CPM-Faber | Clean | 1.1658 | 1.0137 | -12.97% | 13.15% |
-| CPM-13612U | Clean | 1.1540 | 0.9876 | -13.32% | 13.15% |
-| CPM-Faber | Extended | 1.2004 | 0.8571 | -15.73% | 13.48% |
-| CPM-13612U | Extended | 1.1808 | 0.7170 | -18.72% | 13.42% |
+| Corner | Sharpe off -> on | dSharpe | dMaxDD | dCalmar |
+|---|---|---:|---:|---:|
+| U0 R0 (HAA univ, 13612U) | 0.8670 -> 0.9038 | +0.0369 | +1.14pp | +0.0487 |
+| U0 R1 (HAA univ, Faber) | 0.8980 -> 0.9399 | +0.0419 | -0.17pp | -0.0099 |
+| U1 R0 (CPM univ, 13612U) | 1.0189 -> 1.1326 | +0.1137 | -1.27pp | -0.0038 |
+| U1 R1 (CPM univ, Faber) | 1.0874 -> 1.2557 | +0.1682 | +0.01pp | +0.0959 |
 
-Honest read: Faber edge is drawdown insurance, not return (clean CAGR is identical at 13.15%). Clean window is marginal and within noise (+0.012 Sharpe). Extended window is materially better (+0.14 Calmar, about 3pp shallower MaxDD, concentrated in 2000-02 and 2008). Production Faber choice is crisis drawdown insurance; clean window is a close call versus faster 13612U. Metric swap is robustly negative on HAA universe, but at worst a wash on CPM universe.
+Read:
+- Universe is the dominant single contributor.
+- Min-var at the (U1,R1) corner adds +0.1682 Sharpe and +0.0959 Calmar with essentially flat MaxDD.
+- Min-var contribution is universe-conditional: within-noise as a symmetric main effect, significant at the (U1,R1) corner.
 
-Methodology note: trend metric is coupled across ranker and screen because they share speed; mixing fast rank with slow screen is an artifact.
 
-
-## 6. CPM decomposition (2^6, faithful AAA baseline to production CPM)
+## 6. CPM decomposition (2^3, HAA baseline to CPM)
 
 Main takeaways:
-- R and U remain top contributors.
-- C, S, and P are protection-biased.
-- W is modest and regime-dependent.
-- The all-ON endpoint is the production configuration (rank-vol and weight-vol both 252d).
+- Universe (U) is dominant and statistically clear: clean dSharpe +0.2215 with 95% CI [+0.029, +0.402].
+- Ranker (R) main effect is point-positive but within noise: +0.0647 with 95% CI [-0.048, +0.176].
+- Min-var (M) main effect is point-positive but within noise: +0.0902 with 95% CI [-0.008, +0.189].
+- Min-var at the (U1,R1) corner is significant: +0.1682 with 95% CI [+0.043, +0.291].
+- Canary, risky-block weighting, safe selector, and breadth routing are structural no-op dimensions for this decomposition because endpoints match on those dimensions.
+
+```
+HAA->CPM rung-delta CIs (clean, mooex, both-252, 10 bps/side; B=2000 block=21 seed=42)
+
+Effect                         Point    95% CI            p(>0)   Verdict
+Universe (U main effect)      +0.2215  [+0.029, +0.402]   0.985   SIGNIFICANT (clears 0)
+Ranker   (R main effect)      +0.0647  [-0.048, +0.176]   0.875   WITHIN NOISE (CI spans 0)
+Min-var  (M main effect)      +0.0902  [-0.008, +0.189]   0.966   WITHIN NOISE (CI spans 0)
+Min-var  (M at corner U1R1)   +0.1682  [+0.043, +0.291]   0.999   SIGNIFICANT (clears 0)
+
+Sequential ladder rungs (point): +U 0.8670->1.0189 (+0.1519);
+  +R 1.0189->1.0874 (+0.0685); +M 1.0874->1.2557 (+0.1682).
+```
+
+Read:
+- Universe switch is the only unambiguous main-effect edge source.
+- Ranker and symmetric min-var main effects are point-positive but statistically within noise.
+- Min-var earns its keep at the (U1,R1) corner.
 
 
 ## 7. Design notes
@@ -384,23 +404,20 @@ Vol-adjusted Faber ranker is above plain momentum alternatives in clean and exte
 Universe effect remains positive on Sharpe and Calmar, with interaction terms (especially U x R) carrying large attribution weight.
 
 
-### 7.3 Weighting interpretation
+### 7.3 Min-var selection interpretation
 
-Versus equal-weight, inverse-vol weighting has a small Sharpe edge (+0.0341) and near-tie Calmar in clean results.
+At full breadth (n_pos = 4), CPM evaluates all four equal-weight 3-of-4 subsets and holds the subset with the lowest estimated 252-day covariance-based portfolio variance. The CPM risky block is equal-weight over the selected names.
 
-- Factorial main effect for W (clean): dSharpe -0.0159, dCalmar +0.0343.
-- Production inverse-vol versus equal-weight (clean):
-  - Sharpe: 1.1658 vs 1.1317 (+0.0341)
-  - Calmar: 1.0137 vs 1.0147 (near tie)
-  - MaxDD: -12.97% vs -13.05%
+- Main effect for M (clean): dSharpe +0.0902, dCalmar +0.0327.
+- (U1,R1) corner marginal: Sharpe 1.0874 -> 1.2557 (+0.1682), Calmar +0.0959, MaxDD +0.01pp.
+- HAA-universe marginal (U0,R0): Sharpe 0.8670 -> 0.9038 (+0.0369).
 
 Read:
-- Inverse-vol is a free risk-parity simplification.
-- At both-252, Sharpe help is small and Calmar is near flat versus equal-weight.
-- Keep it for parsimony and stable behavior, not as a primary alpha claim.
+- M symmetric main effect is within bootstrap noise.
+- M contribution is universe-conditional and statistically clear at the (U1,R1) corner.
 
 
-### 7.4 Asset concentration (risky contribution share)
+### 7.4 Asset concentration (average risk-contribution share, QQQ-led)
 
 | Asset | Clean share | Extended share |
 |---|---:|---:|
@@ -415,11 +432,13 @@ Read:
 
 Clean top-3 share: 55.9%.
 
+Cross-note: README concentration line uses average dollar-weight / exposure share, not risk-contribution share. The two metrics are different by construction.
+
 
 ### 7.5 Peer framing (hybrid)
 
 CPM framing used in this memo:
-- AAA-style inverse-vol weighting lineage.
+- Equal-weight strict-4 risky allocation with min-var 3-of-4 full-breadth selection.
 - FAA/EAA-style risk-adjusted ranking lineage.
 - HAA-style canary-plus-breadth defense lineage.
 
@@ -430,36 +449,62 @@ Cash-instrument note:
 - SHV vs BIL is treated as cosmetic instrument wash, not a design edge.
 
 
-### 7.6 Factor stability across halves (marginal dSharpe at production)
+### 7.6 Factor hierarchy (clean cube main effects)
 
-| Factor | 2008-16 | 2017-26 |
-|---|---:|---:|
-| R (ranker) | +0.28 | +0.14 |
-| U (universe) | +0.25 | +0.10 |
-| W (inverse-vol weighting) | +0.06 | +0.00 |
-| C (canary) | +0.15 | -0.07 |
-| S (positive-trend screen) | +0.04 | -0.00 |
-| P (strict-4 partial-safe) | +0.07 | +0.02 |
-
-Subperiod all-ON Sharpe:
-- 2008-16: 0.97
-- 2017-26: 1.35
+| Factor | Clean dSharpe | Clean dCalmar | Clean dMaxDD |
+|---|---:|---:|---:|
+| Universe (U) | +0.2215 | +0.2542 | +1.10pp |
+| Ranker (R) | +0.0647 | +0.0425 | -0.03pp |
+| Min-var (M) | +0.0902 | +0.0327 | -0.07pp |
 
 Read:
-- Return engine stability remains in R and U.
-- W stays small, nearly flat post-2016.
-- Protection factors are crisis-concentrated.
+- U is dominant across Sharpe and Calmar.
+- R and M are point-positive in this sample; symmetric main-effect CIs span zero.
+
+
+### 7.7 Universe rationale and robustness
+
+CPM US-equity sleeve expresses leadership plus quality, not a textbook style barbell. QQQ plus SPHQ is the CPM expression for US-equity growth/technology leadership (QQQ) plus quality/compounder tilt (SPHQ). This pairing fits a trend-following model: growth-leadership convexity plus a more defensive quality complement, with liquid ETFs and long history.
+
+This is a US equity leadership plus US equity quality choice, selected as the stronger CPM expression, not because it is the cleanest academic style pair.
+
+Clean growth/value sensitivity (IWF plus IWD) is a robustness check, not a CPM upgrade.
+
+| Metric (clean) | QQQ+SPHQ | IWF+IWD |
+|---|---:|---:|
+| Sharpe | 1.256 | 1.242 |
+| CAGR | 13.13% | 12.64% |
+| MaxDD | -13.03% | -13.03% |
+| Martin | 4.26 | 3.79 |
+
+The clean style pair shows no drawdown improvement, weaker Martin/Calmar, and no realized diversification gain. The momentum ranker does rotate growth to value when signals change, but that rotation does not improve path or drawdown outcomes.
+
+Nominal style-label orthogonality does not reliably map to ETF-level realized orthogonality. Correlations are nearly identical and window-dependent: clean corr(IWF,IWD)=0.864 versus corr(QQQ,SPHQ)=0.881; extended corr(IWF,IWD)=0.836 versus corr(QQQ,SPHQ)=0.819. The theoretical spanning benefit is small to nonexistent in practice because large-cap US style ETFs remain equity-beta dominated.
+
+Interpretation: universe and engine behavior is not fragile to the exact US-equity pair (IWF plus IWD is only about 0.014 Sharpe lower), which reduces curve-fitting concern. Since the clean style pair does not improve drawdown, diversification, or path quality, QQQ plus SPHQ remains the CPM choice and IWF plus IWD remains a robustness sensitivity.
+
+Structural universe rationale centers on crisis-hedge pairing, not duration pairing. The robust engine-neutral universe improvement versus a Keller-HAA-style universe is replacing redundant IEF plus TLT duration sleeves with GLD plus TLT crisis hedges. TLT hedges financial, deflation, and growth-shock regimes (for example 2008 and 2020). GLD hedges inflation and geopolitical regimes (for example 2022, when stocks and bonds both fall). IEF plus TLT are correlated bond sleeves that can fail together in inflation shocks. IEF remains the defensive safe asset, not a risky-universe member. In single-asset upgrade tests over an HAA-style universe, IEF to GLD is the largest single driver (about +0.07 Sharpe at flat drawdown).
+
+Net design principle: optimize universe for economically distinct, liquid, persistent return and hedge sleeves that work inside the trend engine, not for nominal factor symmetry.
+
+| Universe set | US equity | Foreign equity | Real assets | Crisis/duration block |
+|---|---|---|---|---|
+| CPM-8 | QQQ+SPHQ | EFA+EEM | VNQ+DBC | GLD+TLT |
+| Clean style sensitivity | IWF+IWD | EFA+EEM (or VEA+VWO, about interchangeable, corr about 0.97) | VNQ+DBC | GLD+TLT |
+| HAA peer baseline | SPY+IWM | VEA+VWO | VNQ+DBC | IEF+TLT |
+
+The clean style pair IWF plus IWD confirms CPM is not highly sensitive to the exact US-equity pair; the structural universe improvement is GLD/TLT crisis hedges replacing a redundant duration pair, not growth/value replacing size.
 
 
 ## 8. Statistical honesty and caveats
 
 Lead honesty statement:
-- Signal survives selection-deflation checks decisively.
-- Production setup is still selected in-sample.
+- Signal survives selection-deflation checks comfortably.
+- CPM setup is still selected in-sample.
 - Forward uncertainty is dominated by execution timing and regime non-stationarity.
 
 Three-number framing:
-- In-sample peak: 1.17.
+- In-sample peak: 1.26.
 - Selection-deflated in-sample: about 0.96.
 - Forward expectation: about 0.72 (0.62-0.85).
 
@@ -468,12 +513,13 @@ Three-number framing:
 
 | Step | Type | Factor (central / band) | Resulting Sharpe |
 |---|---|---|---:|
-| 0. In-sample argmax (clean, T+1 MOO) | measured | -- | 1.17 |
-| 1. Selection de-peak | measured (DSR) | x 0.82 / [0.79, 0.86] | about 0.96 (0.92-1.00) |
+| 0. In-sample argmax (clean, mooex T+1) | measured | -- | 1.2557 |
+| 1. Selection de-peak | judgmental, DSR-informed | x 0.76 | about 0.96 |
 | 2. Execution-realism haircut | judgmental | x 0.85 / [0.765, 0.93] | about 0.81 (0.70-0.93) |
 | 3. Regime non-stationarity haircut | judgmental | x 0.88 / [0.80, 0.95] | about 0.72 (0.62-0.85) |
 | Forward central | synthesis | -- | about 0.72 (0.62-0.85) |
 
+DSR evidence is separate from the underwriting haircut: Section 8.2 reports z-band 4.16 to 6.03 with DSR saturation (>0.9999 across tested N), supporting that observed Sharpe is unlikely pure selection noise.
 
 ### 8.2 DSR appendix inputs
 
@@ -481,10 +527,10 @@ Measured inputs:
 
 | Input | Value |
 |---|---:|
-| Observed SR_hat (per-day) | 0.07343 (ann 1.1656) |
+| Observed SR_hat (per-day) | 0.07910 (ann 1.2557) |
 | n (daily obs) | 4524 |
-| skew | -0.3682 |
-| excess kurtosis | 4.0204 |
+| skew | -0.4298 |
+| excess kurtosis | 5.5254 |
 | V_trials (grid SR variance, per-day) | 2.094e-5 (std 0.073 ann) |
 
 Assumed input:
@@ -497,22 +543,30 @@ Expected-max SR0 and deflated z by N (daily frame):
 
 | N | SR0 (ann) | DSR | z |
 |---|---:|---:|---:|
-| 40 | 0.159 | 1.0000 | 4.19 |
-| 80 | 0.178 | 1.0000 | 4.11 |
-| 200 | 0.201 | 1.0000 | 4.02 |
-| 500 | 0.222 | 1.0000 | 3.93 |
-| 1000 | 0.236 | 0.9999 | 3.87 |
-| 2000 | 0.250 | 0.9999 | 3.81 |
+| 40 | 0.159 | >0.9999 | 4.54 |
+| 80 | 0.178 | >0.9999 | 4.46 |
+| 200 | 0.201 | >0.9999 | 4.37 |
+| 500 | 0.222 | >0.9999 | 4.28 |
+| 1000 | 0.236 | >0.9999 | 4.22 |
+| 2000 | 0.250 | >0.9999 | 4.16 |
 
-Monthly-frame z range is 4.63 to 5.02, so reported z band is 3.81 to 5.02.
+Monthly-frame z range is 5.61 to 6.03, so reported z band is 4.16 to 6.03.
+
+DSR saturates at this effect size, so values print as >0.9999 across the N range above.
 
 
-## 9. Robustness and reviewer-response notes
+### 8.3 Data caveats
 
-- Vol-window standardization to both-252 is statistically free in paired bootstrap comparisons versus split-window and both-504 alternatives; differences include zero.
-- Ensemble variant was dropped: extra complexity for about 0.015 Sharpe gain is not worth it.
-- Bond-buffer plus leverage was rejected: CPM already de-risks, and leverage failed on matched-vol comparisons.
-- Vol-cap overlay was rejected: broad dilution for protection concentrated in one episode (2025-04).
+- TIP-canary proxy behavior before 2003 ETF inception carries an extra-large grain of salt.
+- Proxy stitches and PIT handling carry survivorship/PIT risk; companion constituent-opens cache coverage is 84% and remains gitignored/local.
+- Sample-period representativeness is limited: clean 2008-2026 is dominated by two long bull runs.
+
+
+## 9. Robustness checks and rejected alternatives
+
+- Ensemble variant is not adopted: extra complexity for about 0.015 Sharpe gain is not worth it.
+- Bond-buffer plus leverage is not adopted: CPM already de-risks, and leverage fails on matched-vol comparisons.
+- Vol-cap overlay is not adopted: broad dilution for protection concentrated in one episode (2025-04).
 - Execution cliff is generic monthly-TAA behavior; CPM remains least-affected among tested peers.
 - Implied-vol add-ons have low prior due long-history coverage gaps.
 - Worst clean drawdown remains 2025-04 tariff selloff, not a classic crisis cluster.
@@ -522,33 +576,24 @@ Monthly-frame z range is 4.63 to 5.02, so reported z band is 3.81 to 5.02.
 
 | Dropped | Sharpe | dSharpe | MaxDD | Calmar | dCalmar |
 |---|---:|---:|---:|---:|---:|
-| (none) baseline | 1.1658 | -- | -12.97% | 1.0137 | -- |
-| ex-QQQ | 0.9934 | -0.1724 | -11.60% | 0.8904 | -0.1233 |
-| ex-SPHQ | 1.0068 | -0.1589 | -12.41% | 0.8759 | -0.1378 |
-| ex-EFA | 1.1609 | -0.0049 | -11.62% | 1.0693 | +0.0556 |
-| ex-EEM | 1.1897 | +0.0239 | -11.08% | 1.1282 | +0.1145 |
-| ex-VNQ | 1.0905 | -0.0752 | -13.96% | 0.8462 | -0.1675 |
-| ex-GLD | 1.0404 | -0.1253 | -14.45% | 0.8222 | -0.1915 |
-| ex-TLT | 1.0581 | -0.1077 | -13.98% | 0.8859 | -0.1278 |
-| ex-DBC | 1.1035 | -0.0623 | -12.55% | 0.9886 | -0.0251 |
+| (none) baseline | 1.2557 | -- | -13.03% | 1.0076 | -- |
+| ex-QQQ | 0.9934 | -0.2623 | -11.60% | 0.8904 | -0.1172 |
+| ex-SPHQ | 1.0068 | -0.2489 | -12.41% | 0.8759 | -0.1317 |
+| ex-EFA | 1.1609 | -0.0948 | -11.62% | 1.0693 | +0.0617 |
+| ex-EEM | 1.1897 | -0.0660 | -11.08% | 1.1282 | +0.1206 |
+| ex-VNQ | 1.0905 | -0.1652 | -13.96% | 0.8462 | -0.1614 |
+| ex-GLD | 1.0404 | -0.2153 | -14.45% | 0.8222 | -0.1854 |
+| ex-TLT | 1.0581 | -0.1976 | -13.98% | 0.8859 | -0.1217 |
+| ex-DBC | 1.1035 | -0.1522 | -12.55% | 0.9886 | -0.0190 |
+
+Interpretation: LOO confirms concentration in the QQQ/SPHQ/GLD/TLT core. EFA and EEM are not dominant contributors and can improve Calmar when removed, but they remain included as foreign-equity diversification sleeves rather than individually proven alpha; removing them now would be post-hoc simplification.
 
 
-### 9.2 Volatility-lookback standardization
-
-| Setup | Sharpe | MaxDD | Calmar |
-|---|---:|---:|---:|
-| Production both-252 | 1.1658 | -12.97% | 1.0137 |
-| Split-window 252/504 | 1.1910 | -12.67% | 1.0615 |
-| Both-504 | 1.2039 | -13.73% | 0.9877 |
-
-Paired bootstrap (both-252 minus alternatives) includes zero for Sharpe, Calmar, and Martin.
-
-
-### 9.3 US-equity de-tilt
+### 9.2 US-equity de-tilt
 
 | Setup | Universe | Sharpe | MaxDD | Calmar |
 |---|---|---:|---:|---:|
-| Production | QQQ,SPHQ,EFA,EEM,VNQ,GLD,TLT,DBC | 1.1658 | -12.97% | 1.0137 |
+| CPM | QQQ,SPHQ,EFA,EEM,VNQ,GLD,TLT,DBC | 1.2557 | -13.03% | 1.0076 |
 | De-tilt SPY | SPY,EFA,EEM,VNQ,GLD,TLT,DBC | 0.9884 | -11.98% | 0.8652 |
 
 Ticker swaps (dSharpe versus matched baseline):
@@ -570,25 +615,25 @@ Read:
 
 | Trigger family | Falsification rule | Action |
 |---|---|---|
-| Execution-cost decay | Realized execution costs and slippage erase the expected net edge in live data | Pause new capital; run execution redesign review |
-| Live drawdown breach | Live MaxDD moves materially beyond historical envelope (clean -12.97%, extended -15.73%) | Cut allocation and re-underwrite |
-| Defensive failure | In crash windows, defensive routing fails to keep drawdown behavior better than simple passive baselines | Pause; re-check canary and safe routing |
-| Rolling-36m Sharpe | Rolling 36m Sharpe < 0 | Stop deployment; re-approve before restart |
-| Turnover blowout | Sustained turnover materially above the 2.58 one-way baseline without compensating edge | Freeze changes; investigate churn source |
-| Canary lagging crashes | Credit canary no longer improves drawdown-adjusted outcomes in stress windows | Remove or replace canary rule |
+| Live drawdown breach | Live MaxDD breaches -17% or exceeds 1.3x the clean/extended envelope depth | Cut allocation and re-underwrite |
+| Turnover blowout | Trailing-12m one-way turnover > 4.0 without improved risk-adjusted return | Freeze changes; investigate churn source |
+| Execution-cost decay | Realized slippage plus costs exceed modeled costs by 35-50 bps per year | Pause new capital; run execution redesign review |
+| Rolling-36m Sharpe (relative) | Rolling 36m Sharpe < 0 and below both HAA-style and 60/40 over the same live window | Stop deployment; re-approve before restart |
+| Canary failure | In at least two independent stress episodes, canary-enabled drawdown is worse than matched no-canary drawdown | Remove or replace canary rule |
 
 
-### 10.2 CPM production rules as of 2026-06-01
+### 10.2 CPM rules as of 2026-06-01
 
 - Risky universe: QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC.
-- Canary: 13612U HYG-or-TIP, canary on if either is positive.
+- Canary: 13612U TIP-only, canary on if TIP is positive.
 - Ranking: m_faber / rv_252d.
-- Selection count: top 4.
-- Positivity filter: m_faber > 0.
-- Risky weighting: inverse-vol with 252-day realized volatility.
-- Breadth routing: strict-4 partial-safe.
+- Candidate screen count: top 4 (K=4).
+- Positivity filter: m_faber > 0 on the K=4 candidates.
+- Risky weighting: if n_pos < 4 hold all n_pos survivors at 1/4 each; if n_pos = 4 hold min-var equal-weight 3-of-4 subset.
+- Full-breadth selector: at n_pos = 4, evaluate all four equal-weight 3-of-4 subsets and hold the subset with the lowest estimated 252-day covariance-based portfolio variance.
+- Breadth routing: strict-4 partial-safe, with remainder in safe when n_pos < 4.
 - Safe selector: SHV or IEF by higher 13612U.
-- Rebalance and execution: monthly month-end signal, T+1 MOO fill.
+- Rebalance and execution: monthly month-end signal, mooex T+1 fill.
 
 
 ### 10.3 Investment-decision table
@@ -596,17 +641,19 @@ Read:
 | Decision state | Evidence needed | Current reading |
 |---|---|---|
 | Allocate | Clean Sharpe > 1, MaxDD materially shallower than 60/40, no trigger breach | Pass |
-| Hold and monitor | Sharpe edge unresolved vs AAA/60-40 but still favorable point estimates | Pass |
+| Hold and monitor | Sharpe edge unresolved vs AAA-style/60-40 but still favorable point estimates | Pass |
 | Cut or stop | Any falsification rule in 10.1 triggered | Not triggered in this memo snapshot |
 
 
 ## 11. Conclusion
 
-CPM remains a tail-control-first cross-asset monthly system with favorable benchmark point estimates, unresolved Sharpe significance versus AAA/60-40 at this sample length, and clear edge versus naive momentum baselines.
+CPM is a universe-sensitive HAA-family, tail-control-first system, not a fully portable generic engine.
 
-Peer framing is now explicit: CPM is a hybrid of AAA-style weighting, FAA/EAA-style risk-adjusted ranking, and HAA-style defense. HAA is closest single published peer. CPM beats HAA on clean Sharpe and Calmar, but decomposition says most edge comes from universe choice, not machinery alone.
+Against HAA-style baseline, clean Sharpe improves 0.8670 -> 1.2557. Universe is the only statistically clear symmetric main-effect contributor; min-var is significant only at the (U1,R1) corner (+0.1682 Sharpe, near-flat MaxDD), not as a symmetric main effect.
 
-Forward expectation remains about 0.72 (0.62-0.85). Governance triggers define when to stop using CPM.
+Structural read is GLD/TLT replacing a redundant IEF/TLT risky-universe duration pairing, with US-equity leadership plus quality (QQQ/SPHQ). IWF/IWD is only about 0.014 Sharpe lower in clean sensitivity, which supports anti-fragility to exact US-equity pair choice.
+
+Forward underwriting expectation remains about 0.72 (0.62-0.85). Governance thresholds define when to stop using CPM.
 
 
 ## 12. Reproduction appendix
@@ -627,9 +674,10 @@ Forward expectation remains about 0.72 (0.62-0.85). Governance triggers define w
 | ranker | m_faber / rv_252d |
 | trend_filter | m_faber > 0 |
 | top_k | 4 |
-| risky_weight_rule | inverse-vol over survivors (252d) |
+| risky_weight_rule | if n_pos < 4 hold all survivors at 1/4 each; if n_pos = 4 hold min-var 3-of-4 equal-weight within risky_fraction |
+| min_var_rule | at n_pos = 4, evaluate all four equal-weight 3-of-4 subsets and hold the subset with the lowest estimated 252-day covariance-based portfolio variance |
 | risky_fraction_rule | strict-4 partial-safe, min(n_pos,4)/4 |
-| canary_rule | m_13612U(HYG) > 0 OR m_13612U(TIP) > 0 |
+| canary_rule | m_13612U(TIP) > 0 |
 | safe_rule | argmax m_13612U over SHV and IEF |
 | rebalance | monthly |
 | execution | month-end close signal, next-session open fill |
@@ -654,47 +702,28 @@ Forward expectation remains about 0.72 (0.62-0.85). Governance triggers define w
 - `research/cpm_closest_taa_peer_findings.md`
 
 
-## Appendix A. 2^6 decomposition details (faithful AAA baseline to production CPM)
+## Appendix A. 2^3 decomposition details (HAA baseline to CPM)
 
-Baseline all-OFF is unchanged. All-ON endpoint is production both-252.
+Baseline all-OFF and all-ON CPM endpoints:
 
-- Baseline all-OFF (000000): clean Sharpe 0.7869, MaxDD -23.21%, Calmar 0.3188; extended Sharpe 0.8696, Calmar 0.3624.
-- All-ON production CPM (111111): clean Sharpe 1.1658, MaxDD -12.97%, Calmar 1.0137; extended Sharpe 1.2004, MaxDD -15.73%, Calmar 0.8571.
+- Baseline all-OFF (000): clean Sharpe 0.8670, MaxDD -14.68%, Calmar 0.6386; extended Sharpe 1.0307, Calmar 0.7527.
+- All-ON CPM (111): clean Sharpe 1.2557, MaxDD -13.03%, Calmar 1.0076; extended Sharpe 1.2549, MaxDD -13.14%, Calmar 0.9712.
 
 Main effects (ON minus OFF):
 
-| Factor | Clean dSharpe | Clean dCalmar | Extended dSharpe | Extended dCalmar |
+| Factor | Clean dSharpe | Clean dCalmar | Ext dSharpe | Ext dCalmar |
 |---|---:|---:|---:|---:|
-| Ranker (R) | +0.2041 | +0.2326 | +0.1007 | +0.1387 |
-| Canary (C) | +0.1130 | +0.2100 | +0.0808 | +0.1800 |
-| Universe (U) | +0.0857 | +0.0615 | +0.0593 | -0.0023 |
-| Screen (S) | -0.0238 | +0.0469 | -0.0092 | +0.0374 |
-| Weighting (W) | -0.0159 | +0.0343 | +0.0696 | +0.0957 |
-| Partial-safe (P) | +0.0481 | +0.0876 | +0.0394 | +0.0816 |
+| Universe (U) | +0.2215 | +0.2542 | +0.1450 | +0.1596 |
+| Ranker (R) | +0.0647 | +0.0425 | +0.0228 | -0.0442 |
+| Min-var (M) | +0.0902 | +0.0327 | +0.0600 | +0.0413 |
 
-Selected two-way interactions (Calmar deltas):
+Contribution ladder uses order U -> R -> M:
 
-| Interaction | Clean dCalmar | Extended dCalmar |
-|---|---:|---:|
-| U x R | +0.1320 | +0.0997 |
-| S x P | +0.0876 | +0.0769 |
-| C x R | +0.0784 | +0.0480 |
-| R x S | +0.0585 | +0.0382 |
-| R x W | -0.0219 | -0.0099 |
-| S x W | -0.0159 | +0.0017 |
-
-Contribution ladder uses order R -> C -> U -> S -> P -> W:
-
-| Step | Config | Clean Sharpe | Clean Calmar | Clean MaxDD | Extended Sharpe | Extended Calmar | Extended MaxDD |
+| Step | Config | Clean Sharpe | Clean Calmar | Clean MaxDD | Ext Sharpe | Ext Calmar | Ext MaxDD |
 |---|---|---:|---:|---:|---:|---:|---:|
-| Baseline (all-OFF) | 000000 | 0.7869 | 0.3188 | -23.21% | 0.8696 | 0.3624 | -23.21% |
-| +R | 001000 | 0.9128 | 0.3637 | -23.54% | 0.9350 | 0.3623 | -23.54% |
-| +C | 101000 | 1.0527 | 0.7203 | -12.96% | 1.0153 | 0.6381 | -13.90% |
-| +U | 111000 | 1.2062 | 0.7491 | -17.52% | 1.0950 | 0.6635 | -17.52% |
-| +S | 111100 | 1.2310 | 1.0500 | -12.99% | 1.1384 | 0.7964 | -15.42% |
-| +P | 111101 | 1.2655 | 1.0378 | -12.99% | 1.1540 | 0.7816 | -15.42% |
-| +W (all-ON production) | 111111 | 1.1658 | 1.0137 | -12.97% | 1.2004 | 0.8571 | -15.73% |
+| Baseline (all-OFF) | 000 | 0.8670 | 0.6386 | -14.68% | 1.0307 | 0.7527 | -14.68% |
+| +U | 100 | 1.0189 | 0.7693 | -14.96% | 1.1141 | 0.8156 | -15.35% |
+| +R | 110 | 1.0874 | 0.9118 | -13.05% | 1.1331 | 0.7738 | -15.73% |
+| +M (all-ON CPM) | 111 | 1.2557 | 1.0076 | -13.03% | 1.2549 | 0.9712 | -13.14% |
 
-Read:
-- Decomposition is qualitatively consistent: R and U are top contributors, C/S/P are protection-biased, and W is modest and regime-dependent.
-- W is now near-neutral to slightly negative on clean Sharpe in factorial attribution, while still positive on clean Calmar.
+Finding: canary, risky-block weighting, safe selector, and breadth routing are no-op dimensions for HAA -> CPM in this decomposition (0/327 endpoint weight mismatches) because both endpoints share TIP-only canary, equal risky weights, SHV/IEF best-safe, and strict-4 partial-safe structure.

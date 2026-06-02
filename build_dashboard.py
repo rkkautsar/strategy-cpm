@@ -37,12 +37,18 @@ from cpm_live import (
     CANARY_ASSETS, DEFAULT_CASH,
     CORR_LOOKBACK_DAYS, COST_BPS_PER_SIDE,
     TOP_K_CANDIDATES,
-    load_panel, run_cpm_backtest,
+    load_panel,
     perf_metrics, compute_target_weights, sig_13612U,
 )
 from bull_spy_live import (
-    run_bull_spy_backtest, compute_bull_spy_weights,
+    compute_bull_spy_weights,
     BULL_TICKER, CASH_TICKER,
+    COST_BPS_PER_SIDE as BULL_COST_BPS_PER_SIDE,
+)
+from ndx_sleeve_live import (
+    compute_ndx_weights,
+    run_ndx_backtest,
+    COST_BPS_PER_SIDE as NDX_COST_BPS_PER_SIDE,
 )
 
 # Production blend: 60% CPM + 20% BULL-SPY + 20% NDX
@@ -53,8 +59,11 @@ BULL_BLEND = BULL_W  # alias used by chart helpers below
 
 BOOTSTRAP_SINGLE_B = 2000
 BOOTSTRAP_PAIRED_B = 5000
+EXT_START = pd.Timestamp("1999-03-10")
+MOOEX_INTRADAY_SANITY_MAX = 0.50
+NDX_OPENS_CACHE_PATH = ROOT / "data" / "ndx_constituents" / "opens.parquet"
 FORWARD_SHARPE_GUIDANCE = (
-    "The realized backtest metrics are Sharpe 1.4155, CAGR 16.51%, MaxDD -12.26%, and Calmar 1.3467. "
+    "The realized backtest metrics are Sharpe 1.4424, CAGR 16.33%, MaxDD -10.49%, and Calmar 1.5566. "
     "Retail-data reproductions may be modestly lower due to implementation differences. For capital planning, "
     "use materially lower forward assumptions, such as 0.7-1.0 Sharpe, and treat 1.3+ as an upside case until "
     "live/paper trading confirms signal fidelity."
@@ -561,6 +570,39 @@ _BULL_RECORDS_CACHE: dict = {}
 _NDX_RECORDS_CACHE: dict = {}
 
 
+def _load_macro_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[object, pd.DataFrame, pd.DataFrame]:
+    """Load macro-asset overnight/intraday legs used by mooex attribution."""
+    try:
+        from research import exec_lag_moo_validation_2026_05_30 as moo_engine
+    except ImportError:  # pragma: no cover - script fallback
+        import exec_lag_moo_validation_2026_05_30 as moo_engine
+    open_df, close_yf = moo_engine.load_open_close()
+    intraday = (close_yf / open_df - 1.0).reindex(panel_index)
+    overnight = (open_df / close_yf.shift(1) - 1.0).reindex(panel_index)
+    return moo_engine, intraday, overnight
+
+
+def _load_ndx_constituent_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load NDX constituent overnight/intraday legs from cached adjusted opens."""
+    if not NDX_OPENS_CACHE_PATH.exists():
+        raise FileNotFoundError(
+            f"NDX constituent opens cache missing at {NDX_OPENS_CACHE_PATH}; cannot render NDX mooex."
+        )
+    cache = pd.read_parquet(NDX_OPENS_CACHE_PATH)
+    if not isinstance(cache.columns, pd.MultiIndex) or {"Open", "Close"} - set(cache.columns.get_level_values(0)):
+        raise ValueError(
+            f"Unexpected NDX opens cache schema at {NDX_OPENS_CACHE_PATH}; expected MultiIndex with Open/Close."
+        )
+    c_open = cache["Open"]
+    c_close = cache["Close"]
+    intraday = (c_close / c_open - 1.0)
+    overnight = (c_open / c_close.shift(1) - 1.0)
+    bad = intraday.abs() > MOOEX_INTRADAY_SANITY_MAX
+    intraday = intraday.mask(bad).reindex(panel_index)
+    overnight = overnight.mask(bad).reindex(panel_index)
+    return intraday, overnight
+
+
 def bull_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
                           end: pd.Timestamp | None = None) -> list[dict]:
     """BULL sleeve weights at each monthly signal date. Memoized.
@@ -634,17 +676,96 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                                                 (only populated when include_records=True;
                                                 EXT 30y window skips these for speed)
     """
-    cpm, _ = run_cpm_backtest(panel, start, end)
-    bull_raw = run_bull_spy_backtest(panel, start, end)
+    run_start = max(EXT_START, panel.index.min())
+    moo_engine, macro_intraday, macro_overnight = _load_macro_mooex_legs(panel.index)
+
+    # CPM sleeve (canonical mooex T+1 exact).
+    cpm_cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
+    cpm_close = panel[cpm_cols]
+    cpm_daily = cpm_close.ffill().pct_change()
+    cpm_wf = lambda sd: compute_target_weights(cpm_close, sd)[0]
+    cpm_full, cpm_fb = moo_engine._segment_returns_conv(
+        cpm_close,
+        cpm_daily,
+        cpm_wf,
+        run_start,
+        end,
+        "mooex",
+        COST_BPS_PER_SIDE,
+        macro_intraday,
+        macro_overnight,
+    )
+    # BULL sleeve (production logic, mooex execution attribution).
+    bull_cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(SAFE_POOL) + ["HYG", "TIP"]) & set(panel.columns))
+    bull_close = panel[bull_cols]
+    bull_daily = panel.ffill().pct_change()
+    bull_wf = lambda sd: compute_bull_spy_weights(panel, sd, panel[BULL_TICKER])[0]
+    bull_raw_full, bull_fb = moo_engine._segment_returns_conv(
+        bull_close,
+        bull_daily,
+        bull_wf,
+        run_start,
+        end,
+        "mooex",
+        BULL_COST_BPS_PER_SIDE,
+        macro_intraday,
+        macro_overnight,
+    )
+    # NDX sleeve (production engine plus mooex delta overlay with constituent opens).
     if ndx_panel is not None:
-        from ndx_sleeve_live import run_ndx_backtest
-        ndx_raw, _ = run_ndx_backtest(panel, ndx_panel, start, end)
+        ndx_cc_full, _ = run_ndx_backtest(panel, ndx_panel, run_start, end)
+        full_panel = panel.join(ndx_panel, how="outer", rsuffix="_dup")
+        full_panel = full_panel.loc[:, ~full_panel.columns.str.endswith("_dup")]
+        full_panel = full_panel.loc[full_panel.index <= end]
+        ndx_daily = full_panel.ffill().pct_change()
+
+        ndx_intraday, ndx_overnight = _load_ndx_constituent_mooex_legs(full_panel.index)
+        intraday_full = macro_intraday.reindex(full_panel.index)
+        overnight_full = macro_overnight.reindex(full_panel.index)
+        add_cols = [c for c in ndx_intraday.columns if c not in intraday_full.columns]
+        if add_cols:
+            intraday_full = intraday_full.join(ndx_intraday[add_cols], how="left")
+            overnight_full = overnight_full.join(ndx_overnight[add_cols], how="left")
+
+        ndx_wf = lambda sd: compute_ndx_weights(panel, ndx_panel, sd)[0]
+        ndx_moc_full, _ = moo_engine._segment_returns_conv(
+            full_panel,
+            ndx_daily,
+            ndx_wf,
+            run_start,
+            end,
+            "moc",
+            NDX_COST_BPS_PER_SIDE,
+            intraday_full,
+            overnight_full,
+        )
+        ndx_mooex_full, ndx_fb = moo_engine._segment_returns_conv(
+            full_panel,
+            ndx_daily,
+            ndx_wf,
+            run_start,
+            end,
+            "mooex",
+            NDX_COST_BPS_PER_SIDE,
+            intraday_full,
+            overnight_full,
+        )
+        ndx_delta = (ndx_mooex_full - ndx_moc_full).reindex(ndx_cc_full.index).fillna(0.0)
+        ndx_raw_full = ndx_cc_full + ndx_delta
     else:
-        ndx_raw = pd.Series(0.0, index=bull_raw.index)
+        bull_idx = bull_raw_full.index
+        ndx_raw_full = pd.Series(0.0, index=bull_idx)
+        ndx_fb = (0, 0)
+
+    cpm = cpm_full.loc[(cpm_full.index >= start) & (cpm_full.index <= end)]
+    bull_raw = bull_raw_full.loc[(bull_raw_full.index >= start) & (bull_raw_full.index <= end)]
+    ndx_raw = ndx_raw_full.loc[(ndx_raw_full.index >= start) & (ndx_raw_full.index <= end)]
+
     common = cpm.index.intersection(bull_raw.index).intersection(ndx_raw.index)
     cpm = cpm.reindex(common)
     bull_raw = bull_raw.reindex(common)
     ndx_raw = ndx_raw.reindex(common).fillna(0.0)
+
     sigs = (pd.DataFrame({"x": 1}, index=cpm.index)
              .groupby(pd.Grouper(freq="ME")).tail(1).index.tolist())
     # Monthly sleeve gates only.
@@ -665,6 +786,16 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                         if ndx_panel is not None else [])
     else:
         cpm_records = bull_records = ndx_records = []
+
+    mooex_coverage = {
+        "cpm_real": int(cpm_fb[0]),
+        "cpm_fallback": int(cpm_fb[1]),
+        "bull_real": int(bull_fb[0]),
+        "bull_fallback": int(bull_fb[1]),
+        "ndx_real": int(ndx_fb[0]),
+        "ndx_fallback": int(ndx_fb[1]),
+    }
+
     return SimpleNamespace(
         panel=panel, ndx_panel=ndx_panel, start=start, end=end,
         cpm=cpm, bull_raw=bull_raw, ndx_raw=ndx_raw,
@@ -676,6 +807,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
         cpm_records=cpm_records,
         bull_records=bull_records,
         ndx_records=ndx_records,
+        mooex_coverage=mooex_coverage,
     )
 
 
@@ -932,8 +1064,8 @@ def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
 def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_rets: pd.Series, start: pd.Timestamp):
     """Truth-table heatmap of CPM and BULL sleeve performance by state.
 
-    CPM (2x2): rows = HYG, cols = TIP.
-    BULL (4x4): rows = HYG/TIP canary combinations; cols = curve/vol macro combinations.
+    CPM (2x2): rows = canary A, cols = canary B.
+    BULL (4x4): rows = canary-combination states; cols = curve/vol macro combinations.
     Cell: Sharpe (color) + AnnRet + MaxDD + n_months.
     """
     end = panel.index[-1]
@@ -1011,7 +1143,8 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
 
     def build_grid(daily_returns, canary_assets, include_macro=False):
         """Canary state grid.
-        CPM/BULL 2-asset mode: 2x2 grid (rows=HYG, cols=TIP).
+        TIP-only mode: 2x1 grid (rows=TIP sign, single column).
+        2-asset mode: 2x2 grid (rows=canary A, cols=canary B).
         Legacy 3-asset mode (if provided): 2x4 grid.
         """
         state_ser = compute_states(canary_assets, include_macro=include_macro)
@@ -1021,12 +1154,16 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
             # Legacy 3-asset layout: rows = first canary, cols = second x third
             row_order = [(True,), (False,)]
             col_order = [(True, True), (True, False), (False, True), (False, False)]
+        elif not include_macro and n_assets == 1:
+            # TIP-only layout: rows = TIP sign, single column
+            row_order = [(True,), (False,)]
+            col_order = [tuple()]
         elif not include_macro and n_assets == 2:
-            # BULL: rows = HYG, cols = TIP
+            # 2-asset layout: rows = canary A, cols = canary B
             row_order = [(True,), (False,)]
             col_order = [(True,), (False,)]
         elif include_macro and n_assets == 2:
-            # BULL: rows = HYG x TIP, cols = curve x vol
+            # rows = canary A x canary B, cols = curve x vol
             row_order = [(True, True), (True, False), (False, True), (False, False)]
             col_order = [(True, True), (True, False), (False, True), (False, False)]
         else:
@@ -1077,23 +1214,22 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
         ax.set_title(title, fontsize=11, fontweight='bold', pad=36)
         return im
 
-    cpm_canary = ['HYG', 'TIP']
-    bull_canary = ['HYG', 'TIP']
+    tip_canary = ['TIP']
 
-    cpm_grid = build_grid(cpm_rets, cpm_canary, include_macro=False)
-    bull_grid = build_grid(bull_rets, bull_canary, include_macro=False)
+    cpm_grid = build_grid(cpm_rets, tip_canary, include_macro=False)
+    bull_grid = build_grid(bull_rets, tip_canary, include_macro=False)
 
-    cpm_col_labels = ['TIP+', 'TIP-']
-    cpm_row_labels = ['HYG+', 'HYG-']
-    bull_col_labels = ['TIP+', 'TIP-']
-    bull_row_labels = ['HYG+', 'HYG-']
+    cpm_col_labels = ['TIP canary']
+    cpm_row_labels = ['TIP+', 'TIP-']
+    bull_col_labels = ['TIP canary']
+    bull_row_labels = ['TIP+', 'TIP-']
 
     fig, axes = plt.subplots(2, 1, figsize=(11, 8.5), constrained_layout=True,
                               gridspec_kw={'height_ratios':[1, 1]})
     im = plot_sub(axes[0], cpm_grid, cpm_row_labels, cpm_col_labels,
-                   'CPM sleeve - performance by canary state', fontsize=9)
+                   'CPM sleeve - performance by TIP canary state', fontsize=9)
     plot_sub(axes[1], bull_grid, bull_row_labels, bull_col_labels,
-              'BULL-SPY sleeve - performance by canary state', fontsize=9)
+              'BULL-SPY sleeve - performance by TIP canary state', fontsize=9)
     fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)
     return fig
 
@@ -1767,8 +1903,8 @@ def topN_drawdowns_html(daily: pd.Series, n: int = 10) -> str:
         "<div class='table-scroll'><table><thead><tr>"
         "<th>Peak start</th><th>Trough</th><th>Recovery</th>"
         "<th style='text-align:right'>Depth</th>"
-        "<th style='text-align:right'>Peak→trough</th>"
-        "<th style='text-align:right'>Trough→recovery</th>"
+        "<th style='text-align:right'>Peak->trough</th>"
+        "<th style='text-align:right'>Trough->recovery</th>"
         "<th style='text-align:right'>Total duration</th>"
         "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>"
     )
@@ -1969,7 +2105,7 @@ def _ndx_sector_summary(picks: list) -> str:
         s = NDX_SECTORS.get(t, "Unknown/?")
         counts[s] = counts.get(s, 0) + 1
     parts = [f"{c} {s}" for s, c in sorted(counts.items(), key=lambda x: -x[1])]
-    return " · ".join(parts)
+    return " | ".join(parts)
 
 
 def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
@@ -2025,7 +2161,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         if ndx_regime == "NDX_ACTIVE" or ndx_regime.startswith("NDX_PARTIAL"):
             sel = ndx_diag.get('selected', [])
             sector_summary = _ndx_sector_summary(sel)
-            mode = f"{ndx_regime} · top-{NDX_SELECT_K} raw 13612U momentum"
+            mode = f"{ndx_regime} | top-{NDX_SELECT_K} raw 13612U momentum"
             ndx_state = (f"{mode}: {', '.join(sel)}<br>Sector mix: {sector_summary}")
         else:
             ndx_state = f"{ndx_regime} -- {ndx_diag.get('reason', '100% cash')}"
@@ -2141,7 +2277,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     <div style='margin-top:10px'>
     <p style='font-size:0.85rem;margin:6px 0'><strong>Cross-asset Parity Momentum (CPM)</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): risky basket = <strong>{basket_str}</strong>, safe = {safe}</p>
     <p style='font-size:0.85rem;margin:6px 0'><strong>BULL-SPY</strong> ({int(BULL_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{bull_pick}</strong></p>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' · sectors: ' + sector_str) if sector_str else ''}</p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' | sectors: ' + sector_str) if sector_str else ''}</p>
     {dd_status_html}
     <h4 style='margin-top:14px'>Sleeve-internal weights (sum to 100% of each sleeve)</h4>
     <div style='display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px'>
@@ -2173,7 +2309,7 @@ def main():
     # Load with sufficient warmup so CPM signals + BULL-SPY 12mo TR momentum are stable
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
-    panel = load_panel(start=panel_start, end=requested_end, live=True)
+    panel = load_panel(start=panel_start, end=requested_end, live=False)
     end = min(requested_end, panel.index[-1])
     cash_daily = panel["SHV"].ffill().pct_change().dropna()
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
@@ -2311,12 +2447,12 @@ def main():
     sleeve_rows = [
         {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
         {"strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
-         "sharpe": 1.2777, "excess_sharpe": float("nan"), "cagr": 0.1255, "vol": 0.1005,
-         "max_drawdown": -0.1068, "ulcer": float("nan"), "calmar": 1.1746, "martin": 4.3538},
+         "sharpe": 1.2685, "excess_sharpe": float("nan"), "cagr": 0.1265, "vol": 0.0980,
+         "max_drawdown": -0.1119, "ulcer": float("nan"), "calmar": 1.1312, "martin": 4.4093},
         {"strategy": "Cross-asset Parity Momentum (CPM)", **perf_metrics(art.cpm, cash_daily)},
         {"strategy": "Cross-asset Parity Momentum (CPM, clean window)",
-         "sharpe": 1.1910, "excess_sharpe": float("nan"), "cagr": 0.1344, "vol": 0.1116,
-         "max_drawdown": -0.1267, "ulcer": float("nan"), "calmar": 1.0615, "martin": 3.9646},
+         "sharpe": 1.2557, "excess_sharpe": float("nan"), "cagr": 0.1313, "vol": 0.1028,
+         "max_drawdown": -0.1303, "ulcer": float("nan"), "calmar": 1.0076, "martin": 4.2571},
         {"strategy": "BULL-SPY (20% weight)",                         **perf_metrics(art.bull, cash_daily)},
         {"strategy": "NDX (20% weight)",                              **perf_metrics(art.ndx, cash_daily)},
     ]
@@ -2352,7 +2488,7 @@ def main():
     # ========================================================
     # Extended backtest from QQQ inception.
     # ========================================================
-    ext_start = pd.Timestamp("1999-03-10")
+    ext_start = EXT_START
     print(f"Running EXT backtest {ext_start.date()} ...")
     # EXT window uses the same single-pass artifacts builder.
     # EXT charts use the raw blend.
@@ -2397,14 +2533,14 @@ def main():
     ndx_metrics = perf_metrics(art.ndx, cash_daily) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     cpm_bull_60_40_clean_anchor = {
         "strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
-        "sharpe": 1.2777,
+        "sharpe": 1.2685,
         "excess_sharpe": float("nan"),
-        "cagr": 0.1255,
-        "vol": 0.1005,
-        "max_drawdown": -0.1068,
+        "cagr": 0.1265,
+        "vol": 0.0980,
+        "max_drawdown": -0.1119,
         "ulcer": float("nan"),
-        "calmar": 1.1746,
-        "martin": 4.3538,
+        "calmar": 1.1312,
+        "martin": 4.4093,
     }
     research_compare_rows = [
         {"strategy": f"CPM-BULL-NDX {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} (PRODUCTION, live window)", **prod_metrics},
@@ -2503,20 +2639,20 @@ def main():
 <p class='warning-banner'>Backtest only, not live-traded. IRA / 401k / Roth only.</p>
 
 <h1>CPM-BULL-NDX Strategy Dashboard</h1>
-<p class='meta'>{int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX · monthly rebalance · T+1 OPEN · 10 bps/side · backtest {window_str} · built {today}</p>
+<p class='meta'>{int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX | monthly rebalance | T+1 OPEN | 10 bps/side | backtest {window_str} | built {today}</p>
 
-<h2>→ This month's allocation</h2>
+<h2>-> This month's allocation</h2>
 <div class='card'>
 <div class='audit-block'>
-Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <strong>T+1 OPEN</strong> ({trade_due_date}) · Age: {age_days}d · Status: {age_status}<br>
-<span style='color:#888'>Data through {panel_index_last} · NDX snapshot {ndx_snapshot_date} · commit {git_sha} · built {today}</span>
+Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong>T+1 OPEN</strong> ({trade_due_date}) | Age: {age_days}d | Status: {age_status}<br>
+<span style='color:#888'>Data through {panel_index_last} | NDX snapshot {ndx_snapshot_date} | commit {git_sha} | built {today}</span>
 </div>
 {alloc_html}
 </div>
 
 <h2>Headline performance</h2>
 <div class='card'>
-<p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> · CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> · Vol <strong>{prod_metrics['vol']*100:.2f}%</strong> · MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
+<p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{prod_metrics['sharpe']:.2f}</strong> | CAGR <strong>{prod_metrics['cagr']*100:.2f}%</strong> | Vol <strong>{prod_metrics['vol']*100:.2f}%</strong> | MaxDD <strong>{prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
 {perf_table_html(perf_rows, compact=True)}
 <p style='margin:10px 0 6px;font-size:0.86rem;color:#555'>Production blend vs two-sleeve (no NDX) (clean window: 2008-05-30 -> 2026-05-22).</p>
 {perf_table_html(research_compare_rows, compact=True)}
@@ -2551,7 +2687,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), (HYG OR TIP) 13612U > 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Inverse-vol weights all surviving positives with strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), TIP 13612U &gt; 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Equal-weight risky block with n_pos=4 min-var 3-of-4 selection and strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>BULL-SPY ({int(BULL_W*100)}%) -- HAA-Simple:</strong> 100% SPY when TIP 13612U &gt; 0 canary and SPY 13612U &gt; 0 trend both pass. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
 </ul>
@@ -2645,13 +2781,13 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) · Trade: <stron
 <li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>Canary:</strong> (HYG OR TIP) 13612U &gt; 0 -- risk-on when either passes; defensive only when both HYG and TIP fail -&gt; 100% best-of-safe (dual-confirmation breadth).</li>
+<li><strong>Canary:</strong> TIP 13612U &gt; 0 -- risk-on when it passes; defensive when it fails -&gt; 100% best-of-safe.</li>
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score, drop assets with raw Faber &le; 0</li>
-<li><strong>Risky-block weights:</strong> inverse-vol across all surviving positives (up to {TOP_K_CANDIDATES}), using {CORR_LOOKBACK_DAYS}d lookback</li>
+<li><strong>Risky-block weights:</strong> equal-weight across surviving positives; when n_pos=4 use min-var 3-of-4 selection before equal-weight allocation</li>
 <li><strong>Strict-4 partial-safe:</strong> risky fraction = min(n_pos, 4)/4; safe fraction = 1 - risky fraction; n_pos = 0 &rarr; 100% best-of-safe</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
-<li><strong>Execution:</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
+<li><strong>Execution (mooex T+1):</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
 </details>
 <details>
