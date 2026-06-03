@@ -85,6 +85,7 @@ def _download_adjusted_close(ticker: str, start: pd.Timestamp, end: pd.Timestamp
         auto_adjust=True,
         progress=False,
         threads=False,
+        timeout=30,
     )
     if d is None or d.empty:
         return pd.Series(dtype=float, name=ticker)

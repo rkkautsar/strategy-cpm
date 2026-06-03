@@ -6,7 +6,9 @@ Calculates 120-month trailing z-scores of Term, Credit, and Equity risk premia.
 from __future__ import annotations
 
 import os
+import io
 from pathlib import Path
+from urllib.request import urlopen
 import pandas as pd
 import numpy as np
 import cpm_live as cpm
@@ -28,13 +30,18 @@ ASSET_OF = {
 def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
     """Loads macro series dgs10, dgs3mo, dbaa, E, P from local data or live fallback."""
     # Attempt live web fetches, fall back to data/ local files
-    
+
+    def read_csv_url_timeout(url: str, timeout_s: float = 15.0) -> pd.DataFrame:
+        with urlopen(url, timeout=timeout_s) as response:
+            text = response.read().decode("utf-8")
+        return pd.read_csv(io.StringIO(text))
+
     # 1. FRED Series
     def fetch_fred(id_: str) -> pd.Series:
         url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={id_}"
         fpath = DATA_DIR / f"fred_{id_}.csv"
         try:
-            df = pd.read_csv(url)
+            df = read_csv_url_timeout(url, timeout_s=15.0)
             df.columns = ["date", id_]
         except Exception:
             df = pd.read_csv(fpath)
@@ -61,7 +68,7 @@ def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Se
         df_earn = pd.read_csv(fpath_earnings)
     except Exception:
         url_earnings = "https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv"
-        df_earn = pd.read_csv(url_earnings)
+        df_earn = read_csv_url_timeout(url_earnings, timeout_s=15.0)
 
     df_earn["Date"] = pd.to_datetime(df_earn["Date"])
     df_earn.set_index("Date", inplace=True)
@@ -85,9 +92,16 @@ def compute_rpv_signals() -> pd.DataFrame:
     
     # Process Earnings and Prices
     E_m = E.resample("ME").last()
-    # Forward fill earnings and extend range to mid-2026
+    # Forward fill earnings and extend range with non-regressive ceiling.
     if not E_m.empty:
-        E_m = E_m.reindex(pd.date_range(E_m.index.min(), "2026-06-30", freq="ME")).ffill()
+        ceiling = max(
+            pd.Timestamp("2026-06-30"),
+            pd.Timestamp.today().normalize() + pd.offsets.MonthEnd(0),
+            E_m.index.max(),
+        )
+        # 120-month trailing z-window: appending future months cannot change
+        # any z-row dated <= 2026-06-30; this only extends forward coverage.
+        E_m = E_m.reindex(pd.date_range(E_m.index.min(), ceiling, freq="ME")).ffill()
     
     P_m = P.resample("ME").last()
     if not sp500_m.empty:
