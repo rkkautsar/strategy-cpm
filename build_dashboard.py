@@ -40,11 +40,11 @@ from cpm_live import (
     load_panel,
     perf_metrics, compute_target_weights, sig_13612U,
 )
-from bull_spy_live import (
-    BULL_TICKER, CASH_TICKER,
+from rpv_live import (
     COST_BPS_PER_SIDE as RPV_COST_BPS_PER_SIDE,
+    compute_rpv_weights,
+    compute_rpv_signals,
 )
-from rpv_live import compute_rpv_weights, compute_rpv_signals  # NOTE: RPV sleeve identifiers below now use rpv_* naming.
 from ndx_sleeve_live import (
     compute_ndx_weights,
     run_ndx_backtest,
@@ -57,6 +57,8 @@ CPM_W = 0.60
 RPV_W = 0.15  # RPV sleeve weight
 NDX_W = 0.25
 RPV_BLEND = RPV_W  # alias used by chart helpers below
+RPV_EQUITY_TICKER = "SPY"
+CASH_TICKER = "SHV"
 
 BOOTSTRAP_SINGLE_B = 2000
 BOOTSTRAP_PAIRED_B = 5000
@@ -265,8 +267,8 @@ def sixty_forty(panel, start, end):
 def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
     """Faber 10mo SMA timing on `ticker`: hold ticker when above SMA, SHV otherwise.
     Simplest possible single-asset timing strategy, used as TAA peer benchmark.
-    Default SPY matches the BULL sleeve ticker for apples-to-apples comparison.
-    Uses SPY by default for apples-to-apples comparison with BULL-SPY."""
+    Default SPY matches the RPV sleeve equity ticker for apples-to-apples comparison.
+    Uses SPY by default for apples-to-apples comparison with RPV."""
     if ticker not in panel.columns or "SHV" not in panel.columns:
         return pd.Series(dtype=float)
     monthly = panel[ticker].resample("ME").last().dropna()
@@ -316,7 +318,7 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
 # strongest literature blend across all multi-sleeve combinations tested.
 # Per-sleeve alpha decomposition uses:
 #   CPM         vs B2 (AAA + TIP)
-#   BULL-SPY    vs B3 (HAA-Simple SPY)
+#   RPV sleeve  vs B3 (HAA-Simple SPY)
 #   NDX sleeve  vs B5 (QQQ 12mo trend) or QQQ buy-hold for raw equity proxy
 # ============================================================================
 
@@ -564,7 +566,7 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
 
 
 # ============================================================================
-# Per-signal-date records for BULL and NDX sleeves. Precompute once and memoize
+# Per-signal-date records for RPV and NDX sleeves. Precompute once and memoize
 # so diagnostics reuse one consistent signal path.
 # ============================================================================
 _RPV_RECORDS_CACHE: dict = {}
@@ -821,7 +823,7 @@ def _load_ndx_constituent_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[pd.
 
 def rpv_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
                           end: pd.Timestamp | None = None) -> list[dict]:
-    """BULL sleeve weights at each monthly signal date. Memoized.
+    """RPV sleeve weights at each monthly signal date. Memoized.
     Excludes in-progress current calendar month (see cpm_signal_records).
     """
     key = (id(panel), pd.Timestamp(start), pd.Timestamp(end) if end else None)
@@ -912,7 +914,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
         macro_overnight,
     )
     # RPV sleeve (production logic, mooex execution attribution).
-    rpv_cols = sorted(set(["SPY", "TLT", "LQD", CASH_TICKER]) & set(panel.columns))
+    rpv_cols = sorted(set([RPV_EQUITY_TICKER, "TLT", "LQD", CASH_TICKER]) & set(panel.columns))
     rpv_close = panel[rpv_cols]
     rpv_daily = panel.ffill().pct_change()
     rpv_wf = lambda sd: compute_rpv_weights(panel, sd)[0]
@@ -1006,8 +1008,8 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     mooex_coverage = {
         "cpm_real": int(cpm_fb[0]),
         "cpm_fallback": int(cpm_fb[1]),
-        "bull_real": int(rpv_fb[0]),
-        "bull_fallback": int(rpv_fb[1]),
+        "rpv_real": int(rpv_fb[0]),
+        "rpv_fallback": int(rpv_fb[1]),
         "ndx_real": int(ndx_fb[0]),
         "ndx_fallback": int(ndx_fb[1]),
     }
@@ -1031,14 +1033,14 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
 
 # Visual hierarchy (3 tiers):
 #   Tier 1 (most prominent): production blend - bold thick deep blue, drawn last
-#   Tier 2 (component sleeves): CPM green + BULL-SPY orange, medium weight
+#   Tier 2 (component sleeves): CPM green + RPV orange, medium weight
 #   Tier 3 (benchmarks): muted grey/colored thin lines, dashed/dotted
 PROD_STYLE = dict(color="#0040d0", lw=2.0, ls="-", alpha=1.0, zorder=10)
 
 FCP_STYLES = {
     # Tier 2: components
     "CPM":                  dict(color="#1a9a1a", lw=2.0, ls="-",  alpha=0.95, zorder=8),
-    "BULL-SPY sleeve":      dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
+    "RPV sleeve":           dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
     # Tier 3: benchmarks
     "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
@@ -1059,13 +1061,13 @@ BASE_RENDER_ORDER = [
     "60/40 SPY/IEF", "SPY buy-hold",
     "NDX sleeve",
     "QQQ buy-hold", "Static 80% PP + 20% QQQ", "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
-    "BULL-SPY sleeve", "CPM",
+    "RPV sleeve", "CPM",
 ]
 
 
 def _ordered(strategies: dict) -> list:
-    # Production label is whichever key starts with "CPM-BULL"; render last (top).
-    prod_keys = [k for k in strategies if k.startswith("CPM-BULL")]
+    # Production label is whichever key starts with "CPM-NDX-RPV"; render last (top).
+    prod_keys = [k for k in strategies if k.startswith("CPM-NDX-RPV")]
     render_order = BASE_RENDER_ORDER + prod_keys
     out = []
     for name in render_order:
@@ -1210,7 +1212,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
-        ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="BULL-SPY",
+        ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="RPV",
                 color="#ff8800", lw=1.6, ls="-", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Worst DD in window (%)")
@@ -1251,7 +1253,7 @@ def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series
         max_fcp_cagr = rolling_cagr(max_fcp.reindex(idx))
         excess_max = (max_fcp_cagr - bb4_cagr) * 100
         ax.plot(excess_max.index, excess_max.values,
-                label="BULL-SPY vs BB4", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
+                label="RPV vs BB4", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Excess CAGR (pp, ann.)")
     ax.set_title(f"Rolling {window_days//21}-Month Excess vs BB4 lit blend")
@@ -1277,7 +1279,7 @@ def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
     _legend_below(ax, ncol=2)
     return fig
 
-def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_rets: pd.Series, start: pd.Timestamp):
+def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_rets: pd.Series, start: pd.Timestamp):
     """Truth-table heatmap of CPM and RPV sleeve performance by state.
 
     CPM: TIP canary state split.
@@ -1473,7 +1475,7 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
     tip_canary = ['TIP']
 
     cpm_grid = build_grid(cpm_rets, tip_canary, include_macro=False)
-    rpv_grid = compute_rpv_grid(bull_rets)
+    rpv_grid = compute_rpv_grid(rpv_rets)
 
     cpm_col_labels = ['TIP canary']
     cpm_row_labels = ['TIP+', 'TIP-']
@@ -1501,15 +1503,15 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     _br = rpv_records if rpv_records is not None else rpv_signal_records(panel, start)
     _nr = ndx_records if ndx_records is not None else ndx_signal_records(panel, load_ndx_panel(), start)
 
-    _bull_by_date = {r["sig_d"]: r for r in _br}
+    _rpv_by_date = {r["sig_d"]: r for r in _br}
     _ndx_by_date = {r["sig_d"]: r for r in _nr}
 
     cpm_per_date = []
-    bull_per_date = []
+    rpv_per_date = []
     picks = Counter()
     dates = []
     cpm_def_pcts = []
-    bull_def_pcts = []
+    rpv_def_pcts = []
     ndx_def_pcts = []
 
     for rec in records:
@@ -1529,10 +1531,10 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
         if regime == "DEFENSIVE":
             cpm_def = 1.0
 
-        # 2. BULL defensive share
-        b_rec = _bull_by_date.get(sd, {})
-        b_reg = b_rec.get("regime", "CASH")
-        bull_def = 1.0 if b_reg == "CASH" else 0.0
+        # 2. RPV defensive share
+        rpv_rec = _rpv_by_date.get(sd, {})
+        rpv_regime = rpv_rec.get("regime", "CASH")
+        rpv_def = 1.0 if rpv_regime == "CASH" else 0.0
 
         # 3. NDX defensive share
         n_rec = _ndx_by_date.get(sd, {})
@@ -1545,31 +1547,31 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
 
         # Portfolio contributions in % of total blend
         cpm_def_pcts.append(0.60 * cpm_def * 100.0)
-        bull_def_pcts.append(0.20 * bull_def * 100.0)
+        rpv_def_pcts.append(0.20 * rpv_def * 100.0)
         ndx_def_pcts.append(0.20 * ndx_def * 100.0)
         dates.append(sd)
 
     for sd, _, _, _ in cpm_per_date:
-        bull_rec_reg = _bull_by_date.get(sd, {})
-        bull_per_date.append((sd, bull_rec_reg.get("regime", "CASH")))
+        rpv_rec_reg = _rpv_by_date.get(sd, {})
+        rpv_per_date.append((sd, rpv_rec_reg.get("regime", "CASH")))
 
     cpm_regimes = [r for _, r, _, _ in cpm_per_date]
-    bull_regimes = [r for _, r in bull_per_date]
+    rpv_regimes = [r for _, r in rpv_per_date]
     regime_counts = {
         "RISK_ON": cpm_regimes.count("RISK_ON"),
         "DEFENSIVE": cpm_regimes.count("DEFENSIVE"),
-        "BULL_SPY": sum(1 for r in bull_regimes if r.startswith("BULL_")),
-        "BULL_CASH": sum(1 for r in bull_regimes if r == "CASH"),
+        "RPV_ACTIVE": sum(1 for r in rpv_regimes if r != "CASH"),
+        "RPV_CASH": sum(1 for r in rpv_regimes if r == "CASH"),
     }
 
     fig, ax = plt.subplots(figsize=(11, 3.2), constrained_layout=True)
     cpm_arr = np.array(cpm_def_pcts)
-    bull_arr = np.array(bull_def_pcts)
+    rpv_arr = np.array(rpv_def_pcts)
     ndx_arr = np.array(ndx_def_pcts)
 
     ax.bar(dates, cpm_arr, width=25, label="CPM (60% wt)", color="#9e2a2b", alpha=0.85, edgecolor="none")
-    ax.bar(dates, bull_arr, width=25, bottom=cpm_arr, label="BULL-SPY (20% wt)", color="#3f51b5", alpha=0.85, edgecolor="none")
-    ax.bar(dates, ndx_arr, width=25, bottom=cpm_arr + bull_arr, label="NDX (20% wt)", color="#ffb703", alpha=0.85, edgecolor="none")
+    ax.bar(dates, rpv_arr, width=25, bottom=cpm_arr, label="RPV (20% wt)", color="#3f51b5", alpha=0.85, edgecolor="none")
+    ax.bar(dates, ndx_arr, width=25, bottom=cpm_arr + rpv_arr, label="NDX (20% wt)", color="#ffb703", alpha=0.85, edgecolor="none")
 
     ax.set_ylabel("Defensive Weight (%)", fontsize=9, fontweight="bold")
     ax.set_ylim(0, 100)
@@ -1777,12 +1779,12 @@ def chart_asset_when_picked(panel: pd.DataFrame, start: pd.Timestamp,
 
 
 
-def chart_sleeve_contribution(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series,
-                              w_cpm: float, w_bull: float, w_ndx: float):
+def chart_sleeve_contribution(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series,
+                              w_cpm: float, w_rpv: float, w_ndx: float):
     """Yearly stacked bars showing each sleeve's contribution to blend annual return."""
-    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
+    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index)
     cpm_c = cpm_rets.loc[common] * w_cpm
-    bull_c = bull_rets.loc[common] * w_bull
+    rpv_c = rpv_rets.loc[common] * w_rpv
     ndx_c = ndx_rets.loc[common] * w_ndx
 
     def yearly_contribution(daily):
@@ -1792,7 +1794,7 @@ def chart_sleeve_contribution(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_ret
         return daily.groupby(daily.index.year).sum()
 
     cpm_y = yearly_contribution(cpm_c)
-    bull_y = yearly_contribution(bull_c)
+    rpv_y = yearly_contribution(rpv_c)
     ndx_y = yearly_contribution(ndx_c)
     years = cpm_y.index
 
@@ -1801,11 +1803,11 @@ def chart_sleeve_contribution(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_ret
     # Stacked bars
     width = 0.7
     ax.bar(years, cpm_y * 100, width, label=f'CPM ({int(w_cpm*100)}%)', color='#2e86c1', edgecolor='#1b4f72')
-    ax.bar(years, bull_y * 100, width, bottom=cpm_y * 100, label=f'BULL-SPY ({int(w_bull*100)}%)', color='#f39c12', edgecolor='#7e5109')
-    ax.bar(years, ndx_y * 100, width, bottom=(cpm_y + bull_y) * 100, label=f'NDX ({int(w_ndx*100)}%)', color='#c0392b', edgecolor='#641e16')
+    ax.bar(years, rpv_y * 100, width, bottom=cpm_y * 100, label=f'RPV ({int(w_rpv*100)}%)', color='#f39c12', edgecolor='#7e5109')
+    ax.bar(years, ndx_y * 100, width, bottom=(cpm_y + rpv_y) * 100, label=f'NDX ({int(w_ndx*100)}%)', color='#c0392b', edgecolor='#641e16')
 
     # Total line marker
-    totals = (cpm_y + bull_y + ndx_y) * 100
+    totals = (cpm_y + rpv_y + ndx_y) * 100
     ax.plot(years, totals, color='black', marker='D', markersize=6, linestyle='', label='Blend total')
 
     ax.axhline(0, color='black', lw=0.5)
@@ -1818,11 +1820,11 @@ def chart_sleeve_contribution(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_ret
     return fig
 
 
-def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series,
-                          w_cpm: float, w_bull: float, w_ndx: float, top_n: int = 10) -> str:
+def table_worst_drawdowns(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series,
+                          w_cpm: float, w_rpv: float, w_ndx: float, top_n: int = 10) -> str:
     """Identify top-N drawdown periods of the blend and decompose by sleeve contribution."""
-    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
-    blend = w_cpm * cpm_rets.loc[common] + w_bull * bull_rets.loc[common] + w_ndx * ndx_rets.loc[common]
+    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index)
+    blend = w_cpm * cpm_rets.loc[common] + w_rpv * rpv_rets.loc[common] + w_ndx * ndx_rets.loc[common]
     eq = (1 + blend).cumprod()
     peak = eq.cummax()
     dd = eq / peak - 1
@@ -1853,11 +1855,11 @@ def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: p
         s, t, r, d = p['start'], p['trough'], p['recovery'], p['depth']
         end_d = r if r else cpm_rets.index[-1]
         sub_cpm = cpm_rets.loc[s:end_d].sum() * w_cpm
-        sub_bull = bull_rets.loc[s:end_d].sum() * w_bull
+        sub_rpv = rpv_rets.loc[s:end_d].sum() * w_rpv
         sub_ndx = ndx_rets.loc[s:end_d].sum() * w_ndx
         # Compute the actual blend drawdown contribution per sleeve over peak-to-trough
         ptd_cpm = cpm_rets.loc[s:t].sum() * w_cpm
-        ptd_bull = bull_rets.loc[s:t].sum() * w_bull
+        ptd_rpv = rpv_rets.loc[s:t].sum() * w_rpv
         ptd_ndx = ndx_rets.loc[s:t].sum() * w_ndx
         days_to_trough = (t - s).days
         days_to_recover = (r - t).days if r else None
@@ -1870,14 +1872,14 @@ def table_worst_drawdowns(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: p
                       f"<td style='text-align:right'>{days_to_trough}d</td>"
                       f"<td style='text-align:right'>{rec_str}</td>"
                       f"<td style='text-align:right; color:{'#c0392b' if ptd_cpm < 0 else '#27ae60'}'>{ptd_cpm*100:+.2f}%</td>"
-                      f"<td style='text-align:right; color:{'#c0392b' if ptd_bull < 0 else '#27ae60'}'>{ptd_bull*100:+.2f}%</td>"
+                      f"<td style='text-align:right; color:{'#c0392b' if ptd_rpv < 0 else '#27ae60'}'>{ptd_rpv*100:+.2f}%</td>"
                       f"<td style='text-align:right; color:{'#c0392b' if ptd_ndx < 0 else '#27ae60'}'>{ptd_ndx*100:+.2f}%</td>"
                       f"</tr>")
 
     return f"""<div class='table-scroll'><table class='metric-table'><thead><tr>
 <th>Peak date</th><th>Trough date</th><th>Recovery date</th>
 <th>Depth</th><th>To trough</th><th>To recover</th>
-<th>CPM contrib (peak->trough)</th><th>BULL contrib (peak->trough)</th><th>NDX contrib (peak->trough)</th>
+<th>CPM contrib (peak->trough)</th><th>RPV contrib (peak->trough)</th><th>NDX contrib (peak->trough)</th>
 </tr></thead><tbody>{rows_html}</tbody></table></div>"""
 
 
@@ -1945,16 +1947,16 @@ def chart_cpm_monthly_asset_weights(panel: pd.DataFrame, start: pd.Timestamp,
     return fig
 
 
-def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series, window: int = 252):
-    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
-    roll_cb = cpm_rets.loc[common].rolling(window).corr(bull_rets.loc[common])
+def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series, window: int = 252):
+    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index)
+    roll_cb = cpm_rets.loc[common].rolling(window).corr(rpv_rets.loc[common])
     roll_cn = cpm_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
-    roll_bn = bull_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
+    roll_bn = rpv_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
 
     fig, ax = plt.subplots(figsize=(12, 4.5), constrained_layout=True)
-    ax.plot(roll_cb.index, roll_cb, color='#2e86c1', lw=1.5, label='CPM vs BULL-SPY')
+    ax.plot(roll_cb.index, roll_cb, color='#2e86c1', lw=1.5, label='CPM vs RPV')
     ax.plot(roll_cn.index, roll_cn, color='#f39c12', lw=1.5, label='CPM vs NDX')
-    ax.plot(roll_bn.index, roll_bn, color='#c0392b', lw=1.5, label='BULL-SPY vs NDX')
+    ax.plot(roll_bn.index, roll_bn, color='#c0392b', lw=1.5, label='RPV vs NDX')
     ax.axhline(0, color='gray', lw=0.5)
     ax.axhline(0.5, color='gray', ls=':', lw=0.5)
     ax.set_ylabel('1y rolling correlation')
@@ -1966,24 +1968,24 @@ def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, bull_rets: pd.Series, 
     return fig
 
 
-def chart_monthly_return_distributions(cpm_rets: pd.Series, bull_rets: pd.Series, ndx_rets: pd.Series,
-                                         w_cpm: float, w_bull: float, w_ndx: float):
+def chart_monthly_return_distributions(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series,
+                                         w_cpm: float, w_rpv: float, w_ndx: float):
     def monthly(daily):
         return (1 + daily).resample('ME').apply(lambda x: x.prod() - 1)
     m_cpm = monthly(cpm_rets).dropna() * 100
-    m_bull = monthly(bull_rets).dropna() * 100
+    m_rpv = monthly(rpv_rets).dropna() * 100
     m_ndx = monthly(ndx_rets).dropna() * 100
-    common = cpm_rets.index.intersection(bull_rets.index).intersection(ndx_rets.index)
-    blend = w_cpm * cpm_rets.loc[common] + w_bull * bull_rets.loc[common] + w_ndx * ndx_rets.loc[common]
+    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index)
+    blend = w_cpm * cpm_rets.loc[common] + w_rpv * rpv_rets.loc[common] + w_ndx * ndx_rets.loc[common]
     m_blend = monthly(blend).dropna() * 100
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 7), constrained_layout=True)
     for ax, (name, ser, color) in zip(
         axes.flat,
         [(f'CPM ({int(w_cpm*100)}%)', m_cpm, '#2e86c1'),
-         (f'BULL-SPY ({int(w_bull*100)}%)', m_bull, '#f39c12'),
+         (f'RPV ({int(w_rpv*100)}%)', m_rpv, '#f39c12'),
          (f'NDX ({int(w_ndx*100)}%)', m_ndx, '#c0392b'),
-         (f'Blend {int(w_cpm*100)}/{int(w_bull*100)}/{int(w_ndx*100)}', m_blend, '#27ae60')]
+         (f'Blend {int(w_cpm*100)}/{int(w_rpv*100)}/{int(w_ndx*100)}', m_blend, '#27ae60')]
     ):
         ax.hist(ser, bins=40, color=color, alpha=0.7, edgecolor='black', linewidth=0.5)
         ax.axvline(ser.mean(), color='black', ls='--', lw=1, label=f'Mean {ser.mean():.2f}%')
@@ -2271,7 +2273,7 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series,
     df = pd.DataFrame({"Year": yr_b.index.year,
                        "PROD": yr_b.values * 100,
                        "CPM": yr_f.reindex(yr_b.index).values * 100,
-                       "BULL-SPY": yr_bu.reindex(yr_b.index).values * 100,
+                       "RPV": yr_bu.reindex(yr_b.index).values * 100,
                        "NDX": yr_nd.reindex(yr_b.index).values * 100,
                        "BB4 lit": yr_n.reindex(yr_b.index).values * 100,
                        "QQQ": yr_q.reindex(yr_b.index).values * 100})
@@ -2284,14 +2286,14 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series,
         exn_class = "pos" if ex_n > 0 else "neg"
         exq_class = "pos" if ex_q > 0 else "neg"
         body += f"<tr><td>{int(r['Year'])}</td>"
-        for col in ["PROD", "CPM", "BULL-SPY", "NDX", "BB4 lit", "QQQ"]:
+        for col in ["PROD", "CPM", "RPV", "NDX", "BB4 lit", "QQQ"]:
             v = r[col]
             cls = "pos" if v > 0 else "neg"
             body += f"<td style='text-align:right' class='{cls}'>{v:+.2f}%</td>"
         body += f"<td style='text-align:right' class='{exn_class}'>{ex_n:+.2f}pp</td>"
         body += f"<td style='text-align:right' class='{exq_class}'>{ex_q:+.2f}pp</td></tr>\n"
     return f"""<div class='table-scroll'><table class='yearly'>
-<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>BULL-SPY only</th><th>NDX only</th><th>BB4 lit blend</th><th>QQQ</th><th>Ex vs BB4</th><th>Ex vs QQQ</th></tr></thead>
+<thead><tr><th>Year</th><th>PROD<br>(60/20/20)</th><th>CPM only</th><th>RPV only</th><th>NDX only</th><th>BB4 lit blend</th><th>QQQ</th><th>Ex vs BB4</th><th>Ex vs QQQ</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
 
@@ -2391,7 +2393,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     risky_basket = [t for t, w in sorted(weights.items(), key=lambda x: -x[1]) if t != safe and w > 0]
     basket_str = " + ".join(risky_basket) if risky_basket else "-"
 
-    # BULL-SPY sleeve (20%) -- from precomputed record if available
+    # RPV sleeve (20%) -- from precomputed record if available
     if rpv_rec is not None:
         bq_w, bq_regime, bq_diag = rpv_rec["weights"], rpv_rec["regime"], rpv_rec["diag"]
     else:
@@ -2399,7 +2401,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
     cstate = bq_diag.get("state", "---")
-    if bq_regime.startswith("BULL_"):
+    if bq_regime != "CASH":
         bq_state = f"{bq_regime} (canary {cstate})"
     else:
         bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate})"
@@ -2426,7 +2428,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         ndx_html = "<tr><td colspan='2'>(NDX panel not available)</td></tr>"
         ndx_state = f"NDX panel data unavailable ({e})"
 
-    # Combined 60% CPM + 20% BULL-SPY + 20% NDX  (UNSCALED)
+    # Combined 60% CPM + 20% RPV + 20% NDX  (UNSCALED)
     combined_uncapped = {}
     for t, w in weights.items():
         combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * CPM_WEIGHT
@@ -2457,7 +2459,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         prev_weights = prev_rec.get("weights", {})
         try:
             prev_sd = prev_rec.get("sig_d", None)
-            # Prefer precomputed bull/ndx records (no recomputation)
+            # Prefer precomputed rpv/ndx records (no recomputation)
             if art is not None and prev_sd is not None:
                 prev_rpv_rec = next((r for r in reversed(art.rpv_records) if r["sig_d"] == prev_sd), None)
                 prev_ndx_rec = next((r for r in reversed(art.ndx_records) if r["sig_d"] == prev_sd), None) if art.ndx_records else None
@@ -2509,7 +2511,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         if abs(w) > 1e-6
     )
 
-    # Bull-QQQ + NDX picks one-liner (for top summary)
+    # RPV + NDX picks one-liner (for top summary)
     rpv_pick = next(iter(bq_w), CASH_TICKER) if bq_w else CASH_TICKER
     ndx_picks_str = ", ".join(ndx_diag.get("selected", [])) if ndx_diag.get("selected") else "(cash)"
     sector_str = _ndx_sector_summary(ndx_diag.get("selected", [])) if ndx_diag.get("selected") else ""
@@ -2532,13 +2534,13 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     <summary style='font-weight:600;cursor:pointer'>Signal diagnostics (sleeves, selection details)</summary>
     <div style='margin-top:10px'>
     <p style='font-size:0.85rem;margin:6px 0'><strong>Cross-asset Parity Momentum (CPM)</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): risky basket = <strong>{basket_str}</strong>, safe = {safe}</p>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>BULL-SPY</strong> ({int(RPV_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{rpv_pick}</strong></p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>RPV</strong> ({int(RPV_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{rpv_pick}</strong></p>
     <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' | sectors: ' + sector_str) if sector_str else ''}</p>
     {dd_status_html}
     <h4 style='margin-top:14px'>Sleeve-internal weights (sum to 100% of each sleeve)</h4>
     <div style='display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px'>
       <div><strong>CPM</strong><div class='table-scroll'><table class='alloc'>{fcp_html}</table></div></div>
-      <div><strong>BULL-SPY</strong><div class='table-scroll'><table class='alloc'>{bq_html}</table></div></div>
+      <div><strong>RPV</strong><div class='table-scroll'><table class='alloc'>{bq_html}</table></div></div>
       <div><strong>NDX</strong><div class='table-scroll'><table class='alloc'>{ndx_html}</table></div></div>
     </div>
     </div>
@@ -2562,7 +2564,7 @@ def main():
     start = pd.Timestamp(args.start)
     requested_end = pd.Timestamp(args.end) if args.end else pd.Timestamp.today().normalize()
     
-    # Load with sufficient warmup so CPM signals + BULL-SPY 12mo TR momentum are stable
+    # Load with sufficient warmup so CPM signals + RPV 12mo TR momentum are stable
     panel_start = min(start - pd.DateOffset(years=20), pd.Timestamp("1995-01-01"))
     print(f"Loading panel from {panel_start.date()} (warmup for EMA200 canary) ...")
     panel = load_panel(start=panel_start, end=requested_end, live=False)
@@ -2597,7 +2599,7 @@ def main():
     strategies = {
         prod_label: art.blend,
         "CPM": art.cpm,
-        "BULL-SPY sleeve": art.rpv,
+        "RPV sleeve": art.rpv,
         "NDX sleeve": art.ndx,
         "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": bb4_blend,
         "Static 80% PP + 20% QQQ": static_pp_qqq,
@@ -2616,7 +2618,7 @@ def main():
     # Build charts
     print("Building charts ...")
     # Core comparison: PROD + 3 sleeves + 2 active TAA benchmarks + 1 static + QQQ
-    CORE_CHARTS = (prod_label, "CPM", "BULL-SPY sleeve", "NDX sleeve",
+    CORE_CHARTS = (prod_label, "CPM", "RPV sleeve", "NDX sleeve",
                    "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
                    "Static 80% PP + 20% QQQ", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in strategies.items() if k in CORE_CHARTS},
@@ -2713,13 +2715,13 @@ def main():
     cpm_rpv_60_40_clean_metrics = perf_metrics(cpm_rpv_60_40_clean, cash_daily)
     sleeve_rows = [
         {"strategy": "CPM-NDX-RPV 60/25/15 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
-        {"strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",           **cpm_rpv_60_40_clean_metrics},
+        {"strategy": "CPM-NDX-RPV 60/40 (two-sleeve, no NDX)",       **cpm_rpv_60_40_clean_metrics},
         {"strategy": "Cross-asset Parity Momentum (CPM)", **cpm_metrics},
         {"strategy": "Cross-asset Parity Momentum (CPM, clean window)",
          "sharpe": 1.2373, "excess_sharpe": float("nan"), "cagr": 0.1292, "vol": 0.1028,
          "max_drawdown": -0.1303, "ulcer": float("nan"), "calmar": 0.9912,
          "martin": cpm_metrics.get("martin", float("nan"))},
-        {"strategy": "BULL-SPY (20% weight)",                         **perf_metrics(art.rpv, cash_daily)},
+        {"strategy": "RPV (20% weight)",                              **perf_metrics(art.rpv, cash_daily)},
         {"strategy": "NDX (20% weight)",                              **perf_metrics(art.ndx, cash_daily)},
     ]
 
@@ -2770,7 +2772,7 @@ def main():
     ext_strategies = {
         prod_label: ext_art.blend,
         "CPM": ext_art.cpm,
-        "BULL-SPY sleeve": ext_art.rpv,
+        "RPV sleeve": ext_art.rpv,
         "NDX sleeve": ext_art.ndx,
         "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": ext_bb4,
         "Static 80% PP + 20% QQQ": ext_static_pp_qqq,
@@ -2800,7 +2802,7 @@ def main():
     rpv_metrics = perf_metrics(art.rpv, cash_daily)
     ndx_metrics = perf_metrics(art.ndx, cash_daily) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     cpm_rpv_60_40_clean_anchor = {
-        "strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",
+        "strategy": "CPM-NDX-RPV 60/40 (two-sleeve, no NDX)",
         **cpm_rpv_60_40_clean_metrics,
     }
     research_compare_rows = [
@@ -2949,7 +2951,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <div class='card'>
 <ul>
 <li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), TIP 13612U &gt; 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Equal-weight risky block with n_pos=4 min-var 3-of-4 selection and strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>BULL-SPY ({int(RPV_W*100)}%) -- HAA-Simple:</strong> 100% SPY when TIP 13612U &gt; 0 canary and SPY 13612U &gt; 0 trend both pass. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>RPV ({int(RPV_W*100)}%) -- HAA-Simple:</strong> 100% SPY when TIP 13612U &gt; 0 canary and SPY 13612U &gt; 0 trend both pass. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
 </ul>
 </div>
