@@ -29,8 +29,13 @@ ASSET_OF = {
 }
 
 def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
-    """Loads macro series dgs10, dgs3mo, dbaa, E, P from local data or live fallback."""
-    # Attempt live web fetches, fall back to data/ local files
+    """Load macro series: term/credit yields (DGS10, DGS3MO, DBAA), S&P500 index, and
+    earnings (E) / price (P). Fetch ordering differs by source on purpose:
+    - FRED yields: web-first (15s timeout) -> committed data/fred_*.csv fallback, so the
+      LIVE signal gets the freshest daily yields; memoized upstream so it fetches once/run.
+    - Earnings/prices: committed-first (data/sp500_earnings.csv) -> web fallback, since
+      earnings move slowly (quarterly) and the committed series is authoritative.
+    All paths return DatetimeIndex'd series; missing/failed fetches degrade to fallbacks."""
 
     def read_csv_url_timeout(url: str, timeout_s: float = 15.0) -> pd.DataFrame:
         with urlopen(url, timeout=timeout_s) as response:
