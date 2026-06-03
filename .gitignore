@@ -24,5 +24,6 @@ dist/
 node_modules/
 secrets.json
 venv/
-data/ndx_constituents/
+data/ndx_constituents/*
+!data/ndx_constituents/*.parquet
 research/ndx_sleeve/cache/

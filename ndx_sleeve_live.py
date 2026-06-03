@@ -56,9 +56,20 @@ def load_ndx_panel() -> pd.DataFrame:
 
 
 def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:
-    """Re-download NDX constituent prices for full membership coverage.
-    Use in live runner to ensure fresh data each month."""
+    """Refresh NDX constituent prices by stitching a short live tail onto committed history."""
     import yfinance as yf
+
+    try:
+        base = load_ndx_panel().sort_index()
+    except FileNotFoundError:
+        base = pd.DataFrame()
+
+    if not base.empty:
+        base_last = pd.Timestamp(base.index.max())
+        tail_start = (base_last - pd.Timedelta(days=5)).strftime("%Y-%m-%d")
+        print(f"NDX prices tail refresh start={tail_start} (base_max={base_last.date().isoformat()})")
+        start = tail_start
+
     h = ic.history("nasdaq100")
     tickers = sorted(h["symbol"].unique())
     chunks = [tickers[i:i + 30] for i in range(0, len(tickers), 30)]
@@ -66,17 +77,39 @@ def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:
     for chunk in chunks:
         try:
             df = yf.download(
-                chunk, start=start, auto_adjust=True, progress=False,
-                threads=True, group_by="ticker", timeout=60,
+                chunk,
+                start=start,
+                auto_adjust=True,
+                progress=False,
+                threads=True,
+                group_by="ticker",
+                timeout=60,
             )
             if isinstance(df.columns, pd.MultiIndex):
                 close = df.xs("Close", axis=1, level=1)
             else:
                 close = df[["Close"]].rename(columns={"Close": chunk[0]})
+            if close.empty:
+                continue
             all_dfs.append(close)
         except Exception as e:
             print(f"  WARN chunk {chunk[:3]}...: {e}", file=sys.stderr)
-    panel = pd.concat(all_dfs, axis=1)
+
+    if all_dfs:
+        tail = pd.concat(all_dfs, axis=1)
+        tail = tail.loc[:, ~tail.columns.duplicated()]
+        if tail.empty and not base.empty:
+            panel = base
+        elif not base.empty and not tail.empty:
+            panel = pd.concat([base[base.index < tail.index.min()], tail], axis=0).sort_index()
+            panel = panel.loc[~panel.index.duplicated(keep="last")]
+        else:
+            panel = tail.sort_index()
+    elif not base.empty:
+        panel = base
+    else:
+        raise RuntimeError("Failed to fetch NDX constituent closes and no committed snapshot is available.")
+
     panel = panel.loc[:, ~panel.columns.duplicated()]
     PRICES_FILE.parent.mkdir(parents=True, exist_ok=True)
     panel.to_parquet(PRICES_FILE)

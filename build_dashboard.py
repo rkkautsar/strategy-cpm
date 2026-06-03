@@ -595,69 +595,105 @@ def _rebuild_ndx_constituent_opens_cache() -> None:
         raise ValueError(f"NDX constituent close panel empty at {NDX_PRICES_FILE}; cannot rebuild opens cache.")
 
     tickers = sorted(map(str, closes.columns))
-    start = pd.Timestamp(closes.index.min()).strftime("%Y-%m-%d")
-    end = (pd.Timestamp(closes.index.max()) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    closes_max = pd.Timestamp(closes.index.max())
+    fetch_start_ts = pd.Timestamp(closes.index.min())
+    base_cache = pd.DataFrame()
 
-    import yfinance as yf
+    if NDX_OPENS_CACHE_PATH.exists():
+        base_cache = pd.read_parquet(NDX_OPENS_CACHE_PATH)
+        if not isinstance(base_cache.columns, pd.MultiIndex) or {"Open", "Close"} - set(
+            base_cache.columns.get_level_values(0)
+        ):
+            raise ValueError(
+                f"Unexpected NDX opens cache schema at {NDX_OPENS_CACHE_PATH}; expected MultiIndex with Open/Close."
+            )
+        base_cache = base_cache.sort_index()
+        if not base_cache.empty:
+            fetch_start_ts = pd.Timestamp(base_cache.index.max())
+            print(
+                f"NDX opens tail refresh start={fetch_start_ts.date().isoformat()} "
+                f"(base_max={fetch_start_ts.date().isoformat()}, closes_max={closes_max.date().isoformat()})"
+            )
 
-    print(
-        f"NDX opens cache miss at {NDX_OPENS_CACHE_PATH}; rebuilding from {NDX_PRICES_FILE} "
-        f"for {len(tickers)} tickers ({start}..{end})."
-    )
+    if not base_cache.empty and fetch_start_ts > closes_max:
+        out = base_cache
+        fetched = 0
+    else:
+        start = fetch_start_ts.strftime("%Y-%m-%d")
+        end = (closes_max + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
-    opens: dict[str, pd.Series] = {}
-    ycloses: dict[str, pd.Series] = {}
-    chunks = [tickers[i:i + 25] for i in range(0, len(tickers), 25)]
+        import yfinance as yf
 
-    for ci, chunk in enumerate(chunks, start=1):
-        chunk_df = None
-        for attempt in range(1, 4):
-            try:
-                chunk_df = yf.download(
-                    chunk,
-                    start=start,
-                    end=end,
-                    auto_adjust=True,
-                    progress=False,
-                    threads=True,
-                    group_by="ticker",
-                    timeout=60,
-                )
-                break
-            except Exception as exc:
-                print(f"  NDX opens chunk {ci}/{len(chunks)} attempt {attempt}/3 failed: {exc}")
+        source = NDX_OPENS_CACHE_PATH if not base_cache.empty else NDX_PRICES_FILE
+        print(
+            f"NDX opens cache refresh at {NDX_OPENS_CACHE_PATH} from {source} "
+            f"for {len(tickers)} tickers ({start}..{end})."
+        )
 
-        if chunk_df is None:
-            continue
+        opens: dict[str, pd.Series] = {}
+        ycloses: dict[str, pd.Series] = {}
+        chunks = [tickers[i:i + 25] for i in range(0, len(tickers), 25)]
 
-        if isinstance(chunk_df.columns, pd.MultiIndex):
-            lvl0 = chunk_df.columns.get_level_values(0)
-            for t in chunk:
-                if t not in lvl0:
-                    continue
-                sub = chunk_df[t]
-                if "Open" in sub and sub["Open"].notna().any():
-                    opens[t] = sub["Open"]
-                    ycloses[t] = sub["Close"]
+        for ci, chunk in enumerate(chunks, start=1):
+            chunk_df = None
+            for attempt in range(1, 4):
+                try:
+                    chunk_df = yf.download(
+                        chunk,
+                        start=start,
+                        end=end,
+                        auto_adjust=True,
+                        progress=False,
+                        threads=True,
+                        group_by="ticker",
+                        timeout=60,
+                    )
+                    break
+                except Exception as exc:
+                    print(f"  NDX opens chunk {ci}/{len(chunks)} attempt {attempt}/3 failed: {exc}")
+
+            if chunk_df is None:
+                continue
+
+            if isinstance(chunk_df.columns, pd.MultiIndex):
+                lvl0 = chunk_df.columns.get_level_values(0)
+                for t in chunk:
+                    if t not in lvl0:
+                        continue
+                    sub = chunk_df[t]
+                    if "Open" in sub and sub["Open"].notna().any():
+                        opens[t] = sub["Open"]
+                        ycloses[t] = sub["Close"]
+            else:
+                t = chunk[0]
+                if "Open" in chunk_df and chunk_df["Open"].notna().any():
+                    opens[t] = chunk_df["Open"]
+                    ycloses[t] = chunk_df["Close"]
+
+            got = sum(1 for t in chunk if t in opens)
+            print(f"  NDX opens chunk {ci}/{len(chunks)} got {got}/{len(chunk)}")
+
+        fetched = int(sum(1 for s in opens.values() if s.notna().any()))
+        tail_out = None
+        if opens:
+            open_df = pd.DataFrame(opens).sort_index().reindex(columns=tickers)
+            yclose_df = pd.DataFrame(ycloses).sort_index().reindex(columns=tickers)
+            tail_out = pd.concat({"Open": open_df, "Close": yclose_df}, axis=1)
+
+        if tail_out is not None and not tail_out.empty:
+            if not base_cache.empty:
+                out = pd.concat([base_cache[base_cache.index < tail_out.index.min()], tail_out], axis=0).sort_index()
+                out = out.loc[~out.index.duplicated(keep="last")]
+            else:
+                out = tail_out.sort_index()
+        elif not base_cache.empty:
+            out = base_cache
         else:
-            t = chunk[0]
-            if "Open" in chunk_df and chunk_df["Open"].notna().any():
-                opens[t] = chunk_df["Open"]
-                ycloses[t] = chunk_df["Close"]
+            raise RuntimeError("Failed to fetch any NDX constituent opens from yfinance.")
 
-        got = sum(1 for t in chunk if t in opens)
-        print(f"  NDX opens chunk {ci}/{len(chunks)} got {got}/{len(chunk)}")
-
-    open_df = pd.DataFrame(opens).sort_index().reindex(columns=tickers)
-    yclose_df = pd.DataFrame(ycloses).sort_index().reindex(columns=tickers)
-    fetched = int(open_df.notna().any().sum())
-    if fetched == 0:
-        raise RuntimeError("Failed to fetch any NDX constituent opens from yfinance.")
-
-    out = pd.concat({"Open": open_df, "Close": yclose_df}, axis=1)
     NDX_OPENS_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     out.to_parquet(NDX_OPENS_CACHE_PATH)
-    print(f"NDX opens cache rebuilt: {NDX_OPENS_CACHE_PATH} ({fetched}/{len(tickers)} tickers).")
+    print(f"NDX opens cache rebuilt: {NDX_OPENS_CACHE_PATH} ({fetched}/{len(tickers)} tickers fetched).")
 
 
 def _load_ndx_constituent_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[pd.DataFrame, pd.DataFrame]:
