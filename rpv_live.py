@@ -53,7 +53,7 @@ def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Se
         sp500 = fetch_fred("SP500")
     except Exception:
         # Fall back to DGS10 index or a placeholder if SP500 FRED fails
-        sp500 = pd.Series(dtype=float)
+        sp500 = pd.Series(dtype=float, index=pd.DatetimeIndex([]))
 
     # 2. Earnings and Prices: prefer committed local file, then live fallback
     fpath_earnings = DATA_DIR / "sp500_earnings.csv"
