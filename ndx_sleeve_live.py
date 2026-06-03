@@ -19,8 +19,7 @@ import numpy as np
 import pandas as pd
 import index_constitution as ic
 
-from cpm_live import sig_13612U
-from bull_spy_live import CASH_TICKER, SAFE_POOL, _pick_safe
+from cpm_live import DEFAULT_CASH, SAFE_POOL, sig_13612U
 
 ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
@@ -37,6 +36,18 @@ DELISTING_HAIRCUT = -0.10  # applied to a held position when the ticker stops
                            # quoting mid-period; rough blended estimate across
                            # NDX historical delistings (mix of acquisitions at
                            # a premium and bankruptcies near 0).
+CASH_TICKER = DEFAULT_CASH
+
+
+def _pick_safe(monthly: pd.DataFrame) -> str:
+    """Pick safe asset with strongest 13612U score; fallback to CASH_TICKER."""
+    scores = {}
+    for asset in SAFE_POOL:
+        if asset in monthly.columns:
+            score = sig_13612U(monthly[asset])
+            if pd.notna(score):
+                scores[asset] = score
+    return max(scores, key=scores.get) if scores else CASH_TICKER
 
 
 def _ndx_vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, dict]:
@@ -157,7 +168,7 @@ def compute_ndx_weights(
       - NDX gate ON (TIP canary + SPY trend + SPY RV20<RV252) -> select top-K
       - NDX gate OFF                                           -> 100% best-of-safe
     """
-    # Step 1: NDX-local activation gate (decoupled from BULL sleeve weights).
+    # Step 1: NDX-local activation gate (decoupled from RPV sleeve weights).
     cpm_monthly = cpm_panel.loc[:sig_d].resample("ME").last()
     safe = _pick_safe(cpm_monthly)
 
@@ -270,7 +281,7 @@ def run_ndx_backtest(
     full_panel = full_panel.loc[:, ~full_panel.columns.str.endswith("_dup")]
 
     # Use ACTUAL last trading day per calendar month (not calendar month-end
-    # timestamps) for correct alignment with CPM/BULL signal dates.
+    # timestamps) for correct alignment with CPM/RPV signal dates.
     monthly_idx = pd.DataFrame({"x": 1}, index=full_panel.index).groupby(
         pd.Grouper(freq="ME")).tail(1).index
     sig_dates = monthly_idx[(monthly_idx >= start) & (monthly_idx <= end)]

@@ -454,7 +454,7 @@ def zscore(s: pd.Series) -> pd.Series:
 
 
 def best_safe(monthly: pd.DataFrame, sig_d: pd.Timestamp, safe_pool: list) -> str:
-    """Pick the best safe asset by 13612U momentum (HAA canonical, matches BULL).
+    """Pick the best safe asset by 13612U momentum (HAA canonical, matches RPV).
 
     13612U = average of 1, 3, 6, 12-month total returns. Robustly identifies
     short-duration vs intermediate-duration regime preference for the safe leg.
