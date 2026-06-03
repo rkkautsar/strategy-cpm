@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import io
+from functools import lru_cache
 from pathlib import Path
 from urllib.request import urlopen
 import pandas as pd
@@ -80,7 +81,11 @@ def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Se
     
     return dgs10, dgs3mo, dbaa, sp500, E, P
 
+@lru_cache(maxsize=1)
 def compute_rpv_signals() -> pd.DataFrame:
+    # Memoized: FRED/earnings macro data + the trailing-z signal are identical for the
+    # whole process run, so compute once and reuse. Without this, build_dashboard's
+    # per-signal-date loop refetches FRED hundreds of times (the CI 'Computing sleeves' stall).
     """Computes the underlying macro risk premia (Term, Credit, Equity) and their trailing z-scores."""
     dgs10, dgs3mo, dbaa, sp500, E, P = load_macro_data()
     
