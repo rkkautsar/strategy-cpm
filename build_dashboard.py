@@ -41,10 +41,10 @@ from cpm_live import (
     perf_metrics, compute_target_weights, sig_13612U,
 )
 from bull_spy_live import (
-    compute_bull_spy_weights,
     BULL_TICKER, CASH_TICKER,
     COST_BPS_PER_SIDE as BULL_COST_BPS_PER_SIDE,
 )
+from rpv_live import compute_rpv_weights  # NOTE: 'bull' vars below now hold the RPV sleeve (names retained pending refactor)
 from ndx_sleeve_live import (
     compute_ndx_weights,
     run_ndx_backtest,
@@ -52,10 +52,10 @@ from ndx_sleeve_live import (
     PRICES_FILE as NDX_PRICES_FILE,
 )
 
-# Production blend: 60% CPM + 20% BULL-SPY + 20% NDX
+# Production blend: 60% CPM + 25% NDX + 15% RPV
 CPM_W = 0.60
-BULL_W = 0.20
-NDX_W = 0.20
+BULL_W = 0.15  # RPV sleeve weight (var name retained pending refactor)
+NDX_W = 0.25
 BULL_BLEND = BULL_W  # alias used by chart helpers below
 
 BOOTSTRAP_SINGLE_B = 2000
@@ -697,7 +697,7 @@ def bull_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
     sig_dates = monthly_idx.index[mask].tolist()
     records = []
     for sd in sig_dates:
-        w, regime, diag = compute_bull_spy_weights(panel, sd)
+        w, regime, diag = compute_rpv_weights(panel, sd)
         records.append({"sig_d": sd, "weights": w, "regime": regime, "diag": diag})
     _BULL_RECORDS_CACHE[key] = records
     return records
@@ -773,10 +773,10 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
         macro_overnight,
     )
     # BULL sleeve (production logic, mooex execution attribution).
-    bull_cols = sorted(set([BULL_TICKER, CASH_TICKER] + list(SAFE_POOL) + ["HYG", "TIP"]) & set(panel.columns))
+    bull_cols = sorted(set(["SPY", "TLT", "LQD", CASH_TICKER]) & set(panel.columns))
     bull_close = panel[bull_cols]
     bull_daily = panel.ffill().pct_change()
-    bull_wf = lambda sd: compute_bull_spy_weights(panel, sd, panel[BULL_TICKER])[0]
+    bull_wf = lambda sd: compute_rpv_weights(panel, sd)[0]
     bull_raw_full, bull_fb = moo_engine._segment_returns_conv(
         bull_close,
         bull_daily,
@@ -1035,7 +1035,7 @@ def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     x = np.arange(len(years))
     ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color="#707070")
     ax.bar(x,         yr_n.values, width, label="BB4 lit blend", color="#9966aa")
-    ax.bar(x + width, yr_b.values, width, label="CPM-BULL-NDX (PROD)", color="#0040d0")
+    ax.bar(x + width, yr_b.values, width, label="CPM-NDX-RPV (PROD)", color="#0040d0")
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45, fontsize=8)
     ax.set_ylabel("Annual return (%)")
@@ -1066,7 +1066,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
 
 
     ax.plot(fcp_dd.index, fcp_dd.values, label="CPM", color="#1a9a1a", lw=1.6)
-    ax.plot(blend_dd.index, blend_dd.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
+    ax.plot(blend_dd.index, blend_dd.values, label="CPM-NDX-RPV (PROD)", color="#0040d0", lw=2.0)
     ax.plot(bb4_dd.index, bb4_dd.values, label="BB4 lit blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
@@ -1128,7 +1128,7 @@ def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
     bench_sr = (bench.rolling(window_days).mean() * 252) / (bench.rolling(window_days).std() * np.sqrt(252))
     fcp_sr = (blended.rolling(window_days).mean() * 252) / (blended.rolling(window_days).std() * np.sqrt(252))
     ax.plot(bench_sr.index, bench_sr.values, label="BB4 lit blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
-    ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-BULL-NDX (PROD)", color="#0040d0", lw=2.0)
+    ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-NDX-RPV (PROD)", color="#0040d0", lw=2.0)
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
     ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
     ax.set_ylabel("Sharpe")
@@ -2118,8 +2118,8 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series,
 
 # Production blend weights
 CPM_WEIGHT = 0.6
-BULL_WEIGHT = 0.2
-NDX_WEIGHT = 0.2
+BULL_WEIGHT = 0.15  # RPV (name retained pending refactor)
+NDX_WEIGHT = 0.25
 
 
 # NDX-100 sector map (manual, covers most current/historical mega-caps).
@@ -2216,7 +2216,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     if bull_rec is not None:
         bq_w, bq_regime, bq_diag = bull_rec["weights"], bull_rec["regime"], bull_rec["diag"]
     else:
-        bq_w, bq_regime, bq_diag = compute_bull_spy_weights(panel, sig_d)
+        bq_w, bq_regime, bq_diag = compute_rpv_weights(panel, sig_d)
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
     cstate = bq_diag.get("state", "---")
@@ -2285,7 +2285,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                 prev_bq_w = prev_bull_rec["weights"] if prev_bull_rec else {}
                 prev_ndx_w = prev_ndx_rec["weights"] if prev_ndx_rec else {}
             else:
-                prev_bq_w, _, _ = compute_bull_spy_weights(panel, prev_sd) if prev_sd is not None else ({}, None, {})
+                prev_bq_w, _, _ = compute_rpv_weights(panel, prev_sd) if prev_sd is not None else ({}, None, {})
                 prev_ndx_w, _, _ = compute_ndx_weights(panel, ndx_panel_data, prev_sd) if prev_sd is not None else ({}, None, {})
         except Exception:
             prev_bq_w, prev_ndx_w = {}, {}
@@ -2406,7 +2406,7 @@ def main():
         ndx_panel = None
     art = build_artifacts(panel, ndx_panel, start, end)
     live_art = build_artifacts(live_panel, ndx_panel, start, live_end)
-    prod_label = f"CPM-BULL-NDX ({int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)})"
+    prod_label = f"CPM-NDX-RPV ({int(CPM_W*100)}/{int(NDX_W*100)}/{int(BULL_W*100)})"
 
     print(f"Running peer strategies ...")
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
@@ -2533,7 +2533,7 @@ def main():
     cpm_bull_60_40_clean = 0.60 * art.cpm + 0.40 * art.bull
     cpm_bull_60_40_clean_metrics = perf_metrics(cpm_bull_60_40_clean, cash_daily)
     sleeve_rows = [
-        {"strategy": "CPM-BULL-NDX 60/20/20 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
+        {"strategy": "CPM-NDX-RPV 60/25/15 (PRODUCTION)",            **perf_metrics(art.blend, cash_daily)},
         {"strategy": "CPM-BULL 60/40 (two-sleeve, no NDX)",           **cpm_bull_60_40_clean_metrics},
         {"strategy": "Cross-asset Parity Momentum (CPM)", **cpm_metrics},
         {"strategy": "Cross-asset Parity Momentum (CPM, clean window)",
@@ -2623,7 +2623,7 @@ def main():
         **cpm_bull_60_40_clean_metrics,
     }
     research_compare_rows = [
-        {"strategy": f"CPM-BULL-NDX {int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} (PRODUCTION, live window)", **prod_metrics},
+        {"strategy": f"CPM-NDX-RPV {int(CPM_W*100)}/{int(NDX_W*100)}/{int(BULL_W*100)} (PRODUCTION, live window)", **prod_metrics},
         cpm_bull_60_40_clean_anchor,
     ]
     html = f"""<!DOCTYPE html>
@@ -2718,8 +2718,8 @@ def main():
 
 <p class='warning-banner'>Backtest only, not live-traded. IRA / 401k / Roth only.</p>
 
-<h1>CPM-BULL-NDX Strategy Dashboard</h1>
-<p class='meta'>{int(CPM_W*100)}/{int(BULL_W*100)}/{int(NDX_W*100)} CPM-BULL-NDX | monthly rebalance | T+1 OPEN | 10 bps/side | backtest {window_str} | built {today}</p>
+<h1>CPM-NDX-RPV Strategy Dashboard</h1>
+<p class='meta'>{int(CPM_W*100)}/{int(NDX_W*100)}/{int(BULL_W*100)} CPM-NDX-RPV | monthly rebalance | T+1 OPEN | 10 bps/side | backtest {window_str} | built {today}</p>
 
 <h2>-> This month's allocation</h2>
 <div class='card'>

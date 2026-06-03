@@ -69,7 +69,7 @@ COST_BPS_PER_SIDE = 10
 EVAL_END = pd.Timestamp("2026-04-30")
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
-# PRODUCTION strategy is 60% CPM + 20% BULL-SPY + 20% NDX.
+# PRODUCTION strategy is 60% CPM + 25% NDX + 15% RPV.
 PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
 PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
 
@@ -200,6 +200,7 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
         ("gld_stitched_extended_daily.csv", "GLD"),  # World Bank monthly pre-2000-08
         ("tip_stitched_daily.csv", "TIP"),
         ("hyg_stitched_daily.csv", "HYG"),
+        ("lqd_stitched_daily.csv", "LQD"),
         ("shv_stitched_daily.csv", "SHV"),
         ("ief_stitched_daily.csv", "IEF"),
         ("tlt_stitched_daily.csv", "TLT"),
@@ -217,7 +218,7 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
             else:
                 panel = panel.join(s, how="outer").sort_index()
 
-    needed = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + PP_ASSETS + [DEFAULT_CASH]))
+    needed = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + PP_ASSETS + [DEFAULT_CASH, "LQD"]))
     present = set(panel.columns)
     missing = [t for t in needed if t not in present]
 
@@ -548,18 +549,19 @@ def compute_target_weights(
     # Strict-4 partial-safe fallback:
     #   risky fraction = min(n_pos, 4) / 4, safe fraction = 1 - risky fraction
     #   n_pos in {1,2,3}: hold all positives, equal-weighted, then scale risky block
-    #   n_pos=4: select min-var 3-of-4 (equal-weight variance objective), full risk on subset
+    #   full breadth + full risk: min-var 3-of-4 (equal-weight variance objective)
     if len(positive) == 0:
         return {safe: 1.0}, None, "DEFENSIVE", safe
 
     positive_picks = list(positive.index)
     n_pos = len(positive_picks)
-    if n_pos == 4:
+    risky_fraction = min(n_pos, 4) / 4.0
+    if n_pos == TOP_K_CANDIDATES and risky_fraction == 1.0:
+        # min-variance / vol-covariance excision gated by full breadth (n_pos==top_k) + full risk (risky_fraction==1.0)
         picks = _min_var_subset(close_panel, sig_d, positive_picks, CORR_LOOKBACK_DAYS, 3)
     else:
         picks = positive_picks
 
-    risky_fraction = min(n_pos, 4) / 4.0
     safe_fraction = 1.0 - risky_fraction
 
     risky_w = {t: 1.0 / len(picks) for t in picks}
@@ -774,7 +776,7 @@ def cmd_backtest(args):
     print(f"\nRunning CPM-only backtest from {start.date()} to {bt_end.date()} ...")
     print(f"Execution model: T+1 OPEN (next-day MOO after month-end signal at T)")
     print(f"NOTE: This is CPM sleeve only (60% of PROD). For full PROD blend")
-    print(f"      (60% CPM + 20% BULL-SPY + 20% NDX) use build_dashboard.py.")
+    print(f"      (60% CPM + 25% NDX + 15% RPV) use build_dashboard.py.")
     
     cost_bps = 0 if args.no_cost else COST_BPS_PER_SIDE
     cpm, _ = run_cpm_backtest(panel, start, bt_end, cost_bps=cost_bps)

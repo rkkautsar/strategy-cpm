@@ -12,12 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import pandas as pd
 import cpm_live as cpm
 from cpm_live import load_panel, compute_live_weights
-from bull_spy_live import compute_bull_spy_weights, CASH_TICKER
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
+from rpv_live import compute_rpv_weights
 
 CPM_WEIGHT = 0.6
-BULL_WEIGHT = 0.2
-NDX_WEIGHT = 0.2
+NDX_WEIGHT = 0.25
+RPV_WEIGHT = 0.15
 
 
 def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:
@@ -39,29 +39,29 @@ def main() -> None:
     sig_d = candidates[-1] if len(candidates) > 0 else today
 
     cpm_w, pair, cpm_regime, safe = compute_live_weights(panel, sig_d)
-    bull_w, bull_regime, bull_diag = compute_bull_spy_weights(panel, sig_d)
     ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel, sig_d)
+    rpv_w, rpv_regime, rpv_diag = compute_rpv_weights(panel, sig_d)
 
     # Combined portfolio
     combined: dict[str, float] = {}
     for t, w in cpm_w.items():
         combined[t] = combined.get(t, 0.0) + w * CPM_WEIGHT
-    for t, w in bull_w.items():
-        combined[t] = combined.get(t, 0.0) + w * BULL_WEIGHT
     for t, w in ndx_w.items():
         combined[t] = combined.get(t, 0.0) + w * NDX_WEIGHT
+    for t, w in rpv_w.items():
+        combined[t] = combined.get(t, 0.0) + w * RPV_WEIGHT
 
     parts = []
-    parts.append(f"📈 *CPM-BULL-NDX Monthly Signal*")
+    parts.append(f"📈 *CPM-NDX-RPV Monthly Signal*")
     parts.append(f"Signal date: `{sig_d.date()}` · Trade T+1 OPEN (MOO)")
     parts.append("")
-    parts.append(f"_CPM: {cpm_regime} · BULL: {bull_regime} · NDX: {ndx_regime}_")
+    parts.append(f"_CPM: {cpm_regime} · NDX: {ndx_regime} · RPV: {rpv_regime}_")
     parts.append("")
     parts.append(fmt_alloc(cpm_w, "CPM sleeve (60%)", 0.6))
     parts.append("")
-    parts.append(fmt_alloc(bull_w, "BULL-SPY sleeve (20%)", 0.2))
+    parts.append(fmt_alloc(ndx_w, "NDX sleeve (25%)", 0.25))
     parts.append("")
-    parts.append(fmt_alloc(ndx_w, "NDX sleeve (20%)", 0.2))
+    parts.append(fmt_alloc(rpv_w, "RPV sleeve (15%)", 0.15))
     parts.append("")
     parts.append(fmt_alloc(combined, "Combined portfolio (100%)"))
     parts.append("")
