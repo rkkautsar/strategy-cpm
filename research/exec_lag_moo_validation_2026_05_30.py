@@ -47,7 +47,7 @@ from cpm_live import (
 )
 
 CPM_W, BULL_W = 0.60, 0.40
-OPEN_CACHE = Path("/tmp/cpm_open_cache")
+OPEN_CACHE = ROOT / "data" / "macro_opens"
 OPEN_CACHE_INTRADAY_SANITY_MAX = 0.50
 OHLC_TICKERS = ['SPY','QQQ','SPHQ','EFA','EEM','VNQ','GLD','TLT','DBC','SHV','IEF','HYG','TIP']
 
@@ -86,27 +86,64 @@ def _assert_open_cache_adjusted(opens_df, closes_df, threshold=OPEN_CACHE_INTRAD
 
 def load_open_close():
     """Return (open_df, close_df) of REAL yfinance auto_adjust OHLC, aligned union index."""
-    OPEN_CACHE.mkdir(parents=True, exist_ok=True)
+
+    def _normalize_ohlc(df):
+        if df is None or df.empty:
+            return pd.DataFrame(columns=["Open", "Close"])
+        if isinstance(df.columns, pd.MultiIndex):
+            lvl0 = df.columns.get_level_values(0)
+            lvl1 = df.columns.get_level_values(1)
+            if "Open" in lvl0 and "Close" in lvl0:
+                df.columns = lvl0
+            elif "Open" in lvl1 and "Close" in lvl1:
+                df.columns = lvl1
+            else:
+                df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
+        if "Open" not in df.columns or "Close" not in df.columns:
+            return pd.DataFrame(columns=["Open", "Close"])
+        out = df[["Open", "Close"]].dropna().copy()
+        out.index = pd.to_datetime(out.index)
+        out.index.name = "Date"
+        return out.sort_index()
 
     opens, closes = {}, {}
     for t in OHLC_TICKERS:
         p = OPEN_CACHE / f"{t}.csv"
-        if not p.exists():
-            d = yf.download(t, start="1999-01-01", auto_adjust=True, progress=False, threads=False)
-            if isinstance(d.columns, pd.MultiIndex):
-                lvl0 = d.columns.get_level_values(0)
-                lvl1 = d.columns.get_level_values(1)
-                if "Open" in lvl0 and "Close" in lvl0:
-                    d.columns = lvl0
-                elif "Open" in lvl1 and "Close" in lvl1:
-                    d.columns = lvl1
-                else:
-                    d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
-            d = d[["Open", "Close"]].dropna()
-            d.index.name = "Date"
-            d.to_csv(p)
+        base = pd.DataFrame(columns=["Open", "Close"])
+        if p.exists():
+            try:
+                base = _normalize_ohlc(pd.read_csv(p, parse_dates=[0], index_col=0))
+            except Exception:
+                base = pd.DataFrame(columns=["Open", "Close"])
 
-        d = pd.read_csv(p, parse_dates=[0], index_col=0)
+        start = "1999-01-01"
+        if not base.empty:
+            start = (pd.Timestamp(base.index.max()) - pd.Timedelta(days=5)).strftime("%Y-%m-%d")
+
+        try:
+            tail = _normalize_ohlc(
+                yf.download(
+                    t,
+                    start=start,
+                    auto_adjust=True,
+                    progress=False,
+                    threads=False,
+                    timeout=30,
+                )
+            )
+        except Exception:
+            tail = pd.DataFrame(columns=["Open", "Close"])
+
+        if not base.empty and not tail.empty:
+            d = pd.concat([base.loc[base.index < tail.index.min()], tail], axis=0).sort_index()
+            d = d.loc[~d.index.duplicated(keep="last")]
+        elif not tail.empty:
+            d = tail
+        elif not base.empty:
+            d = base
+        else:
+            continue
+
         opens[t] = d["Open"]
         closes[t] = d["Close"]
 

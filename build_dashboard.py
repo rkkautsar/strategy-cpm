@@ -696,6 +696,74 @@ def _rebuild_ndx_constituent_opens_cache() -> None:
     print(f"NDX opens cache rebuilt: {NDX_OPENS_CACHE_PATH} ({fetched}/{len(tickers)} tickers fetched).")
 
 
+def _tail_refresh_ndx_opens_cache(cache: pd.DataFrame, panel_index: pd.DatetimeIndex) -> pd.DataFrame:
+    """Refresh cached NDX opens with a timed tail fetch; fall back to base cache on failures."""
+    if cache.empty:
+        return cache
+
+    panel_end = pd.Timestamp(panel_index.max())
+    base_max = pd.Timestamp(cache.index.max())
+    if base_max > panel_end:
+        return cache
+
+    fetch_start_ts = base_max - pd.Timedelta(days=5)
+    start = fetch_start_ts.strftime("%Y-%m-%d")
+    end = (panel_end + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    tickers = sorted(map(str, cache["Open"].columns))
+
+    import yfinance as yf
+
+    opens: dict[str, pd.Series] = {}
+    ycloses: dict[str, pd.Series] = {}
+    chunks = [tickers[i:i + 25] for i in range(0, len(tickers), 25)]
+
+    for chunk in chunks:
+        try:
+            chunk_df = yf.download(
+                chunk,
+                start=start,
+                end=end,
+                auto_adjust=True,
+                progress=False,
+                threads=True,
+                group_by="ticker",
+                timeout=30,
+            )
+        except Exception:
+            continue
+
+        if chunk_df is None or chunk_df.empty:
+            continue
+
+        if isinstance(chunk_df.columns, pd.MultiIndex):
+            lvl0 = chunk_df.columns.get_level_values(0)
+            for t in chunk:
+                if t not in lvl0:
+                    continue
+                sub = chunk_df[t]
+                if "Open" in sub and "Close" in sub and sub["Open"].notna().any():
+                    opens[t] = sub["Open"]
+                    ycloses[t] = sub["Close"]
+        else:
+            t = chunk[0]
+            if "Open" in chunk_df and "Close" in chunk_df and chunk_df["Open"].notna().any():
+                opens[t] = chunk_df["Open"]
+                ycloses[t] = chunk_df["Close"]
+
+    if not opens:
+        return cache
+
+    tail_open = pd.DataFrame(opens).sort_index().reindex(columns=tickers)
+    tail_close = pd.DataFrame(ycloses).sort_index().reindex(columns=tickers)
+    tail = pd.concat({"Open": tail_open, "Close": tail_close}, axis=1).dropna(how="all")
+    if tail.empty:
+        return cache
+
+    out = pd.concat([cache.loc[cache.index < tail.index.min()], tail], axis=0).sort_index()
+    out = out.loc[~out.index.duplicated(keep="last")]
+    return out
+
+
 def _load_ndx_constituent_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load NDX constituent overnight/intraday legs from cached adjusted opens."""
     if not NDX_OPENS_CACHE_PATH.exists():
@@ -706,6 +774,9 @@ def _load_ndx_constituent_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[pd.
         raise ValueError(
             f"Unexpected NDX opens cache schema at {NDX_OPENS_CACHE_PATH}; expected MultiIndex with Open/Close."
         )
+
+    cache = _tail_refresh_ndx_opens_cache(cache.sort_index(), panel_index)
+
     c_open = cache["Open"]
     c_close = cache["Close"]
     intraday = (c_close / c_open - 1.0)
