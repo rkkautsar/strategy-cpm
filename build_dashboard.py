@@ -44,7 +44,7 @@ from bull_spy_live import (
     BULL_TICKER, CASH_TICKER,
     COST_BPS_PER_SIDE as RPV_COST_BPS_PER_SIDE,
 )
-from rpv_live import compute_rpv_weights  # NOTE: RPV sleeve identifiers below now use rpv_* naming.
+from rpv_live import compute_rpv_weights, compute_rpv_signals  # NOTE: RPV sleeve identifiers below now use rpv_* naming.
 from ndx_sleeve_live import (
     compute_ndx_weights,
     run_ndx_backtest,
@@ -1278,10 +1278,10 @@ def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
     return fig
 
 def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_rets: pd.Series, start: pd.Timestamp):
-    """Truth-table heatmap of CPM and BULL sleeve performance by state.
+    """Truth-table heatmap of CPM and RPV sleeve performance by state.
 
-    CPM (2x2): rows = canary A, cols = canary B.
-    BULL (4x4): rows = canary-combination states; cols = curve/vol macro combinations.
+    CPM: TIP canary state split.
+    RPV: 2x2 split by Equity z-score sign and SPY 200d SMA trend state.
     Cell: Sharpe (color) + AnnRet + MaxDD + n_months.
     """
     end = panel.index[-1]
@@ -1397,6 +1397,46 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
             grid.append(row_cells)
         return grid
 
+    def compute_rpv_grid(daily_returns):
+        z_scores = compute_rpv_signals()
+        spy = panel["SPY"].ffill() if "SPY" in panel.columns else pd.Series(dtype=float)
+        spy_sma200 = spy.rolling(200).mean()
+        states = {}
+        for sig_d in z_scores.index:
+            if sig_d < start or sig_d > end:
+                continue
+            zrow = z_scores.loc[sig_d]
+            if pd.isna(zrow.get("equity")):
+                continue
+            spy_hist = spy.loc[:sig_d]
+            sma_hist = spy_sma200.loc[:sig_d]
+            if spy_hist.empty or sma_hist.empty:
+                continue
+            spy_close = spy_hist.iloc[-1]
+            spy_sma = sma_hist.iloc[-1]
+            if pd.isna(spy_close) or pd.isna(spy_sma):
+                continue
+            equity_z_pos = bool(zrow["equity"] > 0)
+            spy_above_sma = bool(spy_close > spy_sma)
+            states[sig_d] = (equity_z_pos, spy_above_sma)
+
+        state_ser = pd.Series(states).sort_index()
+        state_per_day = attribute(daily_returns, state_ser)
+        row_order = [(True,), (False,)]
+        col_order = [(True,), (False,)]
+        grid = []
+        for r in row_order:
+            row_cells = []
+            for c in col_order:
+                st = r + c
+                mask = state_per_day == st
+                n_months = int((state_ser == st).sum())
+                d = daily_returns[mask]
+                s = cell_stats(d)
+                row_cells.append({'state': st, 'n_months': n_months, 'stats': s})
+            grid.append(row_cells)
+        return grid
+
     def plot_sub(ax, grid, row_labels_text, col_labels_text, title, fontsize=9):
         nrows = len(grid)
         ncols = len(grid[0])
@@ -1433,19 +1473,19 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, bull_re
     tip_canary = ['TIP']
 
     cpm_grid = build_grid(cpm_rets, tip_canary, include_macro=False)
-    bull_grid = build_grid(bull_rets, tip_canary, include_macro=False)
+    rpv_grid = compute_rpv_grid(bull_rets)
 
     cpm_col_labels = ['TIP canary']
     cpm_row_labels = ['TIP+', 'TIP-']
-    bull_col_labels = ['TIP canary']
-    bull_row_labels = ['TIP+', 'TIP-']
+    rpv_col_labels = ['SPY > SMA200', 'SPY <= SMA200']
+    rpv_row_labels = ['Equity Z > 0', 'Equity Z <= 0']
 
     fig, axes = plt.subplots(2, 1, figsize=(11, 8.5), constrained_layout=True,
                               gridspec_kw={'height_ratios':[1, 1]})
     im = plot_sub(axes[0], cpm_grid, cpm_row_labels, cpm_col_labels,
                    'CPM sleeve - performance by TIP canary state', fontsize=9)
-    plot_sub(axes[1], bull_grid, bull_row_labels, bull_col_labels,
-              'BULL-SPY sleeve - performance by TIP canary state', fontsize=9)
+    plot_sub(axes[1], rpv_grid, rpv_row_labels, rpv_col_labels,
+              'RPV sleeve - performance by Value (Equity Z) and Trend (SPY SMA) state', fontsize=9)
     fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)
     return fig
 
@@ -2687,21 +2727,23 @@ def main():
     # per-sleeve literature counterparts). Daily-return OLS regression.
     print("Computing alpha/beta/corr vs canonical benchmarks ...")
     bench_b2 = bench_aaa_tip(panel, start, end)   # AAA+TIP canary (sleeve canonical for CPM)
-    bench_b3 = bench_haa_simple(panel, start, end, asset="SPY")  # HAA-Simple SPY (BULL canonical)
     bench_b5 = bench_qqq_12mo_trend(panel, start, end)  # QQQ 12mo trend (NDX-equity peer)
     alpha_beta_rows = []
     spy_d = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
+    tlt_d = panel["TLT"].ffill().pct_change().loc[start:end].fillna(0.0) if "TLT" in panel.columns else pd.Series(dtype=float)
+    lqd_d = panel["LQD"].ffill().pct_change().loc[start:end].fillna(0.0) if "LQD" in panel.columns else pd.Series(dtype=float)
     qqq_d = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
+    bench_ew_rpv = (spy_d + tlt_d + lqd_d) / 3.0
     for label, strat, bench, bench_label in [
         ("PROD 60/20/20",  art.blend, bb4_blend,      "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"),
         ("PROD 60/20/20",  art.blend, static_pp_qqq,  "Static 80% PP + 20% QQQ (vol-matched)"),
         ("PROD 60/20/20",  art.blend, spy_d,          "SPY buy-hold"),
         ("PROD 60/20/20",  art.blend, qqq_d,          "QQQ buy-hold"),
-        ("CPM sleeve", art.cpm,   bench_b2,  "B2 AAA + TIP canary"),
-        ("CPM sleeve", art.cpm,   spy_d,     "SPY buy-hold"),
-        ("BULL sleeve",art.rpv,  bench_b3,  "B3 HAA-Simple SPY"),
-        ("BULL sleeve",art.rpv,  spy_d,     "SPY buy-hold"),
-        ("NDX sleeve",     art.ndx,   bench_b5,  "B5 QQQ 12mo trend (Antonacci GEM)"),
+        ("CPM sleeve", art.cpm,   bench_b2,       "B2 AAA + TIP canary"),
+        ("CPM sleeve", art.cpm,   spy_d,          "SPY buy-hold"),
+        ("RPV sleeve", art.rpv,   bench_ew_rpv,   "EW SPY/TLT/LQD (Passive Sleeve Peer)"),
+        ("RPV sleeve", art.rpv,   spy_d,          "SPY buy-hold"),
+        ("NDX sleeve", art.ndx,   bench_b5,       "B5 QQQ 12mo trend (Antonacci GEM)"),
         ("NDX sleeve",     art.ndx,   qqq_d,     "QQQ buy-hold"),
     ]:
         m = alpha_beta_corr(strat, bench)
@@ -2923,7 +2965,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <details>
 <summary><strong>Alpha / Beta / Correlation vs canonical benchmarks</strong> (daily OLS regression)</summary>
 <div class='card'>
-<p style='font-size:0.9em;color:#555'>Per-sleeve canonical: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>BULL-SPY vs B3 (HAA-Simple SPY)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
+<p style='font-size:0.9em;color:#555'>Per-sleeve comparators: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>RPV vs EW SPY/TLT/LQD (Passive Sleeve Peer)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
 {alpha_beta_table_html(alpha_beta_rows)}
 </div>
 </details>
@@ -3010,14 +3052,20 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 </ul>
 </details>
 <details>
-<summary>BULL-SPY Sleeve ({int(RPV_BLEND*100)}%) -- HAA-Simple (canary + trend)</summary>
+<summary>RPV Sleeve ({int(RPV_BLEND*100)}%) -- Risk Premia Value (Weighted + Guarded)</summary>
 <ul>
-<li><strong>Bull asset:</strong> 100% <code>{BULL_TICKER}</code> (S&P 500 broad market).</li>
-<li><strong>Canary gate:</strong> TIP 13612U &gt; 0 (HAA-Simple-style TIP canary).</li>
-<li><strong>Asset momentum gate:</strong> <code>{BULL_TICKER}</code> 13612U momentum &gt; 0 (HAA canonical).</li>
-<li><strong>Fallback:</strong> HAA best-of-safe by 13612U momentum: <code>argmax(SHV, IEF)</code>. IEF in falling-rate regimes captures bond rally returns; SHV otherwise. May carry duration risk during IEF holding periods, so this sleeve is equity-or-defensive, not equity-or-cash.</li>
+<li><strong>Target Assets:</strong> <code>SPY</code> (Equity), <code>TLT</code> (Term), <code>LQD</code> (Credit), and <code>SHV</code> (Defensive Cash).</li>
+<li><strong>Signals (Risk Premia Z-Scores):</strong> Evaluated monthly using 120-month (10-year) trailing z-scores of three underlying macroeconomic risk premia:
+  <ol>
+    <li><strong>Term Premium:</strong> <code>DGS10 - DGS3MO</code> (mapped to <code>TLT</code>)</li>
+    <li><strong>Credit Premium:</strong> <code>DBAA - DGS10</code> (mapped to <code>LQD</code>)</li>
+    <li><strong>Equity Premium:</strong> Earnings Yield (trailing S&P 500 earnings / index price) minus <code>DGS10</code> (mapped to <code>SPY</code>)</li>
+  </ol>
+</li>
+<li><strong>Sleeve Weights:</strong> Only assets with positive z-scores are selected. Base weights are allocated proportionally to the magnitude of these positive z-scores. If all z-scores are non-positive, the portfolio defaults 100% to <code>SHV</code>.</li>
+<li><strong>Individual Trend Guards:</strong> At each monthly signal date, each selected asset (SPY, TLT, LQD) is filtered by its own 200-day Simple Moving Average (SMA). If an asset is trading below its 200d SMA, its target weight is dynamically reallocated to <code>SHV</code> (CASH).</li>
+<li><strong>Execution:</strong> Month-end signal (T close), next-day Market-On-Open (T+1 MOO) execution.</li>
 <li><strong>Sleeve ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{rpv_metrics['sharpe']:.2f}</strong>, CAGR <strong>{rpv_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{rpv_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{rpv_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{rpv_metrics['martin']:.2f}</strong>.</li>
-
 </ul>
 </details>
 
