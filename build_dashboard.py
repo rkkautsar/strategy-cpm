@@ -709,58 +709,90 @@ def _tail_refresh_ndx_opens_cache(cache: pd.DataFrame, panel_index: pd.DatetimeI
     fetch_start_ts = base_max - pd.Timedelta(days=5)
     start = fetch_start_ts.strftime("%Y-%m-%d")
     end = (panel_end + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-    tickers = sorted(map(str, cache["Open"].columns))
 
+    import index_constitution as ic
     import yfinance as yf
 
-    opens: dict[str, pd.Series] = {}
-    ycloses: dict[str, pd.Series] = {}
-    chunks = [tickers[i:i + 25] for i in range(0, len(tickers), 25)]
+    as_of = pd.Timestamp.today().strftime("%Y-%m-%d")
+    current_df = ic.constituents_at("nasdaq100", as_of)
+    current = sorted(map(str, current_df["symbol"].unique()))
 
-    for chunk in chunks:
-        try:
-            chunk_df = yf.download(
-                chunk,
-                start=start,
-                end=end,
-                auto_adjust=True,
-                progress=False,
-                threads=True,
-                group_by="ticker",
-                timeout=30,
-            )
-        except Exception:
+    cache_tickers = sorted(map(str, cache["Open"].columns))
+    cache_set = set(cache_tickers)
+    tail_tickers = [t for t in current if t in cache_set]
+    full_tickers = [t for t in current if t not in cache_set]
+    print(
+        f"NDX opens tail: fetching {len(current)} current constituents "
+        f"({len(tail_tickers)} tail, {len(full_tickers)} full)."
+    )
+
+    def _fetch_open_close(tickers: list[str], fetch_start: str) -> pd.DataFrame:
+        if not tickers:
+            return pd.DataFrame()
+
+        opens: dict[str, pd.Series] = {}
+        ycloses: dict[str, pd.Series] = {}
+        chunks = [tickers[i:i + 25] for i in range(0, len(tickers), 25)]
+
+        for chunk in chunks:
+            try:
+                chunk_df = yf.download(
+                    chunk,
+                    start=fetch_start,
+                    end=end,
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True,
+                    group_by="ticker",
+                    timeout=30,
+                )
+            except Exception:
+                continue
+
+            if chunk_df is None or chunk_df.empty:
+                continue
+
+            if isinstance(chunk_df.columns, pd.MultiIndex):
+                lvl0 = chunk_df.columns.get_level_values(0)
+                for t in chunk:
+                    if t not in lvl0:
+                        continue
+                    sub = chunk_df[t]
+                    if "Open" in sub and "Close" in sub and sub["Open"].notna().any():
+                        opens[t] = sub["Open"]
+                        ycloses[t] = sub["Close"]
+            else:
+                t = chunk[0]
+                if "Open" in chunk_df and "Close" in chunk_df and chunk_df["Open"].notna().any():
+                    opens[t] = chunk_df["Open"]
+                    ycloses[t] = chunk_df["Close"]
+
+        if not opens:
+            return pd.DataFrame()
+
+        out_open = pd.DataFrame(opens).sort_index().reindex(columns=tickers)
+        out_close = pd.DataFrame(ycloses).sort_index().reindex(columns=tickers)
+        return pd.concat({"Open": out_open, "Close": out_close}, axis=1).dropna(how="all")
+
+    tail = _fetch_open_close(tail_tickers, start)
+    full = _fetch_open_close(full_tickers, "1995-01-01")
+
+    out = cache.copy()
+    base_order = list(cache.columns)
+    for fresh in (tail, full):
+        if fresh.empty:
             continue
+        out = out.reindex(out.index.union(fresh.index)).sort_index()
+        for col in fresh.columns:
+            if col not in out.columns:
+                out[col] = np.nan
+        out.update(fresh)
 
-        if chunk_df is None or chunk_df.empty:
-            continue
-
-        if isinstance(chunk_df.columns, pd.MultiIndex):
-            lvl0 = chunk_df.columns.get_level_values(0)
-            for t in chunk:
-                if t not in lvl0:
-                    continue
-                sub = chunk_df[t]
-                if "Open" in sub and "Close" in sub and sub["Open"].notna().any():
-                    opens[t] = sub["Open"]
-                    ycloses[t] = sub["Close"]
-        else:
-            t = chunk[0]
-            if "Open" in chunk_df and "Close" in chunk_df and chunk_df["Open"].notna().any():
-                opens[t] = chunk_df["Open"]
-                ycloses[t] = chunk_df["Close"]
-
-    if not opens:
-        return cache
-
-    tail_open = pd.DataFrame(opens).sort_index().reindex(columns=tickers)
-    tail_close = pd.DataFrame(ycloses).sort_index().reindex(columns=tickers)
-    tail = pd.concat({"Open": tail_open, "Close": tail_close}, axis=1).dropna(how="all")
-    if tail.empty:
-        return cache
-
-    out = pd.concat([cache.loc[cache.index < tail.index.min()], tail], axis=0).sort_index()
     out = out.loc[~out.index.duplicated(keep="last")]
+    out = out.loc[:, ~out.columns.duplicated()]
+    extra_cols = [c for c in out.columns if c not in base_order]
+    if extra_cols:
+        out = out.reindex(columns=base_order + sorted(extra_cols, key=lambda c: (c[0], c[1])))
     return out
 
 
@@ -775,7 +807,7 @@ def _load_ndx_constituent_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[pd.
             f"Unexpected NDX opens cache schema at {NDX_OPENS_CACHE_PATH}; expected MultiIndex with Open/Close."
         )
 
-    cache = _tail_refresh_ndx_opens_cache(cache.sort_index(), panel_index)
+    cache = cache.sort_index()
 
     c_open = cache["Open"]
     c_close = cache["Close"]

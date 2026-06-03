@@ -109,40 +109,26 @@ def load_open_close():
     opens, closes = {}, {}
     for t in OHLC_TICKERS:
         p = OPEN_CACHE / f"{t}.csv"
-        base = pd.DataFrame(columns=["Open", "Close"])
         if p.exists():
-            try:
-                base = _normalize_ohlc(pd.read_csv(p, parse_dates=[0], index_col=0))
-            except Exception:
-                base = pd.DataFrame(columns=["Open", "Close"])
-
-        start = "1999-01-01"
-        if not base.empty:
-            start = (pd.Timestamp(base.index.max()) - pd.Timedelta(days=5)).strftime("%Y-%m-%d")
-
-        try:
-            tail = _normalize_ohlc(
-                yf.download(
-                    t,
-                    start=start,
-                    auto_adjust=True,
-                    progress=False,
-                    threads=False,
-                    timeout=30,
-                )
-            )
-        except Exception:
-            tail = pd.DataFrame(columns=["Open", "Close"])
-
-        if not base.empty and not tail.empty:
-            d = pd.concat([base.loc[base.index < tail.index.min()], tail], axis=0).sort_index()
-            d = d.loc[~d.index.duplicated(keep="last")]
-        elif not tail.empty:
-            d = tail
-        elif not base.empty:
-            d = base
+            d = _normalize_ohlc(pd.read_csv(p, parse_dates=[0], index_col=0))
+            if d.empty:
+                raise ValueError(f"Macro open cache {p} exists but missing Open/Close data.")
         else:
-            continue
+            try:
+                d = _normalize_ohlc(
+                    yf.download(
+                        t,
+                        start="1999-01-01",
+                        auto_adjust=True,
+                        progress=False,
+                        threads=False,
+                        timeout=30,
+                    )
+                )
+            except Exception:
+                d = pd.DataFrame(columns=["Open", "Close"])
+            if d.empty:
+                continue
 
         opens[t] = d["Open"]
         closes[t] = d["Close"]

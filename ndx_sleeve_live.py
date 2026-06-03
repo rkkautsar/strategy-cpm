@@ -64,53 +64,83 @@ def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:
     except FileNotFoundError:
         base = pd.DataFrame()
 
+    as_of = pd.Timestamp.today().strftime("%Y-%m-%d")
+    current_df = ic.constituents_at("nasdaq100", as_of)
+    current = sorted(map(str, current_df["symbol"].unique()))
+
+    base_cols = set(map(str, base.columns)) if not base.empty else set()
+    tail_tickers = [t for t in current if t in base_cols]
+    full_tickers = [t for t in current if t not in base_cols]
+    print(
+        f"NDX tail: fetching {len(current)} current constituents "
+        f"({len(tail_tickers)} tail, {len(full_tickers)} full)."
+    )
+
+    tail_start = start
     if not base.empty:
         base_last = pd.Timestamp(base.index.max())
         tail_start = (base_last - pd.Timedelta(days=5)).strftime("%Y-%m-%d")
         print(f"NDX prices tail refresh start={tail_start} (base_max={base_last.date().isoformat()})")
-        start = tail_start
 
-    h = ic.history("nasdaq100")
-    tickers = sorted(h["symbol"].unique())
-    chunks = [tickers[i:i + 30] for i in range(0, len(tickers), 30)]
-    all_dfs = []
-    for chunk in chunks:
-        try:
-            df = yf.download(
-                chunk,
-                start=start,
-                auto_adjust=True,
-                progress=False,
-                threads=True,
-                group_by="ticker",
-                timeout=60,
-            )
-            if isinstance(df.columns, pd.MultiIndex):
-                close = df.xs("Close", axis=1, level=1)
-            else:
-                close = df[["Close"]].rename(columns={"Close": chunk[0]})
-            if close.empty:
-                continue
-            all_dfs.append(close)
-        except Exception as e:
-            print(f"  WARN chunk {chunk[:3]}...: {e}", file=sys.stderr)
+    def _fetch_closes(tickers: list[str], fetch_start: str) -> pd.DataFrame:
+        if not tickers:
+            return pd.DataFrame()
+        chunks = [tickers[i:i + 30] for i in range(0, len(tickers), 30)]
+        all_dfs = []
+        for chunk in chunks:
+            try:
+                df = yf.download(
+                    chunk,
+                    start=fetch_start,
+                    auto_adjust=True,
+                    progress=False,
+                    threads=True,
+                    group_by="ticker",
+                    timeout=60,
+                )
+                if isinstance(df.columns, pd.MultiIndex):
+                    close = df.xs("Close", axis=1, level=1)
+                else:
+                    close = df[["Close"]].rename(columns={"Close": chunk[0]})
+                if close.empty:
+                    continue
+                all_dfs.append(close)
+            except Exception as e:
+                print(f"  WARN chunk {chunk[:3]}...: {e}", file=sys.stderr)
 
-    if all_dfs:
-        tail = pd.concat(all_dfs, axis=1)
-        tail = tail.loc[:, ~tail.columns.duplicated()]
-        if tail.empty and not base.empty:
-            panel = base
-        elif not base.empty and not tail.empty:
-            panel = pd.concat([base[base.index < tail.index.min()], tail], axis=0).sort_index()
-            panel = panel.loc[~panel.index.duplicated(keep="last")]
-        else:
-            panel = tail.sort_index()
-    elif not base.empty:
-        panel = base
-    else:
+        if not all_dfs:
+            return pd.DataFrame()
+
+        out = pd.concat(all_dfs, axis=1)
+        out = out.loc[:, ~out.columns.duplicated()]
+        return out.sort_index()
+
+    tail = _fetch_closes(tail_tickers, tail_start)
+    full = _fetch_closes(full_tickers, "1995-01-01")
+
+    panel = base.copy() if not base.empty else pd.DataFrame()
+    for fresh in (tail, full):
+        if fresh.empty:
+            continue
+        if panel.empty and len(panel.columns) == 0:
+            panel = fresh.sort_index()
+            continue
+        panel = panel.reindex(panel.index.union(fresh.index)).sort_index()
+        for col in fresh.columns:
+            if col not in panel.columns:
+                panel[col] = np.nan
+        panel.update(fresh)
+
+    if panel.empty:
         raise RuntimeError("Failed to fetch NDX constituent closes and no committed snapshot is available.")
 
+    panel = panel.loc[~panel.index.duplicated(keep="last")]
     panel = panel.loc[:, ~panel.columns.duplicated()]
+    if not base.empty:
+        base_order = list(base.columns)
+        new_cols = sorted([c for c in panel.columns if c not in base_order])
+        panel = panel.reindex(columns=base_order + new_cols)
+
     PRICES_FILE.parent.mkdir(parents=True, exist_ok=True)
     panel.to_parquet(PRICES_FILE)
     return panel
