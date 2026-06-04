@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 def main():
     parser = argparse.ArgumentParser(description="Generate a full set of candidate golden master artifacts.")
@@ -17,6 +18,11 @@ def main():
     gm_dir = os.path.dirname(os.path.abspath(__file__))
     run_with_frozen = os.path.join(gm_dir, "run_with_frozen_date.py")
 
+    run_tmpdir = tempfile.mkdtemp(prefix="gm_cap_")
+    run_env = os.environ.copy()
+    run_env["TMPDIR"] = run_tmpdir
+    print(f"Using isolated TMPDIR for this capture run: {run_tmpdir}")
+
     # 1. Run dump_streams.py
     print("Generating numeric streams (dump_streams.py)... ")
     cmd_streams = [
@@ -25,7 +31,7 @@ def main():
         "--end", "2026-04-30",
         "--out", out_dir
     ]
-    res = subprocess.run(cmd_streams, capture_output=True, text=True)
+    res = subprocess.run(cmd_streams, capture_output=True, text=True, env=run_env)
     if res.returncode != 0:
         print("ERROR in dump_streams.py:")
         print(res.stdout)
@@ -39,7 +45,7 @@ def main():
         "cpm_live.py", "allocate"
     ]
     # monthly-signal.yml merges stderr with 2>&1
-    res = subprocess.run(cmd_alloc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    res = subprocess.run(cmd_alloc, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=run_env)
     if res.returncode != 0:
         print("ERROR in cpm_live.py allocate:")
         print(res.stdout)
@@ -53,7 +59,7 @@ def main():
         py_exe, run_with_frozen,
         "deploy/cf-pages/format_message.py"
     ]
-    res = subprocess.run(cmd_msg, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    res = subprocess.run(cmd_msg, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=run_env)
     if res.returncode != 0:
         print("ERROR in format_message.py:")
         print(res.stdout)
@@ -69,7 +75,7 @@ def main():
         "build_dashboard.py",
         "--end", "2026-04-30"
     ]
-    res = subprocess.run(cmd_dash, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    res = subprocess.run(cmd_dash, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=run_env)
     if res.returncode != 0:
         print("ERROR in build_dashboard.py:")
         print(res.stdout)

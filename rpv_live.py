@@ -69,35 +69,7 @@ def _fetch_fred_series(id_: str, fallback_paths: list[Path] | None = None) -> pd
     raise FileNotFoundError(f"FRED series {id_} not found locally and REFRESH_FRED not set or web fetch failed.")
 
 
-def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
-    """Load base macro series used by term/igcredit/equity premia."""
-    dgs10 = _fetch_fred_series("DGS10")
-    dgs3mo = _fetch_fred_series("DGS3MO")
-    dbaa = _fetch_fred_series("DBAA")
-
-    try:
-        sp500 = _fetch_fred_series("SP500")
-    except Exception:
-        sp500 = pd.Series(dtype=float, index=pd.DatetimeIndex([]))
-
-    fpath_earnings = DATA_DIR / "sp500_earnings.csv"
-    try:
-        df_earn = pd.read_csv(fpath_earnings)
-    except Exception:
-        if os.environ.get("REFRESH_FRED") == "1":
-            url_earnings = "https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv"
-            df_earn = _read_csv_url_timeout(url_earnings, timeout_s=15.0)
-        else:
-            raise FileNotFoundError("S&P 500 earnings file not found locally and REFRESH_FRED not set or fetch failed.")
-
-    df_earn["Date"] = pd.to_datetime(df_earn["Date"])
-    df_earn = df_earn.set_index("Date").sort_index()
-
-    E = pd.to_numeric(df_earn["Earnings"], errors="coerce")
-    E = E.where(E > 0, np.nan).ffill().dropna()
-    P = pd.to_numeric(df_earn["SP500"], errors="coerce").dropna()
-
-    return dgs10, dgs3mo, dbaa, sp500, E, P
+from data_loader import load_macro_data
 
 
 def _trailing_z(df: pd.DataFrame, w: int) -> pd.DataFrame:

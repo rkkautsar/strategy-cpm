@@ -27,3 +27,22 @@ venv/
 data/ndx_constituents/*
 !data/ndx_constituents/*.parquet
 research/ndx_sleeve/cache/
+
+# ============================================================================
+# Research/ heavy data artifacts (Step F cleanup) - reproducible, not versioned.
+# Keep .md summaries (findings of record) and .py reproducer/shim scripts.
+# ============================================================================
+research/**/*.csv
+research/**/*.parquet
+research/**/*.json
+research/**/*.prof
+research/**/*.pkl
+research/**/*.txt
+research/**/*.html
+research/**/*.log
+research/**/*.out
+research/**/cache/
+research/**/__pycache__/
+
+!research/**/*.py
+!research/**/*.md

@@ -69,10 +69,7 @@ COST_BPS_PER_SIDE = 10
 EVAL_END = pd.Timestamp("2026-04-30")
 
 # Production blend weights.
-CPM_WEIGHT = 0.60
-NDX_WEIGHT = 0.15
-VAL_WEIGHT = 0.15
-RPV_WEIGHT = 0.10
+from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
 PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
@@ -177,163 +174,7 @@ def _assert_live_panel_fresh(
         )
 
 
-def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
-               cache_dir: str = "/tmp/cpm_cache", live: bool = False) -> pd.DataFrame:
-    """Build the daily price panel from all sources.
-
-    live=False: frozen in-repo data only (plus fully-missing columns, as before).
-    live=True: append fresh per-ticker deltas after each column's last non-NaN date.
-    """
-    os.makedirs(cache_dir, exist_ok=True)
-
-    # Long-history proxy panel (1995+)
-    if PROXY_PATH.exists():
-        panel = pd.read_csv(PROXY_PATH, parse_dates=["Date"], index_col="Date").sort_index()
-    else:
-        panel = pd.DataFrame()
-
-    # Stitched series from data/ (overwrites same-named column in proxy panel).
-    # TIP canary uses VIPSX stitch pre-live ETF period.
-    # HYG stitch remains available as legacy data, not a canary dependency.
-    # Audited stitches (each replaces same-named column from proxy file):
-    # - HYG <- VWEHX (Vanguard HY mutual fund), 1980-01+, auditable legacy
-    # - TIP <- VIPSX (Vanguard TIPS), 2000-06+, auditable
-    # - SHV <- VFISX (Vanguard Short-Term Treasury), 1991-10+, auditable
-    # - IEF <- VFITX (Vanguard Intermediate-Term Treasury), 1991-10+, auditable
-    # - TLT <- VUSTX (Vanguard Long-Term Treasury), 1986-05+, auditable
-    # - GLD <- partly documented stitch (2000-08+), pre-2000 still gap
-    for fname, col in [
-        ("gld_stitched_extended_daily.csv", "GLD"),  # World Bank monthly pre-2000-08
-        ("tip_stitched_daily.csv", "TIP"),
-        ("hyg_stitched_daily.csv", "HYG"),
-        ("lqd_stitched_daily.csv", "LQD"),
-        ("shv_stitched_daily.csv", "SHV"),
-        ("ief_stitched_daily.csv", "IEF"),
-        ("tlt_stitched_daily.csv", "TLT"),
-        ("qqq_stitched_daily.csv", "QQQ"),  # NDX index proxy 1985-10 to 1999-03
-    ]:
-        fpath = DATA_DIR / fname
-        if fpath.exists():
-            s = pd.read_csv(fpath, parse_dates=[0], index_col=0)
-            s.columns = [col]
-            if panel.empty:
-                panel = s.copy()
-            elif col in panel.columns:
-                # Overwrite existing column with stitched data
-                panel = panel.drop(columns=[col]).join(s, how="outer").sort_index()
-            else:
-                panel = panel.join(s, how="outer").sort_index()
-
-    needed = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + PP_ASSETS + [DEFAULT_CASH, "LQD"]))
-    present = set(panel.columns)
-    missing = [t for t in needed if t not in present]
-
-    pull_start = (start - pd.DateOffset(years=2)) if start else pd.Timestamp("1995-01-01")
-    pull_end = end if end else pd.Timestamp.today() + pd.Timedelta(days=1)
-
-    # Always backfill fully missing assets exactly as before.
-    fetched_missing = {}
-    for t in missing:
-        try:
-            s = _fetch_cached_adjusted_close(t, pull_start, pull_end, cache_dir)
-            if not s.empty:
-                fetched_missing[t] = s
-        except Exception as e:
-            print(f"WARN: could not fetch {t}: {e}", file=sys.stderr)
-
-    if fetched_missing:
-        extras = pd.DataFrame(fetched_missing)
-        panel = panel.join(extras, how="outer").sort_index() if not panel.empty else extras
-
-    # Live mode: refresh stale tails for assets that already exist in panel.
-    if live and not panel.empty:
-        for t in [x for x in needed if x in panel.columns]:
-            col = panel[t]
-            last_valid = col.last_valid_index()
-            delta_start = pull_start if last_valid is None else last_valid
-            if delta_start > pull_end:
-                continue
-            try:
-                delta = _fetch_cached_adjusted_close(t, delta_start, pull_end, cache_dir)
-                if delta.empty:
-                    continue
-
-                if last_valid is None:
-                    panel = panel.reindex(panel.index.union(delta.index))
-                    panel.loc[delta.index, t] = delta.values
-                    continue
-
-                ratio_date = None
-                if last_valid in delta.index and pd.notna(delta.loc[last_valid]) and delta.loc[last_valid] != 0:
-                    ratio_date = last_valid
-                else:
-                    overlap = col.dropna().index.intersection(delta.index)
-                    for d in overlap:
-                        if pd.notna(col.loc[d]) and pd.notna(delta.loc[d]) and delta.loc[d] != 0:
-                            ratio_date = d
-                            break
-
-                if ratio_date is not None:
-                    ratio = col.loc[ratio_date] / delta.loc[ratio_date]
-                    delta = delta * ratio
-                else:
-                    print(f"WARN: no overlap to rescale live refresh for {t}; appending raw scale", file=sys.stderr)
-
-                new_idx = delta.index[delta.index > last_valid]
-                if len(new_idx) == 0:
-                    continue
-
-                prev_val = col.loc[last_valid]
-                first_new_val = delta.loc[new_idx[0]]
-                if pd.notna(prev_val) and prev_val != 0 and pd.notna(first_new_val):
-                    first_ret = first_new_val / prev_val - 1.0
-                    if abs(first_ret) > 0.50:
-                        print(
-                            f"WARN: rejected live refresh for {t}; first appended return {first_ret:+.2%} exceeds 50% guard",
-                            file=sys.stderr,
-                        )
-                        continue
-
-                panel = panel.reindex(panel.index.union(new_idx))
-                panel.loc[new_idx, t] = delta.loc[new_idx].values
-            except Exception as e:
-                print(f"WARN: could not refresh {t}: {e}", file=sys.stderr)
-
-    if start:
-        panel = panel[panel.index >= start - pd.DateOffset(months=15)]  # keep warmup
-
-    if live:
-        if end is not None:
-            panel = panel[panel.index <= end]
-            reference_date = min(pd.Timestamp(end).normalize(), pd.Timestamp.today().normalize())
-        else:
-            reference_date = pd.Timestamp.today().normalize()
-        required_assets = list(dict.fromkeys(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS))
-        _assert_live_panel_fresh(panel, reference_date=reference_date, required_assets=required_assets)
-    else:
-        cap_end = EVAL_END if end is None else min(pd.Timestamp(end), EVAL_END)
-        panel = panel.loc[:cap_end]
-        if cap_end == EVAL_END:
-            required_assets = list(dict.fromkeys(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS))
-            stale_assets = []
-            for asset in required_assets:
-                if asset not in panel.columns:
-                    stale_assets.append((asset, None))
-                    continue
-                last_valid = panel[asset].last_valid_index()
-                if last_valid is None or last_valid < EVAL_END:
-                    stale_assets.append((asset, last_valid))
-            if stale_assets:
-                stale_msg = ", ".join(
-                    f"{asset}={(lv.date().isoformat() if lv is not None else 'missing')}"
-                    for asset, lv in stale_assets
-                )
-                raise ValueError(
-                    f"Frozen panel stale at EVAL_END={EVAL_END.date().isoformat()}; "
-                    f"expected last-valid >= EVAL_END for all required assets. {stale_msg}"
-                )
-
-    return panel.sort_index()
+from data_loader import load_panel
 
 
 # ---------- Signals ----------
@@ -346,18 +187,7 @@ def faber_sma_xs(monthly: pd.DataFrame) -> pd.Series:
     return (monthly.iloc[-1] - sma) / sma
 
 
-def sig_13612U(p: pd.Series) -> float:
-    """Canonical Keller HAA 13612U momentum: simple unweighted average of
-    1/3/6/12-month total returns. Matches Keller & Keuning HAA paper (2022)."""
-    p = p.dropna()
-    if len(p) < 13:
-        return np.nan
-    last = p.iloc[-1]
-    r1 = last / p.iloc[-2] - 1
-    r3 = last / p.iloc[-4] - 1
-    r6 = last / p.iloc[-7] - 1
-    r12 = last / p.iloc[-13] - 1
-    return (r1 + r3 + r6 + r12) / 4.0
+from core import sig_13612U
 
 
 def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> int | None:
@@ -595,28 +425,7 @@ def compute_live_weights(
     return compute_target_weights(close, sig_d)
 
 
-def perf_metrics(daily: pd.Series, cash_daily: pd.Series = None) -> dict:
-    if daily.empty:
-        return {}
-    eq = (1.0 + daily).cumprod() * 100_000.0
-    days = (eq.index[-1] - eq.index[0]).days
-    yrs = days / 365.25
-    cagr = (eq.iloc[-1] / eq.iloc[0]) ** (1 / yrs) - 1 if yrs > 0 else float("nan")
-    vol = daily.std(ddof=0) * np.sqrt(252)
-    sharpe = (daily.mean() * 252) / vol if vol > 0 else float("nan")
-    cash_aligned = cash_daily.reindex_like(daily).fillna(0.0) if cash_daily is not None else pd.Series(0.0, index=daily.index)
-    excess_daily = daily - cash_aligned
-    excess_vol = excess_daily.std(ddof=0) * np.sqrt(252)
-    excess_sharpe = (excess_daily.mean() * 252) / excess_vol if excess_vol > 0 else float("nan")
-    rm = eq.cummax()
-    dd_series = eq / rm - 1
-    mdd = dd_series.min()
-    ulcer = float(np.sqrt(np.mean(dd_series ** 2)))
-    calmar = cagr / abs(mdd) if mdd != 0 and not pd.isna(mdd) else float("nan")
-    martin = cagr / ulcer if ulcer > 0 else float("nan")
-    return {"total_return": eq.iloc[-1] / eq.iloc[0] - 1,
-            "cagr": cagr, "vol": vol, "sharpe": sharpe, "excess_sharpe": excess_sharpe, "max_drawdown": mdd,
-            "ulcer": ulcer, "calmar": calmar, "martin": martin}
+from core import perf_metrics
 
 
 def run_cpm_backtest(
@@ -732,7 +541,7 @@ def cmd_allocate(args):
     """Print this month's target allocation."""
     from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
     from rpv_live import compute_rpv_weights
-    from value_sleeve_live import cached_value_backtest
+    from core import cached_value_backtest
 
     sig_d = pd.Timestamp(args.signal_date) if args.signal_date else None
     panel = load_panel(end=sig_d, live=True)
@@ -759,7 +568,7 @@ def cmd_allocate(args):
     ndx_panel = load_ndx_panel()
 
     # Sleeve weights
-    from value_sleeve_live import get_cached_sleeve_weight
+    from core import get_cached_sleeve_weight
     cpm_w, basket, cpm_regime, safe = get_cached_sleeve_weight(
         "cpm", panel, sig_d, compute_live_weights, panel, sig_d
     )
@@ -834,7 +643,7 @@ def cmd_allocate(args):
 def cmd_backtest(args):
     from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
     from rpv_live import run_rpv_backtest
-    from value_sleeve_live import cached_value_backtest
+    from core import cached_value_backtest
 
     start = pd.Timestamp(args.start)
     end = pd.Timestamp(args.end) if args.end else None

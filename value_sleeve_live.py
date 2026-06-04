@@ -23,7 +23,8 @@ import numpy as np
 import pandas as pd
 import index_constitution as ic
 
-from cpm_live import DEFAULT_CASH, SAFE_POOL, sig_13612U
+from cpm_live import DEFAULT_CASH, SAFE_POOL
+from core import sig_13612U
 from ndx_sleeve_live import _pick_safe
 
 ROOT = Path(__file__).resolve().parent
@@ -41,29 +42,7 @@ BS_CONCEPTS = ["TotalAssets", "TotalLiabilities", "StockholdersEquity", "ShortTe
 # ===========================================================================
 # 1. Local Cache Reader and Builders
 # ===========================================================================
-@functools.lru_cache(maxsize=1)
-def load_valuein_cache(cache_dir: str = DEFAULT_CACHE_DIR) -> tuple[dict, dict]:
-    """Loads local parquet files: fact, security and builds FLOWS and BS dicts."""
-    fact = pd.read_parquet(Path(cache_dir) / "fact.parquet")
-    sec = pd.read_parquet(Path(cache_dir) / "security.parquet")
-    prim = sec[sec.is_primary_ticker][["entity_id", "symbol"]].drop_duplicates("entity_id")
-    e2t = dict(zip(prim.entity_id, prim.symbol))
-
-    fact = fact[fact.entity_id.isin(e2t)].copy()
-    fact["ticker"] = fact.entity_id.map(e2t)
-    fact["accepted"] = pd.to_datetime(fact["accepted_at"]).dt.tz_localize(None).dt.normalize()
-    fact["period_end"] = pd.to_datetime(fact["period_end"])
-    
-    # earliest as-filed value per (ticker, concept, fiscal_year, fiscal_period, period_end)
-    fact = fact.sort_values("accepted")
-    fact = fact.drop_duplicates(
-        subset=["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end"],
-        keep="first"
-    )
-    
-    FLOWS = _build_pit_flows(fact)
-    BS = _build_pit_bs(fact)
-    return FLOWS, BS
+from data_loader import load_valuein_cache
 
 
 def _build_pit_flows(fact: pd.DataFrame) -> dict:
@@ -539,53 +518,7 @@ def run_value_backtest(
     return daily_rets, history
 
 
-def _val_backtest_checkpoint_path(
-    start: pd.Timestamp,
-    end: pd.Timestamp,
-    cost_bps: float,
-    checkpoint_dir: str | Path | None = None,
-) -> Path:
-    start_ts = pd.Timestamp(start).normalize()
-    end_ts = pd.Timestamp(end).normalize()
-    base_dir = Path(checkpoint_dir) if checkpoint_dir is not None else Path(tempfile.gettempdir())
-    return base_dir / f"val_backtest_{start_ts.date()}_{end_ts.date()}_{cost_bps:g}.pkl"
-
-
-def cached_value_backtest(
-    cpm_panel: pd.DataFrame,
-    ndx_panel: pd.DataFrame,
-    start: pd.Timestamp,
-    end: pd.Timestamp,
-    cost_bps: float = COST_BPS_PER_SIDE,
-    cache_dir: str = DEFAULT_CACHE_DIR,
-    checkpoint_dir: str | Path | None = None,
-) -> tuple[pd.Series, list[dict]]:
-    """Run VAL backtest once per (start, end, cost) and reuse checkpoint from /tmp."""
-    checkpoint_path = _val_backtest_checkpoint_path(start, end, cost_bps, checkpoint_dir=checkpoint_dir)
-    if checkpoint_path.exists():
-        try:
-            with checkpoint_path.open("rb") as fh:
-                cached = pickle.load(fh)
-            if isinstance(cached, tuple) and len(cached) == 2:
-                return cached
-        except Exception:
-            try:
-                checkpoint_path.unlink()
-            except OSError:
-                pass
-
-    result = run_value_backtest(cpm_panel, ndx_panel, start, end, cost_bps=cost_bps, cache_dir=cache_dir)
-
-    try:
-        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = checkpoint_path.with_suffix(f".tmp.{os.getpid()}")
-        with tmp_path.open("wb") as fh:
-            pickle.dump(result, fh, protocol=pickle.HIGHEST_PROTOCOL)
-        os.replace(tmp_path, checkpoint_path)
-    except Exception:
-        pass
-
-    return result
+from core import _val_backtest_checkpoint_path, cached_value_backtest
 
 
 # ===========================================================================
@@ -642,50 +575,7 @@ import hashlib
 import pickle
 import tempfile
 
-_HASH_CACHE = {}
-_SLEEVE_CACHE_MEM = {}
-
-def _get_panel_hash(df: pd.DataFrame) -> str:
-    df_id = id(df)
-    if df_id not in _HASH_CACHE:
-        _HASH_CACHE[df_id] = hashlib.md5(pd.util.hash_pandas_object(df, index=True).values).hexdigest()[:16]
-    return _HASH_CACHE[df_id]
-
-def get_cached_sleeve_weight(sleeve: str, panel: pd.DataFrame, sig_d: pd.Timestamp, compute_fn, *args, **kwargs):
-    """Retrieve weights from a persistent dictionary cache in /tmp, keyed by panel hash + end date."""
-    end_date = panel.index.max()
-    phash = _get_panel_hash(panel)
-    end_str = end_date.strftime("%Y-%m-%d")
-    checkpoint_path = Path(tempfile.gettempdir()) / f"{sleeve}_weights_{phash}_{end_str}.pkl"
-
-    mem_key = (sleeve, phash, end_str)
-    if mem_key not in _SLEEVE_CACHE_MEM:
-        if checkpoint_path.exists():
-            try:
-                with checkpoint_path.open("rb") as fh:
-                    _SLEEVE_CACHE_MEM[mem_key] = pickle.load(fh)
-            except Exception:
-                _SLEEVE_CACHE_MEM[mem_key] = {}
-        else:
-            _SLEEVE_CACHE_MEM[mem_key] = {}
-
-    cache_dict = _SLEEVE_CACHE_MEM[mem_key]
-
-    sig_str = sig_d.strftime("%Y-%m-%d")
-    if sig_str not in cache_dict:
-        result = compute_fn(*args, **kwargs)
-        cache_dict[sig_str] = result
-
-        try:
-            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = checkpoint_path.with_suffix(f".tmp.{os.getpid()}")
-            with tmp_path.open("wb") as fh:
-                pickle.dump(cache_dict, fh, protocol=pickle.HIGHEST_PROTOCOL)
-            os.replace(tmp_path, checkpoint_path)
-        except Exception:
-            pass
-
-    return cache_dict[sig_str]
+from core import _get_panel_hash, get_cached_sleeve_weight
 
 
 if __name__ == "__main__":

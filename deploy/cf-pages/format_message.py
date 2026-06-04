@@ -14,12 +14,9 @@ import cpm_live as cpm
 from cpm_live import load_panel, compute_live_weights
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 from rpv_live import compute_rpv_weights
-from value_sleeve_live import cached_value_backtest
+from core import cached_value_backtest
 
-CPM_WEIGHT = 0.60
-NDX_WEIGHT = 0.15
-VAL_WEIGHT = 0.15
-RPV_WEIGHT = 0.10
+from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
 
 
 def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:
@@ -40,7 +37,7 @@ def main() -> None:
     candidates = panel.index[panel.index <= prior_me]
     sig_d = candidates[-1] if len(candidates) > 0 else today
 
-    from value_sleeve_live import get_cached_sleeve_weight
+    from core import get_cached_sleeve_weight
     cpm_w, pair, cpm_regime, safe = get_cached_sleeve_weight(
         "cpm", panel, sig_d, compute_live_weights, panel, sig_d
     )
