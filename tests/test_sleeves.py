@@ -9,7 +9,9 @@ from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
 
 
 def test_compute_live_blend_parity():
-    panel = load_panel(live=True)
+    # Offline/deterministic panel (live=False default; live=True hits yfinance -> flaky).
+    # The old-vs-new combine equivalence holds for any panel + sig_d.
+    panel = load_panel(start=pd.Timestamp("2010-01-01"))
     ndx_panel = load_ndx_panel()
     sig_d = panel.index[-1]
 
