@@ -41,6 +41,13 @@ jobs:
         # ~30s for ~100 active tickers.
         run: uv run python -c "from ndx_sleeve_live import refresh_ndx_panel; refresh_ndx_panel()"
 
+      - name: Refresh Valuein cache (optional)
+        if: ${{ secrets.VALUEIN_API_KEY != '' }}
+        continue-on-error: true
+        env:
+          VALUEIN_API_KEY: ${{ secrets.VALUEIN_API_KEY }}
+        run: uv run python -m value_sleeve_live --refresh-cache
+
       - name: Generate signal allocation
         id: signal
         run: |

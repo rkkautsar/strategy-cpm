@@ -68,8 +68,13 @@ COST_BPS_PER_SIDE = 10
 # last-valid >= EVAL_END for every required asset.
 EVAL_END = pd.Timestamp("2026-04-30")
 
+# Production blend weights.
+CPM_WEIGHT = 0.60
+NDX_WEIGHT = 0.15
+VAL_WEIGHT = 0.15
+RPV_WEIGHT = 0.10
+
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
-# PRODUCTION strategy is 60% CPM + 25% NDX + 15% RPV.
 PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
 PP_WEIGHTS = {"SPY": 0.25, "IEF": 0.25, "GLD": 0.25, "SHV": 0.25}
 
@@ -725,6 +730,10 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
 
 def cmd_allocate(args):
     """Print this month's target allocation."""
+    from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
+    from rpv_live import compute_rpv_weights
+    from value_sleeve_live import run_value_backtest
+
     sig_d = pd.Timestamp(args.signal_date) if args.signal_date else None
     panel = load_panel(end=sig_d, live=True)
     if sig_d is None:
@@ -746,59 +755,133 @@ def cmd_allocate(args):
                 valid = panel[c].loc[:sig_d].dropna()
                 if len(valid) > 0:
                     sig_d = min(sig_d, valid.index[-1])
-    print(f"CPM Allocation @ {sig_d.date()} (signal date)")
+
+    ndx_panel = load_ndx_panel()
+
+    # Sleeve weights
+    cpm_w, basket, cpm_regime, safe = compute_live_weights(panel, sig_d)
+    ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel, sig_d)
+    rpv_w, rpv_regime, rpv_diag = compute_rpv_weights(panel, sig_d)
+
+    # VAL is stateful month-to-month: derive current live weights from full-history run.
+    val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())
+    _, val_hist = run_value_backtest(panel, ndx_panel, val_start, sig_d)
+    val_rec = next((r for r in reversed(val_hist) if r["sig_d"] <= sig_d), None)
+    if val_rec is None:
+        val_w = {DEFAULT_CASH: 1.0}
+        val_regime = "VAL_NO_SIGNAL"
+        val_picks = []
+    else:
+        val_w = val_rec.get("weights", {DEFAULT_CASH: 1.0})
+        val_regime = val_rec.get("regime", "VAL_UNKNOWN")
+        val_picks = val_rec.get("selected", [])
+
+    combined: dict[str, float] = {}
+    for t, w in cpm_w.items():
+        combined[t] = combined.get(t, 0.0) + w * CPM_WEIGHT
+    for t, w in ndx_w.items():
+        combined[t] = combined.get(t, 0.0) + w * NDX_WEIGHT
+    for t, w in val_w.items():
+        combined[t] = combined.get(t, 0.0) + w * VAL_WEIGHT
+    for t, w in rpv_w.items():
+        combined[t] = combined.get(t, 0.0) + w * RPV_WEIGHT
+
+    print(f"CPM-NDX-VAL-RPV Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)
-    
-    # CPM weights (walk-forward with hold-buffer; matches backtest path)
-    weights, basket, regime, safe = compute_live_weights(panel, sig_d)
-    print(f"\n[CPM sleeve — 60% of PROD]")
-    print(f"  Regime: {regime}")
+
+    print(f"\n[CPM sleeve — {int(CPM_WEIGHT*100)}%]")
+    print(f"  Regime: {cpm_regime}")
     print(f"  Best safe: {safe}")
     if basket:
         print(f"  Selected risky basket: {' + '.join(basket)}")
-    print(f"  Weights:")
-    for t, w in sorted(weights.items(), key=lambda x: -x[1]):
+    for t, w in sorted(cpm_w.items(), key=lambda x: -x[1]):
         print(f"    {t:8s} {w*100:5.1f}%")
 
-    # NOTE: This shows the CPM sleeve only (60% of PROD). For full
-    # PROD allocation, use deploy/cf-pages/format_message.py or dashboard.
-    print(f"\n[CPM sleeve only -- this is 60% of PROD]")
-    print(f"  Full PROD allocation: see format_message.py or dashboard.")
+    print(f"\n[NDX sleeve — {int(NDX_WEIGHT*100)}%]")
+    print(f"  Regime: {ndx_regime}")
+    if ndx_diag.get("selected"):
+        print(f"  Picks: {', '.join(ndx_diag['selected'])}")
+    for t, w in sorted(ndx_w.items(), key=lambda x: -x[1]):
+        print(f"    {t:8s} {w*100:5.1f}%")
+
+    print(f"\n[VAL sleeve — {int(VAL_WEIGHT*100)}%]")
+    print(f"  Regime: {val_regime}")
+    if val_picks:
+        print(f"  Picks: {', '.join(val_picks)}")
+    for t, w in sorted(val_w.items(), key=lambda x: -x[1]):
+        print(f"    {t:8s} {w*100:5.1f}%")
+
+    print(f"\n[RPV sleeve — {int(RPV_WEIGHT*100)}%]")
+    print(f"  Regime: {rpv_regime}")
+    if rpv_diag.get("eligible"):
+        print(f"  Picks: {', '.join(rpv_diag['eligible'])}")
+    for t, w in sorted(rpv_w.items(), key=lambda x: -x[1]):
+        print(f"    {t:8s} {w*100:5.1f}%")
+
+    print("\n[Combined target — 100%]")
+    for t, w in sorted(combined.items(), key=lambda x: -x[1]):
+        print(f"    {t:8s} {w*100:5.1f}%")
+    print(f"\n  Weight sum: {sum(combined.values()):.6f}")
 
 
 def cmd_backtest(args):
+    from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
+    from rpv_live import run_rpv_backtest
+    from value_sleeve_live import run_value_backtest
+
     start = pd.Timestamp(args.start)
     end = pd.Timestamp(args.end) if args.end else None
     print(f"Loading panel ...")
     panel = load_panel(start=start, end=end)
     bt_end = end if end is not None else panel.index[-1]
     print(f"Panel: {panel.index[0].date()} -> {panel.index[-1].date()}, {len(panel.columns)} assets")
-    
-    print(f"\nRunning CPM-only backtest from {start.date()} to {bt_end.date()} ...")
+
+    print(f"\nRunning CPM-NDX-VAL-RPV backtest from {start.date()} to {bt_end.date()} ...")
     print(f"Execution model: T+1 OPEN (next-day MOO after month-end signal at T)")
-    print(f"NOTE: This is CPM sleeve only (60% of PROD). For full PROD blend")
-    print(f"      (60% CPM + 25% NDX + 15% RPV) use build_dashboard.py.")
-    
+
     cost_bps = 0 if args.no_cost else COST_BPS_PER_SIDE
     cpm, _ = run_cpm_backtest(panel, start, bt_end, cost_bps=cost_bps)
-    
+    ndx_panel = load_ndx_panel()
+    ndx, _ = run_ndx_backtest(panel, ndx_panel, start, bt_end, cost_bps=cost_bps)
+    rpv = run_rpv_backtest(panel, start, bt_end, cost_bps=cost_bps)
+    val, _ = run_value_backtest(panel, ndx_panel, start, bt_end, cost_bps=cost_bps)
+
+    common = cpm.index.intersection(ndx.index).intersection(rpv.index).intersection(val.index)
+    cpm = cpm.reindex(common).fillna(0.0)
+    ndx = ndx.reindex(common).fillna(0.0)
+    rpv = rpv.reindex(common).fillna(0.0)
+    val = val.reindex(common).fillna(0.0)
+    blend = CPM_WEIGHT * cpm + NDX_WEIGHT * ndx + VAL_WEIGHT * val + RPV_WEIGHT * rpv
+
     print(f"\n{'Strategy':25s} {'CAGR':>8s} {'Vol':>7s} {'Sharpe':>7s} {'MaxDD':>8s}")
     print("-" * 60)
-    m = perf_metrics(cpm)
-    print(f"{'CPM':25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
+    for name, series in [
+        (f"PROD {int(CPM_WEIGHT*100)}/{int(NDX_WEIGHT*100)}/{int(VAL_WEIGHT*100)}/{int(RPV_WEIGHT*100)}", blend),
+        ("CPM sleeve", cpm),
+        ("NDX sleeve", ndx),
+        ("VAL sleeve", val),
+        ("RPV sleeve", rpv),
+    ]:
+        m = perf_metrics(series)
+        print(f"{name:25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
 
-    # SPY benchmark
     if "SPY" in panel.columns:
         spy = panel["SPY"].ffill().pct_change().loc[start:bt_end].fillna(0.0)
-        common = cpm.index.intersection(spy.index)
-        spy_eq = spy.reindex(common)
+        common_spy = blend.index.intersection(spy.index)
+        spy_eq = spy.reindex(common_spy)
         m = perf_metrics(spy_eq)
         print(f"{'SPY buy-hold':25s} {m['cagr']*100:7.2f}% {m['vol']*100:6.2f}% {m['sharpe']:7.3f} {m['max_drawdown']*100:7.2f}%")
 
     if args.out:
         out_path = Path(args.out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        df = pd.DataFrame({"CPM": cpm})
+        df = pd.DataFrame({
+            "PROD": blend,
+            "CPM": cpm,
+            "NDX": ndx,
+            "VAL": val,
+            "RPV": rpv,
+        })
         df.to_csv(f"{out_path}_daily.csv")
         print(f"\nSaved daily returns: {out_path}_daily.csv")
 
