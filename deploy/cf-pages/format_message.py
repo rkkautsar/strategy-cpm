@@ -16,10 +16,7 @@ from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 from rpv_live import compute_rpv_weights
 from value_sleeve_live import cached_value_backtest
 
-CPM_WEIGHT = 0.60
-NDX_WEIGHT = 0.15
-VAL_WEIGHT = 0.15
-RPV_WEIGHT = 0.10
+from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
 
 
 def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:

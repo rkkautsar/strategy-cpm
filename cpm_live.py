@@ -69,10 +69,7 @@ COST_BPS_PER_SIDE = 10
 EVAL_END = pd.Timestamp("2026-04-30")
 
 # Production blend weights.
-CPM_WEIGHT = 0.60
-NDX_WEIGHT = 0.15
-VAL_WEIGHT = 0.15
-RPV_WEIGHT = 0.10
+from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
 PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]

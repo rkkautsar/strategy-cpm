@@ -54,10 +54,7 @@ from ndx_sleeve_live import (
 from value_sleeve_live import cached_value_backtest
 
 # Production blend: 60% CPM + 15% NDX + 15% VAL + 10% RPV
-CPM_W = 0.60
-NDX_W = 0.15
-VAL_W = 0.15
-RPV_W = 0.10
+from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
 RPV_BLEND = RPV_W  # alias used by chart helpers below
 RPV_EQUITY_TICKER = "SPY"
 CASH_TICKER = "SHV"
