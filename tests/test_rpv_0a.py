@@ -15,8 +15,20 @@ from rpv_live import compute_rpv_signals, compute_rpv_weights
 
 
 EXPECTED_SIGNALS = {
-    pd.Timestamp("2026-04-30"): {"term": 0.3271466148653894, "credit": -0.8677612228837291, "equity": -1.6717743309962225},
-    pd.Timestamp("2026-05-31"): {"term": 0.3757879574525548, "credit": -1.174249318151616, "equity": -1.8027246722706036},
+    pd.Timestamp("2026-04-30"): {
+        "term": 0.32714661486539,
+        "igcredit": -0.8677612228837291,
+        "equity": -1.6717743309962165,
+        "hycredit": -1.191221612355295,
+        "realyld": 0.493851669612174,
+    },
+    pd.Timestamp("2026-05-31"): {
+        "term": 0.37578795745255544,
+        "igcredit": -1.174249318151616,
+        "equity": -1.8027246722705978,
+        "hycredit": float("nan"),
+        "realyld": 0.5176253818985085,
+    },
 }
 
 
@@ -26,18 +38,25 @@ def main():
 
     weights, regime, diag = compute_rpv_weights(panel, pd.Timestamp("2026-04-30"))
 
-    assert regime == "CASH"
-    assert weights == {"SHV": 1.0}
+    assert regime == "WEIGHTED_GUARDED"
+    assert abs(weights.get("TIP", 0.0) - (1.0 / 3.0)) <= 1e-12
+    assert abs(weights.get("SHV", 0.0) - (2.0 / 3.0)) <= 1e-12
     assert abs(diag["z_scores"]["term"] - 0.327) <= 1e-2
-    assert abs(diag["z_scores"]["credit"] - (-0.868)) <= 1e-2
+    assert abs(diag["z_scores"]["igcredit"] - (-0.868)) <= 1e-2
     assert abs(diag["z_scores"]["equity"] - (-1.672)) <= 1e-2
+    assert abs(diag["z_scores"]["hycredit"] - (-1.191)) <= 1e-2
+    assert abs(diag["z_scores"]["realyld"] - 0.494) <= 1e-2
 
     z = compute_rpv_signals()
+    assert set(z.columns) == {"term", "igcredit", "equity", "hycredit", "realyld"}
     for dt, expected_row in EXPECTED_SIGNALS.items():
         assert dt in z.index
         row = z.loc[dt]
         for key, expected_val in expected_row.items():
-            assert abs(row[key] - expected_val) <= 1e-9
+            if pd.isna(expected_val):
+                assert pd.isna(row[key])
+            else:
+                assert abs(row[key] - expected_val) <= 1e-9
 
     print("PASS: rpv 0a regression")
 

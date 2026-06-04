@@ -2743,7 +2743,7 @@ def main():
         ("PROD 60/20/20",  art.blend, qqq_d,          "QQQ buy-hold"),
         ("CPM sleeve", art.cpm,   bench_b2,       "B2 AAA + TIP canary"),
         ("CPM sleeve", art.cpm,   spy_d,          "SPY buy-hold"),
-        ("RPV sleeve", art.rpv,   bench_ew_rpv,   "EW SPY/TLT/LQD (Passive Sleeve Peer)"),
+        ("RPV sleeve", art.rpv,   bench_ew_rpv,   "EW RPV universe (Passive Sleeve Peer)"),
         ("RPV sleeve", art.rpv,   spy_d,          "SPY buy-hold"),
         ("NDX sleeve", art.ndx,   bench_b5,       "B5 QQQ 12mo trend (Antonacci GEM)"),
         ("NDX sleeve",     art.ndx,   qqq_d,     "QQQ buy-hold"),
@@ -2951,7 +2951,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <div class='card'>
 <ul>
 <li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), TIP 13612U &gt; 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Equal-weight risky block with n_pos=4 min-var 3-of-4 selection and strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>RPV ({int(RPV_W*100)}%) -- HAA-Simple:</strong> 100% SPY when TIP 13612U &gt; 0 canary and SPY 13612U &gt; 0 trend both pass. Else 100% HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>RPV ({int(RPV_W*100)}%) -- 5-premia sequential:</strong> Universe SPY, TLT, LQD, HYG, TIP + SHV cash. Monthly 120-month z-scores (term, IG spread, HY spread, equity, real yield), keep only z &gt; 0 and above-200d-SMA assets, weight by positive z (per-asset cap near 33%), route remainder to SHV; 100% SHV when none qualify.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
 </ul>
 </div>
@@ -2967,7 +2967,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <details>
 <summary><strong>Alpha / Beta / Correlation vs canonical benchmarks</strong> (daily OLS regression)</summary>
 <div class='card'>
-<p style='font-size:0.9em;color:#555'>Per-sleeve comparators: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>RPV vs EW SPY/TLT/LQD (Passive Sleeve Peer)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
+<p style='font-size:0.9em;color:#555'>Per-sleeve comparators: <code>CPM vs B2 (AAA + TIP canary)</code>, <code>RPV vs EW RPV universe (Passive Sleeve Peer)</code>, <code>NDX vs B5 (QQQ 12mo trend, Antonacci GEM)</code>. Blend canonical: <code>BB4 = 60% B2 + 20% B3 + 20% B5</code>. SPY/QQQ buy-hold rows show market-correlation diagnostics (low beta + low corr = portfolio diversifier, not levered equity).</p>
 {alpha_beta_table_html(alpha_beta_rows)}
 </div>
 </details>
@@ -3054,19 +3054,20 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 </ul>
 </details>
 <details>
-<summary>RPV Sleeve ({int(RPV_BLEND*100)}%) -- Risk Premia Value (Weighted + Guarded)</summary>
+<summary>RPV Sleeve ({int(RPV_BLEND*100)}%) -- Risk Premia Value (5-Premia Sequential)</summary>
 <ul>
-<li><strong>Target Assets:</strong> <code>SPY</code> (Equity), <code>TLT</code> (Term), <code>LQD</code> (Credit), and <code>SHV</code> (Defensive Cash).</li>
-<li><strong>Signals (Risk Premia Z-Scores):</strong> Evaluated monthly using 120-month (10-year) trailing z-scores of three underlying macroeconomic risk premia:
+<li><strong>Universe:</strong> <code>SPY</code>, <code>TLT</code>, <code>LQD</code>, <code>HYG</code>, <code>TIP</code> plus <code>SHV</code> cash.</li>
+<li><strong>Value (120-month z-scores):</strong> Monthly trailing 10-year z-score of each premium vs its own history (higher z = cheaper):
   <ol>
-    <li><strong>Term Premium:</strong> <code>DGS10 - DGS3MO</code> (mapped to <code>TLT</code>)</li>
-    <li><strong>Credit Premium:</strong> <code>DBAA - DGS10</code> (mapped to <code>LQD</code>)</li>
-    <li><strong>Equity Premium:</strong> Earnings Yield (trailing S&P 500 earnings / index price) minus <code>DGS10</code> (mapped to <code>SPY</code>)</li>
+    <li><strong>Term:</strong> <code>DGS10 - DGS3MO</code> -&gt; <code>TLT</code></li>
+    <li><strong>IG credit spread:</strong> <code>DBAA - DGS10</code> -&gt; <code>LQD</code></li>
+    <li><strong>HY credit spread:</strong> <code>BAA - AAA</code> proxy -&gt; <code>HYG</code></li>
+    <li><strong>Equity:</strong> S&amp;P earnings yield minus <code>DGS10</code> -&gt; <code>SPY</code></li>
+    <li><strong>Real yield:</strong> <code>DGS10 - CPI YoY</code> -&gt; <code>TIP</code></li>
   </ol>
 </li>
-<li><strong>Sleeve Weights:</strong> Only assets with positive z-scores are selected. Base weights are allocated proportionally to the magnitude of these positive z-scores. If all z-scores are non-positive, the portfolio defaults 100% to <code>SHV</code>.</li>
-<li><strong>Individual Trend Guards:</strong> At each monthly signal date, each selected asset (SPY, TLT, LQD) is filtered by its own 200-day Simple Moving Average (SMA). If an asset is trading below its 200d SMA, its target weight is dynamically reallocated to <code>SHV</code> (CASH).</li>
-<li><strong>Execution:</strong> Month-end signal (T close), next-day Market-On-Open (T+1 MOO) execution.</li>
+<li><strong>Selection (sequential filter):</strong> Keep premia with <code>z &gt; 0</code> and asset price above its 200-day SMA. Weight survivors proportional to positive z, cap each near 33%, send remainder to <code>SHV</code>. If none qualify, hold 100% <code>SHV</code>.</li>
+<li><strong>Execution:</strong> Monthly signal, trade T+1 OPEN (MOO).</li>
 <li><strong>Sleeve ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{rpv_metrics['sharpe']:.2f}</strong>, CAGR <strong>{rpv_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{rpv_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{rpv_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{rpv_metrics['martin']:.2f}</strong>.</li>
 </ul>
 </details>

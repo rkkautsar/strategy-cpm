@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-RPV Sleeve (Risk Premia Value) - 10% sleeve in candidate blends.
-Calculates 120-month trailing z-scores of Term, Credit, and Equity risk premia.
+RPV sleeve (Risk Premia Value).
+Production implementation of the validated research variant:
+seq/z/weighted/sma200 over a 5-premia universe + SHV cash.
 """
 from __future__ import annotations
 
-import os
 import io
 from functools import lru_cache
 from pathlib import Path
 from urllib.request import urlopen
-import pandas as pd
+
 import numpy as np
-import cpm_live as cpm
+import pandas as pd
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 
@@ -21,173 +21,263 @@ W = 120  # 120-month trailing window
 ZMIN = 36
 LAG_E = 4
 COST_BPS_PER_SIDE = 10.0
+CAP = 1.0 / 3.0
 
 ASSET_OF = {
     "term": "TLT",
-    "credit": "LQD",
-    "equity": "SPY"
+    "igcredit": "LQD",
+    "equity": "SPY",
+    "hycredit": "HYG",
+    "realyld": "TIP",
 }
+RPV_RISKY_ASSETS = sorted(set(ASSET_OF.values()))
+RPV_ASSETS = RPV_RISKY_ASSETS + ["SHV"]
+
+
+def _read_csv_url_timeout(url: str, timeout_s: float = 15.0) -> pd.DataFrame:
+    with urlopen(url, timeout=timeout_s) as response:
+        text = response.read().decode("utf-8")
+    return pd.read_csv(io.StringIO(text))
+
+
+def _parse_fred_series(df: pd.DataFrame, id_: str) -> pd.Series:
+    if df.shape[1] < 2:
+        raise ValueError(f"Invalid FRED payload for {id_}: expected >=2 columns")
+    out = df.iloc[:, :2].copy()
+    out.columns = ["date", id_]
+    out["date"] = pd.to_datetime(out["date"])
+    s = pd.to_numeric(out[id_], errors="coerce")
+    s.index = out["date"]
+    return s.dropna()
+
+
+def _fetch_fred_series(id_: str, fallback_paths: list[Path] | None = None) -> pd.Series:
+    """Fetch FRED series web-first (15s), then committed fallback CSV(s)."""
+    fallback_paths = fallback_paths or [DATA_DIR / f"fred_{id_}.csv"]
+    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={id_}"
+    try:
+        return _parse_fred_series(_read_csv_url_timeout(url, timeout_s=15.0), id_)
+    except Exception:
+        for fpath in fallback_paths:
+            if fpath.exists():
+                return _parse_fred_series(pd.read_csv(fpath), id_)
+        raise
+
 
 def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
-    """Load macro series: term/credit yields (DGS10, DGS3MO, DBAA), S&P500 index, and
-    earnings (E) / price (P). Fetch ordering differs by source on purpose:
-    - FRED yields: web-first (15s timeout) -> committed data/fred_*.csv fallback, so the
-      LIVE signal gets the freshest daily yields; memoized upstream so it fetches once/run.
-    - Earnings/prices: committed-first (data/sp500_earnings.csv) -> web fallback, since
-      earnings move slowly (quarterly) and the committed series is authoritative.
-    All paths return DatetimeIndex'd series; missing/failed fetches degrade to fallbacks."""
+    """Load base macro series used by term/igcredit/equity premia."""
+    dgs10 = _fetch_fred_series("DGS10")
+    dgs3mo = _fetch_fred_series("DGS3MO")
+    dbaa = _fetch_fred_series("DBAA")
 
-    def read_csv_url_timeout(url: str, timeout_s: float = 15.0) -> pd.DataFrame:
-        with urlopen(url, timeout=timeout_s) as response:
-            text = response.read().decode("utf-8")
-        return pd.read_csv(io.StringIO(text))
-
-    # 1. FRED Series
-    def fetch_fred(id_: str) -> pd.Series:
-        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={id_}"
-        fpath = DATA_DIR / f"fred_{id_}.csv"
-        try:
-            df = read_csv_url_timeout(url, timeout_s=15.0)
-            df.columns = ["date", id_]
-        except Exception:
-            df = pd.read_csv(fpath)
-            df.columns = ["date", id_]
-        df["date"] = pd.to_datetime(df["date"])
-        s = pd.to_numeric(df[id_], errors="coerce")
-        s.index = df["date"]
-        return s.dropna()
-
-    dgs10 = fetch_fred("DGS10")
-    dgs3mo = fetch_fred("DGS3MO")
-    dbaa = fetch_fred("DBAA")
-    
-    # S&P500 index for ratio-scaling
     try:
-        sp500 = fetch_fred("SP500")
+        sp500 = _fetch_fred_series("SP500")
     except Exception:
-        # Fall back to DGS10 index or a placeholder if SP500 FRED fails
         sp500 = pd.Series(dtype=float, index=pd.DatetimeIndex([]))
 
-    # 2. Earnings and Prices: prefer committed local file, then live fallback
     fpath_earnings = DATA_DIR / "sp500_earnings.csv"
     try:
         df_earn = pd.read_csv(fpath_earnings)
     except Exception:
         url_earnings = "https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv"
-        df_earn = read_csv_url_timeout(url_earnings, timeout_s=15.0)
+        df_earn = _read_csv_url_timeout(url_earnings, timeout_s=15.0)
 
     df_earn["Date"] = pd.to_datetime(df_earn["Date"])
-    df_earn.set_index("Date", inplace=True)
-    df_earn = df_earn.sort_index()
+    df_earn = df_earn.set_index("Date").sort_index()
 
     E = pd.to_numeric(df_earn["Earnings"], errors="coerce")
     E = E.where(E > 0, np.nan).ffill().dropna()
     P = pd.to_numeric(df_earn["SP500"], errors="coerce").dropna()
-    
+
     return dgs10, dgs3mo, dbaa, sp500, E, P
+
+
+def _trailing_z(df: pd.DataFrame, w: int) -> pd.DataFrame:
+    return df.apply(lambda s: (s - s.rolling(w).mean()) / s.rolling(w).std(ddof=0))
+
+
+def _burn(sig: pd.DataFrame) -> pd.DataFrame:
+    ready = sig.dropna()
+    if len(ready) > ZMIN:
+        return sig.loc[sig.index >= ready.index[ZMIN]]
+    return sig
+
+
+def _sma_above(prices: pd.DataFrame, asset: str, sig_d: pd.Timestamp, win: int = 200) -> bool:
+    if asset not in prices.columns:
+        return False
+    s = prices[asset].sort_index().ffill().loc[:sig_d]
+    if len(s) < win:
+        return False
+    sma = s.rolling(win).mean().iloc[-1]
+    return bool(pd.notna(sma) and s.iloc[-1] > sma)
+
+
+def _load_stitched_price(asset: str) -> pd.Series | None:
+    stitched = {
+        "HYG": (DATA_DIR / "hyg_stitched_daily.csv", "HYG"),
+        "TIP": (DATA_DIR / "tip_stitched_daily.csv", "TIP_stitched"),
+        "SHV": (DATA_DIR / "shv_stitched_daily.csv", "SHV"),
+    }
+    cfg = stitched.get(asset)
+    if cfg is None:
+        return None
+    path, expected_col = cfg
+    if not path.exists():
+        return None
+    df = pd.read_csv(path, parse_dates=[0], index_col=0)
+    if df.empty:
+        return None
+    if expected_col in df.columns:
+        s = df[expected_col]
+    else:
+        s = df.iloc[:, 0]
+    s = pd.to_numeric(s, errors="coerce").dropna()
+    s.name = asset
+    return s
+
+
+def _build_rpv_price_panel(close_panel: pd.DataFrame) -> pd.DataFrame:
+    cols: dict[str, pd.Series] = {}
+    for asset in RPV_ASSETS:
+        if asset in close_panel.columns:
+            cols[asset] = pd.to_numeric(close_panel[asset], errors="coerce")
+            continue
+        stitched = _load_stitched_price(asset)
+        if stitched is not None:
+            cols[asset] = stitched
+    if not cols:
+        return pd.DataFrame()
+    return pd.DataFrame(cols).sort_index().ffill()
+
 
 @lru_cache(maxsize=1)
 def compute_rpv_signals() -> pd.DataFrame:
-    # Memoized: FRED/earnings macro data + the trailing-z signal are identical for the
-    # whole process run, so compute once and reuse. Without this, build_dashboard's
-    # per-signal-date loop refetches FRED hundreds of times (the CI 'Computing sleeves' stall).
-    """Computes the underlying macro risk premia (Term, Credit, Equity) and their trailing z-scores."""
+    """Compute trailing-120m z premia for term/igcredit/equity/hycredit/realyld."""
     dgs10, dgs3mo, dbaa, sp500, E, P = load_macro_data()
-    
+
     me = lambda s: s.resample("ME").last()
     dgs10_m = me(dgs10)
     dgs3mo_m = me(dgs3mo)
     dbaa_m = me(dbaa)
     sp500_m = me(sp500)
-    
-    # Process Earnings and Prices
+
     E_m = E.resample("ME").last()
-    # Forward fill earnings and extend range with non-regressive ceiling.
     if not E_m.empty:
         ceiling = max(
             pd.Timestamp("2026-06-30"),
             pd.Timestamp.today().normalize() + pd.offsets.MonthEnd(0),
             E_m.index.max(),
         )
-        # 120-month trailing z-window: appending future months cannot change
-        # any z-row dated <= 2026-06-30; this only extends forward coverage.
         E_m = E_m.reindex(pd.date_range(E_m.index.min(), ceiling, freq="ME")).ffill()
-    
+
     P_m = P.resample("ME").last()
     if not sp500_m.empty:
         ov = P_m.index.intersection(sp500_m.index)
         if len(ov) > 0:
             k = P_m.loc[ov[-1]] / sp500_m.loc[ov[-1]]
             P_m = pd.concat([P_m, sp500_m[sp500_m.index > P_m.index.max()] * k]).sort_index().ffill()
-            
-    EY = (100.0 * (E_m.shift(LAG_E) / P_m)).dropna()
-    
-    rp = pd.DataFrame({
-        "term": (dgs10_m - dgs3mo_m),
-        "credit": (dbaa_m - dgs10_m),
-        "equity": (EY - dgs10_m)
-    }).dropna().sort_index()
-    
-    # 120-month rolling z-score
-    def trailing_z(df: pd.DataFrame, w: int) -> pd.DataFrame:
-        return df.apply(lambda s: (s - s.rolling(w).mean()) / s.rolling(w).std(ddof=0))
-        
-    Z = trailing_z(rp, W).dropna().iloc[ZMIN:]
-    return Z
+
+    ey = (100.0 * (E_m.shift(LAG_E) / P_m)).dropna()
+
+    # hycredit proxy from Moody's Baa/Aaa pair.
+    baa = _fetch_fred_series("BAA", fallback_paths=[DATA_DIR / "fred_BAA.csv"])
+    daaa = _fetch_fred_series("DAAA", fallback_paths=[DATA_DIR / "fred_DAAA.csv", DATA_DIR / "fred_AAA.csv"])
+    baa_m = me(baa)
+    daaa_m = me(daaa)
+
+    cpi = _fetch_fred_series("CPIAUCSL", fallback_paths=[DATA_DIR / "fred_CPIAUCSL.csv"])
+    cpi_m = me(cpi)
+    cpi_yoy = 100.0 * (cpi_m / cpi_m.shift(12) - 1.0)
+    # Live-tail robustness without look-ahead: use last released YoY CPI at each signal month.
+    cpi_yoy_last_known = cpi_yoy.reindex(dgs10_m.index).ffill()
+
+    rp = pd.DataFrame(
+        {
+            "term": (dgs10_m - dgs3mo_m),
+            "igcredit": (dbaa_m - dgs10_m),
+            "equity": (ey - dgs10_m),
+            "hycredit": (baa_m - daaa_m),
+            "realyld": (dgs10_m - cpi_yoy_last_known),
+        }
+    ).sort_index()
+
+    Z = _trailing_z(rp, W).dropna(how="all")
+    return _burn(Z)
+
 
 def compute_rpv_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[dict, str, dict]:
-    """Returns target weights, regime label, and diagnostics for a given signal date.
-    Weighted scheme with 200d trend guard."""
+    """Sequential filter variant: value z>0 -> SMA200 gate -> weighted survivors (cap=1/3)."""
     Z = compute_rpv_signals()
     if sig_d not in Z.index:
-        # fallback to closest prior signal date
         valid_ds = Z.index[Z.index <= sig_d]
         if len(valid_ds) == 0:
-            return {"SHV": 1.0}, "CASH", {}
+            return {"SHV": 1.0}, "CASH", {"reason": "no_signal"}
         sig_d = valid_ds[-1]
-        
-    zrow = Z.loc[sig_d]
-    pos = zrow.clip(lower=0.0)
-    tot = pos.sum()
-    
-    # 1. Base weights
-    if tot <= 0:
-        base_w = {"SHV": 1.0}
-    else:
-        base_w = {}
-        for kk, v in pos.items():
-            if v > 0:
-                asset = ASSET_OF[kk]
-                base_w[asset] = base_w.get(asset, 0.0) + v / tot
-                
-    # 2. SMA 200 guard filter
-    prices = close_panel[["SPY", "TLT", "LQD", "SHV"]].sort_index().ffill()
-    sma200 = prices[["SPY", "TLT", "LQD"]].rolling(200).mean()
-    above_sma = (prices[["SPY", "TLT", "LQD"]] > sma200)
-    
-    guarded_w = {}
-    for a, wt in base_w.items():
-        if a in ("SPY", "TLT", "LQD"):
-            ok = above_sma[a].loc[:sig_d]
-            is_above = bool(ok.iloc[-1]) if len(ok) and pd.notna(ok.iloc[-1]) else False
-            if is_above:
-                guarded_w[a] = guarded_w.get(a, 0.0) + wt
-            else:
-                guarded_w["SHV"] = guarded_w.get("SHV", 0.0) + wt
-        else:
-            guarded_w[a] = guarded_w.get(a, 0.0) + wt
-            
-    regime = "WEIGHTED_GUARDED" if "SHV" not in guarded_w or guarded_w["SHV"] < 1.0 else "CASH"
+
+    zrow = Z.loc[sig_d].dropna()
+    prices = _build_rpv_price_panel(close_panel)
+
+    survivors: list[tuple[str, float]] = []
+    for prem, z in zrow.items():
+        if z > 0:
+            asset = ASSET_OF[prem]
+            if _sma_above(prices, asset, sig_d, win=200):
+                survivors.append((asset, float(z)))
+
+    if not survivors:
+        diag = {
+            "z_scores": zrow.to_dict(),
+            "base_weights": {},
+            "guarded_weights": {"SHV": 1.0},
+            "eligible": [],
+            "reason": "no_survivors",
+        }
+        return {"SHV": 1.0}, "CASH", diag
+
+    strength_total = sum(s for _, s in survivors)
+    if strength_total <= 0:
+        diag = {
+            "z_scores": zrow.to_dict(),
+            "base_weights": {},
+            "guarded_weights": {"SHV": 1.0},
+            "eligible": [],
+            "reason": "non_positive_strength",
+        }
+        return {"SHV": 1.0}, "CASH", diag
+
+    base_weights = {}
+    weights = {}
+    for asset, strength in sorted(survivors, key=lambda x: -x[1]):
+        raw = strength / strength_total
+        base_weights[asset] = base_weights.get(asset, 0.0) + raw
+        weights[asset] = weights.get(asset, 0.0) + min(CAP, raw)
+
+    invested = sum(weights.values())
+    if invested < 1.0:
+        weights["SHV"] = weights.get("SHV", 0.0) + (1.0 - invested)
+
+    regime = "WEIGHTED_GUARDED" if weights.get("SHV", 0.0) < 1.0 else "CASH"
     diag = {
         "z_scores": zrow.to_dict(),
-        "base_weights": base_w,
-        "guarded_weights": guarded_w
+        "base_weights": base_weights,
+        "guarded_weights": weights,
+        "eligible": [a for a, _ in survivors],
+        "reason": "ok" if regime != "CASH" else "all_cash",
     }
-    return guarded_w, regime, diag
+    return weights, regime, diag
 
-def run_rpv_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, cost_bps: float = COST_BPS_PER_SIDE) -> pd.Series:
-    """Runs backtest of RPV Weighted Guarded sleeve with T+1 MOO + turnover cost."""
-    prices = panel[["SPY", "TLT", "LQD", "SHV"]].sort_index().ffill()
+
+def run_rpv_backtest(
+    panel: pd.DataFrame,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    cost_bps: float = COST_BPS_PER_SIDE,
+) -> pd.Series:
+    """Run RPV sleeve backtest using T+1 MOO close-to-close attribution."""
+    prices = _build_rpv_price_panel(panel)
+    if prices.empty:
+        return pd.Series(dtype=float)
 
     Z = compute_rpv_signals()
     sig_dates = Z.index[Z.index <= end]
@@ -226,6 +316,8 @@ def run_rpv_backtest(panel: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp
 
         port_r = 0.0
         for asset, w in cur_w.items():
+            if asset not in prices.columns:
+                continue
             today = prices.loc[ts, asset]
             yest = prices.loc[prev_d, asset]
             if pd.notna(today) and pd.notna(yest) and yest > 0:
