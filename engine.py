@@ -26,59 +26,7 @@ def _assert_open_cache_adjusted(opens_df, closes_df, threshold=OPEN_CACHE_INTRAD
     )
 
 
-def load_open_close():
-    """Return (open_df, close_df) of REAL yfinance auto_adjust OHLC, aligned union index."""
-
-    def _normalize_ohlc(df):
-        if df is None or df.empty:
-            return pd.DataFrame(columns=["Open", "Close"])
-        if isinstance(df.columns, pd.MultiIndex):
-            lvl0 = df.columns.get_level_values(0)
-            lvl1 = df.columns.get_level_values(1)
-            if "Open" in lvl0 and "Close" in lvl0:
-                df.columns = lvl0
-            elif "Open" in lvl1 and "Close" in lvl1:
-                df.columns = lvl1
-            else:
-                df.columns = [c[0] if isinstance(c, tuple) else c for c in df.columns]
-        if "Open" not in df.columns or "Close" not in df.columns:
-            return pd.DataFrame(columns=["Open", "Close"])
-        out = df[["Open", "Close"]].dropna().copy()
-        out.index = pd.to_datetime(out.index)
-        out.index.name = "Date"
-        return out.sort_index()
-
-    opens, closes = {}, {}
-    for t in OHLC_TICKERS:
-        p = OPEN_CACHE / f"{t}.csv"
-        if p.exists():
-            d = _normalize_ohlc(pd.read_csv(p, parse_dates=[0], index_col=0))
-            if d.empty:
-                raise ValueError(f"Macro open cache {p} exists but missing Open/Close data.")
-        else:
-            try:
-                d = _normalize_ohlc(
-                    yf.download(
-                        t,
-                        start="1999-01-01",
-                        auto_adjust=True,
-                        progress=False,
-                        threads=False,
-                        timeout=30,
-                    )
-                )
-            except Exception:
-                d = pd.DataFrame(columns=["Open", "Close"])
-            if d.empty:
-                continue
-
-        opens[t] = d["Open"]
-        closes[t] = d["Close"]
-
-    opens_df = pd.DataFrame(opens).sort_index()
-    closes_df = pd.DataFrame(closes).sort_index()
-    _assert_open_cache_adjusted(opens_df, closes_df)
-    return opens_df, closes_df
+from data_loader import load_open_close
 
 
 def _segment_returns_conv(

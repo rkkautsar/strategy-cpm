@@ -62,9 +62,7 @@ def _ndx_vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, d
     return vol_ok, {"rv_20": rv_20, "rv_252": rv_252, "vol_ok": vol_ok}
 
 
-def load_ndx_panel() -> pd.DataFrame:
-    """Load NDX constituent prices from disk."""
-    return pd.read_parquet(PRICES_FILE)
+from data_loader import load_ndx_panel
 
 
 def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:

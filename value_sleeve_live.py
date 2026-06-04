@@ -42,29 +42,7 @@ BS_CONCEPTS = ["TotalAssets", "TotalLiabilities", "StockholdersEquity", "ShortTe
 # ===========================================================================
 # 1. Local Cache Reader and Builders
 # ===========================================================================
-@functools.lru_cache(maxsize=1)
-def load_valuein_cache(cache_dir: str = DEFAULT_CACHE_DIR) -> tuple[dict, dict]:
-    """Loads local parquet files: fact, security and builds FLOWS and BS dicts."""
-    fact = pd.read_parquet(Path(cache_dir) / "fact.parquet")
-    sec = pd.read_parquet(Path(cache_dir) / "security.parquet")
-    prim = sec[sec.is_primary_ticker][["entity_id", "symbol"]].drop_duplicates("entity_id")
-    e2t = dict(zip(prim.entity_id, prim.symbol))
-
-    fact = fact[fact.entity_id.isin(e2t)].copy()
-    fact["ticker"] = fact.entity_id.map(e2t)
-    fact["accepted"] = pd.to_datetime(fact["accepted_at"]).dt.tz_localize(None).dt.normalize()
-    fact["period_end"] = pd.to_datetime(fact["period_end"])
-    
-    # earliest as-filed value per (ticker, concept, fiscal_year, fiscal_period, period_end)
-    fact = fact.sort_values("accepted")
-    fact = fact.drop_duplicates(
-        subset=["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end"],
-        keep="first"
-    )
-    
-    FLOWS = _build_pit_flows(fact)
-    BS = _build_pit_bs(fact)
-    return FLOWS, BS
+from data_loader import load_valuein_cache
 
 
 def _build_pit_flows(fact: pd.DataFrame) -> dict:
