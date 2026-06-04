@@ -1,8 +1,6 @@
-import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
-import yfinance as yf
 
 ROOT = Path(__file__).resolve().parent
 OPEN_CACHE = ROOT / "data" / "macro_opens"

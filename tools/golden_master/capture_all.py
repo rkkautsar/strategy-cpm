@@ -90,6 +90,7 @@ def main():
         print(f"WARNING: {dash_src} not found in CWD!")
 
     print(f"Successfully generated all golden-master candidate artifacts in {out_dir}")
+    shutil.rmtree(run_tmpdir, ignore_errors=True)  # clean the per-run isolated TMPDIR (no leak)
 
 if __name__ == '__main__':
     main()

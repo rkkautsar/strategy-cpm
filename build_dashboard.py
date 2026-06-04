@@ -56,12 +56,8 @@ from core import cached_value_backtest
 # Production blend: 60% CPM + 15% NDX + 15% VAL + 10% RPV
 from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
 RPV_BLEND = RPV_W  # alias used by chart helpers below
-RPV_EQUITY_TICKER = "SPY"
-CASH_TICKER = "SHV"
-
-BOOTSTRAP_SINGLE_B = 2000
-BOOTSTRAP_PAIRED_B = 5000
-EXT_START = pd.Timestamp("1999-03-10")
+# RPV_EQUITY_TICKER, CASH_TICKER, BOOTSTRAP_SINGLE_B, BOOTSTRAP_PAIRED_B, EXT_START
+# are imported from dashboard_engine below (single source); local dups removed.
 MOOEX_INTRADAY_SANITY_MAX = 0.50
 NDX_OPENS_CACHE_PATH = ROOT / "data" / "ndx_constituents" / "opens.parquet"
 FORWARD_SHARPE_GUIDANCE = (
