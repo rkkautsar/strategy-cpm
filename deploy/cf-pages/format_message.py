@@ -37,40 +37,12 @@ def main() -> None:
     candidates = panel.index[panel.index <= prior_me]
     sig_d = candidates[-1] if len(candidates) > 0 else today
 
-    from core import get_cached_sleeve_weight
-    cpm_w, pair, cpm_regime, safe = get_cached_sleeve_weight(
-        "cpm", panel, sig_d, compute_live_weights, panel, sig_d
-    )
-    ndx_w, ndx_regime, ndx_diag = get_cached_sleeve_weight(
-        "ndx", panel, sig_d, compute_ndx_weights, panel, ndx_panel, sig_d
-    )
-    rpv_w, rpv_regime, rpv_diag = get_cached_sleeve_weight(
-        "rpv", panel, sig_d, compute_rpv_weights, panel, sig_d
-    )
-
-    # VAL is stateful: derive current live weights from full history run.
-    val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())
-    _, val_hist = cached_value_backtest(panel, ndx_panel, val_start, sig_d)
-    val_rec = next((r for r in reversed(val_hist) if r["sig_d"] <= sig_d), None)
-    if val_rec is None:
-        val_w = {"SHV": 1.0}
-        val_regime = "VAL_NO_SIGNAL"
-        val_picks: list[str] = []
-    else:
-        val_w = val_rec.get("weights", {"SHV": 1.0})
-        val_regime = val_rec.get("regime", "VAL_UNKNOWN")
-        val_picks = val_rec.get("selected", [])
-
-    # Combined portfolio
-    combined: dict[str, float] = {}
-    for t, w in cpm_w.items():
-        combined[t] = combined.get(t, 0.0) + w * CPM_WEIGHT
-    for t, w in ndx_w.items():
-        combined[t] = combined.get(t, 0.0) + w * NDX_WEIGHT
-    for t, w in val_w.items():
-        combined[t] = combined.get(t, 0.0) + w * VAL_WEIGHT
-    for t, w in rpv_w.items():
-        combined[t] = combined.get(t, 0.0) + w * RPV_WEIGHT
+    from sleeves import compute_live_blend
+    combined, res = compute_live_blend(panel, ndx_panel, sig_d)
+    cpm_w, cpm_regime = res["cpm"].weights, res["cpm"].regime
+    ndx_w, ndx_regime = res["ndx"].weights, res["ndx"].regime
+    rpv_w, rpv_regime = res["rpv"].weights, res["rpv"].regime
+    val_w, val_regime, val_picks = res["val"].weights, res["val"].regime, res["val"].picks
 
     parts = []
     parts.append(f"📈 *CPM-NDX-VAL-RPV Monthly Signal*")
