@@ -21,6 +21,8 @@ def mask_html(text):
     # Mask built/on dates (volatile generation dates)
     text = re.sub(r'built \d{4}-\d{2}-\d{2}', 'built DATE', text)
     text = re.sub(r'on \d{4}-\d{2}-\d{2}', 'on DATE', text)
+    # Mask volatile NDX snapshot date (changes every NDX refresh; not a behavior signal)
+    text = re.sub(r'NDX snapshot \d{4}-\d{2}-\d{2}', 'NDX snapshot DATE', text)
     
     # Mask Matplotlib random SVG IDs
     text = re.sub(r'\b[pm][0-9a-f]{10}\b', 'MPLID', text)
