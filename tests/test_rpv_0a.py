@@ -32,7 +32,7 @@ EXPECTED_SIGNALS = {
 }
 
 
-def main():
+def test_rpv_0a():
     data_path = os.path.join(REPO_ROOT, "data", "proxy_adjusted_close_daily.csv")
     panel = pd.read_csv(data_path, index_col=0, parse_dates=True)
 
@@ -62,4 +62,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test_rpv_0a()
