@@ -759,9 +759,16 @@ def cmd_allocate(args):
     ndx_panel = load_ndx_panel()
 
     # Sleeve weights
-    cpm_w, basket, cpm_regime, safe = compute_live_weights(panel, sig_d)
-    ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel, sig_d)
-    rpv_w, rpv_regime, rpv_diag = compute_rpv_weights(panel, sig_d)
+    from value_sleeve_live import get_cached_sleeve_weight
+    cpm_w, basket, cpm_regime, safe = get_cached_sleeve_weight(
+        "cpm", panel, sig_d, compute_live_weights, panel, sig_d
+    )
+    ndx_w, ndx_regime, ndx_diag = get_cached_sleeve_weight(
+        "ndx", panel, sig_d, compute_ndx_weights, panel, ndx_panel, sig_d
+    )
+    rpv_w, rpv_regime, rpv_diag = get_cached_sleeve_weight(
+        "rpv", panel, sig_d, compute_rpv_weights, panel, sig_d
+    )
 
     # VAL is stateful month-to-month: derive current live weights from full-history run.
     val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())

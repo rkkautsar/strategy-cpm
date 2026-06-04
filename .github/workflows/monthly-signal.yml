@@ -48,6 +48,12 @@ jobs:
           VALUEIN_API_KEY: ${{ secrets.VALUEIN_API_KEY }}
         run: uv run python -m value_sleeve_live --refresh-cache
 
+      - name: Refresh FRED cache (optional)
+        continue-on-error: true
+        env:
+          REFRESH_FRED: "1"
+        run: uv run python refresh_fred.py
+
       - name: Generate signal allocation
         id: signal
         run: |

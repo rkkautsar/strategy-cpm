@@ -7,6 +7,7 @@ seq/z/weighted/sma200 over a 5-premia universe + SHV cash.
 from __future__ import annotations
 
 import io
+import os
 from functools import lru_cache
 from pathlib import Path
 from urllib.request import urlopen
@@ -52,16 +53,20 @@ def _parse_fred_series(df: pd.DataFrame, id_: str) -> pd.Series:
 
 
 def _fetch_fred_series(id_: str, fallback_paths: list[Path] | None = None) -> pd.Series:
-    """Fetch FRED series web-first (15s), then committed fallback CSV(s)."""
+    """Fetch FRED series web-first ONLY if REFRESH_FRED=1 is set, otherwise read from committed fallback CSV(s)."""
     fallback_paths = fallback_paths or [DATA_DIR / f"fred_{id_}.csv"]
-    url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={id_}"
-    try:
-        return _parse_fred_series(_read_csv_url_timeout(url, timeout_s=15.0), id_)
-    except Exception:
-        for fpath in fallback_paths:
-            if fpath.exists():
-                return _parse_fred_series(pd.read_csv(fpath), id_)
-        raise
+
+    if os.environ.get("REFRESH_FRED") == "1":
+        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={id_}"
+        try:
+            return _parse_fred_series(_read_csv_url_timeout(url, timeout_s=15.0), id_)
+        except Exception:
+            pass
+
+    for fpath in fallback_paths:
+        if fpath.exists():
+            return _parse_fred_series(pd.read_csv(fpath), id_)
+    raise FileNotFoundError(f"FRED series {id_} not found locally and REFRESH_FRED not set or web fetch failed.")
 
 
 def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
@@ -79,8 +84,11 @@ def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Se
     try:
         df_earn = pd.read_csv(fpath_earnings)
     except Exception:
-        url_earnings = "https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv"
-        df_earn = _read_csv_url_timeout(url_earnings, timeout_s=15.0)
+        if os.environ.get("REFRESH_FRED") == "1":
+            url_earnings = "https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv"
+            df_earn = _read_csv_url_timeout(url_earnings, timeout_s=15.0)
+        else:
+            raise FileNotFoundError("S&P 500 earnings file not found locally and REFRESH_FRED not set or fetch failed.")
 
     df_earn["Date"] = pd.to_datetime(df_earn["Date"])
     df_earn = df_earn.set_index("Date").sort_index()

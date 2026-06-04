@@ -634,6 +634,56 @@ def refresh_valuein_cache(cache_dir: str = DEFAULT_CACHE_DIR):
     print("Cache refresh complete.")
 
 
+import hashlib
+import pickle
+import tempfile
+
+_HASH_CACHE = {}
+_SLEEVE_CACHE_MEM = {}
+
+def _get_panel_hash(df: pd.DataFrame) -> str:
+    df_id = id(df)
+    if df_id not in _HASH_CACHE:
+        _HASH_CACHE[df_id] = hashlib.md5(pd.util.hash_pandas_object(df, index=True).values).hexdigest()[:16]
+    return _HASH_CACHE[df_id]
+
+def get_cached_sleeve_weight(sleeve: str, panel: pd.DataFrame, sig_d: pd.Timestamp, compute_fn, *args, **kwargs):
+    """Retrieve weights from a persistent dictionary cache in /tmp, keyed by panel hash + end date."""
+    end_date = panel.index.max()
+    phash = _get_panel_hash(panel)
+    end_str = end_date.strftime("%Y-%m-%d")
+    checkpoint_path = Path(tempfile.gettempdir()) / f"{sleeve}_weights_{phash}_{end_str}.pkl"
+
+    mem_key = (sleeve, phash, end_str)
+    if mem_key not in _SLEEVE_CACHE_MEM:
+        if checkpoint_path.exists():
+            try:
+                with checkpoint_path.open("rb") as fh:
+                    _SLEEVE_CACHE_MEM[mem_key] = pickle.load(fh)
+            except Exception:
+                _SLEEVE_CACHE_MEM[mem_key] = {}
+        else:
+            _SLEEVE_CACHE_MEM[mem_key] = {}
+
+    cache_dict = _SLEEVE_CACHE_MEM[mem_key]
+
+    sig_str = sig_d.strftime("%Y-%m-%d")
+    if sig_str not in cache_dict:
+        result = compute_fn(*args, **kwargs)
+        cache_dict[sig_str] = result
+
+        try:
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = checkpoint_path.with_suffix(f".tmp.{os.getpid()}")
+            with tmp_path.open("wb") as fh:
+                pickle.dump(cache_dict, fh, protocol=pickle.HIGHEST_PROTOCOL)
+            os.replace(tmp_path, checkpoint_path)
+        except Exception:
+            pass
+
+    return cache_dict[sig_str]
+
+
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()

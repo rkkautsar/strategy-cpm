@@ -903,7 +903,10 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     cpm_cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     cpm_close = panel[cpm_cols]
     cpm_daily = cpm_close.ffill().pct_change()
-    cpm_wf = lambda sd: compute_target_weights(cpm_close, sd)[0]
+    from value_sleeve_live import get_cached_sleeve_weight
+    cpm_wf = lambda sd: get_cached_sleeve_weight(
+        "cpm", cpm_close, sd, compute_target_weights, cpm_close, sd
+    )[0]
     cpm_full, cpm_fb = moo_engine._segment_returns_conv(
         cpm_close,
         cpm_daily,
@@ -919,7 +922,10 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     rpv_cols = sorted(set([RPV_EQUITY_TICKER, "TLT", "LQD", CASH_TICKER]) & set(panel.columns))
     rpv_close = panel[rpv_cols]
     rpv_daily = panel.ffill().pct_change()
-    rpv_wf = lambda sd: compute_rpv_weights(panel, sd)[0]
+    from value_sleeve_live import get_cached_sleeve_weight
+    rpv_wf = lambda sd: get_cached_sleeve_weight(
+        "rpv", panel, sd, compute_rpv_weights, panel, sd
+    )[0]
     rpv_raw_full, rpv_fb = moo_engine._segment_returns_conv(
         rpv_close,
         rpv_daily,
@@ -947,7 +953,10 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
             intraday_full = intraday_full.join(ndx_intraday[add_cols], how="left")
             overnight_full = overnight_full.join(ndx_overnight[add_cols], how="left")
 
-        ndx_wf = lambda sd: compute_ndx_weights(panel, ndx_panel, sd)[0]
+        from value_sleeve_live import get_cached_sleeve_weight
+        ndx_wf = lambda sd: get_cached_sleeve_weight(
+            "ndx", panel, sd, compute_ndx_weights, panel, ndx_panel, sd
+        )[0]
         ndx_moc_full, _ = moo_engine._segment_returns_conv(
             full_panel,
             ndx_daily,

@@ -32,7 +32,7 @@ def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:
 
 
 def main() -> None:
-    panel = load_panel(start=pd.Timestamp("2018-01-01"), live=True)
+    panel = load_panel(live=True)
     ndx_panel = load_ndx_panel()
     # Use last completed month-end as signal date
     today = pd.Timestamp.today().normalize()
@@ -40,9 +40,16 @@ def main() -> None:
     candidates = panel.index[panel.index <= prior_me]
     sig_d = candidates[-1] if len(candidates) > 0 else today
 
-    cpm_w, pair, cpm_regime, safe = compute_live_weights(panel, sig_d)
-    ndx_w, ndx_regime, ndx_diag = compute_ndx_weights(panel, ndx_panel, sig_d)
-    rpv_w, rpv_regime, rpv_diag = compute_rpv_weights(panel, sig_d)
+    from value_sleeve_live import get_cached_sleeve_weight
+    cpm_w, pair, cpm_regime, safe = get_cached_sleeve_weight(
+        "cpm", panel, sig_d, compute_live_weights, panel, sig_d
+    )
+    ndx_w, ndx_regime, ndx_diag = get_cached_sleeve_weight(
+        "ndx", panel, sig_d, compute_ndx_weights, panel, ndx_panel, sig_d
+    )
+    rpv_w, rpv_regime, rpv_diag = get_cached_sleeve_weight(
+        "rpv", panel, sig_d, compute_rpv_weights, panel, sig_d
+    )
 
     # VAL is stateful: derive current live weights from full history run.
     val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())
