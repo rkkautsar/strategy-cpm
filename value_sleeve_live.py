@@ -13,9 +13,11 @@ Spec:
   7. Execution: T+1 OPEN (MOO), 10 bps transaction cost per side, 10% delisting haircut.
 """
 from __future__ import annotations
-import os
-import sys
 import functools
+import os
+import pickle
+import sys
+import tempfile
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -66,33 +68,73 @@ def load_valuein_cache(cache_dir: str = DEFAULT_CACHE_DIR) -> tuple[dict, dict]:
 
 def _build_pit_flows(fact: pd.DataFrame) -> dict:
     """(ticker, flow concept) -> DataFrame[period_end, accepted, value] sorted by period_end."""
+    flows = fact.loc[
+        fact.standard_concept.isin(FLOW_CONCEPTS),
+        ["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end", "accepted", "value_as_filed"],
+    ].copy()
+    if flows.empty:
+        return {}
+
+    flows["_ord"] = np.arange(len(flows), dtype=np.int64)
+    fy_keys = ["ticker", "standard_concept", "fiscal_year"]
+
+    direct = flows.loc[
+        flows.fiscal_period.isin(["Q1", "Q2", "Q3", "Q4"]),
+        ["ticker", "standard_concept", "period_end", "accepted", "value_as_filed", "_ord"],
+    ].rename(columns={"value_as_filed": "value"})
+
+    fy_first = (
+        flows.loc[
+            flows.fiscal_period == "FY",
+            fy_keys + ["period_end", "accepted", "value_as_filed", "_ord"],
+        ]
+        .sort_values("_ord", kind="stable")
+        .drop_duplicates(fy_keys, keep="first")
+    )
+
+    derived = pd.DataFrame(columns=["ticker", "standard_concept", "period_end", "accepted", "value", "_ord"])
+    if not fy_first.empty:
+        q_first = (
+            flows.loc[
+                flows.fiscal_period.isin(["Q1", "Q2", "Q3", "Q4"]),
+                fy_keys + ["fiscal_period", "value_as_filed", "_ord"],
+            ]
+            .sort_values("_ord", kind="stable")
+            .drop_duplicates(fy_keys + ["fiscal_period"], keep="first")
+        )
+        q_pivot = q_first.pivot(
+            index=fy_keys,
+            columns="fiscal_period",
+            values="value_as_filed",
+        ).reset_index()
+
+        q = fy_first.merge(q_pivot, on=fy_keys, how="left")
+        q1 = q["Q1"] if "Q1" in q.columns else pd.Series(np.nan, index=q.index)
+        q2 = q["Q2"] if "Q2" in q.columns else pd.Series(np.nan, index=q.index)
+        q3 = q["Q3"] if "Q3" in q.columns else pd.Series(np.nan, index=q.index)
+        q4 = q["Q4"] if "Q4" in q.columns else pd.Series(np.nan, index=q.index)
+
+        ok = q4.isna() & q1.notna() & q2.notna() & q3.notna()
+        q = q.loc[ok].copy()
+        if not q.empty:
+            q = q.sort_values(fy_keys, kind="stable")
+            q["value"] = q["value_as_filed"] - q1.loc[q.index] - q2.loc[q.index] - q3.loc[q.index]
+            q["_ord"] = np.arange(len(q), dtype=np.int64) + (int(direct["_ord"].max()) + 1 if not direct.empty else 0)
+            derived = q[["ticker", "standard_concept", "period_end", "accepted", "value", "_ord"]]
+
+    combined = pd.concat([direct, derived], ignore_index=True)
+    if combined.empty:
+        return {}
+
+    combined = combined.drop_duplicates(
+        subset=["ticker", "standard_concept", "period_end"],
+        keep="first",
+    )
+    combined = combined.sort_values(["ticker", "standard_concept", "period_end"]).reset_index(drop=True)
+
     out = {}
-    flows = fact[fact.standard_concept.isin(FLOW_CONCEPTS)]
-    for (tic, con), g in flows.groupby(["ticker", "standard_concept"]):
-        rows = []
-        # direct discrete quarters
-        for _, r in g[g.fiscal_period.isin(["Q1", "Q2", "Q3", "Q4"])].iterrows():
-            rows.append((r.period_end, r.accepted, r.value_as_filed))
-        # derive Q4 from FY where the three interim quarters of same fiscal_year exist
-        for fy, gy in g.groupby("fiscal_year"):
-            fyrow = gy[gy.fiscal_period == "FY"]
-            if fyrow.empty:
-                continue
-            q = {p: gy[gy.fiscal_period == p] for p in ["Q1", "Q2", "Q3", "Q4"]}
-            if not q["Q4"].empty:
-                continue  # already have a direct Q4
-            if any(q[p].empty for p in ["Q1", "Q2", "Q3"]):
-                continue
-            fyr = fyrow.iloc[0]
-            q4_val = fyr.value_as_filed - sum(q[p].iloc[0].value_as_filed for p in ["Q1", "Q2", "Q3"])
-            q4_pe = fyr.period_end
-            q4_acc = fyr.accepted
-            rows.append((q4_pe, q4_acc, q4_val))
-        if not rows:
-            continue
-        df = pd.DataFrame(rows, columns=["period_end", "accepted", "value"])
-        df = df.drop_duplicates("period_end").sort_values("period_end").reset_index(drop=True)
-        out[(tic, con)] = df
+    for (tic, con), g in combined.groupby(["ticker", "standard_concept"], sort=False):
+        out[(tic, con)] = g[["period_end", "accepted", "value"]].reset_index(drop=True)
     return out
 
 
@@ -109,26 +151,36 @@ def _build_pit_bs(fact: pd.DataFrame) -> dict:
 
 def _ttm_asof(df: pd.DataFrame | None, sig_d: pd.Timestamp, max_span_days: int = 430) -> float:
     """Sum last 4 discrete quarters with accepted <= sig_d (asserting period span <= max_span_days)."""
-    if df is None:
+    if df is None or df.empty:
         return np.nan
-    sub = df[df.accepted <= sig_d]
-    if len(sub) < 4:
+
+    accepted = df["accepted"].to_numpy()
+    idx = np.flatnonzero(accepted <= sig_d)
+    if idx.size < 4:
         return np.nan
-    last4 = sub.sort_values("period_end").tail(4)
-    span = (last4.period_end.iloc[-1] - last4.period_end.iloc[0]).days
+
+    last4_idx = idx[-4:]
+    period_end = df["period_end"].to_numpy()
+    span = int((period_end[last4_idx[-1]] - period_end[last4_idx[0]]) / np.timedelta64(1, "D"))
     if span > max_span_days:
         return np.nan
-    return float(last4.value.sum())
+
+    values = df["value"].to_numpy(dtype="float64", copy=False)
+    return float(np.nansum(values[last4_idx]))
 
 
 def _bs_asof(df: pd.DataFrame | None, sig_d: pd.Timestamp) -> float:
     """Most recent balance-sheet value with accepted <= sig_d."""
-    if df is None:
+    if df is None or df.empty:
         return np.nan
-    sub = df[df.accepted <= sig_d]
-    if sub.empty:
+
+    accepted = df["accepted"].to_numpy()
+    idx = np.flatnonzero(accepted <= sig_d)
+    if idx.size == 0:
         return np.nan
-    return float(sub.sort_values("period_end").iloc[-1].value)
+
+    values = df["value"].to_numpy(dtype="float64", copy=False)
+    return float(values[idx[-1]])
 
 
 # ===========================================================================
@@ -485,6 +537,55 @@ def run_value_backtest(
         daily_rets.loc[ts] += port_r
 
     return daily_rets, history
+
+
+def _val_backtest_checkpoint_path(
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    cost_bps: float,
+    checkpoint_dir: str | Path | None = None,
+) -> Path:
+    start_ts = pd.Timestamp(start).normalize()
+    end_ts = pd.Timestamp(end).normalize()
+    base_dir = Path(checkpoint_dir) if checkpoint_dir is not None else Path(tempfile.gettempdir())
+    return base_dir / f"val_backtest_{start_ts.date()}_{end_ts.date()}_{cost_bps:g}.pkl"
+
+
+def cached_value_backtest(
+    cpm_panel: pd.DataFrame,
+    ndx_panel: pd.DataFrame,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    cost_bps: float = COST_BPS_PER_SIDE,
+    cache_dir: str = DEFAULT_CACHE_DIR,
+    checkpoint_dir: str | Path | None = None,
+) -> tuple[pd.Series, list[dict]]:
+    """Run VAL backtest once per (start, end, cost) and reuse checkpoint from /tmp."""
+    checkpoint_path = _val_backtest_checkpoint_path(start, end, cost_bps, checkpoint_dir=checkpoint_dir)
+    if checkpoint_path.exists():
+        try:
+            with checkpoint_path.open("rb") as fh:
+                cached = pickle.load(fh)
+            if isinstance(cached, tuple) and len(cached) == 2:
+                return cached
+        except Exception:
+            try:
+                checkpoint_path.unlink()
+            except OSError:
+                pass
+
+    result = run_value_backtest(cpm_panel, ndx_panel, start, end, cost_bps=cost_bps, cache_dir=cache_dir)
+
+    try:
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = checkpoint_path.with_suffix(f".tmp.{os.getpid()}")
+        with tmp_path.open("wb") as fh:
+            pickle.dump(result, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp_path, checkpoint_path)
+    except Exception:
+        pass
+
+    return result
 
 
 # ===========================================================================

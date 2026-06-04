@@ -732,7 +732,7 @@ def cmd_allocate(args):
     """Print this month's target allocation."""
     from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
     from rpv_live import compute_rpv_weights
-    from value_sleeve_live import run_value_backtest
+    from value_sleeve_live import cached_value_backtest
 
     sig_d = pd.Timestamp(args.signal_date) if args.signal_date else None
     panel = load_panel(end=sig_d, live=True)
@@ -765,7 +765,7 @@ def cmd_allocate(args):
 
     # VAL is stateful month-to-month: derive current live weights from full-history run.
     val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())
-    _, val_hist = run_value_backtest(panel, ndx_panel, val_start, sig_d)
+    _, val_hist = cached_value_backtest(panel, ndx_panel, val_start, sig_d)
     val_rec = next((r for r in reversed(val_hist) if r["sig_d"] <= sig_d), None)
     if val_rec is None:
         val_w = {DEFAULT_CASH: 1.0}
@@ -827,7 +827,7 @@ def cmd_allocate(args):
 def cmd_backtest(args):
     from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
     from rpv_live import run_rpv_backtest
-    from value_sleeve_live import run_value_backtest
+    from value_sleeve_live import cached_value_backtest
 
     start = pd.Timestamp(args.start)
     end = pd.Timestamp(args.end) if args.end else None
@@ -844,7 +844,7 @@ def cmd_backtest(args):
     ndx_panel = load_ndx_panel()
     ndx, _ = run_ndx_backtest(panel, ndx_panel, start, bt_end, cost_bps=cost_bps)
     rpv = run_rpv_backtest(panel, start, bt_end, cost_bps=cost_bps)
-    val, _ = run_value_backtest(panel, ndx_panel, start, bt_end, cost_bps=cost_bps)
+    val, _ = cached_value_backtest(panel, ndx_panel, start, bt_end, cost_bps=cost_bps)
 
     common = cpm.index.intersection(ndx.index).intersection(rpv.index).intersection(val.index)
     cpm = cpm.reindex(common).fillna(0.0)

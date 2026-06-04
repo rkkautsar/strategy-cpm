@@ -14,7 +14,7 @@ import cpm_live as cpm
 from cpm_live import load_panel, compute_live_weights
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 from rpv_live import compute_rpv_weights
-from value_sleeve_live import run_value_backtest
+from value_sleeve_live import cached_value_backtest
 
 CPM_WEIGHT = 0.60
 NDX_WEIGHT = 0.15
@@ -46,7 +46,7 @@ def main() -> None:
 
     # VAL is stateful: derive current live weights from full history run.
     val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())
-    _, val_hist = run_value_backtest(panel, ndx_panel, val_start, sig_d)
+    _, val_hist = cached_value_backtest(panel, ndx_panel, val_start, sig_d)
     val_rec = next((r for r in reversed(val_hist) if r["sig_d"] <= sig_d), None)
     if val_rec is None:
         val_w = {"SHV": 1.0}

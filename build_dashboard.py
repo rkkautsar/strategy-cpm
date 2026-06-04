@@ -51,7 +51,7 @@ from ndx_sleeve_live import (
     COST_BPS_PER_SIDE as NDX_COST_BPS_PER_SIDE,
     PRICES_FILE as NDX_PRICES_FILE,
 )
-from value_sleeve_live import run_value_backtest
+from value_sleeve_live import cached_value_backtest
 
 # Production blend: 60% CPM + 15% NDX + 15% VAL + 10% RPV
 CPM_W = 0.60
@@ -972,7 +972,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
         )
         ndx_delta = (ndx_mooex_full - ndx_moc_full).reindex(ndx_cc_full.index).fillna(0.0)
         ndx_raw_full = ndx_cc_full + ndx_delta
-        val_raw_full, val_history = run_value_backtest(panel, ndx_panel, run_start, end)
+        val_raw_full, val_history = cached_value_backtest(panel, ndx_panel, run_start, end)
     else:
         rpv_idx = rpv_raw_full.index
         ndx_raw_full = pd.Series(0.0, index=rpv_idx)
@@ -2480,7 +2480,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
             val_selected = []
         else:
             val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())
-            _, val_hist = run_value_backtest(panel, ndx_panel_data, val_start, sig_d)
+            _, val_hist = cached_value_backtest(panel, ndx_panel_data, val_start, sig_d)
             live_val = next((r for r in reversed(val_hist) if r["sig_d"] <= sig_d), None)
             if live_val is None:
                 val_w = {CASH_TICKER: 1.0}
@@ -2540,7 +2540,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                 prev_ndx_w, _, _ = compute_ndx_weights(panel, ndx_panel_data, prev_sd) if prev_sd is not None else ({}, None, {})
                 if prev_sd is not None and ndx_panel_data is not None:
                     val_start = max(pd.Timestamp("2010-06-01"), panel.index.min())
-                    _, prev_val_hist = run_value_backtest(panel, ndx_panel_data, val_start, prev_sd)
+                    _, prev_val_hist = cached_value_backtest(panel, ndx_panel_data, val_start, prev_sd)
                     prev_val_live = next((r for r in reversed(prev_val_hist) if r["sig_d"] <= prev_sd), None)
                     prev_val_w = prev_val_live.get("weights", {}) if prev_val_live else {}
                 else:
