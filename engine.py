@@ -26,7 +26,7 @@ def _assert_open_cache_adjusted(opens_df, closes_df, threshold=OPEN_CACHE_INTRAD
     )
 
 
-from data_loader import load_open_close
+from data_loader import load_open_close  # noqa: F401  re-export: consumed via engine.load_open_close() in dashboard_engine; do NOT autoflake/ruff --fix away
 
 
 def _segment_returns_conv(
