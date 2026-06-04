@@ -574,10 +574,7 @@ _NDX_RECORDS_CACHE: dict = {}
 
 def _load_macro_mooex_legs(panel_index: pd.DatetimeIndex) -> tuple[object, pd.DataFrame, pd.DataFrame]:
     """Load macro-asset overnight/intraday legs used by mooex attribution."""
-    try:
-        from research import exec_lag_moo_validation_2026_05_30 as moo_engine
-    except ImportError:  # pragma: no cover - script fallback
-        import exec_lag_moo_validation_2026_05_30 as moo_engine
+    import engine as moo_engine
     open_df, close_yf = moo_engine.load_open_close()
     intraday = (close_yf / open_df - 1.0).reindex(panel_index)
     overnight = (open_df / close_yf.shift(1) - 1.0).reindex(panel_index)
