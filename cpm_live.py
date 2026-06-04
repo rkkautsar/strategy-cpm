@@ -343,18 +343,7 @@ def faber_sma_xs(monthly: pd.DataFrame) -> pd.Series:
     return (monthly.iloc[-1] - sma) / sma
 
 
-def sig_13612U(p: pd.Series) -> float:
-    """Canonical Keller HAA 13612U momentum: simple unweighted average of
-    1/3/6/12-month total returns. Matches Keller & Keuning HAA paper (2022)."""
-    p = p.dropna()
-    if len(p) < 13:
-        return np.nan
-    last = p.iloc[-1]
-    r1 = last / p.iloc[-2] - 1
-    r3 = last / p.iloc[-4] - 1
-    r6 = last / p.iloc[-7] - 1
-    r12 = last / p.iloc[-13] - 1
-    return (r1 + r3 + r6 + r12) / 4.0
+from core import sig_13612U
 
 
 def canary_positive_count(monthly: pd.DataFrame, canary_assets: list = None) -> int | None:
@@ -592,28 +581,7 @@ def compute_live_weights(
     return compute_target_weights(close, sig_d)
 
 
-def perf_metrics(daily: pd.Series, cash_daily: pd.Series = None) -> dict:
-    if daily.empty:
-        return {}
-    eq = (1.0 + daily).cumprod() * 100_000.0
-    days = (eq.index[-1] - eq.index[0]).days
-    yrs = days / 365.25
-    cagr = (eq.iloc[-1] / eq.iloc[0]) ** (1 / yrs) - 1 if yrs > 0 else float("nan")
-    vol = daily.std(ddof=0) * np.sqrt(252)
-    sharpe = (daily.mean() * 252) / vol if vol > 0 else float("nan")
-    cash_aligned = cash_daily.reindex_like(daily).fillna(0.0) if cash_daily is not None else pd.Series(0.0, index=daily.index)
-    excess_daily = daily - cash_aligned
-    excess_vol = excess_daily.std(ddof=0) * np.sqrt(252)
-    excess_sharpe = (excess_daily.mean() * 252) / excess_vol if excess_vol > 0 else float("nan")
-    rm = eq.cummax()
-    dd_series = eq / rm - 1
-    mdd = dd_series.min()
-    ulcer = float(np.sqrt(np.mean(dd_series ** 2)))
-    calmar = cagr / abs(mdd) if mdd != 0 and not pd.isna(mdd) else float("nan")
-    martin = cagr / ulcer if ulcer > 0 else float("nan")
-    return {"total_return": eq.iloc[-1] / eq.iloc[0] - 1,
-            "cagr": cagr, "vol": vol, "sharpe": sharpe, "excess_sharpe": excess_sharpe, "max_drawdown": mdd,
-            "ulcer": ulcer, "calmar": calmar, "martin": martin}
+from core import perf_metrics
 
 
 def run_cpm_backtest(
@@ -729,7 +697,7 @@ def cmd_allocate(args):
     """Print this month's target allocation."""
     from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
     from rpv_live import compute_rpv_weights
-    from value_sleeve_live import cached_value_backtest
+    from core import cached_value_backtest
 
     sig_d = pd.Timestamp(args.signal_date) if args.signal_date else None
     panel = load_panel(end=sig_d, live=True)
@@ -756,7 +724,7 @@ def cmd_allocate(args):
     ndx_panel = load_ndx_panel()
 
     # Sleeve weights
-    from value_sleeve_live import get_cached_sleeve_weight
+    from core import get_cached_sleeve_weight
     cpm_w, basket, cpm_regime, safe = get_cached_sleeve_weight(
         "cpm", panel, sig_d, compute_live_weights, panel, sig_d
     )
@@ -831,7 +799,7 @@ def cmd_allocate(args):
 def cmd_backtest(args):
     from ndx_sleeve_live import load_ndx_panel, run_ndx_backtest
     from rpv_live import run_rpv_backtest
-    from value_sleeve_live import cached_value_backtest
+    from core import cached_value_backtest
 
     start = pd.Timestamp(args.start)
     end = pd.Timestamp(args.end) if args.end else None

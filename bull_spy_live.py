@@ -30,9 +30,8 @@ import pandas as pd
 from cpm_live import (
     load_panel,
     run_cpm_backtest,
-    perf_metrics,
-    sig_13612U,
 )
+from core import sig_13612U, perf_metrics
 
 
 # ---------- Configuration ----------

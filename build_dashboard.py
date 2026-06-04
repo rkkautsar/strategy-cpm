@@ -51,7 +51,7 @@ from ndx_sleeve_live import (
     COST_BPS_PER_SIDE as NDX_COST_BPS_PER_SIDE,
     PRICES_FILE as NDX_PRICES_FILE,
 )
-from value_sleeve_live import cached_value_backtest
+from core import cached_value_backtest
 
 # Production blend: 60% CPM + 15% NDX + 15% VAL + 10% RPV
 from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
@@ -897,7 +897,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     cpm_cols = sorted(set(RISKY_UNIVERSE + SAFE_POOL + CANARY_ASSETS + [DEFAULT_CASH]) & set(panel.columns))
     cpm_close = panel[cpm_cols]
     cpm_daily = cpm_close.ffill().pct_change()
-    from value_sleeve_live import get_cached_sleeve_weight
+    from core import get_cached_sleeve_weight
     cpm_wf = lambda sd: get_cached_sleeve_weight(
         "cpm", cpm_close, sd, compute_target_weights, cpm_close, sd
     )[0]
@@ -916,7 +916,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     rpv_cols = sorted(set([RPV_EQUITY_TICKER, "TLT", "LQD", CASH_TICKER]) & set(panel.columns))
     rpv_close = panel[rpv_cols]
     rpv_daily = panel.ffill().pct_change()
-    from value_sleeve_live import get_cached_sleeve_weight
+    from core import get_cached_sleeve_weight
     rpv_wf = lambda sd: get_cached_sleeve_weight(
         "rpv", panel, sd, compute_rpv_weights, panel, sd
     )[0]
@@ -947,7 +947,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
             intraday_full = intraday_full.join(ndx_intraday[add_cols], how="left")
             overnight_full = overnight_full.join(ndx_overnight[add_cols], how="left")
 
-        from value_sleeve_live import get_cached_sleeve_weight
+        from core import get_cached_sleeve_weight
         ndx_wf = lambda sd: get_cached_sleeve_weight(
             "ndx", panel, sd, compute_ndx_weights, panel, ndx_panel, sd
         )[0]

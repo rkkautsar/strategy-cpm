@@ -19,7 +19,8 @@ import numpy as np
 import pandas as pd
 import index_constitution as ic
 
-from cpm_live import DEFAULT_CASH, SAFE_POOL, sig_13612U
+from cpm_live import DEFAULT_CASH, SAFE_POOL
+from core import sig_13612U
 
 ROOT = Path(__file__).resolve().parent
 PRICES_FILE = ROOT / "data" / "ndx_constituents" / "prices.parquet"
