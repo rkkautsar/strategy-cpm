@@ -598,7 +598,11 @@ def refresh_valuein_cache(cache_dir: str = DEFAULT_CACHE_DIR):
         print("VALUEIN_API_KEY not found in environment. Skipping cache refresh.")
         return
     
-    from valuein_sdk import ValueinClient
+    try:
+        from valuein_sdk import ValueinClient
+    except ImportError:
+        print("valuein_sdk not installed. Skipping cache refresh.")
+        return
     client = ValueinClient()
     
     cache_path = Path(cache_dir)

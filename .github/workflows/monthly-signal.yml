@@ -37,11 +37,13 @@ jobs:
         run: uv sync --frozen
 
       - name: Refresh NDX constituent prices
+        if: github.event_name != 'push'
         # NDX panel needs to be fresh each monthly run (new mergers/IPOs etc).
         # ~30s for ~100 active tickers.
         run: uv run python -c "from ndx_sleeve_live import refresh_ndx_panel; refresh_ndx_panel()"
 
       - name: Refresh Valuein cache (optional)
+        if: github.event_name != 'push'
         # secrets context is not allowed in if:; the script skips gracefully when the key is unset, and continue-on-error protects the build either way
         continue-on-error: true
         env:
@@ -49,6 +51,7 @@ jobs:
         run: uv run python -m value_sleeve_live --refresh-cache
 
       - name: Refresh FRED cache (optional)
+        if: github.event_name != 'push'
         continue-on-error: true
         env:
           REFRESH_FRED: "1"
