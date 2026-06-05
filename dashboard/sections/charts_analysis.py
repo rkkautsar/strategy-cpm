@@ -10,23 +10,23 @@ from dashboard.sections import regime, cpm_diagnostics, attribution
 
 def render(ctx: SimpleNamespace) -> str:
     CORE_CHARTS = (ctx.prod_label, "CPM", "RPV sleeve", "VAL sleeve", "NDX sleeve",
-                   "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
+                   "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)",
                    "Static 80% PP + 20% QQQ", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in ctx.strategies.items() if k in CORE_CHARTS}, prod_label=ctx.prod_label)
     fig_dd = chart_drawdown({k: v for k, v in ctx.strategies.items() if k in CORE_CHARTS}, prod_label=ctx.prod_label)
-    fig_roll_dd = chart_rolling_dd(ctx.art.cpm, ctx.art.blend, ctx.bb4_blend, ctx.art.rpv)
-    fig_yearly = chart_yearly_bars(ctx.art.blend, ctx.qqq, ctx.bb4_blend)
+    fig_roll_dd = chart_rolling_dd(ctx.art.cpm, ctx.art.blend, ctx.blend_bench, ctx.art.rpv)
+    fig_yearly = chart_yearly_bars(ctx.art.blend, ctx.qqq, ctx.blend_bench)
     fig_monthly_heatmap = chart_monthly_heatmap(ctx.art.blend, title="PROD 60/15/15/10 Monthly Returns Heatmap")
-    fig_rolling = chart_rolling_sharpe(ctx.art.blend, ctx.bb4_blend)
-    fig_excess = chart_rolling_excess(ctx.art.cpm, ctx.art.blend, ctx.bb4_blend, ctx.art.rpv)
+    fig_rolling = chart_rolling_sharpe(ctx.art.blend, ctx.blend_bench)
+    fig_excess = chart_rolling_excess(ctx.art.cpm, ctx.art.blend, ctx.blend_bench, ctx.art.rpv)
     fig_sleeve_corr = attribution.chart_rolling_sleeve_correlation(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.art.val)
 
     # Extended charts
     ext_fig_equity = chart_equity(ctx.ext_strategies, prod_label=ctx.prod_label)
     ext_fig_dd = chart_drawdown(ctx.ext_strategies, prod_label=ctx.prod_label)
-    ext_fig_yearly = chart_yearly_bars(ctx.ext_art.blend, ctx.ext_qqq, ctx.ext_bb4)
-    ext_fig_rolling = chart_rolling_sharpe(ctx.ext_art.blend, ctx.ext_bb4)
-    ext_fig_roll_dd = chart_rolling_dd(ctx.ext_art.cpm, ctx.ext_art.blend, ctx.ext_bb4, ctx.ext_art.rpv)
+    ext_fig_yearly = chart_yearly_bars(ctx.ext_art.blend, ctx.ext_qqq, ctx.ext_blend_bench)
+    ext_fig_rolling = chart_rolling_sharpe(ctx.ext_art.blend, ctx.ext_blend_bench)
+    ext_fig_roll_dd = chart_rolling_dd(ctx.ext_art.cpm, ctx.ext_art.blend, ctx.ext_blend_bench, ctx.ext_art.rpv)
 
     regime_html = regime.render(ctx)
     cpm_diagnostics_html = cpm_diagnostics.render(ctx)
@@ -46,7 +46,7 @@ def render(ctx: SimpleNamespace) -> str:
 <div class='card'>
 {fig_to_html(fig_yearly)}
 {fig_to_html(fig_monthly_heatmap)}
-{yearly_table_html(ctx.art.blend, ctx.qqq, ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.bb4_blend)}
+{yearly_table_html(ctx.art.blend, ctx.qqq, ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.blend_bench)}
 </div>
 
 <h3>Rolling metrics (12-month)</h3>

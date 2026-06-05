@@ -35,11 +35,11 @@ Extended window single row:
 
 | Strategy | Sharpe | CAGR | MaxDD | Calmar |
 |---|---:|---:|---:|---:|
-| B2: AAA + TIP canary | 0.96 | 10.0% | -18.8% | 0.53 |
-| B3: HAA-Simple SPY | 0.97 | 11.5% | -20.3% | 0.57 |
-| B5: QQQ 12m trend | 0.89 | 16.0% | -28.6% | 0.56 |
-| BB1: 60% B2 + 40% B3 | 1.11 | 10.8% | -14.8% | 0.73 |
-| BB4: 60% B2 + 20% B3 + 20% B5 | 1.18 | 11.9% | -14.6% | 0.82 |
+| AAA + TIP canary | 0.96 | 10.0% | -18.8% | 0.53 |
+| HAA-Simple SPY | 0.97 | 11.5% | -20.3% | 0.57 |
+| QQQ 12m trend | 0.89 | 16.0% | -28.6% | 0.56 |
+| Conservative lit blend (60% AAA+TIP / 40% HAA-Simple SPY) | 1.11 | 10.8% | -14.8% | 0.73 |
+| Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP) | 1.14 | 10.6% | -13.2% | 0.81 |
 | PROD 60/15/15/10 | 1.57 | 16.7% | -9.9% | 1.69 |
 
 
