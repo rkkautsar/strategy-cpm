@@ -91,12 +91,12 @@ def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     width = 0.28
     x = np.arange(len(years))
     ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color="#707070")
-    ax.bar(x,         yr_n.values, width, label="BB4 lit blend", color="#9966aa")
+    ax.bar(x,         yr_n.values, width, label="Literature blend", color="#9966aa")
     ax.bar(x + width, yr_b.values, width, label="CPM-NDX-VAL-RPV (PROD)", color="#0040d0")
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45, fontsize=8)
     ax.set_ylabel("Annual return (%)")
-    ax.set_title("Annual Returns: PROD vs BB4 lit blend vs QQQ buy-hold")
+    ax.set_title("Annual Returns: PROD vs Literature blend vs QQQ buy-hold")
     ax.axhline(0, color="#888", lw=0.6)
     _legend_below(ax, ncol=3)
     return fig
@@ -124,7 +124,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
 
     ax.plot(fcp_dd.index, fcp_dd.values, label="CPM", color="#1a9a1a", lw=1.6)
     ax.plot(blend_dd.index, blend_dd.values, label="CPM-NDX-VAL-RPV (PROD)", color="#0040d0", lw=2.0)
-    ax.plot(bb4_dd.index, bb4_dd.values, label="BB4 lit blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(bb4_dd.index, bb4_dd.values, label="Literature blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
@@ -140,7 +140,7 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
 
 def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
                           max_fcp: pd.Series = None, window_days=252):
-    """Rolling N-month annualized excess CAGR vs BB4 lit benchmark.
+    """Rolling N-month annualized excess CAGR vs Literature blend benchmark.
     Uses geometric (1+r).rolling.prod()**(252/window) - 1 for proper compounding.
     """
     fig, ax = plt.subplots(figsize=(8, 3.6))
@@ -162,34 +162,34 @@ def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series
     excess_blend = (blend_cagr - bb4_cagr) * 100
 
     ax.plot(excess_fcp.index, excess_fcp.values,
-            label="CPM vs BB4", color="#1a9a1a", lw=1.6)
+            label="CPM vs Lit blend", color="#1a9a1a", lw=1.6)
     ax.plot(excess_blend.index, excess_blend.values,
-            label="PROD vs BB4", color="#0040d0", lw=2.0)
+            label="PROD vs Lit blend", color="#0040d0", lw=2.0)
     if max_fcp is not None:
         max_fcp_cagr = rolling_cagr(max_fcp.reindex(idx))
         excess_max = (max_fcp_cagr - bb4_cagr) * 100
         ax.plot(excess_max.index, excess_max.values,
-                label="RPV vs BB4", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
+                label="RPV vs Lit blend", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Excess CAGR (pp, ann.)")
-    ax.set_title(f"Rolling {window_days//21}-Month Excess vs BB4 lit blend")
+    ax.set_title(f"Rolling {window_days//21}-Month Excess vs Literature blend")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax, ncol=3)
     return fig
 
 def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
-    # Rolling Sharpe vs BB4 lit blend (apples-to-apples architecture)
+    # Rolling Sharpe vs Literature blend (apples-to-apples architecture)
     fig, ax = plt.subplots(figsize=(8, 3.6))
     bench = bb4.reindex(blended.index)
     bench_sr = (bench.rolling(window_days).mean() * 252) / (bench.rolling(window_days).std() * np.sqrt(252))
     fcp_sr = (blended.rolling(window_days).mean() * 252) / (blended.rolling(window_days).std() * np.sqrt(252))
-    ax.plot(bench_sr.index, bench_sr.values, label="BB4 lit blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(bench_sr.index, bench_sr.values, label="Literature blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
     ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-NDX-VAL-RPV (PROD)", color="#0040d0", lw=2.0)
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
     ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
     ax.set_ylabel("Sharpe")
-    ax.set_title(f"Rolling {window_days//21}-Month Sharpe: PROD vs BB4 lit blend")
+    ax.set_title(f"Rolling {window_days//21}-Month Sharpe: PROD vs Literature blend")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     _legend_below(ax, ncol=2)

@@ -412,6 +412,24 @@ def bench_bb4_blend(panel, start, end):
             + 0.20 * b5.reindex(common).fillna(0))
 
 
+def bench_blend_4leg(panel, start, end):
+    """Literature blend benchmark: 60% AAA+TIP + 15% HAA-Simple QQQ +
+    15% HAA-Simple SPY + 10% PP."""
+    from cpm_live import run_pp_backtest
+
+    aaa_tip = bench_aaa_tip(panel, start, end)
+    haa_qqq = bench_haa_simple(panel, start, end, asset="QQQ")
+    haa_spy = bench_haa_simple(panel, start, end, asset="SPY")
+    pp = run_pp_backtest(panel, start, end)
+    common = aaa_tip.index.intersection(haa_qqq.index).intersection(haa_spy.index).intersection(pp.index)
+    if len(common) == 0:
+        return pd.Series(dtype=float)
+    return (0.60 * aaa_tip.reindex(common).fillna(0)
+            + 0.15 * haa_qqq.reindex(common).fillna(0)
+            + 0.15 * haa_spy.reindex(common).fillna(0)
+            + 0.10 * pp.reindex(common).fillna(0))
+
+
 def alpha_beta_corr(strat: pd.Series, bench: pd.Series) -> dict:
     """OLS daily-return regression r_strat = alpha + beta * r_bench + eps.
     Returns dict with annualized alpha (%/yr), beta, and Pearson correlation.

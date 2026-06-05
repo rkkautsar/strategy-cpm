@@ -9,7 +9,7 @@ from cpm_live import load_panel, perf_metrics, compute_target_weights
 from ndx_sleeve_live import load_ndx_panel, SELECT_K as NDX_SELECT_K
 from rpv_live import compute_rpv_weights
 from dashboard_engine import (
-    build_artifacts, bench_aaa_tip, bench_bb4_blend, bench_static_pp_qqq,
+    build_artifacts, bench_aaa_tip, bench_blend_4leg, bench_static_pp_qqq,
     bench_qqq_12mo_trend, sixty_forty, alpha_beta_corr, EXT_START,
     BOOTSTRAP_SINGLE_B, BOOTSTRAP_PAIRED_B
 )
@@ -49,7 +49,7 @@ def build_context(args) -> SimpleNamespace:
     spy = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
     qqq = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     six40 = sixty_forty(panel, start, end)
-    bb4_blend = bench_bb4_blend(panel, start, end)
+    blend_bench = bench_blend_4leg(panel, start, end)
     static_pp_qqq = bench_static_pp_qqq(panel, start, end, pp_weight=0.80, growth_ticker="QQQ")
 
     strategies = {
@@ -58,7 +58,7 @@ def build_context(args) -> SimpleNamespace:
         "RPV sleeve": art.rpv,
         "VAL sleeve": art.val,
         "NDX sleeve": art.ndx,
-        "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": bb4_blend,
+        "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)": blend_bench,
         "Static 80% PP + 20% QQQ": static_pp_qqq,
         "QQQ buy-hold": qqq,
     }
@@ -135,15 +135,15 @@ def build_context(args) -> SimpleNamespace:
     qqq_d = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
     bench_ew_rpv = (spy_d + tlt_d + lqd_d) / 3.0
     for label, strat, bench, bench_label in [
-        ("PROD 60/15/15/10",  art.blend, bb4_blend,      "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"),
+        ("PROD 60/15/15/10",  art.blend, blend_bench,      "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)"),
         ("PROD 60/15/15/10",  art.blend, static_pp_qqq,  "Static 80% PP + 20% QQQ (vol-matched)"),
         ("PROD 60/15/15/10",  art.blend, spy_d,          "SPY buy-hold"),
         ("PROD 60/15/15/10",  art.blend, qqq_d,          "QQQ buy-hold"),
-        ("CPM sleeve", art.cpm,   bench_b2,       "B2 AAA + TIP canary"),
+        ("CPM sleeve", art.cpm,   bench_b2,       "AAA + TIP canary"),
         ("CPM sleeve", art.cpm,   spy_d,          "SPY buy-hold"),
         ("RPV sleeve", art.rpv,   bench_ew_rpv,   "EW RPV universe (Passive Sleeve Peer)"),
         ("RPV sleeve", art.rpv,   spy_d,          "SPY buy-hold"),
-        ("NDX sleeve", art.ndx,   bench_b5,       "B5 QQQ 12mo trend (Antonacci GEM)"),
+        ("NDX sleeve", art.ndx,   bench_b5,       "QQQ 12mo trend (Antonacci GEM)"),
         ("NDX sleeve",     art.ndx,   qqq_d,     "QQQ buy-hold"),
     ]:
         m = alpha_beta_corr(strat, bench)
@@ -157,7 +157,7 @@ def build_context(args) -> SimpleNamespace:
     ext_start = EXT_START
     ext_art = build_artifacts(panel, ndx_panel, ext_start, end, include_records=False)
     ext_qqq = panel["QQQ"].ffill().pct_change().loc[ext_start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
-    ext_bb4 = bench_bb4_blend(panel, ext_start, end)
+    ext_blend_bench = bench_blend_4leg(panel, ext_start, end)
     ext_static_pp_qqq = bench_static_pp_qqq(panel, ext_start, end, pp_weight=0.80, growth_ticker="QQQ")
     ext_strategies = {
         prod_label: ext_art.blend,
@@ -165,7 +165,7 @@ def build_context(args) -> SimpleNamespace:
         "RPV sleeve": ext_art.rpv,
         "VAL sleeve": ext_art.val,
         "NDX sleeve": ext_art.ndx,
-        "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": ext_bb4,
+        "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)": ext_blend_bench,
         "Static 80% PP + 20% QQQ": ext_static_pp_qqq,
         "QQQ buy-hold": ext_qqq,
     }
@@ -198,12 +198,12 @@ def build_context(args) -> SimpleNamespace:
         window_str=window_str, yrs_full=yrs_full,
         panel=panel, live_panel=live_panel, ndx_panel=ndx_panel, cash_daily=cash_daily,
         art=art, live_art=live_art, ext_art=ext_art,
-        spy=spy, qqq=qqq, six40=six40, bb4_blend=bb4_blend, static_pp_qqq=static_pp_qqq,
+        spy=spy, qqq=qqq, six40=six40, blend_bench=blend_bench, static_pp_qqq=static_pp_qqq,
         strategies=strategies, perf_rows=perf_rows,
         sig_d_live=sig_d_live, sig_d=sig_d, trade_due_date=trade_due_date, age_days=age_days, age_status=age_status,
         git_sha=git_sha, panel_index_last=panel_index_last, ndx_snapshot_date=ndx_snapshot_date,
         sleeve_rows=sleeve_rows, alpha_beta_rows=alpha_beta_rows,
-        ext_start=ext_start, ext_qqq=ext_qqq, ext_bb4=ext_bb4, ext_static_pp_qqq=ext_static_pp_qqq,
+        ext_start=ext_start, ext_qqq=ext_qqq, ext_blend_bench=ext_blend_bench, ext_static_pp_qqq=ext_static_pp_qqq,
         ext_strategies=ext_strategies, ext_perf_rows=ext_perf_rows,
         prod_metrics=prod_metrics, rpv_metrics=rpv_metrics, val_metrics=val_metrics, ndx_metrics=ndx_metrics,
         research_compare_rows=research_compare_rows, prod_label=prod_label,

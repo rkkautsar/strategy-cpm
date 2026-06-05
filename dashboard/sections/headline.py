@@ -7,11 +7,11 @@ from dashboard.charts_core import chart_equity_dd_combined
 def render(ctx: SimpleNamespace) -> str:
     # Render headline comparison
     CORE_CHARTS = (ctx.prod_label, "CPM", "RPV sleeve", "VAL sleeve", "NDX sleeve",
-                   "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
+                   "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)",
                    "Static 80% PP + 20% QQQ", "QQQ buy-hold")
     headline_strats = {ctx.prod_label: ctx.art.blend}
-    if ctx.bb4_blend is not None and not ctx.bb4_blend.empty:
-        headline_strats["BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)"] = ctx.bb4_blend
+    if ctx.blend_bench is not None and not ctx.blend_bench.empty:
+        headline_strats["Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)"] = ctx.blend_bench
     fig_eq_dd_headline = chart_equity_dd_combined(headline_strats, prod_label=ctx.prod_label)
     
     return f"""<h2>Headline performance</h2>

@@ -66,23 +66,23 @@ def yearly_table_html(blended: pd.Series, qqq: pd.Series, cpm: pd.Series,
                        "CPM": yr_f.reindex(yr_b.index).values * 100,
                        "RPV": yr_bu.reindex(yr_b.index).values * 100,
                        "NDX": yr_nd.reindex(yr_b.index).values * 100,
-                       "BB4 lit": yr_n.reindex(yr_b.index).values * 100,
+                       "Lit blend": yr_n.reindex(yr_b.index).values * 100,
                        "QQQ": yr_q.reindex(yr_b.index).values * 100})
-    df["Excess vs BB4"] = df["PROD"] - df["BB4 lit"]
+    df["Excess vs Lit blend"] = df["PROD"] - df["Lit blend"]
     df["Excess vs QQQ"] = df["PROD"] - df["QQQ"]
     body = ""
     for _, r in df.iterrows():
-        ex_n = r["Excess vs BB4"]
+        ex_n = r["Excess vs Lit blend"]
         ex_q = r["Excess vs QQQ"]
         exn_class = "pos" if ex_n > 0 else "neg"
         exq_class = "pos" if ex_q > 0 else "neg"
         body += f"<tr><td>{int(r['Year'])}</td>"
-        for col in ["PROD", "CPM", "RPV", "NDX", "BB4 lit", "QQQ"]:
+        for col in ["PROD", "CPM", "RPV", "NDX", "Lit blend", "QQQ"]:
             v = r[col]
             cls = "pos" if v > 0 else "neg"
             body += f"<td style='text-align:right' class='{cls}'>{v:+.2f}%</td>"
         body += f"<td style='text-align:right' class='{exn_class}'>{ex_n:+.2f}pp</td>"
         body += f"<td style='text-align:right' class='{exq_class}'>{ex_q:+.2f}pp</td></tr>\n"
     return f"""<div class='table-scroll'><table class='yearly'>
-<thead><tr><th>Year</th><th>PROD<br>({int(CPM_WEIGHT*100)}/{int(NDX_WEIGHT*100)}/{int(VAL_WEIGHT*100)}/{int(RPV_WEIGHT*100)})</th><th>CPM only</th><th>RPV only</th><th>NDX only</th><th>BB4 lit blend</th><th>QQQ</th><th>Ex vs BB4</th><th>Ex vs QQQ</th></tr></thead>
+<thead><tr><th>Year</th><th>PROD<br>({int(CPM_WEIGHT*100)}/{int(NDX_WEIGHT*100)}/{int(VAL_WEIGHT*100)}/{int(RPV_WEIGHT*100)})</th><th>CPM only</th><th>RPV only</th><th>NDX only</th><th>Literature blend</th><th>QQQ</th><th>Ex vs Lit blend</th><th>Ex vs QQQ</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""

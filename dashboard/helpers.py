@@ -85,7 +85,7 @@ FCP_STYLES = {
     "RPV sleeve":           dict(color="#ff8800", lw=2.0, ls="-",  alpha=0.95, zorder=8),
     "VAL sleeve":           dict(color="#7f3fbf", lw=1.8, ls="-",  alpha=0.90, zorder=8),
     "NDX sleeve":           dict(color="#cc2266", lw=1.6, ls="-",  alpha=0.85, zorder=7),
-    "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
+    "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)": dict(color="#9966aa", lw=1.6, ls="--", alpha=0.85, zorder=4),
     "Static 80% PP + 20% QQQ": dict(color="#2d8659", lw=1.4, ls="-.", alpha=0.85, zorder=4),
     "QQQ buy-hold":         dict(color="#707070", lw=1.2, ls=":",  alpha=0.7,  zorder=3),
     "SPY buy-hold":         dict(color="#a0a0a0", lw=1.0, ls=":",  alpha=0.65, zorder=3),
@@ -101,6 +101,6 @@ BASE_RENDER_ORDER = [
     "Keller VAA G4", "HAA-Balanced",
     "60/40 SPY/IEF", "SPY buy-hold",
     "NDX sleeve",
-    "QQQ buy-hold", "Static 80% PP + 20% QQQ", "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)",
+    "QQQ buy-hold", "Static 80% PP + 20% QQQ", "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)",
     "VAL sleeve", "RPV sleeve", "CPM",
 ]
