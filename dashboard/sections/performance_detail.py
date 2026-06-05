@@ -119,7 +119,7 @@ def period_summary_html(daily: pd.Series, end_date: pd.Timestamp = None) -> str:
 
 def render(ctx: SimpleNamespace) -> str:
     CORE_CHARTS = (ctx.prod_label, "CPM", "RPV sleeve", "VAL sleeve", "NDX sleeve",
-                   "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)",
+                   "Literature blend",
                    "Static 80% PP + 20% QQQ", "QQQ buy-hold")
     fig_riskret = chart_risk_return_scatter({k: v for k, v in ctx.strategies.items() if k in CORE_CHARTS}, prod_label=ctx.prod_label)
     

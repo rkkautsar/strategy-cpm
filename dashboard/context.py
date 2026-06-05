@@ -5,12 +5,12 @@ from pathlib import Path
 from types import SimpleNamespace
 import pandas as pd
 from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
-from cpm_live import load_panel, perf_metrics, compute_target_weights
+from cpm_live import load_panel, perf_metrics, compute_target_weights, run_pp_backtest
 from ndx_sleeve_live import load_ndx_panel, SELECT_K as NDX_SELECT_K
 from rpv_live import compute_rpv_weights
 from dashboard_engine import (
-    build_artifacts, bench_aaa_tip, bench_blend_4leg, bench_static_pp_qqq,
-    bench_qqq_12mo_trend, sixty_forty, alpha_beta_corr, EXT_START,
+    build_artifacts, bench_aaa_tip, bench_haa_simple, bench_blend_4leg, bench_static_pp_qqq,
+    sixty_forty, alpha_beta_corr, EXT_START,
     BOOTSTRAP_SINGLE_B, BOOTSTRAP_PAIRED_B
 )
 
@@ -58,7 +58,7 @@ def build_context(args) -> SimpleNamespace:
         "RPV sleeve": art.rpv,
         "VAL sleeve": art.val,
         "NDX sleeve": art.ndx,
-        "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)": blend_bench,
+        "Literature blend": blend_bench,
         "Static 80% PP + 20% QQQ": static_pp_qqq,
         "QQQ buy-hold": qqq,
     }
@@ -127,24 +127,25 @@ def build_context(args) -> SimpleNamespace:
 
     # Alpha/beta/corr
     bench_b2 = bench_aaa_tip(panel, start, end)
-    bench_b5 = bench_qqq_12mo_trend(panel, start, end)
+    bench_ndx_leg = bench_haa_simple(panel, start, end, asset="QQQ")
+    bench_val_leg = bench_haa_simple(panel, start, end, asset="SPY")
+    bench_rpv_leg = run_pp_backtest(panel, start, end)
     alpha_beta_rows = []
     spy_d = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
-    tlt_d = panel["TLT"].ffill().pct_change().loc[start:end].fillna(0.0) if "TLT" in panel.columns else pd.Series(dtype=float)
-    lqd_d = panel["LQD"].ffill().pct_change().loc[start:end].fillna(0.0) if "LQD" in panel.columns else pd.Series(dtype=float)
     qqq_d = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
-    bench_ew_rpv = (spy_d + tlt_d + lqd_d) / 3.0
     for label, strat, bench, bench_label in [
-        ("PROD 60/15/15/10",  art.blend, blend_bench,      "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)"),
-        ("PROD 60/15/15/10",  art.blend, static_pp_qqq,  "Static 80% PP + 20% QQQ (vol-matched)"),
-        ("PROD 60/15/15/10",  art.blend, spy_d,          "SPY buy-hold"),
-        ("PROD 60/15/15/10",  art.blend, qqq_d,          "QQQ buy-hold"),
-        ("CPM sleeve", art.cpm,   bench_b2,       "AAA + TIP canary"),
-        ("CPM sleeve", art.cpm,   spy_d,          "SPY buy-hold"),
-        ("RPV sleeve", art.rpv,   bench_ew_rpv,   "EW RPV universe (Passive Sleeve Peer)"),
-        ("RPV sleeve", art.rpv,   spy_d,          "SPY buy-hold"),
-        ("NDX sleeve", art.ndx,   bench_b5,       "QQQ 12mo trend (Antonacci GEM)"),
-        ("NDX sleeve",     art.ndx,   qqq_d,     "QQQ buy-hold"),
+        ("PROD 60/15/15/10", art.blend, blend_bench, "Literature blend"),
+        ("PROD 60/15/15/10", art.blend, static_pp_qqq, "Static 80% PP + 20% QQQ (vol-matched)"),
+        ("PROD 60/15/15/10", art.blend, spy_d, "SPY buy-hold"),
+        ("PROD 60/15/15/10", art.blend, qqq_d, "QQQ buy-hold"),
+        ("CPM sleeve", art.cpm, bench_b2, "AAA+TIP canary"),
+        ("CPM sleeve", art.cpm, spy_d, "SPY buy-hold"),
+        ("NDX sleeve", art.ndx, bench_ndx_leg, "HAA-Simple QQQ"),
+        ("NDX sleeve", art.ndx, qqq_d, "QQQ buy-hold"),
+        ("VAL sleeve", art.val, bench_val_leg, "HAA-Simple SPY"),
+        ("VAL sleeve", art.val, spy_d, "SPY buy-hold"),
+        ("RPV sleeve", art.rpv, bench_rpv_leg, "Permanent Portfolio (PP)"),
+        ("RPV sleeve", art.rpv, spy_d, "SPY buy-hold"),
     ]:
         m = alpha_beta_corr(strat, bench)
         alpha_beta_rows.append({
@@ -165,7 +166,7 @@ def build_context(args) -> SimpleNamespace:
         "RPV sleeve": ext_art.rpv,
         "VAL sleeve": ext_art.val,
         "NDX sleeve": ext_art.ndx,
-        "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)": ext_blend_bench,
+        "Literature blend": ext_blend_bench,
         "Static 80% PP + 20% QQQ": ext_static_pp_qqq,
         "QQQ buy-hold": ext_qqq,
     }
