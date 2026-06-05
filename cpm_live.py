@@ -50,9 +50,14 @@ RISKY_UNIVERSE = (US_EQUITY + US_FACTOR + INTERNATIONAL + REAL_ESTATE
                    + DIVERSIFIERS)
 SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
-# CPM canary: TIP-only (13612U > 0).
+# CPM canary: DISABLED (de-canary C1, 2026-06-05). CPM now self-de-risks via the
+# C1 cliff in risky_fraction (breadth of its own top-K picks), removing the single
+# TIP signal that previously gated ~90% of the blend. CANARY_ASSETS kept only so
+# compute_live_weights still includes TIP in the panel columns (harmless, not a gate).
 CANARY_ASSETS = ["TIP"]
-CANARY_RULE = "any_positive"  # TIP-only gate
+CANARY_RULE = "disabled"  # de-canary: gate moved into the risky_fraction C1 cliff
+# C1 cliff: top-K positive-faber breadth -> risky fraction; <=2 positives -> 100% safe.
+CPM_RISKY_FRACTION_CURVE = {1: 0.0, 2: 0.0, 3: 0.5, 4: 1.0}
 
 DEFAULT_CASH = "SHV"
 
@@ -334,27 +339,9 @@ def compute_target_weights(
     monthly = close_panel.loc[:sig_d].resample("ME").last()
     safe = best_safe(monthly, sig_d, safe_pool)
     
-    # Canary check: apply CANARY_RULE to canary 13612U states.
-    canary_scores = []
-    for c in canary_assets:
-        if c not in monthly.columns:
-            continue
-        s = sig_13612U(monthly[c])
-        if pd.notna(s):
-            canary_scores.append(s)
-    if not canary_scores:
-        return {safe: 1.0}, None, "DEFENSIVE", safe
-    n_canary_pos = sum(1 for s in canary_scores if s > 0)
-    if CANARY_RULE == "any_positive":
-        if n_canary_pos == 0:
-            return {safe: 1.0}, None, "DEFENSIVE", safe  # defensive when TIP fails
-    elif CANARY_RULE == "all_positive":
-        if n_canary_pos < len(canary_scores):
-            return {safe: 1.0}, None, "DEFENSIVE", safe
-    else:  # "majority"
-        if n_canary_pos <= len(canary_scores) // 2:
-            return {safe: 1.0}, None, "DEFENSIVE", safe
-    
+    # De-canary (C1): no external canary gate. CPM self-de-risks via the C1 cliff
+    # in risky_fraction below (breadth of its own top-K picks; <=2 positive -> safe).
+
     # Volatility-adjusted Faber ranker (EAA adoption):
     #   score(A) = faber_score(A) / vol_252d(A)
     # Penalizes high-volatility "junk momentum" to select stable trend leaders.
@@ -389,7 +376,10 @@ def compute_target_weights(
 
     positive_picks = list(positive.index)
     n_pos = len(positive_picks)
-    risky_fraction = min(n_pos, 4) / 4.0
+    # C1 cliff de-risk (replaces TIP canary): <=2 positive top-K picks -> 100% safe.
+    risky_fraction = CPM_RISKY_FRACTION_CURVE.get(min(n_pos, 4), 0.0)
+    if risky_fraction <= 1e-12:
+        return {safe: 1.0}, None, "DEFENSIVE", safe
     if n_pos == TOP_K_CANDIDATES and risky_fraction == 1.0:
         # min-variance / vol-covariance excision gated by full breadth (n_pos==top_k) + full risk (risky_fraction==1.0)
         picks = _min_var_subset(close_panel, sig_d, positive_picks, CORR_LOOKBACK_DAYS, 3)
