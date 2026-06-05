@@ -35,6 +35,21 @@ from core import cached_value_backtest
 # Production blend: 60% CPM + 15% NDX + 15% VAL + 10% RPV
 from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
 
+
+def get_last_finalized_month_cutoff(index: pd.DatetimeIndex) -> pd.Timestamp:
+    """Returns the start of the first unfinalized month based on panel index.
+    A month is finalized if the panel contains its business month-end.
+    """
+    if len(index) == 0:
+        return pd.Timestamp.today().normalize().replace(day=1)
+    latest_date = index[-1]
+    bme = latest_date + pd.offsets.BMonthEnd(0)
+    if latest_date >= bme:
+        return (latest_date + pd.offsets.MonthBegin(1)).normalize()
+    else:
+        return latest_date.replace(day=1).normalize()
+
+
 RPV_EQUITY_TICKER = "SPY"
 CASH_TICKER = "SHV"
 
@@ -461,7 +476,7 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
         mask &= monthly_idx.index <= end
     # Drop in-progress current calendar month: signal is only real once its
     # month-end has actually arrived.
-    this_month_start = pd.Timestamp.today().normalize().replace(day=1)
+    this_month_start = get_last_finalized_month_cutoff(panel.index)
     mask &= monthly_idx.index < this_month_start
     sig_dates = monthly_idx.index[mask].tolist()
 
@@ -748,7 +763,7 @@ def rpv_signal_records(panel: pd.DataFrame, start: pd.Timestamp,
     mask = monthly_idx.index >= start
     if end is not None:
         mask &= monthly_idx.index <= end
-    this_month_start = pd.Timestamp.today().normalize().replace(day=1)
+    this_month_start = get_last_finalized_month_cutoff(panel.index)
     mask &= monthly_idx.index < this_month_start
     sig_dates = monthly_idx.index[mask].tolist()
     records = []
@@ -772,7 +787,7 @@ def ndx_signal_records(panel: pd.DataFrame, ndx_panel: pd.DataFrame,
     mask = monthly_idx.index >= start
     if end is not None:
         mask &= monthly_idx.index <= end
-    this_month_start = pd.Timestamp.today().normalize().replace(day=1)
+    this_month_start = get_last_finalized_month_cutoff(panel.index)
     mask &= monthly_idx.index < this_month_start
     sig_dates = monthly_idx.index[mask].tolist()
     records = []
@@ -932,7 +947,7 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
         rpv_records = rpv_signal_records(panel, start, end)
         ndx_records = (ndx_signal_records(panel, ndx_panel, start, end)
                         if ndx_panel is not None else [])
-        this_month_start = pd.Timestamp.today().normalize().replace(day=1)
+        this_month_start = get_last_finalized_month_cutoff(panel.index)
         val_records = []
         for r in val_history:
             sd = r.get("sig_d")

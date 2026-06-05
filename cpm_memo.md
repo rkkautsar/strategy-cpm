@@ -53,14 +53,14 @@ Anchor (exact, clean CPM): Sharpe 1.2373, CAGR 12.92%, MaxDD -13.03%, Calmar 0.9
 |---|---|---:|---:|---:|---:|
 | CPM | 1999-03-10 to 2026-04-30 | 1.24 | 12.6% | -13.1% | 0.96 |
 
-### 2.5 No-canary ablation (clean)
+### 2.5 Gate/Cliff ablation (clean)
 
 | Variant | Sharpe | CAGR | MaxDD | Calmar |
 |---|---:|---:|---:|---:|
-| CPM (TIP canary ON) | 1.24 | 12.9% | -13.0% | 0.99 |
-| CPM (canary OFF) | 1.15 | 13.3% | -22.1% | 0.60 |
+| CPM (C1 cliff) | 1.26 | 13.8% | -10.7% | 1.29 |
+| CPM (cliff-OFF naive full-invest) | 0.92 | 12.3% | -35.6% | 0.34 |
 
-Read: canary keeps drawdown materially shallower while preserving high Sharpe.
+Read: C1 cliff keeps drawdown materially shallower while preserving high Sharpe.
 
 ### 2.6 Underwater and execution-timing cliff
 
