@@ -599,20 +599,65 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_ret
         ax.set_title(title, fontsize=11, fontweight='bold', pad=36)
         return im
 
-    tip_canary = ['TIP']
+    def compute_cpm_n_pos_states():
+        monthly = panel.loc[:end].resample("ME").last()
+        faber = cpm_module.faber_sma_xs(monthly)
+        states = {}
+        for sig_d in monthly.index:
+            if sig_d < start:
+                continue
+            avail = [t for t in RISKY_UNIVERSE
+                     if t in faber.index and pd.notna(faber[t])
+                     and pd.notna(panel.loc[sig_d].get(t, np.nan) if sig_d in panel.index else np.nan)]
+            if not avail:
+                continue
+            daily_rets = panel[avail].ffill().pct_change()
+            scores = {}
+            for t in avail:
+                v = daily_rets[t].loc[:sig_d].tail(252).std() * np.sqrt(252)
+                if pd.isna(v) or v < 1e-9:
+                    v = 1.0
+                scores[t] = float(faber[t]) / v
+            sa = pd.Series(scores)
+            ranked = sa.sort_values(ascending=False)
+            top_k = max(2, min(TOP_K_CANDIDATES, len(ranked)))
+            top = ranked.iloc[:top_k]
+            positive = top[top.index.map(lambda t: faber.get(t, -np.inf) > 0)]
+            n_pos = len(positive)
 
-    cpm_grid = build_grid(cpm_rets, tip_canary, include_macro=False)
+            if n_pos <= 2:
+                states[sig_d] = '<=2'
+            elif n_pos == 3:
+                states[sig_d] = '3'
+            else:
+                states[sig_d] = '4'
+        return pd.Series(states).sort_index()
+
+    def build_cpm_breadth_grid(daily_returns):
+        state_ser = compute_cpm_n_pos_states()
+        state_per_day = attribute(daily_returns, state_ser)
+        row_order = ['<=2', '3', '4']
+        grid = []
+        for r in row_order:
+            mask = state_per_day == r
+            n_months = int((state_ser == r).sum())
+            d = daily_returns[mask]
+            s = cell_stats(d)
+            grid.append([{'state': (r,), 'n_months': n_months, 'stats': s}])
+        return grid
+
+    cpm_grid = build_cpm_breadth_grid(cpm_rets)
     rpv_grid = compute_rpv_grid(rpv_rets)
 
-    cpm_col_labels = ['TIP canary']
-    cpm_row_labels = ['TIP+', 'TIP-']
+    cpm_col_labels = ['C1 Breadth']
+    cpm_row_labels = ['<=2 Positives', '3 Positives', '4 Positives']
     rpv_col_labels = ['SPY > SMA200', 'SPY <= SMA200']
     rpv_row_labels = ['Equity Z > 0', 'Equity Z <= 0']
 
     fig, axes = plt.subplots(2, 1, figsize=(11, 8.5), constrained_layout=True,
                               gridspec_kw={'height_ratios':[1, 1]})
     im = plot_sub(axes[0], cpm_grid, cpm_row_labels, cpm_col_labels,
-                   'CPM sleeve - performance by TIP canary state', fontsize=9)
+                   'CPM sleeve - performance by C1 breadth state', fontsize=9)
     plot_sub(axes[1], rpv_grid, rpv_row_labels, rpv_col_labels,
               'RPV sleeve - performance by Value (Equity Z) and Trend (SPY SMA) state', fontsize=9)
     fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)
@@ -2149,7 +2194,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), TIP 13612U &gt; 0 canary, EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. Equal-weight risky block with n_pos=4 min-var 3-of-4 selection and strict-4 partial-safe: risky fraction = min(n_pos, 4)/4, remainder routed to timed HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. CPM self-de-risks via the C1 cliff on positive breadth of its top-K picks: risky fraction is 100% when n_pos=4, 50% when n_pos=3, and 0% (100% safe) when n_pos &lt;= 2. If n_pos=4, min-var 3-of-4 selection is used for the risky block; if n_pos=3, the 3 positive picks are held equal-weighted; the safe fraction is routed to HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>RPV ({int(RPV_W*100)}%) -- 5-premia sequential:</strong> Universe SPY, TLT, LQD, HYG, TIP + SHV cash. Monthly 120-month z-scores (term, IG spread, HY spread, equity, real yield), keep only z &gt; 0 and above-200d-SMA assets, weight by positive z (per-asset cap near 33%), route remainder to SHV; 100% SHV when none qualify.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
 </ul>
@@ -2243,11 +2288,11 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>Canary:</strong> TIP 13612U &gt; 0 -- risk-on when it passes; defensive when it fails -&gt; 100% best-of-safe.</li>
+<li><strong>C1 Cliff Breadth:</strong> No external canary. CPM self-de-risks based on the breadth of its own top-K picks.</li>
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
 <li><strong>Top-K candidates:</strong> top {TOP_K_CANDIDATES} by volatility-adjusted Faber score, drop assets with raw Faber &le; 0</li>
 <li><strong>Risky-block weights:</strong> equal-weight across surviving positives; when n_pos=4 use min-var 3-of-4 selection before equal-weight allocation</li>
-<li><strong>Strict-4 partial-safe:</strong> risky fraction = min(n_pos, 4)/4; safe fraction = 1 - risky fraction; n_pos = 0 &rarr; 100% best-of-safe</li>
+<li><strong>C1 Cliff partial-safe:</strong> risky fraction = 1.0 (when n_pos=4), 0.5 (when n_pos=3), or 0.0 (when n_pos &le; 2); safe fraction = 1 - risky fraction</li>
 <li><strong>Cost:</strong> {COST_BPS_PER_SIDE} bps/side</li>
 <li><strong>Execution (mooex T+1):</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>

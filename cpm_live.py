@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-CPM - Factor, Canary, Basket
+CPM - Factor, C1 Cliff Breadth, Basket
 Production allocation runner + backtest.
 
 Usage:
