@@ -39,8 +39,8 @@ def test_rpv_0a():
     weights, regime, diag = compute_rpv_weights(panel, pd.Timestamp("2026-04-30"))
 
     assert regime == "WEIGHTED_GUARDED"
-    assert abs(weights.get("TIP", 0.0) - (1.0 / 3.0)) <= 1e-12
-    assert abs(weights.get("SHV", 0.0) - (2.0 / 3.0)) <= 1e-12
+    assert abs(weights.get("TIP", 0.0) - 1.0) <= 1e-12
+    assert abs(weights.get("SHV", 0.0) - 0.0) <= 1e-12
     assert abs(diag["z_scores"]["term"] - 0.327) <= 1e-2
     assert abs(diag["z_scores"]["igcredit"] - (-0.868)) <= 1e-2
     assert abs(diag["z_scores"]["equity"] - (-1.672)) <= 1e-2

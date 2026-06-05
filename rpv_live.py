@@ -21,7 +21,7 @@ W = 120  # 120-month trailing window
 ZMIN = 36
 LAG_E = 4
 COST_BPS_PER_SIDE = 10.0
-CAP = 1.0 / 3.0
+CAP = 1.0
 
 ASSET_OF = {
     "term": "TLT",
@@ -186,7 +186,7 @@ def compute_rpv_signals() -> pd.DataFrame:
 
 
 def compute_rpv_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp) -> tuple[dict, str, dict]:
-    """Sequential filter variant: value z>0 -> SMA200 gate -> weighted survivors (cap=1/3)."""
+    """Sequential filter variant: value z>0 -> SMA200 gate -> fully-invested z-weighted survivors (no per-asset cap)."""
     Z = compute_rpv_signals()
     if sig_d not in Z.index:
         valid_ds = Z.index[Z.index <= sig_d]
