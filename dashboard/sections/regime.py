@@ -130,7 +130,7 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
 def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_rets: pd.Series, start: pd.Timestamp):
     """Truth-table heatmap of CPM and RPV sleeve performance by state.
 
-    CPM: C1 breadth-state split (<=2, 3, 4 positive top-K picks).
+    CPM: breadth-state split (<=2, 3, 4 positive top-K picks).
     RPV: 2x2 split by Equity z-score sign and SPY 200d SMA trend state.
     Cell: Sharpe (color) + AnnRet + MaxDD + n_months.
     """
@@ -283,7 +283,7 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_ret
     cpm_grid = build_cpm_breadth_grid(cpm_rets)
     rpv_grid = compute_rpv_grid(rpv_rets)
 
-    cpm_col_labels = ['C1 Breadth']
+    cpm_col_labels = ['Breadth']
     cpm_row_labels = ['<=2 Positives', '3 Positives', '4 Positives']
     rpv_col_labels = ['SPY > SMA200', 'SPY <= SMA200']
     rpv_row_labels = ['Equity Z > 0', 'Equity Z <= 0']
@@ -291,7 +291,7 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_ret
     fig, axes = plt.subplots(2, 1, figsize=(11, 8.5), constrained_layout=True,
                               gridspec_kw={'height_ratios':[1, 1]})
     im = plot_sub(axes[0], cpm_grid, cpm_row_labels, cpm_col_labels,
-                   'CPM sleeve - performance by C1 breadth state', fontsize=9)
+                   'CPM sleeve - performance by breadth state', fontsize=9)
     plot_sub(axes[1], rpv_grid, rpv_row_labels, rpv_col_labels,
               'RPV sleeve - performance by Value (Equity Z) and Trend (SPY SMA) state', fontsize=9)
     fig.colorbar(im, ax=axes, shrink=0.7, label='Sharpe', orientation='vertical', pad=0.02)

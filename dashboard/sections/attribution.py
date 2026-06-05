@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 from types import SimpleNamespace
 from dashboard.helpers import fig_to_html, _legend_below
 from dashboard.charts_core import chart_correlations
+from config import VAL_WEIGHT
 
 def chart_sleeve_contribution(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series, val_rets: pd.Series,
                               w_cpm: float, w_rpv: float, w_ndx: float, w_val: float):
@@ -112,15 +113,32 @@ def table_worst_drawdowns(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd
 </tr></thead><tbody>{rows_html}</tbody></table></div>"""
 
 
-def chart_monthly_return_distributions(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series,
-                                         w_cpm: float, w_rpv: float, w_ndx: float):
+def chart_monthly_return_distributions(
+    cpm_rets: pd.Series,
+    rpv_rets: pd.Series,
+    ndx_rets: pd.Series,
+    val_rets: pd.Series,
+    w_cpm: float,
+    w_rpv: float,
+    w_ndx: float,
+    w_val: float = VAL_WEIGHT,
+    blend_rets: pd.Series | None = None,
+):
     def monthly(daily):
         return (1 + daily).resample('ME').apply(lambda x: x.prod() - 1)
     m_cpm = monthly(cpm_rets).dropna() * 100
     m_rpv = monthly(rpv_rets).dropna() * 100
     m_ndx = monthly(ndx_rets).dropna() * 100
-    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index)
-    blend = w_cpm * cpm_rets.loc[common] + w_rpv * rpv_rets.loc[common] + w_ndx * ndx_rets.loc[common]
+    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index).intersection(val_rets.index)
+    if blend_rets is not None:
+        blend = blend_rets.loc[blend_rets.index.intersection(common)]
+    else:
+        blend = (
+            w_cpm * cpm_rets.loc[common]
+            + w_rpv * rpv_rets.loc[common]
+            + w_ndx * ndx_rets.loc[common]
+            + w_val * val_rets.loc[common]
+        )
     m_blend = monthly(blend).dropna() * 100
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 7), constrained_layout=True)
@@ -129,7 +147,7 @@ def chart_monthly_return_distributions(cpm_rets: pd.Series, rpv_rets: pd.Series,
         [(f'CPM ({int(w_cpm*100)}%)', m_cpm, '#2e86c1'),
          (f'RPV ({int(w_rpv*100)}%)', m_rpv, '#f39c12'),
          (f'NDX ({int(w_ndx*100)}%)', m_ndx, '#c0392b'),
-         (f'Blend {int(w_cpm*100)}/{int(w_rpv*100)}/{int(w_ndx*100)}', m_blend, '#27ae60')]
+         (f'Blend {int(w_cpm*100)}/{int(w_rpv*100)}/{int(w_ndx*100)}/{int(w_val*100)}', m_blend, '#27ae60')]
     ):
         ax.hist(ser, bins=40, color=color, alpha=0.7, edgecolor='black', linewidth=0.5)
         ax.axvline(ser.mean(), color='black', ls='--', lw=1, label=f'Mean {ser.mean():.2f}%')
@@ -145,16 +163,27 @@ def chart_monthly_return_distributions(cpm_rets: pd.Series, rpv_rets: pd.Series,
     return fig
 
 
-def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series, window: int = 252):
-    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index)
-    roll_cb = cpm_rets.loc[common].rolling(window).corr(rpv_rets.loc[common])
-    roll_cn = cpm_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
-    roll_bn = rpv_rets.loc[common].rolling(window).corr(ndx_rets.loc[common])
+def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series, val_rets: pd.Series, window: int = 252):
+    common = cpm_rets.index.intersection(rpv_rets.index).intersection(ndx_rets.index).intersection(val_rets.index)
+    cpm = cpm_rets.loc[common]
+    rpv = rpv_rets.loc[common]
+    ndx = ndx_rets.loc[common]
+    val = val_rets.loc[common]
+
+    roll_cb = cpm.rolling(window).corr(rpv)
+    roll_cn = cpm.rolling(window).corr(ndx)
+    roll_cv = cpm.rolling(window).corr(val)
+    roll_bn = rpv.rolling(window).corr(ndx)
+    roll_bv = rpv.rolling(window).corr(val)
+    roll_nv = ndx.rolling(window).corr(val)
 
     fig, ax = plt.subplots(figsize=(12, 4.5), constrained_layout=True)
     ax.plot(roll_cb.index, roll_cb, color='#2e86c1', lw=1.5, label='CPM vs RPV')
     ax.plot(roll_cn.index, roll_cn, color='#f39c12', lw=1.5, label='CPM vs NDX')
+    ax.plot(roll_cv.index, roll_cv, color='#7f3fbf', lw=1.5, label='CPM vs VAL')
     ax.plot(roll_bn.index, roll_bn, color='#c0392b', lw=1.5, label='RPV vs NDX')
+    ax.plot(roll_bv.index, roll_bv, color='#16a085', lw=1.5, label='RPV vs VAL')
+    ax.plot(roll_nv.index, roll_nv, color='#7f8c8d', lw=1.5, label='NDX vs VAL')
     ax.axhline(0, color='gray', lw=0.5)
     ax.axhline(0.5, color='gray', ls=':', lw=0.5)
     ax.set_ylabel('1y rolling correlation')
@@ -168,8 +197,18 @@ def chart_rolling_sleeve_correlation(cpm_rets: pd.Series, rpv_rets: pd.Series, n
 def render(ctx: SimpleNamespace) -> str:
     fig_sleeve_contrib = chart_sleeve_contribution(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.art.val, ctx.cpm_w, ctx.rpv_w, ctx.ndx_w, ctx.val_w)
     drawdowns_html = table_worst_drawdowns(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.art.val, ctx.cpm_w, ctx.rpv_w, ctx.ndx_w, ctx.val_w, top_n=10)
-    fig_distributions = chart_monthly_return_distributions(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.cpm_w, ctx.rpv_w, ctx.ndx_w)
-    fig_sleeve_corr = chart_rolling_sleeve_correlation(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx)
+    fig_distributions = chart_monthly_return_distributions(
+        ctx.art.cpm,
+        ctx.art.rpv,
+        ctx.art.ndx,
+        ctx.art.val,
+        ctx.cpm_w,
+        ctx.rpv_w,
+        ctx.ndx_w,
+        VAL_WEIGHT,
+        blend_rets=getattr(ctx.art, 'blend', None),
+    )
+    fig_sleeve_corr = chart_rolling_sleeve_correlation(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.art.val)
     fig_corr = chart_correlations({k: v for k, v in ctx.strategies.items() if k in (ctx.prod_label, "CPM", "RPV sleeve", "VAL sleeve", "NDX sleeve", "BB4 lit blend (60 AAA+TIP / 20 HAA-S SPY / 20 QQQ-trend)", "Static 80% PP + 20% QQQ", "QQQ buy-hold")} )
 
     return f"""<h3>Attribution & distributions</h3>
