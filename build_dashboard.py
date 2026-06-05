@@ -61,7 +61,7 @@ RPV_BLEND = RPV_W  # alias used by chart helpers below
 MOOEX_INTRADAY_SANITY_MAX = 0.50
 NDX_OPENS_CACHE_PATH = ROOT / "data" / "ndx_constituents" / "opens.parquet"
 FORWARD_SHARPE_GUIDANCE = (
-    "The realized backtest metrics are Sharpe 1.4424, CAGR 16.33%, MaxDD -10.49%, and Calmar 1.5566. "
+    "The realized backtest metrics are Sharpe 1.5716, CAGR 16.66%, MaxDD -9.86%, and Calmar 1.6900. "
     "Retail-data reproductions may be modestly lower due to implementation differences. For capital planning, "
     "use materially lower forward assumptions, such as 0.7-1.0 Sharpe, and treat 1.3+ as an upside case until "
     "live/paper trading confirms signal fidelity."
@@ -409,58 +409,11 @@ def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
 def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_rets: pd.Series, start: pd.Timestamp):
     """Truth-table heatmap of CPM and RPV sleeve performance by state.
 
-    CPM: TIP canary state split.
+    CPM: C1 breadth-state split (<=2, 3, 4 positive top-K picks).
     RPV: 2x2 split by Equity z-score sign and SPY 200d SMA trend state.
     Cell: Sharpe (color) + AnnRet + MaxDD + n_months.
     """
     end = panel.index[-1]
-
-    def _pillar_curve(panel, sig_d):
-        ief = panel['IEF'].loc[:sig_d].pct_change().tail(63).sum() if 'IEF' in panel.columns else float('nan')
-        tlt = panel['TLT'].loc[:sig_d].pct_change().tail(63).sum() if 'TLT' in panel.columns else float('nan')
-        if pd.isna(ief) or pd.isna(tlt):
-            return None
-        return bool(ief > tlt)
-
-    def _pillar_vol(panel, sig_d):
-        if 'SPY' not in panel.columns:
-            return None
-        rets = panel['SPY'].loc[:sig_d].pct_change().dropna()
-        if len(rets) < 252:
-            return None
-        v63 = rets.tail(63).std() * np.sqrt(252)
-        v252_avg = (rets.tail(252).rolling(63).std().dropna() * np.sqrt(252)).mean()
-        if pd.isna(v63) or pd.isna(v252_avg):
-            return None
-        return bool(v63 < v252_avg)
-
-    def compute_states(canary_assets, include_macro=False):
-        """Returns Series of state tuples per signal date.
-        If include_macro=True, appends (curve_bit, vol_bit) to each tuple."""
-        monthly = panel.loc[:end].resample("ME").last()
-        states = {}
-        for sig_d in monthly.index:
-            if sig_d < start:
-                continue
-            bits = []
-            ok = True
-            for c in canary_assets:
-                if c not in monthly.columns:
-                    ok = False; break
-                s = sig_13612U(monthly[c].loc[:sig_d])
-                if pd.isna(s):
-                    ok = False; break
-                bits.append(bool(s > 0))
-            if not ok:
-                continue
-            if include_macro:
-                cv = _pillar_curve(panel, sig_d)
-                vl = _pillar_vol(panel, sig_d)
-                if cv is None or vl is None:
-                    continue
-                bits.extend([cv, vl])
-            states[sig_d] = tuple(bits)
-        return pd.Series(states).sort_index()
 
     def attribute(daily_returns, state_ser):
         sig_dates = state_ser.index
@@ -485,46 +438,6 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_ret
         mdd = (eq / eq.cummax() - 1).min()
         sh = ann_ret / vol if vol > 0 else float('nan')
         return {'sh': sh, 'ann_ret': ann_ret, 'mdd': mdd}
-
-    def build_grid(daily_returns, canary_assets, include_macro=False):
-        """Canary state grid.
-        TIP-only mode: 2x1 grid (rows=TIP sign, single column).
-        2-asset mode: 2x2 grid (rows=canary A, cols=canary B).
-        Legacy 3-asset mode (if provided): 2x4 grid.
-        """
-        state_ser = compute_states(canary_assets, include_macro=include_macro)
-        state_per_day = attribute(daily_returns, state_ser)
-        n_assets = len(canary_assets)
-        if not include_macro and n_assets == 3:
-            # Legacy 3-asset layout: rows = first canary, cols = second x third
-            row_order = [(True,), (False,)]
-            col_order = [(True, True), (True, False), (False, True), (False, False)]
-        elif not include_macro and n_assets == 1:
-            # TIP-only layout: rows = TIP sign, single column
-            row_order = [(True,), (False,)]
-            col_order = [tuple()]
-        elif not include_macro and n_assets == 2:
-            # 2-asset layout: rows = canary A, cols = canary B
-            row_order = [(True,), (False,)]
-            col_order = [(True,), (False,)]
-        elif include_macro and n_assets == 2:
-            # rows = canary A x canary B, cols = curve x vol
-            row_order = [(True, True), (True, False), (False, True), (False, False)]
-            col_order = [(True, True), (True, False), (False, True), (False, False)]
-        else:
-            raise ValueError(f'Unsupported config: n_assets={n_assets}, include_macro={include_macro}')
-        grid = []
-        for r in row_order:
-            row_cells = []
-            for c in col_order:
-                st = r + c
-                mask = state_per_day == st
-                n_months = int((state_ser == st).sum())
-                d = daily_returns[mask]
-                s = cell_stats(d)
-                row_cells.append({'state': st, 'n_months': n_months, 'stats': s})
-            grid.append(row_cells)
-        return grid
 
     def compute_rpv_grid(daily_returns):
         z_scores = compute_rpv_signals()
@@ -1589,9 +1502,9 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
     cstate = bq_diag.get("state", "---")
     if bq_regime != "CASH":
-        bq_state = f"{bq_regime} (canary {cstate})"
+        bq_state = f"{bq_regime} (state {cstate})"
     else:
-        bq_state = f"CASH ({bq_diag.get('reason','-')}; canary {cstate})"
+        bq_state = f"CASH ({bq_diag.get('reason','-')}; state {cstate})"
 
     # NDX sleeve (15%) -- TIP canary + SPY trend + SPY RV20<RV252 gate
     ndx_panel_data = None
@@ -1957,11 +1870,11 @@ def main():
     cpm_rpv_60_40_clean_metrics = perf_metrics(cpm_rpv_60_40_clean, cash_daily)
     sleeve_rows = [
         {"strategy": "CPM-NDX-VAL-RPV 60/15/15/10 (PRODUCTION)",      **perf_metrics(art.blend, cash_daily)},
-        {"strategy": "CPM-NDX-RPV 60/40 (two-sleeve, no NDX)",        **cpm_rpv_60_40_clean_metrics},
+        {"strategy": "CPM + RPV 60/40 (two-sleeve)",                  **cpm_rpv_60_40_clean_metrics},
         {"strategy": "Cross-asset Parity Momentum (CPM)",             **cpm_metrics},
         {"strategy": "Cross-asset Parity Momentum (CPM, clean window)",
-         "sharpe": 1.2373, "excess_sharpe": float("nan"), "cagr": 0.1292, "vol": 0.1028,
-         "max_drawdown": -0.1303, "ulcer": float("nan"), "calmar": 0.9912,
+         "sharpe": 1.261255, "excess_sharpe": float("nan"), "cagr": 0.138136, "vol": 0.107489,
+         "max_drawdown": -0.106993, "ulcer": float("nan"), "calmar": 1.291077,
          "martin": cpm_metrics.get("martin", float("nan"))},
         {"strategy": "RPV (10% weight)",                              **perf_metrics(art.rpv, cash_daily)},
         {"strategy": "VAL (15% weight)",                              **perf_metrics(art.val, cash_daily)},
@@ -2044,9 +1957,10 @@ def main():
     yrs_full = (end - start).days / 365.25
     prod_metrics = perf_metrics(art.blend, cash_daily)
     rpv_metrics = perf_metrics(art.rpv, cash_daily)
+    val_metrics = perf_metrics(art.val, cash_daily)
     ndx_metrics = perf_metrics(art.ndx, cash_daily) if art.ndx is not None and not art.ndx.empty else {'sharpe': float('nan'), 'cagr': float('nan'), 'max_drawdown': float('nan'), 'ulcer': float('nan'), 'martin': float('nan')}
     cpm_rpv_60_40_clean_anchor = {
-        "strategy": "CPM-NDX-RPV 60/40 (two-sleeve, no NDX)",
+        "strategy": "CPM + RPV 60/40 (two-sleeve)",
         **cpm_rpv_60_40_clean_metrics,
     }
     research_compare_rows = [
@@ -2197,6 +2111,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <li><strong>Cross-asset Parity Momentum (CPM) ({int(CPM_W*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-{cpm_module.TOP_K_CANDIDATES}. CPM self-de-risks via the C1 cliff on positive breadth of its top-K picks: risky fraction is 100% when n_pos=4, 50% when n_pos=3, and 0% (100% safe) when n_pos &lt;= 2. If n_pos=4, min-var 3-of-4 selection is used for the risky block; if n_pos=3, the 3 positive picks are held equal-weighted; the safe fraction is routed to HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>RPV ({int(RPV_W*100)}%) -- 5-premia sequential:</strong> Universe SPY, TLT, LQD, HYG, TIP + SHV cash. Monthly 120-month z-scores (term, IG spread, HY spread, equity, real yield), keep only z &gt; 0 and above-200d-SMA assets, weight by positive z (per-asset cap near 33%), route remainder to SHV; 100% SHV when none qualify.</li>
 <li><strong>NDX ({int(NDX_W*100)}%):</strong> Top-{NDX_SELECT_K} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/NDX_SELECT_K:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
+<li><strong>VAL ({int(VAL_W*100)}%):</strong> PIT Nasdaq-100 fundamental value+quality stock-picking sleeve. Monthly signal, top-half by QUALITY then cheapest by VALUE, stateful he5_te0 trend band (ENTER &gt; 1.05*SMA10m, HOLD &gt;= 1.00*SMA10m), equal-weight top-5, trade T+1 OPEN (MOO), and route to HAA best-of-safe when gate is off.</li>
 </ul>
 </div>
 </details>
@@ -2240,7 +2155,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 {fig_to_html(fig_sleeve_corr)}
 </div>
 
-<h3>Regime & gate history</h3>
+<h3>Regime & breadth history</h3>
 <div class='card'>
 {fig_to_html(fig_canary)}
 {fig_to_html(fig_canary_heatmap)}
@@ -2328,6 +2243,20 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <li><strong>Tradeoff:</strong> High beta, high vol, deeper DD than other sleeves on its own. Diluted by {int(NDX_W*100)}% blend weight, contributing meaningful CAGR uplift without dominating the blend's risk.</li>
 </ul>
 </details>
+
+<details>
+<summary>VAL Sleeve ({int(VAL_W*100)}%) -- PIT Nasdaq-100 value+quality stock selection</summary>
+<ul>
+<li><strong>Universe:</strong> PIT Nasdaq-100 constituents (via <code>index-constitution</code>) intersected with PIT fundamentals coverage and at least 260 trading days of NDX-panel price history.</li>
+<li><strong>PIT fundamentals (as-of signal date):</strong> <code>accepted_at &lt;= sig_d</code> value_as_filed facts only (no look-ahead).</li>
+<li><strong>Composites:</strong> VALUE = EW z-score of earnings yield, book/price, sales yield, and FCF yield; QUALITY = EW z-score of gross profitability, ROE, negative leverage, and accrual flag.</li>
+<li><strong>Selection:</strong> Keep top-half by QUALITY, then choose cheapest by VALUE.</li>
+<li><strong>State gating (he5_te0):</strong> Stateful trend band per candidate (ENTER when price &gt; 1.05*SMA10m, HOLD while price &gt;= 1.00*SMA10m).</li>
+<li><strong>Sizing / gate-off routing:</strong> Equal-weight top-5 (20% each); residual and gate-off allocation routes to HAA best-of-safe (SHV/IEF by 13612U).</li>
+<li><strong>Execution:</strong> Monthly signal, T+1 OPEN (MOO), {COST_BPS_PER_SIDE} bps/side transaction cost assumption.</li>
+<li><strong>Sleeve ({yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{val_metrics['sharpe']:.2f}</strong>, CAGR <strong>{val_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{val_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{val_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{val_metrics['martin']:.2f}</strong>.</li>
+</ul>
+</details>
 </div>
 
 </details>
@@ -2338,7 +2267,7 @@ Signal: <strong>{sig_d.date()}</strong> (last biz day of month) | Trade: <strong
 <ul style='line-height:1.5'>
 <li><strong>Backtest only.</strong> Strategy is not live-traded.</li>
 <li><strong>Data dependency.</strong> NDX results depend on PIT membership and available price history.</li>
-<li><strong>Regime dependency.</strong> Defensive alpha depends on canary, trend, and diversifier behavior.</li>
+<li><strong>Regime dependency.</strong> Defensive alpha depends on breadth/gates, trend, and diversifier behavior.</li>
 <li><strong>Recovery lag.</strong> Monthly momentum signals can re-enter late after fast recoveries.</li>
 <li><strong>Bootstrap labels.</strong> Single-strategy PROD confidence intervals use B={BOOTSTRAP_SINGLE_B}; difference tests vs BB4/benchmarks use B={BOOTSTRAP_PAIRED_B}.</li>
 <li><strong>Forward expectations.</strong> {FORWARD_SHARPE_GUIDANCE}</li>
