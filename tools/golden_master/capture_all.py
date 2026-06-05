@@ -21,6 +21,7 @@ def main():
     run_tmpdir = tempfile.mkdtemp(prefix="gm_cap_")
     run_env = os.environ.copy()
     run_env["TMPDIR"] = run_tmpdir
+    run_env.setdefault("SLEEVE_CACHE", "0")
     print(f"Using isolated TMPDIR for this capture run: {run_tmpdir}")
 
     # 1. Run dump_streams.py

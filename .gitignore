@@ -27,6 +27,7 @@ venv/
 data/ndx_constituents/*
 !data/ndx_constituents/*.parquet
 research/ndx_sleeve/cache/
+.cache/
 
 # ============================================================================
 # Research/ heavy data artifacts (Step F cleanup) - reproducible, not versioned.

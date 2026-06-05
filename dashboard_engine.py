@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import datetime as dt
 import sys
+from importlib import metadata as importlib_metadata
 from pathlib import Path
 
 import numpy as np
@@ -29,8 +30,13 @@ from ndx_sleeve_live import (
     run_ndx_backtest,
     COST_BPS_PER_SIDE as NDX_COST_BPS_PER_SIDE,
     PRICES_FILE as NDX_PRICES_FILE,
+    SELECT_K as NDX_SELECT_K,
+    VOL_FAST_DAYS as NDX_VOL_FAST_DAYS,
+    VOL_SLOW_DAYS as NDX_VOL_SLOW_DAYS,
+    DELISTING_HAIRCUT as NDX_DELISTING_HAIRCUT,
 )
 from core import cached_value_backtest
+from sleeve_cache import df_digest, file_digest, get_sleeve_returns
 
 # Production blend: 60% CPM + 15% NDX + 15% VAL + 10% RPV
 from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
@@ -58,6 +64,13 @@ BOOTSTRAP_PAIRED_B = 5000
 EXT_START = pd.Timestamp("1999-03-10")
 MOOEX_INTRADAY_SANITY_MAX = 0.50
 NDX_OPENS_CACHE_PATH = ROOT / "data" / "ndx_constituents" / "opens.parquet"
+NDX_SLEEVE_VERSION = "ndx-2026-06-05.1"
+NDX_SOURCE_FILES = (
+    ROOT / "ndx_sleeve_live.py",
+    ROOT / "engine.py",
+    ROOT / "core.py",
+    ROOT / "dashboard_engine.py",
+)
 
 
 def faber_gtaa5(panel, start, end):
@@ -825,6 +838,117 @@ def ndx_signal_records(panel: pd.DataFrame, ndx_panel: pd.DataFrame,
 from types import SimpleNamespace
 
 
+def _pit_lib_version() -> str | None:
+    try:
+        return f"index_constitution=={importlib_metadata.version('index_constitution')}"
+    except Exception:
+        return None
+
+
+def _ndx_cache_params(cost_bps: float) -> dict[str, float]:
+    return {
+        "SELECT_K": float(NDX_SELECT_K),
+        "VOL_FAST_DAYS": float(NDX_VOL_FAST_DAYS),
+        "VOL_SLOW_DAYS": float(NDX_VOL_SLOW_DAYS),
+        "COST_BPS_PER_SIDE": float(cost_bps),
+        "DELISTING_HAIRCUT": float(NDX_DELISTING_HAIRCUT),
+    }
+
+
+def _ndx_gate_panel(panel: pd.DataFrame) -> pd.DataFrame:
+    gate_cols = sorted(set(["SPY", "TIP", *SAFE_POOL]) & set(panel.columns))
+    return panel[gate_cols]
+
+
+def _ndx_cache_data(panel: pd.DataFrame, ndx_panel: pd.DataFrame) -> dict[str, str | None]:
+    return {
+        "gate_panel": df_digest(_ndx_gate_panel(panel)),
+        "ndx_panel": df_digest(ndx_panel),
+        "pit_lib": _pit_lib_version(),
+        "ndx_opens": file_digest(NDX_OPENS_CACHE_PATH),
+    }
+
+
+def _compute_ndx_sleeve_series_with_fb(
+    panel: pd.DataFrame,
+    ndx_panel: pd.DataFrame,
+    run_start: pd.Timestamp,
+    end: pd.Timestamp,
+    cost_bps: float,
+    moo_engine,
+    macro_intraday: pd.DataFrame,
+    macro_overnight: pd.DataFrame,
+) -> tuple[pd.Series, tuple[int, int]]:
+    ndx_cc_full, _ = run_ndx_backtest(panel, ndx_panel, run_start, end, cost_bps=cost_bps)
+    full_panel = panel.join(ndx_panel, how="outer", rsuffix="_dup")
+    full_panel = full_panel.loc[:, ~full_panel.columns.str.endswith("_dup")]
+    full_panel = full_panel.loc[full_panel.index <= end]
+    ndx_daily = full_panel.ffill().pct_change()
+
+    ndx_intraday, ndx_overnight = _load_ndx_constituent_mooex_legs(full_panel.index)
+    intraday_full = macro_intraday.reindex(full_panel.index)
+    overnight_full = macro_overnight.reindex(full_panel.index)
+    add_cols = [c for c in ndx_intraday.columns if c not in intraday_full.columns]
+    if add_cols:
+        intraday_full = intraday_full.join(ndx_intraday[add_cols], how="left")
+        overnight_full = overnight_full.join(ndx_overnight[add_cols], how="left")
+
+    from core import get_cached_sleeve_weight
+
+    ndx_wf = lambda sd: get_cached_sleeve_weight(
+        "ndx", panel, sd, compute_ndx_weights, panel, ndx_panel, sd
+    )[0]
+    ndx_moc_full, _ = moo_engine._segment_returns_conv(
+        full_panel,
+        ndx_daily,
+        ndx_wf,
+        run_start,
+        end,
+        "moc",
+        cost_bps,
+        intraday_full,
+        overnight_full,
+    )
+    ndx_mooex_full, ndx_fb = moo_engine._segment_returns_conv(
+        full_panel,
+        ndx_daily,
+        ndx_wf,
+        run_start,
+        end,
+        "mooex",
+        cost_bps,
+        intraday_full,
+        overnight_full,
+    )
+    ndx_delta = (ndx_mooex_full - ndx_moc_full).reindex(ndx_cc_full.index).fillna(0.0)
+    return ndx_cc_full + ndx_delta, ndx_fb
+
+
+def compute_ndx_sleeve_series(
+    panel: pd.DataFrame,
+    ndx_panel: pd.DataFrame,
+    run_start: pd.Timestamp,
+    end: pd.Timestamp,
+    cost_bps: float,
+) -> pd.Series:
+    moo_engine, macro_intraday, macro_overnight = _load_macro_mooex_legs(panel.index)
+    ndx_raw_full, ndx_fb = _compute_ndx_sleeve_series_with_fb(
+        panel,
+        ndx_panel,
+        run_start,
+        end,
+        cost_bps,
+        moo_engine,
+        macro_intraday,
+        macro_overnight,
+    )
+    compute_ndx_sleeve_series.last_fb = (int(ndx_fb[0]), int(ndx_fb[1]))
+    return ndx_raw_full
+
+
+compute_ndx_sleeve_series.last_fb = (0, 0)
+
+
 def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
                      start: pd.Timestamp, end: pd.Timestamp,
                      include_records: bool = True) -> SimpleNamespace:
@@ -885,48 +1009,36 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     )
     # NDX sleeve (production engine plus mooex delta overlay with constituent opens).
     if ndx_panel is not None:
-        ndx_cc_full, _ = run_ndx_backtest(panel, ndx_panel, run_start, end)
-        full_panel = panel.join(ndx_panel, how="outer", rsuffix="_dup")
-        full_panel = full_panel.loc[:, ~full_panel.columns.str.endswith("_dup")]
-        full_panel = full_panel.loc[full_panel.index <= end]
-        ndx_daily = full_panel.ffill().pct_change()
+        ndx_meta: dict[str, list[int]] = {}
 
-        ndx_intraday, ndx_overnight = _load_ndx_constituent_mooex_legs(full_panel.index)
-        intraday_full = macro_intraday.reindex(full_panel.index)
-        overnight_full = macro_overnight.reindex(full_panel.index)
-        add_cols = [c for c in ndx_intraday.columns if c not in intraday_full.columns]
-        if add_cols:
-            intraday_full = intraday_full.join(ndx_intraday[add_cols], how="left")
-            overnight_full = overnight_full.join(ndx_overnight[add_cols], how="left")
+        def _compute_ndx() -> pd.Series:
+            ndx_raw = compute_ndx_sleeve_series(
+                panel,
+                ndx_panel,
+                run_start,
+                end,
+                NDX_COST_BPS_PER_SIDE,
+            )
+            ndx_fb_local = getattr(compute_ndx_sleeve_series, "last_fb", (0, 0))
+            ndx_meta["ndx_fb"] = [int(ndx_fb_local[0]), int(ndx_fb_local[1])]
+            return ndx_raw
 
-        from core import get_cached_sleeve_weight
-        ndx_wf = lambda sd: get_cached_sleeve_weight(
-            "ndx", panel, sd, compute_ndx_weights, panel, ndx_panel, sd
-        )[0]
-        ndx_moc_full, _ = moo_engine._segment_returns_conv(
-            full_panel,
-            ndx_daily,
-            ndx_wf,
-            run_start,
-            end,
-            "moc",
-            NDX_COST_BPS_PER_SIDE,
-            intraday_full,
-            overnight_full,
+        ndx_raw_full = get_sleeve_returns(
+            "ndx",
+            panel=panel,
+            ndx_panel=ndx_panel,
+            run_start=run_start,
+            end=end,
+            cost_bps=NDX_COST_BPS_PER_SIDE,
+            params=_ndx_cache_params(NDX_COST_BPS_PER_SIDE),
+            version=NDX_SLEEVE_VERSION,
+            data=_ndx_cache_data(panel, ndx_panel),
+            source_files=NDX_SOURCE_FILES,
+            compute_fn=_compute_ndx,
+            meta=ndx_meta,
         )
-        ndx_mooex_full, ndx_fb = moo_engine._segment_returns_conv(
-            full_panel,
-            ndx_daily,
-            ndx_wf,
-            run_start,
-            end,
-            "mooex",
-            NDX_COST_BPS_PER_SIDE,
-            intraday_full,
-            overnight_full,
-        )
-        ndx_delta = (ndx_mooex_full - ndx_moc_full).reindex(ndx_cc_full.index).fillna(0.0)
-        ndx_raw_full = ndx_cc_full + ndx_delta
+        ndx_fb_raw = ndx_meta.get("ndx_fb", [0, 0])
+        ndx_fb = (int(ndx_fb_raw[0]), int(ndx_fb_raw[1]))
         val_raw_full, val_history = cached_value_backtest(panel, ndx_panel, run_start, end)
     else:
         rpv_idx = rpv_raw_full.index
