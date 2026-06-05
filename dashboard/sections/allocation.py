@@ -110,11 +110,10 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         bq_w, bq_regime, bq_diag = compute_rpv_weights(panel, sig_d)
     bq_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(bq_w.items(), key=lambda x: -x[1]))
-    cstate = bq_diag.get("state", "---")
     if bq_regime != "CASH":
-        bq_state = f"{bq_regime} (state {cstate})"
+        bq_state = f"{bq_regime}"
     else:
-        bq_state = f"CASH ({bq_diag.get('reason','-')}; state {cstate})"
+        bq_state = f"CASH ({bq_diag.get('reason','-')})"
 
     # NDX sleeve (15%) -- TIP canary + SPY trend + SPY RV20<RV252 gate
     ndx_panel_data = None
@@ -192,8 +191,8 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     dd_status_html = (
         "<div style='grid-column: 1 / -1; background:#fafafa;border-left:4px solid #3498db;"
         "padding:8px 12px;margin:8px 0;border-radius:4px;font-size:0.88rem;'>"
-        "<strong>NDX gate model</strong>: monthly TIP canary + SPY trend + SPY RV20&lt;RV252. "
-        "When any gate leg fails, NDX allocates 100% best-of-safe (SHV/IEF)."
+        "<strong>NDX + VAL gate model</strong>: monthly TIP canary + SPY trend + SPY RV20&lt;RV252. "
+        "When any gate leg fails, that sleeve allocates 100% best-of-safe (SHV/IEF)."
         "</div>"
     )
 

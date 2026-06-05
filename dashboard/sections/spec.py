@@ -6,10 +6,10 @@ def render_summary(ctx: SimpleNamespace) -> str:
 <summary><strong>Strategy spec (sleeves)</strong></summary>
 <div class='card'>
 <ul>
-<li><strong>Cross-asset Parity Momentum (CPM) ({int(ctx.cpm_w*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-4. CPM self-de-risks via the C1 cliff on positive breadth of its top-K picks: risky fraction is 100% when n_pos=4, 50% when n_pos=3, and 0% (100% safe) when n_pos &lt;= 2. If n_pos=4, min-var 3-of-4 selection is used for the risky block; if n_pos=3, the 3 positive picks are held equal-weighted; the safe fraction is routed to HAA best-of-safe (SHV / IEF) by 13612U.</li>
+<li><strong>Cross-asset Parity Momentum (CPM) ({int(ctx.cpm_w*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-4. CPM self-de-risks via the breadth cliff on positive breadth of its top-K picks: risky fraction is 100% when positive picks = 4, 50% when positive picks = 3, and 0% (100% safe) when positive picks &lt;= 2. If positive picks = 4, min-var 3-of-4 selection is used for the risky block; if positive picks = 3, the 3 positive picks are held equal-weighted; the safe fraction is routed to HAA best-of-safe (SHV / IEF) by 13612U.</li>
 <li><strong>RPV ({int(ctx.rpv_w*100)}%) -- 5-premia sequential:</strong> Universe SPY, TLT, LQD, HYG, TIP + SHV cash. Monthly 120-month z-scores (term, IG spread, HY spread, equity, real yield), keep only z &gt; 0 and above-200d-SMA assets, weight by positive z (per-asset cap near 33%), route remainder to SHV; 100% SHV when none qualify.</li>
 <li><strong>NDX ({int(ctx.ndx_w*100)}%):</strong> Top-{ctx.ndx_select_k} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/ctx.ndx_select_k:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
-<li><strong>VAL ({int(ctx.val_w*100)}%):</strong> PIT Nasdaq-100 fundamental value+quality stock-picking sleeve. Monthly signal, top-half by QUALITY then cheapest by VALUE, stateful he5_te0 trend band (ENTER &gt; 1.05*SMA10m, HOLD &gt;= 1.00*SMA10m), equal-weight top-5, trade T+1 OPEN (MOO), and route to HAA best-of-safe when gate is off.</li>
+<li><strong>VAL ({int(ctx.val_w*100)}%):</strong> PIT Nasdaq-100 fundamental value+quality stock-picking sleeve. Monthly signal, top-half by QUALITY then cheapest by VALUE, stateful he5_te0 trend band (ENTER &gt; 1.05*SMA10m, HOLD &gt;= 1.00*SMA10m), equal-weight top-5, activated by the same TIP-canary + SPY-trend + SPY-volatility gate as NDX, trade T+1 OPEN (MOO), and route to HAA best-of-safe when gate is off.</li>
 </ul>
 </div>
 </details>"""
@@ -26,11 +26,11 @@ def render_details(ctx: SimpleNamespace) -> str:
 <li><strong>Universe ({len(RISKY_UNIVERSE)} assets):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC).
   <br><code>{', '.join(RISKY_UNIVERSE)}</code></li>
 <li><strong>Safe pool:</strong> <code>{', '.join(SAFE_POOL)}</code> (HAA-style best-of-safe by 13612U momentum)</li>
-<li><strong>C1 Cliff Breadth:</strong> No external canary. CPM self-de-risks based on the breadth of its own top-K picks.</li>
+<li><strong>Breadth Cliff:</strong> No external canary. CPM self-de-risks based on the breadth of its own top-K picks.</li>
 <li><strong>Ranker:</strong> EAA-style Volatility-Adjusted Faber score: <code>score = faber / vol_252d</code> where <code>faber = (price - SMA10) / SMA10</code>. Penalizes high-volatility "junk momentum".</li>
 <li><strong>Top-K candidates:</strong> top 4 by volatility-adjusted Faber score, drop assets with raw Faber &le; 0</li>
-<li><strong>Risky-block weights:</strong> equal-weight across surviving positives; when n_pos=4 use min-var 3-of-4 selection before equal-weight allocation</li>
-<li><strong>C1 Cliff partial-safe:</strong> risky fraction = 1.0 (when n_pos=4), 0.5 (when n_pos=3), or 0.0 (when n_pos &le; 2); safe fraction = 1 - risky fraction</li>
+<li><strong>Risky-block weights:</strong> equal-weight across surviving positives; when positive picks = 4 use min-var 3-of-4 selection before equal-weight allocation</li>
+<li><strong>breadth-cliff partial-safe:</strong> risky fraction = 1.0 (when positive picks = 4), 0.5 (when positive picks = 3), or 0.0 (when positive picks &le; 2); safe fraction = 1 - risky fraction</li>
 <li><strong>Cost:</strong> 10 bps/side</li>
 <li><strong>Execution (mooex T+1):</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>

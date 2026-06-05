@@ -19,7 +19,7 @@ def render(ctx: SimpleNamespace) -> str:
     fig_monthly_heatmap = chart_monthly_heatmap(ctx.art.blend, title="PROD 60/15/15/10 Monthly Returns Heatmap")
     fig_rolling = chart_rolling_sharpe(ctx.art.blend, ctx.bb4_blend)
     fig_excess = chart_rolling_excess(ctx.art.cpm, ctx.art.blend, ctx.bb4_blend, ctx.art.rpv)
-    fig_sleeve_corr = attribution.chart_rolling_sleeve_correlation(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx)
+    fig_sleeve_corr = attribution.chart_rolling_sleeve_correlation(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.art.val)
 
     # Extended charts
     ext_fig_equity = chart_equity(ctx.ext_strategies, prod_label=ctx.prod_label)
