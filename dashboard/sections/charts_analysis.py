@@ -10,7 +10,7 @@ from dashboard.sections import regime, cpm_diagnostics, attribution
 
 def render(ctx: SimpleNamespace) -> str:
     CORE_CHARTS = (ctx.prod_label, "CPM", "RPV sleeve", "VAL sleeve", "NDX sleeve",
-                   "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)",
+                   "Literature blend",
                    "Static 80% PP + 20% QQQ", "QQQ buy-hold")
     fig_equity = chart_equity({k: v for k, v in ctx.strategies.items() if k in CORE_CHARTS}, prod_label=ctx.prod_label)
     fig_dd = chart_drawdown({k: v for k, v in ctx.strategies.items() if k in CORE_CHARTS}, prod_label=ctx.prod_label)

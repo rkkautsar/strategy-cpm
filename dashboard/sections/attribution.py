@@ -209,7 +209,7 @@ def render(ctx: SimpleNamespace) -> str:
         blend_rets=getattr(ctx.art, 'blend', None),
     )
     fig_sleeve_corr = chart_rolling_sleeve_correlation(ctx.art.cpm, ctx.art.rpv, ctx.art.ndx, ctx.art.val)
-    fig_corr = chart_correlations({k: v for k, v in ctx.strategies.items() if k in (ctx.prod_label, "CPM", "RPV sleeve", "VAL sleeve", "NDX sleeve", "Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP)", "Static 80% PP + 20% QQQ", "QQQ buy-hold")} )
+    fig_corr = chart_correlations({k: v for k, v in ctx.strategies.items() if k in (ctx.prod_label, "CPM", "RPV sleeve", "VAL sleeve", "NDX sleeve", "Literature blend", "Static 80% PP + 20% QQQ", "QQQ buy-hold")} )
 
     return f"""<h3>Attribution & distributions</h3>
 <div class='card'>

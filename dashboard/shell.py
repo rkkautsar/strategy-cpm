@@ -35,8 +35,9 @@ def render_head(ctx: SimpleNamespace) -> str:
   .alloc-grid { display:grid; grid-template-columns: 1fr; gap:10px; }
   ul { margin:0.4rem 0 0.4rem 1.2rem; padding:0; }
   ul li { margin:0.15rem 0; word-wrap:break-word; }
-  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:0.82rem;
+  code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:0.85em;
           word-break:break-all; }
+  .perf.alpha-beta td.ab-benchmark { font-size:0.85em; }
   .footnote { font-size:0.78rem; color:var(--muted); margin-top:0.6rem; }
   details summary { cursor:pointer; font-weight:600; padding:5px 0; }
   img.chart { display:block; width:100%; height:auto; max-width:100%; }

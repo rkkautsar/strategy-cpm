@@ -15,12 +15,12 @@ def alpha_beta_table_html(rows: list[dict]) -> str:
     for r in rows:
         body += ("<tr>"
                   f"<td>{r['strategy']}</td>"
-                  f"<td>{r['benchmark']}</td>"
+                  f"<td class='ab-benchmark'>{r['benchmark']}</td>"
                   f"<td style='text-align:right'>{r['alpha_ann_pct']:+.2f}%</td>"
                   f"<td style='text-align:right'>{r['beta']:.3f}</td>"
                   f"<td style='text-align:right'>{r['corr']:.3f}</td>"
                   "</tr>\n")
-    return f"""<div class='table-scroll'><table class='perf'>
+    return f"""<div class='table-scroll'><table class='perf alpha-beta'>
 <thead><tr><th>Strategy</th><th>Benchmark</th><th>Alpha (%/yr)</th><th>Beta</th><th>Corr</th></tr></thead>
 <tbody>{body}</tbody></table></div>"""
 
