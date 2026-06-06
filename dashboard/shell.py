@@ -32,8 +32,9 @@ def render_head(ctx: SimpleNamespace) -> str:
     .table-scroll table th:first-child,
     .table-scroll table td:first-child {
       white-space: normal;
-      word-break: break-word;
-      max-width: 52vw;
+      overflow-wrap: anywhere;
+      min-width: 44vw;
+      max-width: 56vw;
     }
   }
   td.pos, .pos { color:var(--pos); }
