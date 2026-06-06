@@ -25,19 +25,17 @@ def render_head(ctx: SimpleNamespace) -> str:
   .card { background:var(--card); border:1px solid var(--border); border-radius:8px;
            padding:8px; margin:8px 0; overflow:hidden; }
   .table-scroll { position:relative; overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; }
-  .table-scroll::after {
-    content:"";
-    position:absolute;
-    top:0;
-    right:0;
-    width:20px;
-    height:100%;
-    pointer-events:none;
-    background:linear-gradient(to left, rgba(250,250,250,0.96), rgba(250,250,250,0));
-  }
   table { border-collapse: collapse; width:100%; font-size:0.85rem; min-width:fit-content; }
   th, td { padding:5px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
   th { background:#f3f3f3; font-weight:600; text-align:left; position:sticky; top:0; }
+  @media (max-width: 599px) {
+    .table-scroll table th:first-child,
+    .table-scroll table td:first-child {
+      white-space: normal;
+      word-break: break-word;
+      max-width: 52vw;
+    }
+  }
   td.pos, .pos { color:var(--pos); }
   td.neg, .neg { color:var(--neg); }
   .perf tr:nth-child(odd), .yearly tr:nth-child(odd) { background:#fcfcfc; }
