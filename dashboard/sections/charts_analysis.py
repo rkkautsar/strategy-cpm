@@ -64,6 +64,7 @@ def render(ctx: SimpleNamespace) -> str:
 
 <h3>Extended backtest ({ctx.ext_start.date()} -> {ctx.end.date()})</h3>
 <div class='card'>
+<p style='margin:0 0 10px 0;font-size:0.86rem;color:#555'>The same 8 strategies from the canonical headline table evaluated over the extended 1999-2026 backtest window (includes dot-com bubble and pre-2008 market data for long-term stress-testing).</p>
 {perf_table_html(ctx.ext_perf_rows)}
 {fig_to_html(ext_fig_equity)}
 {fig_to_html(ext_fig_dd)}

@@ -63,12 +63,49 @@ def render_head(ctx: SimpleNamespace) -> str:
   code { background:#f0f0f0; padding:1px 4px; border-radius:3px; font-size:0.85em;
           word-break:break-all; }
   .perf.alpha-beta td.ab-benchmark { font-size:0.85em; }
+  /* Hero Stat Cards */
+  .hero-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin: 10px 0 14px;
+  }
+  .stat-card {
+    background: #fcfcfc;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+  .stat-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text);
+  }
   .footnote { font-size:0.78rem; color:var(--muted); margin-top:0.6rem; }
   details summary { cursor:pointer; font-weight:600; padding:5px 0; }
   img.chart { display:block; width:100%; height:auto; max-width:100%; }
   div.chart { width:100%; max-width:100%; overflow-x:auto; }
   div.chart svg { display:block; width:100%; height:auto; max-width:100%; }
   /* Tablet+ */
+  @media (min-width: 600px) {
+    .hero-cards {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+    }
+  }
   @media (min-width: 720px) {
     body { padding:14px; font-size:14px; }
     h1 { font-size:1.5rem; }
