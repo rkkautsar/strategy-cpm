@@ -18,7 +18,7 @@ def render(ctx: SimpleNamespace) -> str:
 <div class='card'>
 <p style='margin:6px 0;font-size:0.92rem'>Backtest <strong>{ctx.yrs_full:.1f}y</strong> (post-cost): Sharpe <strong>{ctx.prod_metrics['sharpe']:.2f}</strong> | CAGR <strong>{ctx.prod_metrics['cagr']*100:.2f}%</strong> | Vol <strong>{ctx.prod_metrics['vol']*100:.2f}%</strong> | MaxDD <strong>{ctx.prod_metrics['max_drawdown']*100:.2f}%</strong>.</p>
 {perf_table_html(ctx.perf_rows, compact=True)}
-<p style='margin:10px 0 6px;font-size:0.86rem;color:#555'>Production blend vs two-sleeve (no NDX) (clean window: 2008-05-30 -> 2026-04-30).</p>
+<p style='margin:10px 0 6px;font-size:0.86rem;color:#555'>Production blend vs two-sleeve (no NDX/VAL) (clean window: 2008-05-30 -> 2026-04-30).</p>
 {perf_table_html(ctx.research_compare_rows, compact=True)}
 {fig_to_html(fig_eq_dd_headline)}
 <details>

@@ -7,9 +7,9 @@ def render_summary(ctx: SimpleNamespace) -> str:
 <div class='card'>
 <ul>
 <li><strong>Cross-asset Parity Momentum (CPM) ({int(ctx.cpm_w*100)}%):</strong> 8-asset risky universe (QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC), EAA-style Vol-Adj (Faber/Vol) ranker, positive-trend screen, top-4. CPM self-de-risks via the breadth cliff on positive breadth of its top-K picks: risky fraction is 100% when positive picks = 4, 50% when positive picks = 3, and 0% (100% safe) when positive picks &lt;= 2. If positive picks = 4, min-var 3-of-4 selection is used for the risky block; if positive picks = 3, the 3 positive picks are held equal-weighted; the safe fraction is routed to HAA best-of-safe (SHV / IEF) by 13612U.</li>
-<li><strong>RPV ({int(ctx.rpv_w*100)}%) -- 5-premia sequential:</strong> Universe SPY, TLT, LQD, HYG, TIP + SHV cash. Monthly 120-month z-scores (term, IG spread, HY spread, equity, real yield), keep only z &gt; 0 and above-200d-SMA assets, weight by positive z (per-asset cap near 33%), route remainder to SHV; 100% SHV when none qualify.</li>
 <li><strong>NDX ({int(ctx.ndx_w*100)}%):</strong> Top-{ctx.ndx_select_k} PIT Nasdaq-100 by raw 13612U momentum (positive only), equal-weight {100/ctx.ndx_select_k:.1f}% each, activated only when TIP 13612U &gt; 0, SPY 13612U &gt; 0, and SPY RV_20d &lt; RV_252d all pass.</li>
-<li><strong>VAL ({int(ctx.val_w*100)}%):</strong> PIT Nasdaq-100 fundamental value+quality stock-picking sleeve. Monthly signal, top-half by QUALITY then cheapest by VALUE, stateful he5_te0 trend band (ENTER &gt; 1.05*SMA10m, HOLD &gt;= 1.00*SMA10m), equal-weight top-5, activated by the same TIP-canary + SPY-trend + SPY-volatility gate as NDX, trade T+1 OPEN (MOO), and route to HAA best-of-safe when gate is off.</li>
+<li><strong>VAL ({int(ctx.val_w*100)}%):</strong> PIT Nasdaq-100 fundamental value+quality stock-picking sleeve. Monthly signal, top-half by QUALITY then cheapest by VALUE, stateful trend band (ENTER &gt; 1.05*SMA10m, HOLD &gt;= 1.00*SMA10m), equal-weight top-5, activated by the same TIP-canary + SPY-trend + SPY-volatility gate as NDX, trade T+1 OPEN (MOO), and route to HAA best-of-safe when gate is off.</li>
+<li><strong>RPV ({int(ctx.rpv_w*100)}%) -- 5-premia sequential:</strong> Universe SPY, TLT, LQD, HYG, TIP + SHV cash. Monthly 120-month z-scores (term, IG spread, HY spread, equity, real yield), keep only z &gt; 0 and above-200d-SMA assets, fully-invested, z-weighted across survivors (no per-asset cap); 100% SHV only when no premium qualifies.</li>
 </ul>
 </div>
 </details>"""
@@ -32,7 +32,7 @@ def render_details(ctx: SimpleNamespace) -> str:
 <li><strong>Risky-block weights:</strong> equal-weight across surviving positives; when positive picks = 4 use min-var 3-of-4 selection before equal-weight allocation</li>
 <li><strong>breadth-cliff partial-safe:</strong> risky fraction = 1.0 (when positive picks = 4), 0.5 (when positive picks = 3), or 0.0 (when positive picks &le; 2); safe fraction = 1 - risky fraction</li>
 <li><strong>Cost:</strong> 10 bps/side</li>
-<li><strong>Execution (mooex T+1):</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
+<li><strong>Execution (T+1 MOO):</strong> month-end signal (T = last trading day of month, close), T+1 OPEN trade (next trading day MOO)</li>
 </ul>
 </details>
 <details>
@@ -48,7 +48,7 @@ def render_details(ctx: SimpleNamespace) -> str:
     <li><strong>Real yield:</strong> <code>DGS10 - CPI YoY</code> -&gt; <code>TIP</code></li>
   </ol>
 </li>
-<li><strong>Selection (sequential filter):</strong> Keep premia with <code>z &gt; 0</code> and asset price above its 200-day SMA. Weight survivors proportional to positive z, cap each near 33%, send remainder to <code>SHV</code>. If none qualify, hold 100% <code>SHV</code>.</li>
+<li><strong>Selection (sequential filter):</strong> Keep premia with <code>z &gt; 0</code> and asset price above its 200-day SMA. Keep sleeve fully-invested, z-weighted across survivors (no per-asset cap); hold 100% <code>SHV</code> only when no premium qualifies.</li>
 <li><strong>Execution:</strong> Monthly signal, trade T+1 OPEN (MOO).</li>
 <li><strong>Sleeve ({ctx.yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ctx.rpv_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ctx.rpv_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ctx.rpv_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ctx.rpv_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ctx.rpv_metrics['martin']:.2f}</strong>.</li>
 </ul>
@@ -74,7 +74,7 @@ def render_details(ctx: SimpleNamespace) -> str:
 <li><strong>PIT fundamentals (as-of signal date):</strong> <code>accepted_at &lt;= sig_d</code> value_as_filed facts only (no look-ahead).</li>
 <li><strong>Composites:</strong> VALUE = EW z-score of earnings yield, book/price, sales yield, and FCF yield; QUALITY = EW z-score of gross profitability, ROE, negative leverage, and accrual flag.</li>
 <li><strong>Selection:</strong> Keep top-half by QUALITY, then choose cheapest by VALUE.</li>
-<li><strong>State gating (he5_te0):</strong> Stateful trend band per candidate (ENTER when price &gt; 1.05*SMA10m, HOLD while price &gt;= 1.00*SMA10m).</li>
+<li><strong>State gating:</strong> Stateful trend band per candidate (ENTER when price &gt; 1.05*SMA10m, HOLD while price &gt;= 1.00*SMA10m).</li>
 <li><strong>Sizing / gate-off routing:</strong> Equal-weight top-5 (20% each); residual and gate-off allocation routes to HAA best-of-safe (SHV/IEF by 13612U).</li>
 <li><strong>Execution:</strong> Monthly signal, T+1 OPEN (MOO), 10 bps/side transaction cost assumption.</li>
 <li><strong>Sleeve ({ctx.yrs_full:.1f}y, post-cost):</strong> Sharpe <strong>{ctx.val_metrics['sharpe']:.2f}</strong>, CAGR <strong>{ctx.val_metrics['cagr']*100:.2f}%</strong>, MaxDD <strong>{ctx.val_metrics['max_drawdown']*100:.2f}%</strong>, Ulcer <strong>{ctx.val_metrics['ulcer']*100:.2f}%</strong>, Martin <strong>{ctx.val_metrics['martin']:.2f}</strong>.</li>

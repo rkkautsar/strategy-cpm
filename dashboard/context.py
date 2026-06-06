@@ -15,12 +15,20 @@ from dashboard_engine import (
     BOOTSTRAP_SINGLE_B, BOOTSTRAP_PAIRED_B
 )
 
-FORWARD_SHARPE_GUIDANCE = (
-    "The realized backtest metrics are Sharpe 1.5716, CAGR 16.66%, MaxDD -9.86%, and Calmar 1.6900. "
+FORWARD_SHARPE_GUIDANCE_TAIL = (
     "Retail-data reproductions may be modestly lower due to implementation differences. For capital planning, "
     "use materially lower forward assumptions, such as 0.7-1.0 Sharpe, and treat 1.3+ as an upside case until "
     "live/paper trading confirms signal fidelity."
 )
+
+
+def format_forward_sharpe_guidance(prod_metrics: dict[str, float]) -> str:
+    return (
+        "The realized backtest metrics are Sharpe "
+        f"{prod_metrics['sharpe']:.2f}, CAGR {prod_metrics['cagr']*100:.2f}%, "
+        f"MaxDD {prod_metrics['max_drawdown']*100:.2f}%, and Calmar {prod_metrics['calmar']:.2f}. "
+        f"{FORWARD_SHARPE_GUIDANCE_TAIL}"
+    )
 
 def build_context(args) -> SimpleNamespace:
     ROOT = Path(__file__).resolve().parent.parent
@@ -212,6 +220,6 @@ def build_context(args) -> SimpleNamespace:
         prod_metrics=prod_metrics, rpv_metrics=rpv_metrics, val_metrics=val_metrics, ndx_metrics=ndx_metrics,
         research_compare_rows=research_compare_rows, prod_label=prod_label,
         bootstrap_single_b=BOOTSTRAP_SINGLE_B, bootstrap_paired_b=BOOTSTRAP_PAIRED_B,
-        forward_sharpe_guidance=FORWARD_SHARPE_GUIDANCE, ndx_select_k=NDX_SELECT_K,
+        forward_sharpe_guidance=format_forward_sharpe_guidance(prod_metrics), ndx_select_k=NDX_SELECT_K,
         cpm_w=CPM_W, ndx_w=NDX_W, val_w=VAL_W, rpv_w=RPV_W
     )
