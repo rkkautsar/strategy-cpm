@@ -147,6 +147,31 @@ def test_stateful_trend_band_transitions():
     assert state["H"] == picks_next
 
 
+def test_soft_q25_rescreen_on_held_names():
+    """Held name is dropped only when QUALITY < monthly Q25; ==Q25 is kept."""
+    ftab = pd.DataFrame(
+        {
+            "VALUE": [5.0, 4.0, 3.0, 2.0, 1.0],
+            "QUALITY": [1.0, 0.0, -1.0, -2.0, -3.0],
+        },
+        index=["A", "B", "C", "D", "E"],
+    )
+    trend = {
+        "A": (106.0, 100.0),
+        "B": (104.0, 100.0),
+        "C": (104.0, 100.0),
+        "D": (101.0, 100.0),
+        "E": (101.0, 100.0),
+    }
+    state = {"H": ["D", "E"]}
+
+    picks = val.apply_stateful_trend_band(ftab, trend, state, K_select=3)
+
+    # Q25 is -2.0 for this cross-section: D(=-2.0) stays, E(<-2.0) drops.
+    assert picks == ["D", "A"]
+    assert state["H"] == ["D", "A"]
+
+
 def test_partial_fill():
     """Verify that when only 3 qualify, 60% weight goes to stocks, 40% to best-safe asset."""
     # Mocking panel data with at least 400 rows and positive price trends for gate ON
@@ -247,9 +272,9 @@ def test_standalone_regression_metrics():
     sharpe = (rets.mean() * 252) / vol
     maxdd = (eq / eq.cummax() - 1).min()
     
-    assert np.isclose(cagr, 0.2351, atol=1e-3)
-    assert np.isclose(sharpe, 1.56, atol=2e-2)
-    assert np.isclose(maxdd, -0.1599, atol=1e-3)
+    assert np.isclose(cagr, 0.2482, atol=1e-3)
+    assert np.isclose(sharpe, 1.65, atol=2e-2)
+    assert np.isclose(maxdd, -0.1470, atol=1e-3)
 
 
 if __name__ == "__main__":
