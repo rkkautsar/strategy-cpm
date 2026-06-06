@@ -443,6 +443,46 @@ def bench_blend_4leg(panel, start, end):
             + 0.10 * pp.reindex(common).fillna(0))
 
 
+def bench_ew_rpv(panel, start, end):
+    """Equal-weight benchmark over RPV risky universe (TLT/LQD/SPY/TIP/HYG)."""
+    risky = ["TLT", "LQD", "SPY", "TIP", "HYG"]
+    cols = [c for c in risky if c in panel.columns]
+    if len(cols) == 0:
+        return pd.Series(dtype=float)
+    close = panel[cols]
+    monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
+    dates = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
+    daily_ret = close.ffill().pct_change()
+    out = pd.Series(0.0, index=close.index)
+    w = pd.Series({c: 1.0 / len(cols) for c in cols})
+    for i, d in enumerate(dates):
+        nxt = dates[i + 1] if i + 1 < len(dates) else end
+        seg = close.index[(close.index > d) & (close.index <= nxt)]
+        out.loc[seg] = daily_ret.loc[seg, cols].mul(w, axis=1).sum(axis=1).fillna(0.0)
+    return out.loc[(out.index >= start) & (out.index <= end)]
+
+
+def bench_sacevs_value_rotation(panel, start, end):
+    """SACEVS-style 3-premia value rotation (term/credit/equity), no trend gate."""
+    import rpv_live
+
+    required_premia = ["term", "igcredit", "equity"]
+    original_sma_check = rpv_live._sma_above
+    original_compute_signals = rpv_live.compute_rpv_signals
+    full_signals = original_compute_signals()
+    if not set(required_premia).issubset(set(full_signals.columns)):
+        return pd.Series(dtype=float)
+    sacevs_signals = full_signals[required_premia].copy()
+
+    rpv_live._sma_above = lambda *args, **kwargs: True
+    rpv_live.compute_rpv_signals = lambda: sacevs_signals
+    try:
+        return rpv_live.run_rpv_backtest(panel, start, end, cost_bps=RPV_COST_BPS_PER_SIDE)
+    finally:
+        rpv_live._sma_above = original_sma_check
+        rpv_live.compute_rpv_signals = original_compute_signals
+
+
 def alpha_beta_corr(strat: pd.Series, bench: pd.Series) -> dict:
     """OLS daily-return regression r_strat = alpha + beta * r_bench + eps.
     Returns dict with annualized alpha (%/yr), beta, and Pearson correlation.
