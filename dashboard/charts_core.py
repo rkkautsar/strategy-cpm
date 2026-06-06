@@ -5,13 +5,70 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from dashboard.helpers import _ordered, _legend_below, PROD_STYLE, FCP_STYLES, BASE_RENDER_ORDER
+from dashboard.helpers import _ordered, _legend_below
+
+CANONICAL_SERIES_COLORS = {
+    "PROD": "#0040d0",
+    "CPM": "#1a9a1a",
+    "RPV sleeve": "#ff8800",
+    "VAL sleeve": "#7f3fbf",
+    "NDX sleeve": "#cc2266",
+    "Literature blend": "#9966aa",
+    "Static 80% PP + 20% QQQ": "#2d8659",
+    "QQQ buy-hold": "#707070",
+    "SPY buy-hold": "#a0a0a0",
+    "60/40 SPY/IEF": "#b8b8b8",
+    "Keller VAA G4": "#5f6b7a",
+    "HAA-Balanced": "#3399cc",
+    "Faber GTAA5": "#bb7733",
+    "HAA-Simple": "#88aabb",
+}
+
+SERIES_ALIASES = {
+    "PROD": "PROD",
+    "CPM-NDX-VAL-RPV (PROD)": "PROD",
+    "RPV": "RPV sleeve",
+    "VAL": "VAL sleeve",
+    "NDX": "NDX sleeve",
+}
+
+SERIES_STYLES = {
+    "PROD": dict(color=CANONICAL_SERIES_COLORS["PROD"], lw=2.0, ls="-", alpha=1.0, zorder=10),
+    "CPM": dict(color=CANONICAL_SERIES_COLORS["CPM"], lw=2.0, ls="-", alpha=0.95, zorder=8),
+    "RPV sleeve": dict(color=CANONICAL_SERIES_COLORS["RPV sleeve"], lw=2.0, ls="-", alpha=0.95, zorder=8),
+    "VAL sleeve": dict(color=CANONICAL_SERIES_COLORS["VAL sleeve"], lw=1.8, ls="-", alpha=0.90, zorder=8),
+    "NDX sleeve": dict(color=CANONICAL_SERIES_COLORS["NDX sleeve"], lw=1.6, ls="-", alpha=0.85, zorder=7),
+    "Literature blend": dict(color=CANONICAL_SERIES_COLORS["Literature blend"], lw=1.6, ls="--", alpha=0.85, zorder=4),
+    "Static 80% PP + 20% QQQ": dict(color=CANONICAL_SERIES_COLORS["Static 80% PP + 20% QQQ"], lw=1.4, ls="-.", alpha=0.85, zorder=4),
+    "QQQ buy-hold": dict(color=CANONICAL_SERIES_COLORS["QQQ buy-hold"], lw=1.2, ls=":", alpha=0.7, zorder=3),
+    "SPY buy-hold": dict(color=CANONICAL_SERIES_COLORS["SPY buy-hold"], lw=1.0, ls=":", alpha=0.65, zorder=3),
+    "60/40 SPY/IEF": dict(color=CANONICAL_SERIES_COLORS["60/40 SPY/IEF"], lw=1.0, ls=":", alpha=0.65, zorder=3),
+    "Keller VAA G4": dict(color=CANONICAL_SERIES_COLORS["Keller VAA G4"], lw=1.0, ls="--", alpha=0.55, zorder=2),
+    "HAA-Balanced": dict(color=CANONICAL_SERIES_COLORS["HAA-Balanced"], lw=1.0, ls="--", alpha=0.55, zorder=2),
+    "Faber GTAA5": dict(color=CANONICAL_SERIES_COLORS["Faber GTAA5"], lw=0.9, ls="--", alpha=0.5, zorder=2),
+    "HAA-Simple": dict(color=CANONICAL_SERIES_COLORS["HAA-Simple"], lw=0.9, ls="--", alpha=0.5, zorder=2),
+}
+
+
+def series_color(name: str, prod_label: str | None = None, default: str = "#888") -> str:
+    if prod_label and name == prod_label:
+        return CANONICAL_SERIES_COLORS["PROD"]
+    key = SERIES_ALIASES.get(name, name)
+    return CANONICAL_SERIES_COLORS.get(key, default)
+
+
+def series_style(name: str, prod_label: str | None = None) -> dict:
+    key = "PROD" if (prod_label and name == prod_label) else SERIES_ALIASES.get(name, name)
+    base = SERIES_STYLES.get(key)
+    if base is None:
+        return dict(color=series_color(name, prod_label=prod_label), lw=1.0, zorder=1)
+    return dict(base)
 
 def chart_equity(strategies: dict, initial_capital: float = 100_000, prod_label: str | None = None):
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for name, daily in _ordered(strategies):
         eq = (1.0 + daily).cumprod() * initial_capital
-        sty = PROD_STYLE if (prod_label and name == prod_label) else FCP_STYLES.get(name, dict(lw=1.0, zorder=1))
+        sty = series_style(name, prod_label=prod_label)
         ax.plot(eq.index, eq.values, label=name, **sty)
     ax.set_yscale("log")
     ax.set_ylabel("Portfolio Value ($)")
@@ -26,16 +83,14 @@ def chart_drawdown(strategies: dict, prod_label: str | None = None):
     for name, daily in _ordered(strategies):
         eq = (1.0 + daily).cumprod()
         dd = (eq / eq.cummax() - 1) * 100
-        if prod_label and name == prod_label:
-            sty = dict(color="#0040d0", lw=1.8, ls="-", alpha=1.0, zorder=10)
-        else:
-            sty = dict(FCP_STYLES.get(name, dict(lw=1.0, zorder=1)))
+        sty = series_style(name, prod_label=prod_label)
+        if not (prod_label and name == prod_label):
             # Bump benchmarks/components to be visible against PROD fill
             sty["lw"] = max(sty.get("lw", 1.0), 1.4)
             sty["alpha"] = max(sty.get("alpha", 0.7), 0.85)
         ax.plot(dd.index, dd.values, label=name, **sty)
         if prod_label and name == prod_label:
-            ax.fill_between(dd.index, dd.values, 0, color="#0040d0", alpha=0.08, zorder=9)
+            ax.fill_between(dd.index, dd.values, 0, color=series_color("PROD"), alpha=0.08, zorder=9)
     ax.set_ylabel("Drawdown (%)")
     ax.set_title("Drawdown over time")
     ax.axhline(0, color="#888", lw=0.6)
@@ -90,9 +145,9 @@ def chart_yearly_bars(blended: pd.Series, qqq: pd.Series, naive: pd.Series):
     fig, ax = plt.subplots(figsize=(8, 3.8))
     width = 0.28
     x = np.arange(len(years))
-    ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color="#707070")
-    ax.bar(x,         yr_n.values, width, label="Literature blend", color="#9966aa")
-    ax.bar(x + width, yr_b.values, width, label="CPM-NDX-VAL-RPV (PROD)", color="#0040d0")
+    ax.bar(x - width, yr_q.values, width, label="QQQ buy-hold", color=series_color("QQQ buy-hold"))
+    ax.bar(x,         yr_n.values, width, label="Literature blend", color=series_color("Literature blend"))
+    ax.bar(x + width, yr_b.values, width, label="CPM-NDX-VAL-RPV (PROD)", color=series_color("PROD"))
     ax.set_xticks(x)
     ax.set_xticklabels(years, rotation=45, fontsize=8)
     ax.set_ylabel("Annual return (%)")
@@ -122,14 +177,14 @@ def chart_rolling_dd(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series,
     bb4_dd = rolling_intra_dd(bb4.reindex(idx))
 
 
-    ax.plot(fcp_dd.index, fcp_dd.values, label="CPM", color="#1a9a1a", lw=1.6)
-    ax.plot(blend_dd.index, blend_dd.values, label="CPM-NDX-VAL-RPV (PROD)", color="#0040d0", lw=2.0)
-    ax.plot(bb4_dd.index, bb4_dd.values, label="Literature blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
+    ax.plot(fcp_dd.index, fcp_dd.values, label="CPM", color=series_color("CPM"), lw=1.6)
+    ax.plot(blend_dd.index, blend_dd.values, label="CPM-NDX-VAL-RPV (PROD)", color=series_color("PROD"), lw=2.0)
+    ax.plot(bb4_dd.index, bb4_dd.values, label="Literature blend", color=series_color("Literature blend"), lw=1.4, ls="--", alpha=0.85)
 
     if max_fcp is not None:
         max_fcp_dd = rolling_intra_dd(max_fcp.reindex(idx))
         ax.plot(max_fcp_dd.index, max_fcp_dd.values, label="RPV",
-                color="#ff8800", lw=1.6, ls="-", alpha=0.85)
+                color=series_color("RPV sleeve"), lw=1.6, ls="-", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Worst DD in window (%)")
     ax.set_title(f"Rolling {window_days//21}-Month Max Drawdown")
@@ -162,14 +217,14 @@ def chart_rolling_excess(fcp_only: pd.Series, blended: pd.Series, bb4: pd.Series
     excess_blend = (blend_cagr - bb4_cagr) * 100
 
     ax.plot(excess_fcp.index, excess_fcp.values,
-            label="CPM vs Lit blend", color="#1a9a1a", lw=1.6)
+            label="CPM vs Lit blend", color=series_color("CPM"), lw=1.6)
     ax.plot(excess_blend.index, excess_blend.values,
-            label="PROD vs Lit blend", color="#0040d0", lw=2.0)
+            label="PROD vs Lit blend", color=series_color("PROD"), lw=2.0)
     if max_fcp is not None:
         max_fcp_cagr = rolling_cagr(max_fcp.reindex(idx))
         excess_max = (max_fcp_cagr - bb4_cagr) * 100
         ax.plot(excess_max.index, excess_max.values,
-                label="RPV vs Lit blend", color="#ff8800", lw=1.4, ls="--", alpha=0.85)
+                label="RPV vs Lit blend", color=series_color("RPV sleeve"), lw=1.4, ls="--", alpha=0.85)
     ax.axhline(0, color="#444", lw=0.6)
     ax.set_ylabel("Excess CAGR (pp, ann.)")
     ax.set_title(f"Rolling {window_days//21}-Month Excess vs Literature blend")
@@ -184,10 +239,10 @@ def chart_rolling_sharpe(blended: pd.Series, bb4: pd.Series, window_days=252):
     bench = bb4.reindex(blended.index)
     bench_sr = (bench.rolling(window_days).mean() * 252) / (bench.rolling(window_days).std() * np.sqrt(252))
     fcp_sr = (blended.rolling(window_days).mean() * 252) / (blended.rolling(window_days).std() * np.sqrt(252))
-    ax.plot(bench_sr.index, bench_sr.values, label="Literature blend", color="#9966aa", lw=1.4, ls="--", alpha=0.85)
-    ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-NDX-VAL-RPV (PROD)", color="#0040d0", lw=2.0)
+    ax.plot(bench_sr.index, bench_sr.values, label="Literature blend", color=series_color("Literature blend"), lw=1.4, ls="--", alpha=0.85)
+    ax.plot(fcp_sr.index, fcp_sr.values, label="CPM-NDX-VAL-RPV (PROD)", color=series_color("PROD"), lw=2.0)
     ax.axhline(0, color="#888", lw=0.6, ls="--", alpha=0.5)
-    ax.axhline(1, color="#0040d0", lw=0.6, ls=":", alpha=0.4)
+    ax.axhline(1, color=series_color("PROD"), lw=0.6, ls=":", alpha=0.4)
     ax.set_ylabel("Sharpe")
     ax.set_title(f"Rolling {window_days//21}-Month Sharpe: PROD vs Literature blend")
     ax.xaxis.set_major_locator(mdates.YearLocator(2))
@@ -230,7 +285,7 @@ def chart_equity_dd_combined(strategies: dict, prod_label: str | None = None,
     for name, daily in _ordered(strategies):
         eq = (1.0 + daily).cumprod() * initial_capital
         dd = (eq / eq.cummax() - 1) * 100
-        sty = PROD_STYLE if (prod_label and name == prod_label) else FCP_STYLES.get(name, dict(lw=1.0, zorder=1))
+        sty = series_style(name, prod_label=prod_label)
         color = sty.get("color", "#888")
         if prod_label and name == prod_label:
             ax_eq.fill_between(eq.index, initial_capital, eq.values,
@@ -264,7 +319,7 @@ def chart_risk_return_scatter(strategies: dict, prod_label: str | None = None):
         if len(r) < 252:
             continue
         is_prod = (prod_label and name == prod_label)
-        sty = PROD_STYLE if is_prod else FCP_STYLES.get(name, dict(color="#888"))
+        sty = series_style(name, prod_label=prod_label) if is_prod else series_style(name)
         color = sty.get("color", "#888")
         # Group by calendar year
         years = sorted(set(r.index.year))

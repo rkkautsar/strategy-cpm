@@ -7,10 +7,10 @@ SECTIONS = [
     sections.allocation.render,
     sections.headline.render,
     sections.performance_detail.render,
-    sections.spec.render_summary,
     sections.sleeve_breakdown.render,
     sections.alpha_beta.render,
     sections.charts_analysis.render,
+    sections.spec.render_summary,
     sections.spec.render_details,
     sections.caveats.render,
 ]

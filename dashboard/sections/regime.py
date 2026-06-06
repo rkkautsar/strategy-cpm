@@ -23,6 +23,7 @@ from build_dashboard import (
     RPV_W,
 )
 from dashboard.helpers import fig_to_html
+from dashboard.charts_core import series_color
 
 def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
                             records: list | None = None,
@@ -113,10 +114,10 @@ def chart_canary_timeline(panel: pd.DataFrame, start: pd.Timestamp,
     ndx_arr = np.array(ndx_def_pcts)
     val_arr = np.array(val_def_pcts)
 
-    ax.bar(dates, cpm_arr, width=25, label=f"CPM ({int(CPM_W*100)}% wt)", color="#9e2a2b", alpha=0.85, edgecolor="none")
-    ax.bar(dates, ndx_arr, width=25, bottom=cpm_arr, label=f"NDX ({int(NDX_W*100)}% wt)", color="#ffb703", alpha=0.85, edgecolor="none")
-    ax.bar(dates, val_arr, width=25, bottom=cpm_arr + ndx_arr, label=f"VAL ({int(VAL_W*100)}% wt)", color="#7f3fbf", alpha=0.85, edgecolor="none")
-    ax.bar(dates, rpv_arr, width=25, bottom=cpm_arr + ndx_arr + val_arr, label=f"RPV ({int(RPV_W*100)}% wt)", color="#3f51b5", alpha=0.85, edgecolor="none")
+    ax.bar(dates, cpm_arr, width=25, label=f"CPM ({int(CPM_W*100)}% wt)", color=series_color("CPM"), alpha=0.85, edgecolor="none")
+    ax.bar(dates, ndx_arr, width=25, bottom=cpm_arr, label=f"NDX ({int(NDX_W*100)}% wt)", color=series_color("NDX sleeve"), alpha=0.85, edgecolor="none")
+    ax.bar(dates, val_arr, width=25, bottom=cpm_arr + ndx_arr, label=f"VAL ({int(VAL_W*100)}% wt)", color=series_color("VAL sleeve"), alpha=0.85, edgecolor="none")
+    ax.bar(dates, rpv_arr, width=25, bottom=cpm_arr + ndx_arr + val_arr, label=f"RPV ({int(RPV_W*100)}% wt)", color=series_color("RPV sleeve"), alpha=0.85, edgecolor="none")
 
     ax.set_ylabel("Defensive Weight (%)", fontsize=9, fontweight="bold")
     ax.set_ylim(0, 100)

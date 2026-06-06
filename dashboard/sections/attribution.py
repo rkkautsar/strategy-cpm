@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from types import SimpleNamespace
 from dashboard.helpers import fig_to_html, _legend_below
-from dashboard.charts_core import chart_correlations
+from dashboard.charts_core import chart_correlations, series_color
 from config import VAL_WEIGHT
 
 def chart_sleeve_contribution(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets: pd.Series, val_rets: pd.Series,
@@ -31,10 +31,10 @@ def chart_sleeve_contribution(cpm_rets: pd.Series, rpv_rets: pd.Series, ndx_rets
     fig, ax = plt.subplots(figsize=(12, 4.5), constrained_layout=True)
 
     width = 0.7
-    ax.bar(years, cpm_y * 100, width, label=f'CPM ({int(w_cpm*100)}%)', color='#2e86c1', edgecolor='#1b4f72')
-    ax.bar(years, ndx_y * 100, width, bottom=cpm_y * 100, label=f'NDX ({int(w_ndx*100)}%)', color='#c0392b', edgecolor='#641e16')
-    ax.bar(years, val_y * 100, width, bottom=(cpm_y + ndx_y) * 100, label=f'VAL ({int(w_val*100)}%)', color='#7f3fbf', edgecolor='#4a235a')
-    ax.bar(years, rpv_y * 100, width, bottom=(cpm_y + ndx_y + val_y) * 100, label=f'RPV ({int(w_rpv*100)}%)', color='#f39c12', edgecolor='#7e5109')
+    ax.bar(years, cpm_y * 100, width, label=f'CPM ({int(w_cpm*100)}%)', color=series_color('CPM'), edgecolor='none')
+    ax.bar(years, ndx_y * 100, width, bottom=cpm_y * 100, label=f'NDX ({int(w_ndx*100)}%)', color=series_color('NDX sleeve'), edgecolor='none')
+    ax.bar(years, val_y * 100, width, bottom=(cpm_y + ndx_y) * 100, label=f'VAL ({int(w_val*100)}%)', color=series_color('VAL sleeve'), edgecolor='none')
+    ax.bar(years, rpv_y * 100, width, bottom=(cpm_y + ndx_y + val_y) * 100, label=f'RPV ({int(w_rpv*100)}%)', color=series_color('RPV sleeve'), edgecolor='none')
 
     totals = (cpm_y + ndx_y + val_y + rpv_y) * 100
     ax.plot(years, totals, color='black', marker='D', markersize=6, linestyle='', label='Blend total')
@@ -144,10 +144,10 @@ def chart_monthly_return_distributions(
     fig, axes = plt.subplots(2, 2, figsize=(12, 7), constrained_layout=True)
     for ax, (name, ser, color) in zip(
         axes.flat,
-        [(f'CPM ({int(w_cpm*100)}%)', m_cpm, '#2e86c1'),
-         (f'RPV ({int(w_rpv*100)}%)', m_rpv, '#f39c12'),
-         (f'NDX ({int(w_ndx*100)}%)', m_ndx, '#c0392b'),
-         (f'Blend {int(w_cpm*100)}/{int(w_rpv*100)}/{int(w_ndx*100)}/{int(w_val*100)}', m_blend, '#27ae60')]
+        [(f'CPM ({int(w_cpm*100)}%)', m_cpm, series_color('CPM')),
+         (f'RPV ({int(w_rpv*100)}%)', m_rpv, series_color('RPV sleeve')),
+         (f'NDX ({int(w_ndx*100)}%)', m_ndx, series_color('NDX sleeve')),
+         (f'Blend {int(w_cpm*100)}/{int(w_rpv*100)}/{int(w_ndx*100)}/{int(w_val*100)}', m_blend, series_color('PROD'))]
     ):
         ax.hist(ser, bins=40, color=color, alpha=0.7, edgecolor='black', linewidth=0.5)
         ax.axvline(ser.mean(), color='black', ls='--', lw=1, label=f'Mean {ser.mean():.2f}%')
