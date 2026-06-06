@@ -5,11 +5,12 @@ from pathlib import Path
 from types import SimpleNamespace
 import pandas as pd
 from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
-from cpm_live import load_panel, perf_metrics, compute_target_weights, run_pp_backtest
+from cpm_live import load_panel, perf_metrics, compute_target_weights
 from ndx_sleeve_live import load_ndx_panel, SELECT_K as NDX_SELECT_K
 from rpv_live import compute_rpv_weights
 from dashboard_engine import (
     build_artifacts, bench_aaa_tip, bench_haa_simple, bench_blend_4leg, bench_static_pp_qqq,
+    bench_sacevs_value_rotation, bench_ew_rpv,
     sixty_forty, alpha_beta_corr, EXT_START,
     BOOTSTRAP_SINGLE_B, BOOTSTRAP_PAIRED_B
 )
@@ -129,7 +130,8 @@ def build_context(args) -> SimpleNamespace:
     bench_b2 = bench_aaa_tip(panel, start, end)
     bench_ndx_leg = bench_haa_simple(panel, start, end, asset="QQQ")
     bench_val_leg = bench_haa_simple(panel, start, end, asset="SPY")
-    bench_rpv_leg = run_pp_backtest(panel, start, end)
+    bench_rpv_sacevs = bench_sacevs_value_rotation(panel, start, end)
+    bench_rpv_ew = bench_ew_rpv(panel, start, end)
     alpha_beta_rows = []
     spy_d = panel["SPY"].ffill().pct_change().loc[start:end].fillna(0.0) if "SPY" in panel.columns else pd.Series(dtype=float)
     qqq_d = panel["QQQ"].ffill().pct_change().loc[start:end].fillna(0.0) if "QQQ" in panel.columns else pd.Series(dtype=float)
@@ -144,7 +146,8 @@ def build_context(args) -> SimpleNamespace:
         ("NDX sleeve", art.ndx, qqq_d, "QQQ buy-hold"),
         ("VAL sleeve", art.val, bench_val_leg, "HAA-Simple SPY"),
         ("VAL sleeve", art.val, spy_d, "SPY buy-hold"),
-        ("RPV sleeve", art.rpv, bench_rpv_leg, "Permanent Portfolio (PP)"),
+        ("RPV sleeve", art.rpv, bench_rpv_sacevs, "SACEVS value rotation (term/credit/equity)"),
+        ("RPV sleeve", art.rpv, bench_rpv_ew, "EW RPV universe"),
         ("RPV sleeve", art.rpv, spy_d, "SPY buy-hold"),
     ]:
         m = alpha_beta_corr(strat, bench)

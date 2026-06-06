@@ -55,6 +55,8 @@ from dashboard_engine import (
     bench_static_pp_qqq,
     bench_bb4_blend,
     bench_blend_4leg,
+    bench_ew_rpv,
+    bench_sacevs_value_rotation,
     alpha_beta_corr,
     cpm_signal_records,
     _compute_cpm_signal_records,
@@ -75,7 +77,8 @@ from dashboard_engine import (
 __all__ = [
     "faber_gtaa5", "keller_vaa_g4", "_haa_safe_pick", "_haa_run", "haa_simple", "haa_balanced",
     "sixty_forty", "qqq_trend_follow", "_b_monthly_signal_dates", "_b_build_port", "bench_aaa_tip",
-    "bench_haa_simple", "bench_qqq_12mo_trend", "bench_static_pp_qqq", "bench_bb4_blend", "bench_blend_4leg", "alpha_beta_corr",
+    "bench_haa_simple", "bench_qqq_12mo_trend", "bench_static_pp_qqq", "bench_bb4_blend", "bench_blend_4leg",
+    "bench_ew_rpv", "bench_sacevs_value_rotation", "alpha_beta_corr",
     "cpm_signal_records", "_compute_cpm_signal_records", "_load_macro_mooex_legs", "_rebuild_ndx_constituent_opens_cache",
     "_tail_refresh_ndx_opens_cache", "_load_ndx_constituent_mooex_legs", "rpv_signal_records", "ndx_signal_records",
     "build_artifacts", "BOOTSTRAP_SINGLE_B", "BOOTSTRAP_PAIRED_B", "EXT_START", "CASH_TICKER", "RPV_EQUITY_TICKER",
