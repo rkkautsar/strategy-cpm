@@ -35,20 +35,6 @@ def render_head(ctx: SimpleNamespace) -> str:
     pointer-events:none;
     background:linear-gradient(to left, rgba(250,250,250,0.96), rgba(250,250,250,0));
   }
-  .table-scroll table th:first-child,
-  .table-scroll table td:first-child {
-    position:sticky;
-    left:0;
-    background:var(--card);
-    z-index:2;
-  }
-  .table-scroll table thead th:first-child {
-    background:#f3f3f3;
-    z-index:5;
-  }
-  .table-scroll table tbody td:first-child {
-    box-shadow:6px 0 6px -6px rgba(0,0,0,0.2);
-  }
   table { border-collapse: collapse; width:100%; font-size:0.85rem; min-width:fit-content; }
   th, td { padding:5px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
   th { background:#f3f3f3; font-weight:600; text-align:left; position:sticky; top:0; }
