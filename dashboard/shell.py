@@ -21,9 +21,34 @@ def render_head(ctx: SimpleNamespace) -> str:
   h4 { font-size:0.92rem; margin:0.5rem 0 0.3rem; color:var(--muted); }
   p { margin:0.4rem 0; }
   .meta { color:var(--muted); font-size:0.82rem; }
+  .strategy-summary { margin:0.45rem 0 0.2rem; font-size:0.9rem; color:#333; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:8px;
            padding:8px; margin:8px 0; overflow:hidden; }
-  .table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; }
+  .table-scroll { position:relative; overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; }
+  .table-scroll::after {
+    content:"";
+    position:absolute;
+    top:0;
+    right:0;
+    width:20px;
+    height:100%;
+    pointer-events:none;
+    background:linear-gradient(to left, rgba(250,250,250,0.96), rgba(250,250,250,0));
+  }
+  .table-scroll table th:first-child,
+  .table-scroll table td:first-child {
+    position:sticky;
+    left:0;
+    background:var(--card);
+    z-index:2;
+  }
+  .table-scroll table thead th:first-child {
+    background:#f3f3f3;
+    z-index:5;
+  }
+  .table-scroll table tbody td:first-child {
+    box-shadow:6px 0 6px -6px rgba(0,0,0,0.2);
+  }
   table { border-collapse: collapse; width:100%; font-size:0.85rem; min-width:fit-content; }
   th, td { padding:5px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
   th { background:#f3f3f3; font-weight:600; text-align:left; position:sticky; top:0; }
@@ -97,6 +122,7 @@ def render_head(ctx: SimpleNamespace) -> str:
 """ + f"""
 <h1>CPM-NDX-VAL-RPV Strategy Dashboard</h1>
 <p class='meta'>{int(ctx.cpm_w*100)}/{int(ctx.ndx_w*100)}/{int(ctx.val_w*100)}/{int(ctx.rpv_w*100)} CPM-NDX-VAL-RPV | monthly rebalance | T+1 OPEN | 10 bps/side | backtest {ctx.window_str} | built {ctx.today}</p>
+<p class='strategy-summary'>A 4-sleeve tactical blend: cross-asset trend/parity core ({int(ctx.cpm_w*100)}%) + Nasdaq-100 momentum ({int(ctx.ndx_w*100)}%) + Nasdaq-100 value+quality ({int(ctx.val_w*100)}%) + risk-premia bonds ({int(ctx.rpv_w*100)}%), rebalanced monthly.</p>
 
 """
 
