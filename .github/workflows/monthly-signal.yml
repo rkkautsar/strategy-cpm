@@ -92,7 +92,7 @@ jobs:
           echo "Dashboard: $FINAL_URL"
 
       - name: Send Telegram notification
-        if: env.TELEGRAM_TOKEN != ''
+        if: env.TELEGRAM_TOKEN != '' && github.event_name != 'push'
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -107,7 +107,7 @@ jobs:
             --data-urlencode "text@signal_telegram.txt"
 
       - name: Send Resend email notification
-        if: env.RESEND_API_KEY != ''
+        if: env.RESEND_API_KEY != '' && github.event_name != 'push'
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_TO: ${{ secrets.RESEND_TO }}
