@@ -16,7 +16,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 echo "================================================================"
-echo "CPM-BULL deployment setup"
+echo "CPM-NDX-VAL-RPV deployment setup"
 echo "================================================================"
 echo
 
@@ -141,7 +141,7 @@ if [[ -n "$RESEND_KEY" ]]; then
   echo "    account email. To send to other addresses or use a custom from, verify a domain"
   echo "    at https://resend.com/domains first."
   read -r -p "  RESEND_FROM (or Enter for default): " RESEND_FROM
-  RESEND_FROM="${RESEND_FROM:-CPM-BULL <onboarding@resend.dev>}"
+  RESEND_FROM="${RESEND_FROM:-CPM-NDX-VAL-RPV <onboarding@resend.dev>}"
 fi
 echo
 

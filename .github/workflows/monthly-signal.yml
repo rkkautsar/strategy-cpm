@@ -1,4 +1,4 @@
-name: Monthly CPM-BULL signal + dashboard
+name: Monthly CPM-NDX-VAL-RPV signal + dashboard
 
 # Triggered by Cloudflare Workers cron (see deploy/cf-cron/).
 # CF Workers cron has NO 60-day inactivity penalty, unlike GH Actions schedule.
