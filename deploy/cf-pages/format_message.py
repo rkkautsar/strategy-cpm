@@ -36,21 +36,55 @@ def main() -> None:
     prior_me = (today.replace(day=1) - pd.Timedelta(days=1))
     candidates = panel.index[panel.index <= prior_me]
     sig_d = candidates[-1] if len(candidates) > 0 else today
+    # Prior month's signal = last panel date on/before the prior calendar month-end
+    prior_month_end = sig_d.replace(day=1) - pd.Timedelta(days=1)
+    prior_cands = panel.index[panel.index <= prior_month_end]
+    prior_sig_d = prior_cands[-1] if len(prior_cands) > 0 else None
 
     from sleeves import compute_live_blend
     combined, res = compute_live_blend(panel, ndx_panel, sig_d)
     cpm_w, cpm_regime = res["cpm"].weights, res["cpm"].regime
     ndx_w, ndx_regime = res["ndx"].weights, res["ndx"].regime
     rpv_w, rpv_regime = res["rpv"].weights, res["rpv"].regime
-    val_w, val_regime, val_picks = res["val"].weights, res["val"].regime, res["val"].picks
+    val_w, val_regime = res["val"].weights, res["val"].regime
 
     parts = []
     parts.append(f"📈 *CPM-NDX-VAL-RPV Monthly Signal*")
     parts.append(f"Signal date: `{sig_d.date()}` · Trade T+1 OPEN (MOO)")
     parts.append("")
     parts.append(f"CPM: {cpm_regime} · NDX: {ndx_regime} · VAL: {val_regime} · RPV: {rpv_regime}")
-    if val_picks:
-        parts.append(f"_VAL picks: {', '.join(val_picks)}_")
+
+    if prior_sig_d is None:
+        parts.append("Trades: first signal (no prior month)")
+    else:
+        combined_prior, _ = compute_live_blend(panel, ndx_panel, prior_sig_d)
+        trades = []
+        trade_threshold = 0.001
+        for ticker in set(combined) | set(combined_prior):
+            now_w = combined.get(ticker, 0.0)
+            prior_w = combined_prior.get(ticker, 0.0)
+            delta = now_w - prior_w
+            if abs(delta) <= trade_threshold:
+                continue
+            if prior_w <= trade_threshold and now_w > trade_threshold:
+                action = "BUY"
+            elif prior_w > trade_threshold and now_w <= trade_threshold:
+                action = "SELL"
+            elif delta > 0:
+                action = "ADD"
+            else:
+                action = "TRIM"
+            trades.append((action, ticker, delta))
+
+        if not trades:
+            parts.append(f"*Trades vs {prior_sig_d.date()}*: no change from last month")
+        else:
+            action_order = {"SELL": 0, "BUY": 1, "TRIM": 2, "ADD": 3}
+            trades.sort(key=lambda x: (action_order[x[0]], -abs(x[2]), x[1]))
+            parts.append(f"*Trades vs {prior_sig_d.date()}*")
+            for action, ticker, delta in trades:
+                parts.append(f"`  {action:<4} {ticker:<6}` {delta*100:+5.1f}%")
+
     parts.append("")
     parts.append(fmt_alloc(cpm_w, "CPM sleeve (60%)", CPM_WEIGHT))
     parts.append("")
