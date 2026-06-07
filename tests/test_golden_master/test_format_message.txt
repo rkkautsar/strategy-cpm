@@ -1,0 +1,53 @@
+📈 *CPM-NDX-VAL-RPV Monthly Signal*
+Signal date: `2026-04-30` · Trade T+1 OPEN (MOO)
+
+CPM: RISK_ON · NDX: NDX_ACTIVE · VAL: VAL_ACTIVE · RPV: WEIGHTED_GUARDED
+*Trades vs 2026-03-31*
+`  SELL EEM   ` -20.0%
+`  SELL EFA   ` -20.0%
+`  SELL AMAT  `  -3.0%
+`  SELL LRCX  `  -3.0%
+`  BUY  QQQ   ` +20.0%
+`  BUY  SPHQ  ` +20.0%
+`  BUY  INTC  `  +3.0%
+`  BUY  SNDK  `  +3.0%
+
+*CPM sleeve (60%)*
+`  DBC   `  20.0%
+`  QQQ   `  20.0%
+`  SPHQ  `  20.0%
+
+*NDX sleeve (15%)*
+`  SNDK  `   3.0%
+`  WDC   `   3.0%
+`  STX   `   3.0%
+`  MU    `   3.0%
+`  INTC  `   3.0%
+
+*VAL sleeve (15%)*
+`  GOOGL `   3.0%
+`  BKR   `   3.0%
+`  GILD  `   3.0%
+`  WBD   `   3.0%
+`  ROST  `   3.0%
+
+*RPV sleeve (10%)*
+`  TIP   `  10.0%
+
+*Combined portfolio (100%)*
+`  DBC   `  20.0%
+`  QQQ   `  20.0%
+`  SPHQ  `  20.0%
+`  TIP   `  10.0%
+`  SNDK  `   3.0%
+`  WDC   `   3.0%
+`  STX   `   3.0%
+`  MU    `   3.0%
+`  INTC  `   3.0%
+`  GOOGL `   3.0%
+`  BKR   `   3.0%
+`  GILD  `   3.0%
+`  WBD   `   3.0%
+`  ROST  `   3.0%
+
+⚠️ Backtest only · see dashboard caveats before trading

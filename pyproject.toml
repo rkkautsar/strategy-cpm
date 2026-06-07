@@ -22,11 +22,15 @@ dashboard = ["matplotlib>=3.7"]
 dev = [
     "index-constitution>=0.6.1",
     "pytest>=9.0.3",
+    "pytest-regressions>=2.11.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"
+markers = [
+    "slow: marks tests that run full golden-master backtest generation",
+]
 
 
