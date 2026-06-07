@@ -14,6 +14,12 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from config import (
+    SAHM_PUBLICATION_LAG_DAYS,
+    SAHM_PUBLICATION_LAG_MONTHS,
+    SAHM_STRESS_THRESHOLD,
+)
+
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 
@@ -396,6 +402,42 @@ def _fetch_fred_series(id_: str, fallback_paths: list[Path] | None = None) -> pd
         if fpath.exists():
             return _parse_fred_series(pd.read_csv(fpath), id_)
     raise FileNotFoundError(f"FRED series {id_} not found locally.")
+
+
+@functools.lru_cache(maxsize=1)
+def _load_sahm_realtime() -> pd.Series:
+    try:
+        return _fetch_fred_series(
+            "SAHMREALTIME",
+            fallback_paths=[DATA_DIR / "fred_SAHMREALTIME.csv"],
+        )
+    except Exception:
+        return pd.Series(dtype=float, index=pd.DatetimeIndex([]))
+
+
+def is_sahm_stress(sig_d: pd.Timestamp) -> bool:
+    """Lag-safe SAHMREALTIME stress flag at signal date.
+
+    SAHMREALTIME publication assumed available at source observation date plus
+    1 month + 7 days. Missing data fails closed to False.
+    """
+    sahm = _load_sahm_realtime()
+    if sahm.empty:
+        return False
+
+    avail = sahm.copy()
+    avail.index = pd.to_datetime(avail.index) + pd.DateOffset(
+        months=SAHM_PUBLICATION_LAG_MONTHS,
+        days=SAHM_PUBLICATION_LAG_DAYS,
+    )
+    avail = avail.sort_index()
+
+    known = avail.loc[avail.index <= pd.Timestamp(sig_d)]
+    if known.empty:
+        return False
+
+    value = known.iloc[-1]
+    return bool(pd.notna(value) and float(value) >= SAHM_STRESS_THRESHOLD)
 
 
 def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:

@@ -1,11 +1,10 @@
 import pandas as pd
 
-from sleeves import compute_live_blend
+from sleeves import compute_live_blend, get_blend_weights
 from cpm_live import load_panel, compute_live_weights
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 from rpv_live import compute_rpv_weights
 from core import get_cached_sleeve_weight, cached_value_backtest
-from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
 
 
 def test_compute_live_blend_parity():
@@ -25,15 +24,17 @@ def test_compute_live_blend_parity():
     val_rec = next((r for r in reversed(val_hist) if r["sig_d"] <= sig_d), None)
     val_w = val_rec.get("weights", {"SHV": 1.0}) if val_rec else {"SHV": 1.0}
 
+    blend_weights = get_blend_weights(sig_d)
+
     old_combined = {}
     for t, w in cpm_w.items():
-        old_combined[t] = old_combined.get(t, 0.0) + w * CPM_WEIGHT
+        old_combined[t] = old_combined.get(t, 0.0) + w * blend_weights["cpm"]
     for t, w in ndx_w.items():
-        old_combined[t] = old_combined.get(t, 0.0) + w * NDX_WEIGHT
+        old_combined[t] = old_combined.get(t, 0.0) + w * blend_weights["ndx"]
     for t, w in val_w.items():
-        old_combined[t] = old_combined.get(t, 0.0) + w * VAL_WEIGHT
+        old_combined[t] = old_combined.get(t, 0.0) + w * blend_weights["val"]
     for t, w in rpv_w.items():
-        old_combined[t] = old_combined.get(t, 0.0) + w * RPV_WEIGHT
+        old_combined[t] = old_combined.get(t, 0.0) + w * blend_weights["rpv"]
 
     new_combined, res = compute_live_blend(panel, ndx_panel, sig_d)
 

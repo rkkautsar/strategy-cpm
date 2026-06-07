@@ -2,17 +2,11 @@ from __future__ import annotations
 import pandas as pd
 import numpy as np
 from types import SimpleNamespace
-from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
 from cpm_live import DEFAULT_CASH, SAFE_POOL
 from dashboard_engine import cpm_signal_records, CASH_TICKER
 from rpv_live import compute_rpv_weights
 from core import cached_value_backtest
-
-# Production blend weights
-CPM_WEIGHT = CPM_W
-NDX_WEIGHT = NDX_W
-VAL_WEIGHT = VAL_W
-RPV_WEIGHT = RPV_W
+from sleeves import get_blend_weights
 
 NDX_SECTORS = {
     # Semis
@@ -74,6 +68,12 @@ def _ndx_sector_summary(picks: list) -> str:
     parts = [f"{c} {s}" for s, c in sorted(counts.items(), key=lambda x: -x[1])]
     return " | ".join(parts)
 
+
+def _fmt_weight_pct(weight: float) -> str:
+    pct = weight * 100.0
+    return f"{pct:.1f}".rstrip("0").rstrip(".")
+
+
 def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                          rpv_spy_rets: pd.Series | None = None,
                          ndx_rets: pd.Series | None = None,
@@ -96,14 +96,15 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     weights = cpm_rec["weights"]
     regime = cpm_rec["regime"]
     safe = cpm_rec["safe"]
+    blend_weights = get_blend_weights(sig_d)
 
-    # Cross-asset Parity Momentum (CPM) sleeve (60%)
+    # Cross-asset Parity Momentum (CPM) sleeve (active blend weight)
     fcp_html = "".join(f"<tr><td>{t}</td><td style='text-align:right'>{w*100:.1f}%</td></tr>"
                         for t, w in sorted(weights.items(), key=lambda x: -x[1]))
     risky_basket = [t for t, w in sorted(weights.items(), key=lambda x: -x[1]) if t != safe and w > 0]
     basket_str = " + ".join(risky_basket) if risky_basket else "-"
 
-    # RPV sleeve (10%) -- from precomputed record if available
+    # RPV sleeve (active blend weight) -- from precomputed record if available
     if rpv_rec is not None:
         bq_w, bq_regime, bq_diag = rpv_rec["weights"], rpv_rec["regime"], rpv_rec["diag"]
     else:
@@ -115,7 +116,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     else:
         bq_state = f"CASH ({bq_diag.get('reason','-')})"
 
-    # NDX sleeve (15%) -- TIP canary + SPY trend + SPY RV20<RV252 gate
+    # NDX sleeve (active blend weight) -- TIP canary + SPY trend + SPY RV20<RV252 gate
     ndx_panel_data = None
     try:
         from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel, SELECT_K as NDX_SELECT_K
@@ -138,7 +139,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         ndx_html = "<tr><td colspan='2'>(NDX panel not available)</td></tr>"
         ndx_state = f"NDX panel data unavailable ({e})"
 
-    # VAL sleeve (15%) -- stateful he5_te0 trend band, derived from full-history run.
+    # VAL sleeve (active blend weight) -- stateful he5_te0 trend band, derived from full-history run.
     if val_rec is not None:
         val_w = val_rec.get("weights", {CASH_TICKER: 1.0})
         val_regime = val_rec.get("regime", "VAL_UNKNOWN")
@@ -170,16 +171,16 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
                          for t, w in sorted(val_w.items(), key=lambda x: -x[1]))
     val_state = f"{val_regime} -- picks: {', '.join(val_selected) if val_selected else '(none)'}"
 
-    # Combined 60% CPM + 15% NDX + 15% VAL + 10% RPV (UNSCALED)
+    # Combined active blend weights (UNSCALED)
     combined_uncapped = {}
     for t, w in weights.items():
-        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * CPM_WEIGHT
+        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * blend_weights["cpm"]
     for t, w in ndx_w.items():
-        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * NDX_WEIGHT
+        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * blend_weights["ndx"]
     for t, w in val_w.items():
-        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * VAL_WEIGHT
+        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * blend_weights["val"]
     for t, w in bq_w.items():
-        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * RPV_WEIGHT
+        combined_uncapped[t] = combined_uncapped.get(t, 0.0) + w * blend_weights["rpv"]
 
     # Combined target weights (no extra portfolio cap overlay)
     combined = combined_uncapped
@@ -201,8 +202,9 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
     if len(records) >= 2:
         prev_rec = records[-2]
         prev_weights = prev_rec.get("weights", {})
+        prev_sd = prev_rec.get("sig_d", None)
+        prev_blend_weights = get_blend_weights(prev_sd) if prev_sd is not None else get_blend_weights()
         try:
-            prev_sd = prev_rec.get("sig_d", None)
             # Prefer precomputed rpv/ndx/val records (no recomputation)
             if art is not None and prev_sd is not None:
                 prev_rpv_rec = next((r for r in reversed(art.rpv_records) if r["sig_d"] == prev_sd), None)
@@ -224,13 +226,13 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
         except Exception:
             prev_bq_w, prev_ndx_w, prev_val_w = {}, {}, {}
         for t, w in prev_weights.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * CPM_WEIGHT
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * prev_blend_weights["cpm"]
         for t, w in prev_ndx_w.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * NDX_WEIGHT
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * prev_blend_weights["ndx"]
         for t, w in prev_val_w.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * VAL_WEIGHT
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * prev_blend_weights["val"]
         for t, w in prev_bq_w.items():
-            prev_combined[t] = prev_combined.get(t, 0.0) + w * RPV_WEIGHT
+            prev_combined[t] = prev_combined.get(t, 0.0) + w * prev_blend_weights["rpv"]
     all_keys = set(combined) | set(prev_combined)
     trade_rows = []
     hold_count = 0
@@ -277,7 +279,7 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
 <div class='alloc-row' style='grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; gap: 14px;'>
   <style>@media (min-width: 900px) {{ .alloc-row {{ grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) !important; }} }}</style>
   <div>
-    <h4 style='background:#fff4d6;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Final portfolio target {int(CPM_WEIGHT*100)}/{int(NDX_WEIGHT*100)}/{int(VAL_WEIGHT*100)}/{int(RPV_WEIGHT*100)}</h4>
+    <h4 style='background:#fff4d6;padding:8px 12px;border-radius:4px;margin:0 0 8px 0'>Final portfolio target {_fmt_weight_pct(blend_weights['cpm'])}/{_fmt_weight_pct(blend_weights['ndx'])}/{_fmt_weight_pct(blend_weights['val'])}/{_fmt_weight_pct(blend_weights['rpv'])}</h4>
     <div class='table-scroll'><table class='alloc'>{combined_target_html}</table></div>
   </div>
   <div>
@@ -289,10 +291,10 @@ def current_alloc_html(panel: pd.DataFrame, sig_d: pd.Timestamp,
   <details>
     <summary style='font-weight:600;cursor:pointer'>Signal diagnostics (sleeves, selection details)</summary>
     <div style='margin-top:10px'>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>Cross-asset Parity Momentum (CPM)</strong> ({int(CPM_WEIGHT*100)}% of capital, regime <strong>{regime}</strong>): risky basket = <strong>{basket_str}</strong>, safe = {safe}</p>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({int(NDX_WEIGHT*100)}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' | sectors: ' + sector_str) if sector_str else ''}</p>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>VAL</strong> ({int(VAL_WEIGHT*100)}% of capital, state <strong>{val_state}</strong>): picks = <strong>{val_picks_str}</strong></p>
-    <p style='font-size:0.85rem;margin:6px 0'><strong>RPV</strong> ({int(RPV_WEIGHT*100)}% of capital, state <strong>{bq_state}</strong>): holding <strong>{rpv_pick}</strong></p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>Cross-asset Parity Momentum (CPM)</strong> ({_fmt_weight_pct(blend_weights['cpm'])}% of capital, regime <strong>{regime}</strong>): risky basket = <strong>{basket_str}</strong>, safe = {safe}</p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>NDX</strong> ({_fmt_weight_pct(blend_weights['ndx'])}% of capital, state <strong>{ndx_regime}</strong>): top-{NDX_SELECT_K} = {ndx_picks_str}{(' | sectors: ' + sector_str) if sector_str else ''}</p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>VAL</strong> ({_fmt_weight_pct(blend_weights['val'])}% of capital, state <strong>{val_state}</strong>): picks = <strong>{val_picks_str}</strong></p>
+    <p style='font-size:0.85rem;margin:6px 0'><strong>RPV</strong> ({_fmt_weight_pct(blend_weights['rpv'])}% of capital, state <strong>{bq_state}</strong>): holding <strong>{rpv_pick}</strong></p>
     {dd_status_html}
     <h4 style='margin-top:14px'>Sleeve-internal weights (sum to 100% of each sleeve)</h4>
     <div style='display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px'>

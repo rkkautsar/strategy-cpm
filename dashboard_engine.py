@@ -38,8 +38,8 @@ from ndx_sleeve_live import (
 from core import cached_value_backtest
 from sleeve_cache import df_digest, file_digest, get_sleeve_returns
 
-# Production blend: 60% CPM + 15% NDX + 15% VAL + 10% RPV
-from config import CPM_WEIGHT as CPM_W, NDX_WEIGHT as NDX_W, VAL_WEIGHT as VAL_W, RPV_WEIGHT as RPV_W
+from config import CROSS_SLEEVE_REALLOCATION_COST_BPS
+from sleeves import apply_blend_reallocation_cost, build_blend_weight_schedule
 
 
 def get_last_finalized_month_cutoff(index: pd.DatetimeIndex) -> pd.Timestamp:
@@ -1107,7 +1107,19 @@ def build_artifacts(panel: pd.DataFrame, ndx_panel: pd.DataFrame | None,
     val = val_raw
     rpv_dd_scale = pd.Series(1.0, index=rpv_raw.index)
     ndx_dd_scale = pd.Series(1.0, index=ndx_raw.index)
-    blend_uncapped = CPM_W * cpm + RPV_W * rpv + NDX_W * ndx + VAL_W * val
+
+    blend_weights, blend_turnover = build_blend_weight_schedule(common, sigs, end)
+    blend_uncapped = (
+        blend_weights["cpm"] * cpm
+        + blend_weights["ndx"] * ndx
+        + blend_weights["val"] * val
+        + blend_weights["rpv"] * rpv
+    )
+    blend_uncapped = apply_blend_reallocation_cost(
+        blend_uncapped,
+        blend_turnover,
+        CROSS_SLEEVE_REALLOCATION_COST_BPS,
+    )
     # No additional portfolio-level cap overlay.
     vol_scale = pd.Series(1.0, index=blend_uncapped.index)
     vol_events: list[dict] = []

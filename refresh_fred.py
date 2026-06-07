@@ -7,7 +7,7 @@ from urllib3.util import Retry
 ROOT = Path(__file__).parent.resolve()
 DATA_DIR = ROOT / "data"
 
-FRED_IDS = ["DGS10", "DGS3MO", "DBAA", "SP500", "BAA", "DAAA", "AAA", "CPIAUCSL"]
+FRED_IDS = ["DGS10", "DGS3MO", "DBAA", "SP500", "BAA", "DAAA", "AAA", "CPIAUCSL", "SAHMREALTIME"]
 
 def _build_retrying_session() -> requests.Session:
     retry = Retry(

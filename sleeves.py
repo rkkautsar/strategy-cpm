@@ -1,13 +1,7 @@
-"""Sleeve protocol + registry for the LIVE weight-dict combine.
+"""Sleeve protocol + blend helpers for live and backtest wiring.
 
-Unifies the duplicated live combine logic in cpm_live.cmd_allocate and
-deploy/cf-pages/format_message.py. Scope is the LIVE weight-dict path ONLY:
-the dashboard/CLI series-blend math is intentionally left literal (the three
-blend sites use three different float-add term orders, and IEEE-754 addition is
-not associative, so imposing a canonical order would break golden-master parity).
-
-Registry order is parity-critical: cpm, ndx, val, rpv (matches the existing
-live combine loops). Values pass through each compute fn unchanged.
+Registry order is parity-critical: cpm, ndx, val, rpv. Values pass through each
+sleeve compute fn unchanged.
 """
 from __future__ import annotations
 
@@ -15,6 +9,8 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import pandas as pd
+
+from config import BASE_BLEND_WEIGHTS, SAHM_STRESS_BLEND_WEIGHTS
 
 
 @dataclass(frozen=True)
@@ -73,15 +69,88 @@ def _val_live(panel: pd.DataFrame, ndx_panel: pd.DataFrame, sig_d: pd.Timestamp)
                         rec.get("selected", []), {"record": rec})
 
 
-def live_registry() -> list[SleeveSpec]:
-    """Weights read fresh from config (single source). ORDER is parity-critical: cpm, ndx, val, rpv."""
-    from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
+BLEND_SLEEVES: tuple[str, ...] = ("cpm", "ndx", "val", "rpv")
+
+
+def get_blend_weights(sig_d: pd.Timestamp | None = None) -> dict[str, float]:
+    """Return active sleeve blend weights for a signal date.
+
+    sig_d=None keeps base production weights for backward compatibility.
+    """
+    if sig_d is None:
+        return dict(BASE_BLEND_WEIGHTS)
+
+    from data_loader import is_sahm_stress
+
+    if is_sahm_stress(pd.Timestamp(sig_d)):
+        return dict(SAHM_STRESS_BLEND_WEIGHTS)
+    return dict(BASE_BLEND_WEIGHTS)
+
+
+def live_registry(sig_d: pd.Timestamp | None = None) -> list[SleeveSpec]:
+    """Live sleeve specs with active blend weights. ORDER is parity-critical."""
+    weights = get_blend_weights(sig_d)
     return [
-        SleeveSpec("cpm", CPM_WEIGHT, "CPM sleeve", _cpm_live),
-        SleeveSpec("ndx", NDX_WEIGHT, "NDX sleeve", _ndx_live),
-        SleeveSpec("val", VAL_WEIGHT, "VAL sleeve", _val_live),
-        SleeveSpec("rpv", RPV_WEIGHT, "RPV sleeve", _rpv_live),
+        SleeveSpec("cpm", weights["cpm"], "CPM sleeve", _cpm_live),
+        SleeveSpec("ndx", weights["ndx"], "NDX sleeve", _ndx_live),
+        SleeveSpec("val", weights["val"], "VAL sleeve", _val_live),
+        SleeveSpec("rpv", weights["rpv"], "RPV sleeve", _rpv_live),
     ]
+
+
+def build_blend_weight_schedule(
+    index: pd.DatetimeIndex,
+    signal_dates: list[pd.Timestamp],
+    end: pd.Timestamp,
+) -> tuple[pd.DataFrame, list[tuple[pd.Timestamp, float]]]:
+    """Build daily T+1 sleeve-blend weights from monthly signal dates.
+
+    Returns (weights_df, turnover_events), where turnover_events contains
+    (apply_from, gross_abs_weight_change).
+    """
+    weights_df = pd.DataFrame(0.0, index=index, columns=list(BLEND_SLEEVES))
+    turnover_events: list[tuple[pd.Timestamp, float]] = []
+    prev_weights: dict[str, float] = {}
+
+    for i, sig_d in enumerate(signal_dates):
+        sig_d = pd.Timestamp(sig_d)
+        active_weights = get_blend_weights(sig_d)
+
+        future = index[index > sig_d]
+        if len(future) < 1:
+            continue
+        apply_from = future[0]
+
+        if i + 1 < len(signal_dates):
+            next_sig = pd.Timestamp(signal_dates[i + 1])
+            next_future = index[index > next_sig]
+            end_apply = next_future[0] if len(next_future) >= 1 else (pd.Timestamp(end) + pd.Timedelta(days=1))
+        else:
+            end_apply = pd.Timestamp(end) + pd.Timedelta(days=1)
+
+        mask = (index >= apply_from) & (index < end_apply)
+        for sleeve in BLEND_SLEEVES:
+            weights_df.loc[mask, sleeve] = active_weights.get(sleeve, 0.0)
+
+        keys = set(prev_weights) | set(active_weights)
+        turnover = sum(abs(active_weights.get(k, 0.0) - prev_weights.get(k, 0.0)) for k in keys)
+        turnover_events.append((apply_from, turnover))
+        prev_weights = active_weights
+
+    return weights_df, turnover_events
+
+
+def apply_blend_reallocation_cost(
+    blend_returns: pd.Series,
+    turnover_events: list[tuple[pd.Timestamp, float]],
+    cost_bps: float,
+) -> pd.Series:
+    """Deduct cross-sleeve reallocation cost at each rebalance apply date."""
+    out = blend_returns.copy()
+    for apply_from, turnover in turnover_events:
+        if apply_from in out.index:
+            out.loc[apply_from] -= turnover * cost_bps / 10000.0
+    return out
 
 
 def compute_live_blend(
@@ -89,13 +158,11 @@ def compute_live_blend(
 ) -> tuple[dict[str, float], dict[str, SleeveResult]]:
     """Return (combined: dict, results_by_name: dict[str, SleeveResult]).
 
-    Reproduces the existing two live combine loops byte-for-byte: same per-sleeve
-    calls, same iteration order (registry order cpm,ndx,val,rpv), same accumulation
-    combined[t] = combined.get(t, 0.0) + w * spec.weight.
+    Uses active blend weights for `sig_d` and combines sleeves in registry order.
     """
     results: dict[str, SleeveResult] = {}
     combined: dict[str, float] = {}
-    for spec in live_registry():
+    for spec in live_registry(sig_d):
         res = spec.live_getter(panel, ndx_panel, sig_d)
         results[spec.name] = res
         for t, w in res.weights.items():

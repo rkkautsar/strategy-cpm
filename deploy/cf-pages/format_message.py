@@ -16,7 +16,6 @@ from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 from rpv_live import compute_rpv_weights
 from core import cached_value_backtest
 
-from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
 
 
 def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:
@@ -26,6 +25,11 @@ def fmt_alloc(weights: dict, label: str, sleeve_weight: float = 1.0) -> str:
         if w > 0.001:
             lines.append(f"`  {ticker:<6}` {w*100*sleeve_weight:>5.1f}%")
     return "\n".join(lines)
+
+
+def _fmt_weight_pct(weight: float) -> str:
+    pct = weight * 100.0
+    return f"{pct:.1f}".rstrip("0").rstrip(".")
 
 
 def main() -> None:
@@ -41,7 +45,8 @@ def main() -> None:
     prior_cands = panel.index[panel.index <= prior_month_end]
     prior_sig_d = prior_cands[-1] if len(prior_cands) > 0 else None
 
-    from sleeves import compute_live_blend
+    from sleeves import compute_live_blend, get_blend_weights
+    blend_weights = get_blend_weights(sig_d)
     combined, res = compute_live_blend(panel, ndx_panel, sig_d)
     cpm_w, cpm_regime = res["cpm"].weights, res["cpm"].regime
     ndx_w, ndx_regime = res["ndx"].weights, res["ndx"].regime
@@ -86,13 +91,13 @@ def main() -> None:
                 parts.append(f"`  {action:<4} {ticker:<6}` {delta*100:+5.1f}%")
 
     parts.append("")
-    parts.append(fmt_alloc(cpm_w, "CPM sleeve (60%)", CPM_WEIGHT))
+    parts.append(fmt_alloc(cpm_w, f"CPM sleeve ({_fmt_weight_pct(blend_weights['cpm'])}%)", blend_weights["cpm"]))
     parts.append("")
-    parts.append(fmt_alloc(ndx_w, "NDX sleeve (15%)", NDX_WEIGHT))
+    parts.append(fmt_alloc(ndx_w, f"NDX sleeve ({_fmt_weight_pct(blend_weights['ndx'])}%)", blend_weights["ndx"]))
     parts.append("")
-    parts.append(fmt_alloc(val_w, "VAL sleeve (15%)", VAL_WEIGHT))
+    parts.append(fmt_alloc(val_w, f"VAL sleeve ({_fmt_weight_pct(blend_weights['val'])}%)", blend_weights["val"]))
     parts.append("")
-    parts.append(fmt_alloc(rpv_w, "RPV sleeve (10%)", RPV_WEIGHT))
+    parts.append(fmt_alloc(rpv_w, f"RPV sleeve ({_fmt_weight_pct(blend_weights['rpv'])}%)", blend_weights["rpv"]))
     parts.append("")
     parts.append(fmt_alloc(combined, "Combined portfolio (100%)"))
     parts.append("")

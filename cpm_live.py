@@ -71,8 +71,7 @@ COST_BPS_PER_SIDE = 10
 # last-valid >= EVAL_END for every required asset.
 EVAL_END = pd.Timestamp("2026-04-30")
 
-# Production blend weights.
-from config import CPM_WEIGHT, NDX_WEIGHT, VAL_WEIGHT, RPV_WEIGHT
+from config import CROSS_SLEEVE_REALLOCATION_COST_BPS
 
 # Benchmark-only constants for Naive 60/40 PP/SPY-trend in build_dashboard.py.
 PP_ASSETS = ["SPY", "IEF", "GLD", "SHV"]
@@ -577,7 +576,8 @@ def cmd_allocate(args):
     ndx_panel = load_ndx_panel()
 
     # Sleeve weights
-    from sleeves import compute_live_blend
+    from sleeves import compute_live_blend, get_blend_weights
+    blend_weights = get_blend_weights(sig_d)
     combined, res = compute_live_blend(panel, ndx_panel, sig_d)
     cpm_res, ndx_res, val_res, rpv_res = res["cpm"], res["ndx"], res["val"], res["rpv"]
     cpm_w, basket, cpm_regime, safe = cpm_res.weights, cpm_res.extra["basket"], cpm_res.regime, cpm_res.extra["safe"]
@@ -588,7 +588,7 @@ def cmd_allocate(args):
     print(f"CPM-NDX-VAL-RPV Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)
 
-    print(f"\n[CPM sleeve — {int(CPM_WEIGHT*100)}%]")
+    print(f"\n[CPM sleeve — {blend_weights['cpm']*100:.1f}%]")
     print(f"  Regime: {cpm_regime}")
     print(f"  Best safe: {safe}")
     if basket:
@@ -596,21 +596,21 @@ def cmd_allocate(args):
     for t, w in sorted(cpm_w.items(), key=lambda x: -x[1]):
         print(f"    {t:8s} {w*100:5.1f}%")
 
-    print(f"\n[NDX sleeve — {int(NDX_WEIGHT*100)}%]")
+    print(f"\n[NDX sleeve — {blend_weights['ndx']*100:.1f}%]")
     print(f"  Regime: {ndx_regime}")
     if ndx_diag.get("selected"):
         print(f"  Picks: {', '.join(ndx_diag['selected'])}")
     for t, w in sorted(ndx_w.items(), key=lambda x: -x[1]):
         print(f"    {t:8s} {w*100:5.1f}%")
 
-    print(f"\n[VAL sleeve — {int(VAL_WEIGHT*100)}%]")
+    print(f"\n[VAL sleeve — {blend_weights['val']*100:.1f}%]")
     print(f"  Regime: {val_regime}")
     if val_picks:
         print(f"  Picks: {', '.join(val_picks)}")
     for t, w in sorted(val_w.items(), key=lambda x: -x[1]):
         print(f"    {t:8s} {w*100:5.1f}%")
 
-    print(f"\n[RPV sleeve — {int(RPV_WEIGHT*100)}%]")
+    print(f"\n[RPV sleeve — {blend_weights['rpv']*100:.1f}%]")
     print(f"  Regime: {rpv_regime}")
     if rpv_diag.get("eligible"):
         print(f"  Picks: {', '.join(rpv_diag['eligible'])}")
@@ -650,12 +650,32 @@ def cmd_backtest(args):
     ndx = ndx.reindex(common).fillna(0.0)
     rpv = rpv.reindex(common).fillna(0.0)
     val = val.reindex(common).fillna(0.0)
-    blend = CPM_WEIGHT * cpm + NDX_WEIGHT * ndx + VAL_WEIGHT * val + RPV_WEIGHT * rpv
+
+    from sleeves import apply_blend_reallocation_cost, build_blend_weight_schedule
+
+    sigs = (
+        pd.DataFrame({"x": 1}, index=common)
+        .groupby(pd.Grouper(freq="ME"))
+        .tail(1)
+        .index.tolist()
+    )
+    blend_weights, blend_turnover = build_blend_weight_schedule(common, sigs, bt_end)
+    blend = (
+        blend_weights["cpm"] * cpm
+        + blend_weights["ndx"] * ndx
+        + blend_weights["val"] * val
+        + blend_weights["rpv"] * rpv
+    )
+    blend = apply_blend_reallocation_cost(
+        blend,
+        blend_turnover,
+        CROSS_SLEEVE_REALLOCATION_COST_BPS,
+    )
 
     print(f"\n{'Strategy':25s} {'CAGR':>8s} {'Vol':>7s} {'Sharpe':>7s} {'MaxDD':>8s}")
     print("-" * 60)
     for name, series in [
-        (f"PROD {int(CPM_WEIGHT*100)}/{int(NDX_WEIGHT*100)}/{int(VAL_WEIGHT*100)}/{int(RPV_WEIGHT*100)}", blend),
+        ("PROD dynamic (SAHMREALTIME R3-half)", blend),
         ("CPM sleeve", cpm),
         ("NDX sleeve", ndx),
         ("VAL sleeve", val),
