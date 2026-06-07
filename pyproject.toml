@@ -13,6 +13,7 @@ dependencies = [
     "requests>=2.31",
     "lxml>=6.1.1",
     "pyarrow>=24.0.0",
+    "markdown>=3.10.2",
 ]
 
 [project.optional-dependencies]

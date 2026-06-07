@@ -18,27 +18,21 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import sys
 import urllib.request
+
+import markdown
 
 API_URL = "https://api.resend.com/emails"
 
 
 def markdown_to_html(text: str) -> str:
-    """Tiny Markdown -> HTML converter for our specific message format.
-    Handles: *bold*, `code`, line breaks. No external deps."""
-    import html
-    out = html.escape(text)
-    # *bold*
-    import re
-    out = re.sub(r"\*([^*\n]+)\*", r"<strong>\1</strong>", out)
-    # `code`
-    out = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", out)
-    # _italic_
-    out = re.sub(r"(?<![A-Za-z0-9])_([^_\n]+)_(?![A-Za-z0-9])", r"<em>\1</em>", out)
-    # Line breaks
-    out = out.replace("\n", "<br>\n")
-    return out
+    """Render Telegram-style markdown as HTML for email clients."""
+    # Telegram markdown uses single *...* for bold, while CommonMark expects **...**.
+    # Convert only unescaped single-asterisk emphasis markers.
+    commonmark_text = re.sub(r"(?<!\\)(?<!\*)\*([^*\n]+)\*(?!\*)", r"**\1**", text)
+    return markdown.markdown(commonmark_text, extensions=["nl2br"])
 
 
 def main() -> int:
