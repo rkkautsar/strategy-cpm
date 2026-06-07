@@ -4,7 +4,7 @@
 
 Monthly rebalance, mooex execution (signal at month-end close, trade next-session open), no leverage, 10 bps per side base cost.
 
-- CPM (60%): cross-asset momentum on QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC. Self-de-risks via the breadth cliff on its top-4 picks: risky fraction 0% when <=2 positives, 50% at 3, 100% at 4; min-var 3-of-4 at full breadth; safe fraction routed to HAA best-of-safe (SHV/IEF).
+- CPM (60%): cross-asset momentum on QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC. Self-de-risks via the breadth cliff on its top-4 picks (risky fraction 0% when <=2 positives, 50% at 3, 100% at 4) and an additional CPI B1 inflation gate (hard cap to 0% risky fraction if lagged CPI YoY > 4% and lagged CPI YoY > 12-month MA); min-var 3-of-4 at full breadth; safe fraction routed to HAA best-of-safe (SHV/IEF).
 - NDX (15%): top-5 PIT Nasdaq-100 momentum sleeve, gated by TIP 13612U > 0, SPY 13612U > 0, and SPY RV20 < RV252.
 - VAL (15%): Nasdaq-100 fundamental value+quality stock-picking sleeve, gated by the same TIP-canary + SPY-trend + SPY-volatility activation model as NDX (routes to HAA best-of-safe when off).
 - RPV (10%): 5-premia macro value sleeve (term, IG, HY, equity, real-yield) over SPY/TLT/LQD/HYG/TIP + SHV.

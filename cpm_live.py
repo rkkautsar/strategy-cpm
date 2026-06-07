@@ -376,8 +376,29 @@ def compute_target_weights(
 
     positive_picks = list(positive.index)
     n_pos = len(positive_picks)
+
+    # CPI B1 macro gate check (lagged CPI YoY > 4% and rising vs 12-month MA)
+    from data_loader import _fetch_fred_series
+    cpi = _fetch_fred_series("CPIAUCSL", fallback_paths=[DATA_DIR / "fred_CPIAUCSL.csv"])
+    cpi_m = cpi.resample("ME").last()
+    cpi_yoy = 100.0 * (cpi_m / cpi_m.shift(12) - 1.0)
+    cpi_yoy_lagged = cpi_yoy.shift(1).reindex(monthly.index).ffill()
+    cpi_ma12 = cpi_yoy_lagged.rolling(12).mean()
+
+    is_stress = False
+    if sig_d in cpi_yoy_lagged.index:
+        val_lagged = cpi_yoy_lagged.loc[sig_d]
+        val_ma12 = cpi_ma12.loc[sig_d]
+        if pd.notna(val_lagged) and pd.notna(val_ma12):
+            is_stress = (val_lagged > 4.0) and (val_lagged > val_ma12)
+
+    cpi_frac = 0.0 if is_stress else 1.0
+
     # C1 cliff de-risk (replaces TIP canary): <=2 positive top-K picks -> 100% safe.
-    risky_fraction = CPM_RISKY_FRACTION_CURVE.get(min(n_pos, 4), 0.0)
+    breadth_frac = CPM_RISKY_FRACTION_CURVE.get(min(n_pos, 4), 0.0)
+    # Hard macro cap on CPM breadth: risky_fraction = min(breadth_frac, cpi_frac)
+    risky_fraction = min(breadth_frac, cpi_frac)
+
     if risky_fraction <= 1e-12:
         return {safe: 1.0}, None, "DEFENSIVE", safe
     if n_pos == TOP_K_CANDIDATES and risky_fraction == 1.0:

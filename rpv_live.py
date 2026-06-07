@@ -168,8 +168,8 @@ def compute_rpv_signals() -> pd.DataFrame:
     cpi = _fetch_fred_series("CPIAUCSL", fallback_paths=[DATA_DIR / "fred_CPIAUCSL.csv"])
     cpi_m = me(cpi)
     cpi_yoy = 100.0 * (cpi_m / cpi_m.shift(12) - 1.0)
-    # Live-tail robustness without look-ahead: use last released YoY CPI at each signal month.
-    cpi_yoy_last_known = cpi_yoy.reindex(dgs10_m.index).ffill()
+    # Live-tail robustness without look-ahead: shift by 1 month to use last released (M-1) CPI at each signal month.
+    cpi_yoy_last_known = cpi_yoy.shift(1).reindex(dgs10_m.index).ffill()
 
     rp = pd.DataFrame(
         {
