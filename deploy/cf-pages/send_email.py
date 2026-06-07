@@ -7,7 +7,7 @@ dashboard HTML if SEND_DASHBOARD_ATTACHMENT=1.
 
 Env vars:
     RESEND_API_KEY     - required, from resend.com
-    RESEND_FROM        - sender, default "CPM-BULL <onboarding@resend.dev>"
+    RESEND_FROM        - sender, default "CPM-NDX-VAL-RPV <onboarding@resend.dev>"
     RESEND_TO          - recipient email (required)
     DASHBOARD_URL      - link to put in email body (optional)
     SIGNAL_MESSAGE_FILE - path to formatted message (default signal_message.txt)
@@ -52,7 +52,7 @@ def main() -> int:
         print("ERR: RESEND_TO not set", file=sys.stderr)
         return 1
 
-    from_addr = os.environ.get("RESEND_FROM", "CPM-BULL <onboarding@resend.dev>")
+    from_addr = os.environ.get("RESEND_FROM", "CPM-NDX-VAL-RPV <onboarding@resend.dev>")
     msg_file = os.environ.get("SIGNAL_MESSAGE_FILE", "signal_message.txt")
     dashboard_url = os.environ.get("DASHBOARD_URL", "")
 
@@ -74,14 +74,14 @@ def main() -> int:
     )
 
     # Subject: extract signal date for inbox readability
-    subject = "CPM-BULL Monthly Signal"
+    subject = "CPM-NDX-VAL-RPV Monthly Signal"
     for line in body_md.splitlines():
         if line.startswith("Signal date:") or "Signal date" in line:
             # Pull the date out
             import re
             m = re.search(r"\d{4}-\d{2}-\d{2}", line)
             if m:
-                subject = f"CPM-BULL Signal · {m.group(0)}"
+                subject = f"CPM-NDX-VAL-RPV Signal · {m.group(0)}"
             break
 
     payload = {

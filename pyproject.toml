@@ -1,7 +1,7 @@
 [project]
 name = "strategy-cpm"
 version = "0.1.0"
-description = "CPM-BULL — two-sleeve monthly TAA strategy"
+description = "CPM-NDX-VAL-RPV — 4-sleeve monthly TAA strategy"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

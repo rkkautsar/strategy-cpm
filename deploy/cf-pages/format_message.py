@@ -48,7 +48,7 @@ def main() -> None:
     parts.append(f"📈 *CPM-NDX-VAL-RPV Monthly Signal*")
     parts.append(f"Signal date: `{sig_d.date()}` · Trade T+1 OPEN (MOO)")
     parts.append("")
-    parts.append(f"_CPM: {cpm_regime} · NDX: {ndx_regime} · VAL: {val_regime} · RPV: {rpv_regime}_")
+    parts.append(f"CPM: {cpm_regime} · NDX: {ndx_regime} · VAL: {val_regime} · RPV: {rpv_regime}")
     if val_picks:
         parts.append(f"_VAL picks: {', '.join(val_picks)}_")
     parts.append("")
