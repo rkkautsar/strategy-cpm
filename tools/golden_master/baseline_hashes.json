@@ -1,10 +1,10 @@
 {
   "allocate.txt": "8db7114988ba466c4829e9dff8cab5e2ccde5c13aa6cab90cf22b37e2bf4c899",
-  "blend.csv": "b6e596cd19b53ae860e4c5e455e2c587a5bd31001e4d4e511d16182d2fc68e48",
-  "blend_uncapped.csv": "b6e596cd19b53ae860e4c5e455e2c587a5bd31001e4d4e511d16182d2fc68e48",
+  "blend.csv": "659c234516b6d112c88d853cb9cb8105965892294694deddd3779e233a37e85d",
+  "blend_uncapped.csv": "659c234516b6d112c88d853cb9cb8105965892294694deddd3779e233a37e85d",
   "bull_cc.csv": "a55034eb6c1215ab2e32c15e171ef2a79e169418ed0af3bc9ce763d05b423d78",
   "cpm_cc.csv": "e23eb9d6fa21628e141b24692c43284c3493723d92908ee6d857c76964226325",
-  "cpm_dashboard.html": "98292af7fca29cc1f5bc3752a1aadfb4fc28f7f9f7790a51291ee696a5da3496",
+  "cpm_dashboard.html": "9685ed7362583b9aa81384d1cc6e89e8fa4966a4b2e3597946b4e95b2089c49b",
   "cpm_mooex.csv": "7df8759149efee845c901e5a5116013fa619a3e8a7859c97ab6bf4ffbd9aa8fd",
   "cpm_records.json": "95a37e7e91db77513160b24f6117faba7cbf26bb99d5ae1fe8399f1febca5645",
   "format_message.txt": "5455ca338f503676f9be960bb46a7134532eca4f3b1faab40503299abcd388d4",
@@ -15,6 +15,6 @@
   "rpv_cc.csv": "951387b8a082f1d56467bf46511fc8b1c0e5eb0e0989f55ebe97a1a6031c9cfd",
   "rpv_mooex.csv": "03be676357c389c61e1792b761d66e9fdb4c474e8bdb09c9cee8ab3ad2f85bae",
   "rpv_records.json": "1f0135759837515655dda7ab74cd8b12bab740b8ac77ff51829c53867906a1c6",
-  "val_mooex.csv": "ac98ac39a8c31eb1b88afb90cf7e9fb6c24074a819a10285ddd8c81fe1079b75",
-  "val_records.json": "7bec109fc28f5cc7087bebda58b2ff60dec31b0109e501afb06059ea38d7f3ce"
+  "val_mooex.csv": "505f93b4f48f8a6251a1264afda0e4a1d1a0088b0ac117145a819daa1381939d",
+  "val_records.json": "873073433e552213cdac51ac8e30d2a08d01dccbc43f1cfc2a47ae20d0029b1b"
 }

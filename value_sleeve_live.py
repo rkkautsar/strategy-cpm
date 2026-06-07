@@ -9,7 +9,7 @@ Spec:
      and QUALITY (Gross profitability, ROE, Neg leverage, Accrual flag) EW z-scores.
   4. Selection: Top-half by QUALITY, then cheapest by VALUE.
   5. Trend Filter: Stateful he5_te0 band (ENTER > 1.05 * SMA10m, HOLD >= 1.00 * SMA10m)
-     plus held-name QUALITY re-screen (drop held if QUALITY < monthly Q25 of candidate set).
+     plus held-name QUALITY re-screen (drop held if QUALITY < monthly Q20 of candidate set).
   6. Sizing/Gate: Equal weight 1/K (K=5). Gate OFF -> 100% best-of-safe.
   7. Execution: T+1 OPEN (MOO), 10 bps transaction cost per side, 10% delisting haircut.
 """
@@ -245,11 +245,11 @@ def trend_info(ds: pd.Series) -> tuple[float, float]:
 
 
 def apply_stateful_trend_band(ftab: pd.DataFrame, trend: dict, state: dict, K_select: int = SELECT_K) -> list[str]:
-    """Stateful high-entry/tight-exit (he5_te0) trend logic + held-name QUALITY<Q25 re-screen."""
+    """Stateful high-entry/tight-exit (he5_te0) trend logic + held-name QUALITY<Q20 re-screen."""
     if ftab.empty:
         return []
     valid = set(ftab.index)
-    q25 = ftab["QUALITY"].quantile(0.25)
+    q20 = ftab["QUALITY"].quantile(0.20)
     H = state.get("H", [])
     kept = []
     for t in H:
@@ -257,7 +257,7 @@ def apply_stateful_trend_band(ftab: pd.DataFrame, trend: dict, state: dict, K_se
             p, sma = trend[t]
             if pd.notna(sma) and p >= sma:
                 q = ftab.loc[t, "QUALITY"]
-                if q < q25:
+                if q < q20:
                     continue
                 kept.append(t)
     pool = valqual_order(ftab, K_select)

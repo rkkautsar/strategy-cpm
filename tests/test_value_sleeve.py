@@ -147,29 +147,30 @@ def test_stateful_trend_band_transitions():
     assert state["H"] == picks_next
 
 
-def test_soft_q25_rescreen_on_held_names():
-    """Held name is dropped only when QUALITY < monthly Q25; ==Q25 is kept."""
+def test_soft_q20_rescreen_on_held_names():
+    """Held name is dropped only when QUALITY < monthly Q20; ==Q20 is kept."""
     ftab = pd.DataFrame(
         {
-            "VALUE": [5.0, 4.0, 3.0, 2.0, 1.0],
-            "QUALITY": [1.0, 0.0, -1.0, -2.0, -3.0],
+            "VALUE": [6.0, 5.0, 4.0, 3.0, 2.0, 1.0],
+            "QUALITY": [2.0, 1.0, 0.0, -1.0, -2.0, -3.0],
         },
-        index=["A", "B", "C", "D", "E"],
+        index=["A", "B", "C", "D", "E", "F"],
     )
     trend = {
         "A": (106.0, 100.0),
         "B": (104.0, 100.0),
         "C": (104.0, 100.0),
-        "D": (101.0, 100.0),
+        "D": (104.0, 100.0),
         "E": (101.0, 100.0),
+        "F": (101.0, 100.0),
     }
-    state = {"H": ["D", "E"]}
+    state = {"H": ["E", "F"]}
 
     picks = val.apply_stateful_trend_band(ftab, trend, state, K_select=3)
 
-    # Q25 is -2.0 for this cross-section: D(=-2.0) stays, E(<-2.0) drops.
-    assert picks == ["D", "A"]
-    assert state["H"] == ["D", "A"]
+    # Q20 is -2.0 for this cross-section: E(=-2.0) stays, F(<-2.0) drops.
+    assert picks == ["E", "A"]
+    assert state["H"] == ["E", "A"]
 
 
 def test_partial_fill():
@@ -260,7 +261,7 @@ def test_standalone_regression_metrics():
     cpm_panel = load_panel(start=pd.Timestamp("2000-01-01"))
     ndx_panel = load_ndx_panel()
     
-    start = pd.Timestamp("2010-06-01")
+    start = pd.Timestamp("2001-08-30")
     end = pd.Timestamp("2026-04-30")
     
     rets, hist = val.run_value_backtest(cpm_panel, ndx_panel, start, end)
@@ -272,9 +273,9 @@ def test_standalone_regression_metrics():
     sharpe = (rets.mean() * 252) / vol
     maxdd = (eq / eq.cummax() - 1).min()
     
-    assert np.isclose(cagr, 0.2482, atol=1e-3)
-    assert np.isclose(sharpe, 1.65, atol=2e-2)
-    assert np.isclose(maxdd, -0.1470, atol=1e-3)
+    assert np.isclose(cagr, 0.187122, atol=1e-3)
+    assert np.isclose(sharpe, 1.3864, atol=2e-2)
+    assert np.isclose(maxdd, -0.166333, atol=1e-3)
 
 
 if __name__ == "__main__":
