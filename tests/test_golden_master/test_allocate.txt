@@ -1,0 +1,51 @@
+CPM-NDX-VAL-RPV Allocation @ 2026-04-30 (signal date)
+============================================================
+
+[CPM sleeve — 60%]
+  Regime: RISK_ON
+  Best safe: SHV
+  Selected risky basket: DBC + QQQ + SPHQ
+    DBC       33.3%
+    QQQ       33.3%
+    SPHQ      33.3%
+
+[NDX sleeve — 15%]
+  Regime: NDX_ACTIVE
+  Picks: SNDK, WDC, STX, MU, INTC
+    SNDK      20.0%
+    WDC       20.0%
+    STX       20.0%
+    MU        20.0%
+    INTC      20.0%
+
+[VAL sleeve — 15%]
+  Regime: VAL_ACTIVE
+  Picks: GOOGL, BKR, GILD, WBD, ROST
+    GOOGL     20.0%
+    BKR       20.0%
+    GILD      20.0%
+    WBD       20.0%
+    ROST      20.0%
+
+[RPV sleeve — 10%]
+  Regime: WEIGHTED_GUARDED
+  Picks: TIP
+    TIP      100.0%
+
+[Combined target — 100%]
+    DBC       20.0%
+    QQQ       20.0%
+    SPHQ      20.0%
+    TIP       10.0%
+    SNDK       3.0%
+    WDC        3.0%
+    STX        3.0%
+    MU         3.0%
+    INTC       3.0%
+    GOOGL      3.0%
+    BKR        3.0%
+    GILD       3.0%
+    WBD        3.0%
+    ROST       3.0%
+
+  Weight sum: 1.000000

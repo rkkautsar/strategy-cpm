@@ -1,0 +1,4982 @@
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off
+    rv_20: 0.1346168569508351
+    rv_252: 0.1929177827781991
+    selected: []
+    spy_sig: -0.010968082068018581
+    tip_sig: 0.04009084417363354
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-05-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off
+    rv_20: 0.1920149618879346
+    rv_252: 0.19652722361321937
+    selected: []
+    spy_sig: -0.0892507540608132
+    tip_sig: 0.059241617733403085
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-06-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.22200050580873765
+    rv_252: 0.2006352582961438
+    selected: []
+    spy_sig: -0.06666842200277773
+    tip_sig: 0.03636328341554204
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-07-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.20030707947658652
+    rv_252: 0.19756934873085258
+    selected: []
+    spy_sig: -0.050025363550659036
+    tip_sig: 0.039827861014646915
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-08-29 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.4925176561168673
+    rv_252: 0.23604635519147493
+    selected: []
+    spy_sig: -0.12946881319425996
+    tip_sig: -0.011249458282267893
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-09-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.9591734290980833
+    rv_252: 0.35341261485681963
+    selected: []
+    spy_sig: -0.26249310168039064
+    tip_sig: -0.08031571608136268
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-10-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.6910560111950961
+    rv_252: 0.3949499700986576
+    selected: []
+    spy_sig: -0.2745844889564487
+    tip_sig: -0.06350724841551186
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-11-28 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off
+    rv_20: 0.32713841352025713
+    rv_252: 0.41369008708367716
+    selected: []
+    spy_sig: -0.21472274586566112
+    tip_sig: 0.0005890639326820435
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2008-12-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off
+    rv_20: 0.3873910698836053
+    rv_252: 0.42260051894400363
+    selected: []
+    spy_sig: -0.2350199145825388
+    tip_sig: -0.0015165592910543757
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2009-01-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off
+    rv_20: 0.3393112992735156
+    rv_252: 0.4305010558530284
+    selected: []
+    spy_sig: -0.2830908230918453
+    tip_sig: -0.030763380507511373
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2009-02-27 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.46496608658195776
+    rv_252: 0.4444122493977795
+    selected: []
+    spy_sig: -0.17866701448049313
+    tip_sig: 0.026089871705974405
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2009-03-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off
+    rv_20: 0.2973550292859072
+    rv_252: 0.4512820828135792
+    selected: []
+    spy_sig: -0.06802350239473107
+    tip_sig: 0.018806273263060835
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2009-04-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.4042962948017119
+      EXPE: 0.5545704949639432
+      STLD: 0.3193761234238709
+      STX: 0.3995034033884125
+      TCOM: 0.45868370177488815
+    n_candidates: 54
+    ndx_gate_on: true
+    rv_20: 0.2758378079577974
+    rv_252: 0.4559733737375712
+    selected:
+    - EXPE
+    - TCOM
+    - BIDU
+    - STX
+    - STLD
+    spy_sig: 0.009616394725102395
+    tip_sig: 0.04686547289871362
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2009-05-29 00:00:00'
+  weights:
+    BIDU: 0.2
+    EXPE: 0.2
+    STLD: 0.2
+    STX: 0.2
+    TCOM: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: spy_trend_off
+    rv_20: 0.1885680379831789
+    rv_252: 0.4562838539447718
+    selected: []
+    spy_sig: -0.016978279995696538
+    tip_sig: 0.007810234991160292
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2009-06-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.5893754676762181
+      EXPE: 0.5674231186850807
+      ISRG: 0.4757195845016882
+      STX: 0.6630383009226309
+      TCOM: 0.5856672802325267
+    n_candidates: 57
+    ndx_gate_on: true
+    rv_20: 0.17482611152574346
+    rv_252: 0.45586188860689103
+    selected:
+    - STX
+    - BIDU
+    - TCOM
+    - EXPE
+    - ISRG
+    spy_sig: 0.05490607347320681
+    tip_sig: 0.014409962985308972
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2009-07-31 00:00:00'
+  weights:
+    BIDU: 0.2
+    EXPE: 0.2
+    ISRG: 0.2
+    STX: 0.2
+    TCOM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      EXPE: 0.6604734703976753
+      FLEX: 0.5388936057121172
+      GRMN: 0.4183844190981816
+      SBUX: 0.42209829765804424
+      STX: 0.7281977959949736
+    n_candidates: 61
+    ndx_gate_on: true
+    rv_20: 0.15909797919497853
+    rv_252: 0.45491677760610616
+    selected:
+    - STX
+    - EXPE
+    - FLEX
+    - SBUX
+    - GRMN
+    spy_sig: 0.0928110839215619
+    tip_sig: 0.02162831749333094
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2009-08-31 00:00:00'
+  weights:
+    EXPE: 0.2
+    FLEX: 0.2
+    GRMN: 0.2
+    SBUX: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      EXPE: 0.7116984466596084
+      FLEX: 0.6748890576701629
+      ISRG: 0.654579259984902
+      STX: 0.5921076690693181
+      WYNN: 0.9339976008565978
+    n_candidates: 66
+    ndx_gate_on: true
+    rv_20: 0.12756067182447522
+    rv_252: 0.43603455684668846
+    selected:
+    - WYNN
+    - EXPE
+    - FLEX
+    - ISRG
+    - STX
+    spy_sig: 0.11622900449199575
+    tip_sig: 0.03500458080559882
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2009-09-30 00:00:00'
+  weights:
+    EXPE: 0.2
+    FLEX: 0.2
+    ISRG: 0.2
+    STX: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMZN: 0.5522896479423199
+      BKNG: 0.6980485252642151
+      CTSH: 0.4695105515409219
+      EXPE: 0.522672266351981
+      STX: 0.47395396838508064
+    n_candidates: 56
+    ndx_gate_on: true
+    rv_20: 0.2032531989013894
+    rv_252: 0.3495963537322748
+    selected:
+    - BKNG
+    - AMZN
+    - EXPE
+    - STX
+    - CTSH
+    spy_sig: 0.08201667343301486
+    tip_sig: 0.06980013170001764
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2009-10-30 00:00:00'
+  weights:
+    AMZN: 0.2
+    BKNG: 0.2
+    CTSH: 0.2
+    EXPE: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMZN: 0.9358662477375987
+      BIDU: 0.8245273454355986
+      BKNG: 0.9488385879422012
+      STX: 0.8840727767835264
+      TCOM: 0.9530283547918756
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.15256522234187256
+    rv_252: 0.2961599967446727
+    selected:
+    - TCOM
+    - BKNG
+    - AMZN
+    - STX
+    - BIDU
+    spy_sig: 0.14806508691399095
+    tip_sig: 0.08662166775746483
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2009-11-30 00:00:00'
+  weights:
+    AMZN: 0.2
+    BIDU: 0.2
+    BKNG: 0.2
+    STX: 0.2
+    TCOM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BKNG: 0.8151637324239163
+      EXPE: 0.72738821947341
+      MRVL: 0.8802253367795811
+      STX: 1.0689223424220824
+      VMED: 0.8510690123484107
+    n_candidates: 63
+    ndx_gate_on: true
+    rv_20: 0.10096829175175459
+    rv_252: 0.2663352732577224
+    selected:
+    - STX
+    - MRVL
+    - VMED
+    - BKNG
+    - EXPE
+    spy_sig: 0.14199876906843933
+    tip_sig: 0.033689065932777124
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2009-12-31 00:00:00'
+  weights:
+    BKNG: 0.2
+    EXPE: 0.2
+    MRVL: 0.2
+    STX: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.617606955527885
+      BKNG: 0.6378287267525806
+      ISRG: 0.7584925813445373
+      STX: 0.987034877052693
+      VMED: 0.5855826329838655
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.164823530844558
+    rv_252: 0.24836621933580622
+    selected:
+    - STX
+    - ISRG
+    - BKNG
+    - BIDU
+    - VMED
+    spy_sig: 0.10765947315406185
+    tip_sig: 0.05176417622727747
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-01-29 00:00:00'
+  weights:
+    BIDU: 0.2
+    BKNG: 0.2
+    ISRG: 0.2
+    STX: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.8810389190883019
+      ISRG: 0.9176676601608098
+      STX: 1.1438016362118266
+      TCOM: 0.9123792095600674
+      VMED: 0.7330743954474795
+    n_candidates: 65
+    ndx_gate_on: true
+    rv_20: 0.17593259100949654
+    rv_252: 0.2334030315898618
+    selected:
+    - STX
+    - ISRG
+    - TCOM
+    - BIDU
+    - VMED
+    spy_sig: 0.16707059845285716
+    tip_sig: 0.03136100162553668
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-02-26 00:00:00'
+  weights:
+    BIDU: 0.2
+    ISRG: 0.2
+    STX: 0.2
+    TCOM: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.8774802682152179
+      BKNG: 0.7667468685598886
+      ISRG: 0.7820832863593403
+      VMED: 0.7316893678161861
+      WYNN: 0.9159417425300871
+    n_candidates: 66
+    ndx_gate_on: true
+    rv_20: 0.07570522352212064
+    rv_252: 0.18757233881986674
+    selected:
+    - WYNN
+    - BIDU
+    - ISRG
+    - BKNG
+    - VMED
+    spy_sig: 0.1836384690377762
+    tip_sig: 0.019067701264863846
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-03-31 00:00:00'
+  weights:
+    BIDU: 0.2
+    BKNG: 0.2
+    ISRG: 0.2
+    VMED: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.4826188128909662
+      BIDU: 0.902164695791218
+      BKNG: 0.6822198975947222
+      ISRG: 0.5267433316725625
+      WYNN: 0.6766914144332297
+    n_candidates: 66
+    ndx_gate_on: true
+    rv_20: 0.15289723798745428
+    rv_252: 0.17283448053093994
+    selected:
+    - BIDU
+    - BKNG
+    - WYNN
+    - ISRG
+    - AAPL
+    spy_sig: 0.16772185012571855
+    tip_sig: 0.04282228979144331
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-04-30 00:00:00'
+  weights:
+    AAPL: 0.2
+    BIDU: 0.2
+    BKNG: 0.2
+    ISRG: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.3202890423437382
+    rv_252: 0.17975166484436145
+    selected: []
+    spy_sig: 0.0305603292030959
+    tip_sig: 0.02941948743873457
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2010-05-28 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.24171142549485952
+    rv_252: 0.18611579279129523
+    selected: []
+    spy_sig: -0.021693179936644158
+    tip_sig: 0.04702744865163011
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2010-06-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.20008958973021698
+    rv_252: 0.1854960015381131
+    selected: []
+    spy_sig: 0.043537442580948715
+    tip_sig: 0.030769588045432478
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2010-07-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off
+    rv_20: 0.160205694064069
+    rv_252: 0.18692134229179008
+    selected: []
+    spy_sig: -0.01764755966127582
+    tip_sig: 0.052043346535076807
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2010-08-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMZN: 0.3836985491389756
+      BIDU: 0.7897292945750879
+      BKNG: 0.6587436580404947
+      NTAP: 0.49095977088504406
+      VMED: 0.3707414080622402
+    n_candidates: 51
+    ndx_gate_on: true
+    rv_20: 0.1290045486507447
+    rv_252: 0.18797922700018366
+    selected:
+    - BIDU
+    - BKNG
+    - NTAP
+    - AMZN
+    - VMED
+    spy_sig: 0.07219087119831838
+    tip_sig: 0.04665049997592208
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-09-30 00:00:00'
+  weights:
+    AMZN: 0.2
+    BIDU: 0.2
+    BKNG: 0.2
+    NTAP: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.7327523695677489
+      BKNG: 0.646724415314084
+      NTAP: 0.45821139603512917
+      TCOM: 0.43859316264931997
+      WYNN: 0.44836676567482486
+    n_candidates: 57
+    ndx_gate_on: true
+    rv_20: 0.1058773284191676
+    rv_252: 0.18248577253888199
+    selected:
+    - BIDU
+    - BKNG
+    - NTAP
+    - WYNN
+    - TCOM
+    spy_sig: 0.07317195408229016
+    tip_sig: 0.061318222137934975
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-10-29 00:00:00'
+  weights:
+    BIDU: 0.2
+    BKNG: 0.2
+    NTAP: 0.2
+    TCOM: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.537798847441204
+      BKNG: 0.5748328114047594
+      EXPD: 0.3693375971980075
+      ILMN: 0.5044021423574903
+      WYNN: 0.3441827109348929
+    n_candidates: 53
+    ndx_gate_on: true
+    rv_20: 0.15295542659317066
+    rv_252: 0.17975870850884926
+    selected:
+    - BKNG
+    - BIDU
+    - ILMN
+    - EXPD
+    - WYNN
+    spy_sig: 0.0811523760379339
+    tip_sig: 0.024467906698351083
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-11-30 00:00:00'
+  weights:
+    BIDU: 0.2
+    BKNG: 0.2
+    EXPD: 0.2
+    ILMN: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BKNG: 0.5633884358659547
+      FFIV: 0.6490583103650768
+      ILMN: 0.4651458537258234
+      NFLX: 0.6858175843971397
+      WYNN: 0.4319977110727054
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.04353787420519956
+    rv_252: 0.17929557496214432
+    selected:
+    - NFLX
+    - FFIV
+    - BKNG
+    - ILMN
+    - WYNN
+    spy_sig: 0.13906459738035665
+    tip_sig: 0.014759748410572843
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2010-12-31 00:00:00'
+  weights:
+    BKNG: 0.2
+    FFIV: 0.2
+    ILMN: 0.2
+    NFLX: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.5214174133454669
+      BKNG: 0.5782413006661425
+      ILMN: 0.4520229932238038
+      NFLX: 0.9946090699403405
+      NVDA: 0.9250867505780995
+    n_candidates: 63
+    ndx_gate_on: true
+    rv_20: 0.10211642052678536
+    rv_252: 0.1749013625149835
+    selected:
+    - NFLX
+    - NVDA
+    - BKNG
+    - BIDU
+    - ILMN
+    spy_sig: 0.12903834879540854
+    tip_sig: 0.00904120873642697
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2011-01-31 00:00:00'
+  weights:
+    BIDU: 0.2
+    BKNG: 0.2
+    ILMN: 0.2
+    NFLX: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.5373620222143002
+      KLAC: 0.48328278082944126
+      NFLX: 0.6861581069368051
+      NVDA: 0.6099416114309459
+      WYNN: 0.5044809612606003
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.11537863091667684
+    rv_252: 0.17177259451582352
+    selected:
+    - NFLX
+    - NVDA
+    - BIDU
+    - WYNN
+    - KLAC
+    spy_sig: 0.16703888005898765
+    tip_sig: 0.01905016626318823
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2011-02-28 00:00:00'
+  weights:
+    BIDU: 0.2
+    KLAC: 0.2
+    NFLX: 0.2
+    NVDA: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.5540878239240637
+      BKNG: 0.4558086593661564
+      ILMN: 0.33534461181700903
+      NFLX: 0.7986900611589435
+      WYNN: 0.415288672144942
+    n_candidates: 58
+    ndx_gate_on: true
+    rv_20: 0.1522326166239874
+    rv_252: 0.17699653233008164
+    selected:
+    - NFLX
+    - BIDU
+    - BKNG
+    - WYNN
+    - ILMN
+    spy_sig: 0.0969441400762116
+    tip_sig: 0.030919312465587157
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2011-03-31 00:00:00'
+  weights:
+    BIDU: 0.2
+    BKNG: 0.2
+    ILMN: 0.2
+    NFLX: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.48767440414295443
+      BIIB: 0.552557764886676
+      BKNG: 0.4739325763851945
+      NFLX: 0.43960534440105536
+      WYNN: 0.43356843611332463
+    n_candidates: 56
+    ndx_gate_on: true
+    rv_20: 0.08833880772351221
+    rv_252: 0.1736690764187007
+    selected:
+    - BIIB
+    - BIDU
+    - BKNG
+    - NFLX
+    - WYNN
+    spy_sig: 0.10684860719638994
+    tip_sig: 0.03930205163391759
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2011-04-29 00:00:00'
+  weights:
+    BIDU: 0.2
+    BIIB: 0.2
+    BKNG: 0.2
+    NFLX: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIIB: 0.4582871108912224
+      BKNG: 0.5198507491566817
+      EA: 0.4059179088961485
+      NFLX: 0.5564324258448744
+      VMED: 0.3935696040076885
+    n_candidates: 57
+    ndx_gate_on: true
+    rv_20: 0.11011100193263812
+    rv_252: 0.15026280630860298
+    selected:
+    - NFLX
+    - BKNG
+    - BIIB
+    - EA
+    - VMED
+    spy_sig: 0.10342655620900387
+    tip_sig: 0.038082800971747544
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2011-05-31 00:00:00'
+  weights:
+    BIIB: 0.2
+    BKNG: 0.2
+    EA: 0.2
+    NFLX: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.15352961778678723
+    rv_252: 0.13973227041446729
+    selected: []
+    spy_sig: 0.08670537158767136
+    tip_sig: 0.04239501555508268
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2011-06-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.15627294313032808
+    rv_252: 0.1351701695035208
+    selected: []
+    spy_sig: 0.035863478592181086
+    tip_sig: 0.0754701382859384
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2011-07-29 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.4860296129696275
+    rv_252: 0.1826305696263668
+    selected: []
+    spy_sig: -0.008537647749410238
+    tip_sig: 0.06454830974307635
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2011-08-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.29637806035808384
+    rv_252: 0.19732154918140232
+    selected: []
+    spy_sig: -0.08360482895267962
+    tip_sig: 0.055504648106773136
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2011-09-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.2691257712951549
+    rv_252: 0.21263199951517728
+    selected: []
+    spy_sig: 0.02350012547431854
+    tip_sig: 0.05421051298578411
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2011-10-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.2966081393101294
+    rv_252: 0.22468060365832315
+    selected: []
+    spy_sig: 0.008917106075622017
+    tip_sig: 0.056895909301304226
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2011-11-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      FAST: 0.26716105465398055
+      GRMN: 0.23625824198765555
+      ISRG: 0.34449772851367705
+      MNST: 0.23889431625578111
+      ROST: 0.24779685594484596
+    n_candidates: 42
+    ndx_gate_on: true
+    rv_20: 0.1933733062457693
+    rv_252: 0.2301700145098529
+    selected:
+    - ISRG
+    - FAST
+    - ROST
+    - MNST
+    - GRMN
+    spy_sig: 0.026883964874645477
+    tip_sig: 0.05923770814460788
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2011-12-30 00:00:00'
+  weights:
+    FAST: 0.2
+    GRMN: 0.2
+    ISRG: 0.2
+    MNST: 0.2
+    ROST: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIIB: 0.26122164073393395
+      FAST: 0.33702682940041484
+      MNST: 0.3791255436612477
+      ROST: 0.2890521866489631
+      STX: 0.43423742430599815
+    n_candidates: 53
+    ndx_gate_on: true
+    rv_20: 0.08733240375330174
+    rv_252: 0.22985506296551436
+    selected:
+    - STX
+    - MNST
+    - FAST
+    - ROST
+    - BIIB
+    spy_sig: 0.04210664568691108
+    tip_sig: 0.06735598443759316
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-01-31 00:00:00'
+  weights:
+    BIIB: 0.2
+    FAST: 0.2
+    MNST: 0.2
+    ROST: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.3882166462546788
+      FAST: 0.42653220115123447
+      FOSL: 0.37424648342669314
+      MNST: 0.4155259291263358
+      STX: 0.8205021024228293
+    n_candidates: 55
+    ndx_gate_on: true
+    rv_20: 0.08351428326670537
+    rv_252: 0.2282938093650099
+    selected:
+    - STX
+    - FAST
+    - MNST
+    - AAPL
+    - FOSL
+    spy_sig: 0.08282521418128286
+    tip_sig: 0.050418419423943456
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-02-29 00:00:00'
+  weights:
+    AAPL: 0.2
+    FAST: 0.2
+    FOSL: 0.2
+    MNST: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.4695690983910569
+      BKNG: 0.42287116994184565
+      FOSL: 0.445625363217243
+      MNST: 0.4794945895996177
+      STX: 0.8300816119353058
+    n_candidates: 64
+    ndx_gate_on: true
+    rv_20: 0.11798113919960712
+    rv_252: 0.226241800879396
+    selected:
+    - STX
+    - MNST
+    - AAPL
+    - FOSL
+    - BKNG
+    spy_sig: 0.12530597938163324
+    tip_sig: 0.03909770345942826
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-03-30 00:00:00'
+  weights:
+    AAPL: 0.2
+    BKNG: 0.2
+    FOSL: 0.2
+    MNST: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BKNG: 0.3466604931071509
+      MNST: 0.4287991192786547
+      ORLY: 0.4056955760081868
+      ROST: 0.3422187604195976
+      STX: 0.6039983391947815
+    n_candidates: 46
+    ndx_gate_on: true
+    rv_20: 0.14408267157370222
+    rv_252: 0.22836535762584823
+    selected:
+    - STX
+    - MNST
+    - ORLY
+    - BKNG
+    - ROST
+    spy_sig: 0.05908690425377358
+    tip_sig: 0.042119474043774585
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-04-30 00:00:00'
+  weights:
+    BKNG: 0.2
+    MNST: 0.2
+    ORLY: 0.2
+    ROST: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off
+    rv_20: 0.13209085933948347
+    rv_252: 0.2287120880889506
+    selected: []
+    spy_sig: -0.009536156193291262
+    tip_sig: 0.05721075887347832
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2012-05-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.2916744352707775
+      DLTR: 0.27284569514818274
+      EXPE: 0.3227618706761552
+      MNST: 0.35800595795947265
+      STX: 0.2784006891117094
+    n_candidates: 38
+    ndx_gate_on: true
+    rv_20: 0.18607774561523455
+    rv_252: 0.23234554145407363
+    selected:
+    - MNST
+    - EXPE
+    - AAPL
+    - STX
+    - DLTR
+    spy_sig: 0.0400509573875619
+    tip_sig: 0.04498794150402374
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-06-29 00:00:00'
+  weights:
+    AAPL: 0.2
+    DLTR: 0.2
+    EXPE: 0.2
+    MNST: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.2484456687863415
+      AMGN: 0.26773734521454395
+      EXPE: 0.3821387238765613
+      ROST: 0.3080265349724779
+      STX: 0.4730178679384728
+    n_candidates: 40
+    ndx_gate_on: true
+    rv_20: 0.1441748144870112
+    rv_252: 0.23164265614248206
+    selected:
+    - STX
+    - EXPE
+    - ROST
+    - AMGN
+    - AAPL
+    spy_sig: 0.036904849639681464
+    tip_sig: 0.043851746070197706
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-07-31 00:00:00'
+  weights:
+    AAPL: 0.2
+    AMGN: 0.2
+    EXPE: 0.2
+    ROST: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.30450629232588833
+      EBAY: 0.287194830187984
+      ROST: 0.31756821011096986
+      STX: 0.6429471023051315
+      VRSN: 0.28540726049703696
+    n_candidates: 51
+    ndx_gate_on: true
+    rv_20: 0.0600756819413357
+    rv_252: 0.188639105940025
+    selected:
+    - STX
+    - ROST
+    - AAPL
+    - EBAY
+    - VRSN
+    spy_sig: 0.08097937871810762
+    tip_sig: 0.03174612717863953
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-08-31 00:00:00'
+  weights:
+    AAPL: 0.2
+    EBAY: 0.2
+    ROST: 0.2
+    STX: 0.2
+    VRSN: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BBBY: 0.44448978086545865
+      EXPE: 0.40313031162038
+      GILD: 0.37758498589897244
+      SIRI: 0.3150394693283557
+      STX: 0.6330656816530313
+    n_candidates: 49
+    ndx_gate_on: true
+    rv_20: 0.11392261353896746
+    rv_252: 0.17405563360972118
+    selected:
+    - STX
+    - BBBY
+    - EXPE
+    - GILD
+    - SIRI
+    spy_sig: 0.10541916803686202
+    tip_sig: 0.041636916496139376
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-09-28 00:00:00'
+  weights:
+    BBBY: 0.2
+    EXPE: 0.2
+    GILD: 0.2
+    SIRI: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BBBY: 0.9147653943616489
+      CMCSA: 0.27369620009738743
+      EXPE: 0.250803467302958
+      GILD: 0.2883342451809911
+      SIRI: 0.29514036812621236
+    n_candidates: 35
+    ndx_gate_on: true
+    rv_20: 0.10899411520939707
+    rv_252: 0.15539644229944538
+    selected:
+    - BBBY
+    - SIRI
+    - GILD
+    - CMCSA
+    - EXPE
+    spy_sig: 0.046341644424744755
+    tip_sig: 0.032226799276286966
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-10-31 00:00:00'
+  weights:
+    BBBY: 0.2
+    CMCSA: 0.2
+    EXPE: 0.2
+    GILD: 0.2
+    SIRI: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.15195778772075774
+    rv_252: 0.1398238166488549
+    selected: []
+    spy_sig: 0.06808281498790003
+    tip_sig: 0.030644843858021686
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2012-11-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BBBY: 0.5551875879818038
+      EXPE: 0.3817252915854715
+      REGN: 0.6683784627862845
+      STX: 0.365094557945095
+      VMED: 0.37993406956416464
+    n_candidates: 52
+    ndx_gate_on: true
+    rv_20: 0.11581163294301905
+    rv_252: 0.1273540567481395
+    selected:
+    - REGN
+    - BBBY
+    - EXPE
+    - VMED
+    - STX
+    spy_sig: 0.05610667027547939
+    tip_sig: 0.020783690252028836
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2012-12-31 00:00:00'
+  weights:
+    BBBY: 0.2
+    EXPE: 0.2
+    REGN: 0.2
+    STX: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BBBY: 0.3715350284940965
+      EXPE: 0.3475460679845924
+      GILD: 0.3289276744150926
+      REGN: 0.36132287885220854
+      VMED: 0.34132689613812156
+    n_candidates: 59
+    ndx_gate_on: true
+    rv_20: 0.055052453142565065
+    rv_252: 0.12777624353385925
+    selected:
+    - BBBY
+    - REGN
+    - EXPE
+    - VMED
+    - GILD
+    spy_sig: 0.0959091024156537
+    tip_sig: 0.005672826634072176
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2013-01-31 00:00:00'
+  weights:
+    BBBY: 0.2
+    EXPE: 0.2
+    GILD: 0.2
+    REGN: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.1307404147330291
+    rv_252: 0.1306115630247344
+    selected: []
+    spy_sig: 0.0763272972776361
+    tip_sig: 0.009636460063675745
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-02-28 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BBBY: 0.3653778978339049
+      BIIB: 0.3234079973210089
+      GILD: 0.4892831405024709
+      MU: 0.4165144172943102
+      VMED: 0.5031968288389588
+    n_candidates: 54
+    ndx_gate_on: true
+    rv_20: 0.07613473943131281
+    rv_252: 0.12830898694206222
+    selected:
+    - VMED
+    - GILD
+    - MU
+    - BBBY
+    - BIIB
+    spy_sig: 0.09529557146092177
+    tip_sig: 0.01436345974141734
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2013-03-28 00:00:00'
+  weights:
+    BBBY: 0.2
+    BIIB: 0.2
+    GILD: 0.2
+    MU: 0.2
+    VMED: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.1468413462977677
+    rv_252: 0.128483960341402
+    selected: []
+    spy_sig: 0.1000990767842333
+    tip_sig: 0.016945670276820313
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-04-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.10060051613143096
+    rv_252: 0.1264067105377804
+    selected: []
+    spy_sig: 0.135136955018414
+    tip_sig: -0.034162295678829724
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-05-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.17350974371454558
+    rv_252: 0.12366381682039204
+    selected: []
+    spy_sig: 0.08962780217284522
+    tip_sig: -0.057804368854042165
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-06-28 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.07186468281053217
+    rv_252: 0.11650012155842805
+    selected: []
+    spy_sig: 0.12607541936145428
+    tip_sig: -0.0444676269199244
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-07-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.09713317882880546
+    rv_252: 0.11788921704606405
+    selected: []
+    spy_sig: 0.06292906263658768
+    tip_sig: -0.05400804322659272
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-08-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.08527841548112013
+    rv_252: 0.11623045729000424
+    selected: []
+    spy_sig: 0.08997232932743826
+    tip_sig: -0.024872014375539625
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-09-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.12426503256202272
+    rv_252: 0.11749055685196791
+    selected: []
+    spy_sig: 0.1190808371874103
+    tip_sig: -0.03149084308800365
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-10-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.08839769132556004
+    rv_252: 0.11195048759494206
+    selected: []
+    spy_sig: 0.140217345490234
+    tip_sig: -0.029156246247534018
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-11-29 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.09877631203084032
+    rv_252: 0.11073940955722214
+    selected: []
+    spy_sig: 0.15435882247261734
+    tip_sig: -0.03369718759342458
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2013-12-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.125927517548989
+    rv_252: 0.11329233969276867
+    selected: []
+    spy_sig: 0.06629374186073927
+    tip_sig: -0.011566418172129583
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-01-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.12450201577802109
+    rv_252: 0.11270697925247164
+    selected: []
+    spy_sig: 0.12099782144287863
+    tip_sig: -0.005644723034509996
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-02-28 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.09956468306697686
+    rv_252: 0.11416545413669552
+    selected: []
+    spy_sig: 0.09177869015862122
+    tip_sig: -0.013203742785897227
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-03-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.13137341984001855
+    rv_252: 0.11285211057750448
+    selected: []
+    spy_sig: 0.08833199859727131
+    tip_sig: -0.006872535396863666
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-04-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AVGO: 0.4423698271583352
+      ILMN: 0.4882260610436727
+      META: 0.48240537727546595
+      MU: 0.5198017964739943
+      NXPI: 0.40503290989367297
+    n_candidates: 61
+    ndx_gate_on: true
+    rv_20: 0.08255430004261927
+    rv_252: 0.11202639660628648
+    selected:
+    - MU
+    - ILMN
+    - META
+    - AVGO
+    - NXPI
+    spy_sig: 0.08492523082727088
+    tip_sig: 0.021742930927795057
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2014-05-30 00:00:00'
+  weights:
+    AVGO: 0.2
+    ILMN: 0.2
+    META: 0.2
+    MU: 0.2
+    NXPI: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ILMN: 0.5823162136459974
+      META: 0.5289843438959767
+      MU: 0.5898652194145009
+      NXPI: 0.4413425926362757
+      TSLA: 0.5347272247748915
+    n_candidates: 65
+    ndx_gate_on: true
+    rv_20: 0.0578695063586377
+    rv_252: 0.10126769604831001
+    selected:
+    - MU
+    - ILMN
+    - TSLA
+    - META
+    - NXPI
+    spy_sig: 0.09643930425991898
+    tip_sig: 0.03564131781911889
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2014-06-30 00:00:00'
+  weights:
+    ILMN: 0.2
+    META: 0.2
+    MU: 0.2
+    NXPI: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.10478586142758284
+    rv_252: 0.10353815728287831
+    selected: []
+    spy_sig: 0.06938437435837394
+    tip_sig: 0.022616653371619583
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-07-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AVGO: 0.4658939822238658
+      GILD: 0.39579259813573653
+      ILMN: 0.40128326443775725
+      MU: 0.48934620310805965
+      VIP: 0.36319912812579985
+    n_candidates: 69
+    ndx_gate_on: true
+    rv_20: 0.07723573800970696
+    rv_252: 0.10116201156266942
+    selected:
+    - MU
+    - AVGO
+    - ILMN
+    - GILD
+    - VIP
+    spy_sig: 0.10600973192551166
+    tip_sig: 0.02771555175640167
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2014-08-29 00:00:00'
+  weights:
+    AVGO: 0.2
+    GILD: 0.2
+    ILMN: 0.2
+    MU: 0.2
+    VIP: 0.2
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off
+    rv_20: 0.09540718091975404
+    rv_252: 0.1019292492381366
+    selected: []
+    spy_sig: 0.06413759451003218
+    tip_sig: -0.004438950735006109
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-09-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.18318141276087846
+    rv_252: 0.1089362372370154
+    selected: []
+    spy_sig: 0.08083670913637675
+    tip_sig: 0.007092994867451102
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-10-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AVGO: 0.4199934210512034
+      MNST: 0.47294126163919314
+      NXPI: 0.3381622604796738
+      VIP: 0.34647605622556327
+      VRTX: 0.4089315696936703
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.054767210929249965
+    rv_252: 0.10680247099179987
+    selected:
+    - MNST
+    - AVGO
+    - VRTX
+    - VIP
+    - NXPI
+    spy_sig: 0.07930243533672998
+    tip_sig: 0.0027009254290410456
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2014-11-28 00:00:00'
+  weights:
+    AVGO: 0.2
+    MNST: 0.2
+    NXPI: 0.2
+    VIP: 0.2
+    VRTX: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.15856615814350503
+    rv_252: 0.11245016661477589
+    selected: []
+    spy_sig: 0.06050236839233655
+    tip_sig: 0.0011113808852489526
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2014-12-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.1683909736511459
+    rv_252: 0.11637063074418073
+    selected: []
+    spy_sig: 0.03740269553495257
+    tip_sig: 0.028603320197272408
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-01-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AVGO: 0.5696692872565029
+      DLTR: 0.30670390891294286
+      EA: 0.4637514080955732
+      MNST: 0.4920527401466969
+      ROST: 0.29789074023930356
+    n_candidates: 65
+    ndx_gate_on: true
+    rv_20: 0.1067039526526993
+    rv_252: 0.11432766517505778
+    selected:
+    - AVGO
+    - MNST
+    - EA
+    - DLTR
+    - ROST
+    spy_sig: 0.07293238829034149
+    tip_sig: 0.004340470099623683
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2015-02-27 00:00:00'
+  weights:
+    AVGO: 0.2
+    DLTR: 0.2
+    EA: 0.2
+    MNST: 0.2
+    ROST: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.14585110359335646
+    rv_252: 0.11816463678249121
+    selected: []
+    spy_sig: 0.04420607276257471
+    tip_sig: 0.013322545984367162
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-03-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AVGO: 0.32276598299192955
+      EA: 0.37924572311556237
+      MNST: 0.39246016297058073
+      NFLX: 0.4350127060158736
+      NXPI: 0.29534957322917854
+    n_candidates: 64
+    ndx_gate_on: true
+    rv_20: 0.08610005398662478
+    rv_252: 0.1148597516561028
+    selected:
+    - NFLX
+    - MNST
+    - EA
+    - AVGO
+    - NXPI
+    spy_sig: 0.05810785213964054
+    tip_sig: 0.007756306060131751
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2015-04-30 00:00:00'
+  weights:
+    AVGO: 0.2
+    EA: 0.2
+    MNST: 0.2
+    NFLX: 0.2
+    NXPI: 0.2
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off
+    rv_20: 0.10717092651779857
+    rv_252: 0.11635767996065101
+    selected: []
+    spy_sig: 0.04152405042619878
+    tip_sig: -0.006227768984778004
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-05-29 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.11638818110887521
+    rv_252: 0.11978530770073167
+    selected: []
+    spy_sig: 0.016260498894547448
+    tip_sig: -0.01100988172099518
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-06-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off
+    rv_20: 0.11952202852588038
+    rv_252: 0.12075453716457893
+    selected: []
+    spy_sig: 0.05354000184800528
+    tip_sig: -0.012452791553076353
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-07-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.27468249586555815
+    rv_252: 0.1412997926404967
+    selected: []
+    spy_sig: -0.042215707952074105
+    tip_sig: -0.019005404543096155
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-08-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.20456737633512653
+    rv_252: 0.15274998426256595
+    selected: []
+    spy_sig: -0.039949721548379113
+    tip_sig: -0.011630270474012439
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-09-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off
+    rv_20: 0.1256710730598638
+    rv_252: 0.14898788085877723
+    selected: []
+    spy_sig: 0.034355517190862384
+    tip_sig: -0.012545092320814327
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-10-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off
+    rv_20: 0.12111430900055685
+    rv_252: 0.1517301651600101
+    selected: []
+    spy_sig: 0.0226985839571876
+    tip_sig: -0.010274026064222452
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-11-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.1844295676222675
+    rv_252: 0.15431917655090308
+    selected: []
+    spy_sig: 0.016680023219457135
+    tip_sig: -0.01352747657126635
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2015-12-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.23520346455560165
+    rv_252: 0.16139439059701713
+    selected: []
+    spy_sig: -0.04767328903144738
+    tip_sig: -0.005382190783669777
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2016-01-29 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.18834818181573112
+    rv_252: 0.16664679632231894
+    selected: []
+    spy_sig: -0.03496545684555738
+    tip_sig: 0.0087597083005653
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2016-02-29 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      FAST: 0.21696331508170869
+      MAT: 0.3729645161123482
+      META: 0.2035693719744197
+      NVDA: 0.35188416905745534
+      TCOM: 0.23702104074708585
+    n_candidates: 51
+    ndx_gate_on: true
+    rv_20: 0.08999670330341297
+    rv_252: 0.16539380741505297
+    selected:
+    - MAT
+    - NVDA
+    - TCOM
+    - FAST
+    - META
+    spy_sig: 0.045456806193524546
+    tip_sig: 0.02769114198085132
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-03-31 00:00:00'
+  weights:
+    FAST: 0.2
+    MAT: 0.2
+    META: 0.2
+    NVDA: 0.2
+    TCOM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMZN: 0.21310203092182017
+      ISRG: 0.1810957831323612
+      META: 0.18103542112310367
+      NVDA: 0.2757577032204053
+      ULTA: 0.20012257122849286
+    n_candidates: 43
+    ndx_gate_on: true
+    rv_20: 0.10205384968984293
+    rv_252: 0.16615843671944033
+    selected:
+    - NVDA
+    - AMZN
+    - ULTA
+    - ISRG
+    - META
+    spy_sig: 0.022198126274317886
+    tip_sig: 0.019138468954479626
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-04-29 00:00:00'
+  weights:
+    AMZN: 0.2
+    ISRG: 0.2
+    META: 0.2
+    NVDA: 0.2
+    ULTA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.2627560364902972
+      AMZN: 0.2937846172398723
+      NTES: 0.23945614500910872
+      NVDA: 0.6088768394046393
+      ULTA: 0.36282359135891556
+    n_candidates: 49
+    ndx_gate_on: true
+    rv_20: 0.10981183678722235
+    rv_252: 0.16645274904093624
+    selected:
+    - NVDA
+    - ULTA
+    - AMZN
+    - AMAT
+    - NTES
+    spy_sig: 0.03461886366705208
+    tip_sig: 0.011877972823987781
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-05-31 00:00:00'
+  weights:
+    AMAT: 0.2
+    AMZN: 0.2
+    NTES: 0.2
+    NVDA: 0.2
+    ULTA: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.19479956580720606
+    rv_252: 0.1716797156974373
+    selected: []
+    spy_sig: 0.02648287467607896
+    tip_sig: 0.03740316931624904
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2016-06-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.359476330582244
+      NTES: 0.33333102120331626
+      NVDA: 0.9226741545714441
+      TXN: 0.2784877302837636
+      ULTA: 0.3353271009861475
+    n_candidates: 69
+    ndx_gate_on: true
+    rv_20: 0.0746395070377869
+    rv_252: 0.16988166699211174
+    selected:
+    - NVDA
+    - AMAT
+    - ULTA
+    - NTES
+    - TXN
+    spy_sig: 0.07012076398107264
+    tip_sig: 0.032302770381365975
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-07-29 00:00:00'
+  weights:
+    AMAT: 0.2
+    NTES: 0.2
+    NVDA: 0.2
+    TXN: 0.2
+    ULTA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.4621800434485859
+      MCHP: 0.3118344463093023
+      NTAP: 0.30058075430986336
+      NTES: 0.44242821865994875
+      NVDA: 0.7793691071232446
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.052835342006647655
+    rv_252: 0.14919986029045745
+    selected:
+    - NVDA
+    - AMAT
+    - NTES
+    - MCHP
+    - NTAP
+    spy_sig: 0.07519943320604694
+    tip_sig: 0.02815648253120495
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-08-31 00:00:00'
+  weights:
+    AMAT: 0.2
+    MCHP: 0.2
+    NTAP: 0.2
+    NTES: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.14562074069375586
+    rv_252: 0.1438712915011968
+    selected: []
+    spy_sig: 0.06353567224878065
+    tip_sig: 0.028163386055881146
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2016-09-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AKAM: 0.2976189782162916
+      AMAT: 0.31831610517326797
+      NFLX: 0.29366076212670084
+      NTES: 0.4944812842903096
+      NVDA: 0.7092471437158478
+    n_candidates: 49
+    ndx_gate_on: true
+    rv_20: 0.06884547064354946
+    rv_252: 0.13972245518261836
+    selected:
+    - NVDA
+    - NTES
+    - AMAT
+    - AKAM
+    - NFLX
+    spy_sig: 0.012880885761146682
+    tip_sig: 0.017813715374413536
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-10-31 00:00:00'
+  weights:
+    AKAM: 0.2
+    AMAT: 0.2
+    NFLX: 0.2
+    NTES: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.31615309587164403
+      CSX: 0.2789455603666286
+      MU: 0.2709580123603672
+      NVDA: 0.9294106374854081
+      STX: 0.34567169974750517
+    n_candidates: 56
+    ndx_gate_on: true
+    rv_20: 0.10273753063181136
+    rv_252: 0.13876753886915502
+    selected:
+    - NVDA
+    - STX
+    - AMAT
+    - CSX
+    - MU
+    spy_sig: 0.048884562844896395
+    tip_sig: 0.0008894800536304315
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-11-30 00:00:00'
+  weights:
+    AMAT: 0.2
+    CSX: 0.2
+    MU: 0.2
+    NVDA: 0.2
+    STX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAL: 0.2642748437095908
+      AMAT: 0.2970405997585271
+      MU: 0.3740670941866025
+      NVDA: 1.066400540371106
+      TMUS: 0.2727533304590644
+    n_candidates: 57
+    ndx_gate_on: true
+    rv_20: 0.08031054529027992
+    rv_252: 0.13061303149254028
+    selected:
+    - NVDA
+    - MU
+    - AMAT
+    - TMUS
+    - AAL
+    spy_sig: 0.06463737882400544
+    tip_sig: 0.000946761681243552
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2016-12-30 00:00:00'
+  weights:
+    AAL: 0.2
+    AMAT: 0.2
+    MU: 0.2
+    NVDA: 0.2
+    TMUS: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      CHTR: 0.4228119193565758
+      CSX: 0.6359985910296979
+      MU: 0.6113769455744669
+      NVDA: 1.0603268188491022
+      WDC: 0.49434021502419817
+    n_candidates: 70
+    ndx_gate_on: true
+    rv_20: 0.06626864735067495
+    rv_252: 0.1142950237835958
+    selected:
+    - NVDA
+    - CSX
+    - MU
+    - WDC
+    - CHTR
+    spy_sig: 0.08847027031049265
+    tip_sig: 0.0056658861507725145
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-01-31 00:00:00'
+  weights:
+    CHTR: 0.2
+    CSX: 0.2
+    MU: 0.2
+    NVDA: 0.2
+    WDC: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      CSX: 0.55031959108201
+      INCY: 0.46284126340557413
+      MU: 0.4497411095494891
+      NTES: 0.5773688472348926
+      NVDA: 0.7377415642787263
+    n_candidates: 77
+    ndx_gate_on: true
+    rv_20: 0.04512443752715915
+    rv_252: 0.10268542171856598
+    selected:
+    - NVDA
+    - NTES
+    - CSX
+    - INCY
+    - MU
+    spy_sig: 0.1165768182180193
+    tip_sig: 0.01051199571214742
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-02-28 00:00:00'
+  weights:
+    CSX: 0.2
+    INCY: 0.2
+    MU: 0.2
+    NTES: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      CSX: 0.41186173520780744
+      IDXX: 0.43267890319367164
+      INCY: 0.3998795141188748
+      MU: 0.7342634127989138
+      NVDA: 0.6921706637381343
+    n_candidates: 74
+    ndx_gate_on: true
+    rv_20: 0.07036033757564153
+    rv_252: 0.09980141935556076
+    selected:
+    - MU
+    - NVDA
+    - IDXX
+    - CSX
+    - INCY
+    spy_sig: 0.08306544314207875
+    tip_sig: 0.0035057043270816657
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-03-31 00:00:00'
+  weights:
+    CSX: 0.2
+    IDXX: 0.2
+    INCY: 0.2
+    MU: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      IDXX: 0.5025019664922992
+      LRCX: 0.4566806304987063
+      MU: 0.5728799153660553
+      NVDA: 0.5851242646634065
+      WDC: 0.5002949887281761
+    n_candidates: 76
+    ndx_gate_on: true
+    rv_20: 0.07415658634521478
+    rv_252: 0.098008540112498
+    selected:
+    - NVDA
+    - MU
+    - IDXX
+    - WDC
+    - LRCX
+    spy_sig: 0.09254353657415787
+    tip_sig: 0.006583662353512876
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-04-28 00:00:00'
+  weights:
+    IDXX: 0.2
+    LRCX: 0.2
+    MU: 0.2
+    NVDA: 0.2
+    WDC: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ADSK: 0.49837901998169754
+      CSX: 0.4505424746240198
+      MU: 0.6048245769440099
+      NVDA: 0.8714578537732771
+      TSLA: 0.4444909517495263
+    n_candidates: 71
+    ndx_gate_on: true
+    rv_20: 0.08040937163340629
+    rv_252: 0.09536851370836069
+    selected:
+    - NVDA
+    - MU
+    - ADSK
+    - CSX
+    - TSLA
+    spy_sig: 0.08018519540181934
+    tip_sig: 0.010936544352183691
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-05-31 00:00:00'
+  weights:
+    ADSK: 0.2
+    CSX: 0.2
+    MU: 0.2
+    NVDA: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.07169864171467458
+    rv_252: 0.08168117962063166
+    selected: []
+    spy_sig: 0.07664209522854115
+    tip_sig: -0.0032038713529277674
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2017-06-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.05580746100695119
+    rv_252: 0.08038275931524348
+    selected: []
+    spy_sig: 0.07909009833165925
+    tip_sig: -0.0013693235113804714
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2017-07-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.10003182641926926
+    rv_252: 0.08344084575213628
+    selected: []
+    spy_sig: 0.06272739793277354
+    tip_sig: 0.007748265570974799
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2017-08-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.054034404822581844
+    rv_252: 0.07496674654119816
+    selected: []
+    spy_sig: 0.08137910258316933
+    tip_sig: -0.001574297901756866
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2017-09-29 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.8171674633686256
+      AMAT: 0.42921443234102596
+      LRCX: 0.5173228923948923
+      MU: 0.7214770753612367
+      NVDA: 0.8342930238984627
+    n_candidates: 69
+    ndx_gate_on: true
+    rv_20: 0.051092325332302825
+    rv_252: 0.07328453228171493
+    selected:
+    - NVDA
+    - ALGN
+    - MU
+    - LRCX
+    - AMAT
+    spy_sig: 0.09896652439526976
+    tip_sig: 0.0016037718925032418
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-10-31 00:00:00'
+  weights:
+    ALGN: 0.2
+    AMAT: 0.2
+    LRCX: 0.2
+    MU: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.7920135560335055
+      ISRG: 0.3582791315978845
+      MU: 0.45768673480646893
+      NVDA: 0.43364005663036664
+      PYPL: 0.41247972325864507
+    n_candidates: 73
+    ndx_gate_on: true
+    rv_20: 0.06641682289556591
+    rv_252: 0.06935899109932307
+    selected:
+    - ALGN
+    - MU
+    - NVDA
+    - PYPL
+    - ISRG
+    spy_sig: 0.11049151924430678
+    tip_sig: 0.004672784814344744
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-11-30 00:00:00'
+  weights:
+    ALGN: 0.2
+    ISRG: 0.2
+    MU: 0.2
+    NVDA: 0.2
+    PYPL: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.4589911421717282
+      MELI: 0.4088587143476022
+      PYPL: 0.3397103951013508
+      TTWO: 0.44531505698302776
+      WYNN: 0.3622870061348971
+    n_candidates: 80
+    ndx_gate_on: true
+    rv_20: 0.055103879219945605
+    rv_252: 0.06745046746984167
+    selected:
+    - ALGN
+    - TTWO
+    - MELI
+    - WYNN
+    - PYPL
+    spy_sig: 0.1029026864368523
+    tip_sig: 0.017946747490342974
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2017-12-29 00:00:00'
+  weights:
+    ALGN: 0.2
+    MELI: 0.2
+    PYPL: 0.2
+    TTWO: 0.2
+    WYNN: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: SHV
+    reason: vol20_crossover_off
+    rv_20: 0.08723714463627777
+    rv_252: 0.06971843268443927
+    selected: []
+    spy_sig: 0.14378840242733337
+    tip_sig: 0.0029630721405869698
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-01-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.27003494986542026
+    rv_252: 0.10160897003166489
+    selected: []
+    spy_sig: 0.06843616839683839
+    tip_sig: -0.009099639417782829
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-02-28 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: SHV
+    reason: vol20_crossover_off
+    rv_20: 0.2006978822862372
+    rv_252: 0.11413237846171725
+    selected: []
+    spy_sig: 0.03930898981636022
+    tip_sig: 0.0029592241003426056
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-03-29 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.1551869803345377
+    rv_252: 0.12219458642920442
+    selected: []
+    spy_sig: 0.029369810288287
+    tip_sig: -0.00047229446139873676
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-04-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ADBE: 0.3619478759524286
+      ALGN: 0.5379134111628519
+      MU: 0.41564610850610006
+      NFLX: 0.5906163410223986
+      NVDA: 0.2937082482605577
+    n_candidates: 60
+    ndx_gate_on: true
+    rv_20: 0.10509130977810358
+    rv_252: 0.12387846549189495
+    selected:
+    - NFLX
+    - ALGN
+    - MU
+    - ADBE
+    - NVDA
+    spy_sig: 0.05025371317430599
+    tip_sig: 0.005647561859942085
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2018-05-31 00:00:00'
+  weights:
+    ADBE: 0.2
+    ALGN: 0.2
+    MU: 0.2
+    NFLX: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ADBE: 0.305362627813066
+      ALGN: 0.5530157300519385
+      AMZN: 0.35674152321749564
+      ILMN: 0.2735754587963412
+      NFLX: 0.7743880612729324
+    n_candidates: 61
+    ndx_gate_on: true
+    rv_20: 0.07984578575735364
+    rv_252: 0.12435079294219104
+    selected:
+    - NFLX
+    - ALGN
+    - AMZN
+    - ADBE
+    - ILMN
+    spy_sig: 0.052347902073031416
+    tip_sig: 0.008657399882897598
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2018-06-29 00:00:00'
+  weights:
+    ADBE: 0.2
+    ALGN: 0.2
+    AMZN: 0.2
+    ILMN: 0.2
+    NFLX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.4909542328671963
+      AMZN: 0.30127467923327966
+      IDXX: 0.2910241731113924
+      ILMN: 0.4419150553110168
+      MU: 0.30988754702247173
+    n_candidates: 68
+    ndx_gate_on: true
+    rv_20: 0.08639824033496503
+    rv_252: 0.12575851141420447
+    selected:
+    - ALGN
+    - ILMN
+    - MU
+    - AMZN
+    - IDXX
+    spy_sig: 0.06831309456038104
+    tip_sig: 0.0029705771404078263
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2018-07-31 00:00:00'
+  weights:
+    ALGN: 0.2
+    AMZN: 0.2
+    IDXX: 0.2
+    ILMN: 0.2
+    MU: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.47674283747291274
+      AMZN: 0.43768354953276645
+      ILMN: 0.42198472451354896
+      NFLX: 0.37542275596843266
+      ORLY: 0.3562389191098461
+    n_candidates: 63
+    ndx_gate_on: true
+    rv_20: 0.07174963542761546
+    rv_252: 0.12441173501377276
+    selected:
+    - ALGN
+    - AMZN
+    - ILMN
+    - NFLX
+    - ORLY
+    spy_sig: 0.09524095751608969
+    tip_sig: 0.00997294220443784
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2018-08-31 00:00:00'
+  weights:
+    ALGN: 0.2
+    AMZN: 0.2
+    ILMN: 0.2
+    NFLX: 0.2
+    ORLY: 0.2
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.054498566592649456
+    rv_252: 0.12446391280604602
+    selected: []
+    spy_sig: 0.09388103090729766
+    tip_sig: -0.0037910238795943463
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-09-28 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.2356940287121865
+    rv_252: 0.14080092371900613
+    selected: []
+    spy_sig: 0.000308770490422966
+    tip_sig: -0.015486913166965238
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-10-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.1893184600354048
+    rv_252: 0.1492791770385509
+    selected: []
+    spy_sig: 0.014516933316214092
+    tip_sig: -0.009559422252787858
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-11-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.2939852228567711
+    rv_252: 0.17006744722963188
+    selected: []
+    spy_sig: -0.08455577987538007
+    tip_sig: -0.006989000719786864
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2018-12-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.18682615961442303
+    rv_252: 0.1763935559066429
+    selected: []
+    spy_sig: 0.007119861814379458
+    tip_sig: 0.013183195507615986
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2019-01-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.23662741044711905
+      CDNS: 0.28919055270626515
+      LULU: 0.24452804250583032
+      MELI: 0.27158218882794427
+      WDAY: 0.28514155231681465
+    n_candidates: 55
+    ndx_gate_on: true
+    rv_20: 0.08294727458956985
+    rv_252: 0.161739943507789
+    selected:
+    - CDNS
+    - WDAY
+    - MELI
+    - LULU
+    - AMD
+    spy_sig: 0.016148287202962575
+    tip_sig: 0.007696683553494732
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-02-28 00:00:00'
+  weights:
+    AMD: 0.2
+    CDNS: 0.2
+    LULU: 0.2
+    MELI: 0.2
+    WDAY: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.45812058694439906
+      CDNS: 0.42465193332096046
+      LULU: 0.3210424848028559
+      MELI: 0.439083904659564
+      ULTA: 0.3708990760813786
+    n_candidates: 71
+    ndx_gate_on: true
+    rv_20: 0.11908511956453925
+    rv_252: 0.15501336625235007
+    selected:
+    - AMD
+    - MELI
+    - CDNS
+    - ULTA
+    - LULU
+    spy_sig: 0.05731958635684911
+    tip_sig: 0.026564200077099198
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-03-29 00:00:00'
+  weights:
+    AMD: 0.2
+    CDNS: 0.2
+    LULU: 0.2
+    MELI: 0.2
+    ULTA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.5678533736258782
+      CDNS: 0.45637365622553316
+      QCOM: 0.6077191148157282
+      VRSN: 0.3301986985038789
+      WDAY: 0.3480089406412418
+    n_candidates: 75
+    ndx_gate_on: true
+    rv_20: 0.051414016594357834
+    rv_252: 0.14820066711662877
+    selected:
+    - QCOM
+    - AMD
+    - CDNS
+    - WDAY
+    - VRSN
+    spy_sig: 0.09140273733712112
+    tip_sig: 0.02456022708372202
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-04-30 00:00:00'
+  weights:
+    AMD: 0.2
+    CDNS: 0.2
+    QCOM: 0.2
+    VRSN: 0.2
+    WDAY: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.15279036260544593
+    rv_252: 0.15183690682801051
+    selected: []
+    spy_sig: -0.006772056009220845
+    tip_sig: 0.040266635075839385
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2019-05-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.49230829469717946
+      CDNS: 0.3730886703408385
+      MELI: 0.6031922463852974
+      QCOM: 0.3177515184287165
+      SBUX: 0.3260200803557884
+    n_candidates: 80
+    ndx_gate_on: true
+    rv_20: 0.10640892197211256
+    rv_252: 0.15333912658952326
+    selected:
+    - MELI
+    - AMD
+    - CDNS
+    - SBUX
+    - QCOM
+    spy_sig: 0.09914167175183003
+    tip_sig: 0.03547360687734158
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-06-28 00:00:00'
+  weights:
+    AMD: 0.2
+    CDNS: 0.2
+    MELI: 0.2
+    QCOM: 0.2
+    SBUX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      CDNS: 0.33106145854093877
+      FISV: 0.2582875418260817
+      MELI: 0.454680354285045
+      SBUX: 0.4013483004475153
+      SNPS: 0.25869473708442925
+    n_candidates: 69
+    ndx_gate_on: true
+    rv_20: 0.08318600311662784
+    rv_252: 0.15331778937829454
+    selected:
+    - MELI
+    - SBUX
+    - CDNS
+    - SNPS
+    - FISV
+    spy_sig: 0.05547269616043621
+    tip_sig: 0.03395744548296348
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-07-31 00:00:00'
+  weights:
+    CDNS: 0.2
+    FISV: 0.2
+    MELI: 0.2
+    SBUX: 0.2
+    SNPS: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.2388730071080561
+    rv_252: 0.16586292323872023
+    selected: []
+    spy_sig: 0.03432324896383085
+    tip_sig: 0.0514538156264282
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2019-08-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ASML: 0.2459692892695428
+      CTAS: 0.21086994588965696
+      HAS: 0.1939218589396034
+      KLAC: 0.34956573548520925
+      LRCX: 0.3012612162025926
+    n_candidates: 55
+    ndx_gate_on: true
+    rv_20: 0.08642612541862116
+    rv_252: 0.16687008571450876
+    selected:
+    - KLAC
+    - LRCX
+    - ASML
+    - CTAS
+    - HAS
+    spy_sig: 0.0346676010250746
+    tip_sig: 0.02960437867992008
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-09-30 00:00:00'
+  weights:
+    ASML: 0.2
+    CTAS: 0.2
+    HAS: 0.2
+    KLAC: 0.2
+    LRCX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.2796501003743813
+      AMD: 0.3439911089210289
+      CHTR: 0.2675202125133139
+      KLAC: 0.38701679662013977
+      LRCX: 0.4394346883641031
+    n_candidates: 68
+    ndx_gate_on: true
+    rv_20: 0.10630672461571244
+    rv_252: 0.15768722125002577
+    selected:
+    - LRCX
+    - KLAC
+    - AMD
+    - AMAT
+    - CHTR
+    spy_sig: 0.05780560144338459
+    tip_sig: 0.03482636906067077
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-10-31 00:00:00'
+  weights:
+    AMAT: 0.2
+    AMD: 0.2
+    CHTR: 0.2
+    KLAC: 0.2
+    LRCX: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.3544109473718658
+      AMD: 0.4162546201725875
+      KLAC: 0.3492763230683553
+      LRCX: 0.38598753812621517
+      LULU: 0.34815251566945105
+    n_candidates: 82
+    ndx_gate_on: true
+    rv_20: 0.05658618003278948
+    rv_252: 0.14918597297502098
+    selected:
+    - AMD
+    - LRCX
+    - AAPL
+    - KLAC
+    - LULU
+    spy_sig: 0.10787365457540954
+    tip_sig: 0.026361243672024748
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-11-29 00:00:00'
+  weights:
+    AAPL: 0.2
+    AMD: 0.2
+    KLAC: 0.2
+    LRCX: 0.2
+    LULU: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AAPL: 0.4493003102649478
+      AMD: 0.6869125461105996
+      LRCX: 0.5339353678623178
+      SWKS: 0.5473250693237638
+      TSLA: 0.5334254599585033
+    n_candidates: 82
+    ndx_gate_on: true
+    rv_20: 0.06754545044151149
+    rv_252: 0.12510894286263502
+    selected:
+    - AMD
+    - SWKS
+    - LRCX
+    - TSLA
+    - AAPL
+    spy_sig: 0.13504192397207504
+    tip_sig: 0.028614449429867794
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2019-12-31 00:00:00'
+  weights:
+    AAPL: 0.2
+    AMD: 0.2
+    LRCX: 0.2
+    SWKS: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.11989504767037586
+    rv_252: 0.11848298977940178
+    selected: []
+    spy_sig: 0.09299522131280252
+    tip_sig: 0.04507108240634916
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2020-01-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.24783332359940805
+    rv_252: 0.1358048588521642
+    selected: []
+    spy_sig: -0.006508869233172676
+    tip_sig: 0.04305875406001475
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2020-02-28 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: IEF
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.9219412683044701
+    rv_252: 0.29138399708326235
+    selected: []
+    spy_sig: -0.1275827096711567
+    tip_sig: 0.019150597790660445
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2020-03-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.3682205614164572
+    rv_252: 0.31363566132330434
+    selected: []
+    spy_sig: 0.0028281582031002006
+    tip_sig: 0.048562501708114214
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2020-04-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      DXCM: 0.8205963678023556
+      JD: 0.6111139883556171
+      NVDA: 0.69878327511138
+      TSLA: 1.33958357588517
+      ZM: 0.924341867290272
+    n_candidates: 72
+    ndx_gate_on: true
+    rv_20: 0.22407323433296264
+    rv_252: 0.31695659110648555
+    selected:
+    - TSLA
+    - ZM
+    - DXCM
+    - NVDA
+    - JD
+    spy_sig: 0.04692746125283631
+    tip_sig: 0.03991510250233682
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-05-29 00:00:00'
+  weights:
+    DXCM: 0.2
+    JD: 0.2
+    NVDA: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      DOCU: 1.2210264745762403
+      DXCM: 0.7840136064201468
+      MELI: 0.62749344521997
+      TSLA: 1.691840301889463
+      ZM: 1.4324061616342387
+    n_candidates: 76
+    ndx_gate_on: true
+    rv_20: 0.30068277016129785
+    rv_252: 0.32571055276065664
+    selected:
+    - TSLA
+    - ZM
+    - DOCU
+    - DXCM
+    - MELI
+    spy_sig: 0.06517879059314355
+    tip_sig: 0.05017034295846862
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-06-30 00:00:00'
+  weights:
+    DOCU: 0.2
+    DXCM: 0.2
+    MELI: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.7850077877559495
+      DOCU: 1.570818523772528
+      MRNA: 2.0086513768384937
+      TSLA: 1.8189810453833508
+      ZM: 1.2165397060793042
+    n_candidates: 75
+    ndx_gate_on: true
+    rv_20: 0.13572160842011602
+    rv_252: 0.32708996738156737
+    selected:
+    - MRNA
+    - TSLA
+    - DOCU
+    - ZM
+    - AMD
+    spy_sig: 0.08324420121309645
+    tip_sig: 0.057649791775504056
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-07-31 00:00:00'
+  weights:
+    AMD: 0.2
+    DOCU: 0.2
+    MRNA: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      DOCU: 1.4960424110342063
+      MRNA: 1.1396439070693771
+      NVDA: 0.9872067892412759
+      TSLA: 3.87480945174751
+      ZM: 1.4335815166770127
+    n_candidates: 81
+    ndx_gate_on: true
+    rv_20: 0.08284591140864854
+    rv_252: 0.3213109297714146
+    selected:
+    - TSLA
+    - DOCU
+    - ZM
+    - MRNA
+    - NVDA
+    spy_sig: 0.1580433205279691
+    tip_sig: 0.05070269671587524
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-08-31 00:00:00'
+  weights:
+    DOCU: 0.2
+    MRNA: 0.2
+    NVDA: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      DOCU: 1.0051516950579156
+      MRNA: 1.249631459835254
+      NVDA: 0.9018621565877847
+      TSLA: 2.9616128240642197
+      ZM: 2.1717354571757967
+    n_candidates: 82
+    ndx_gate_on: true
+    rv_20: 0.2474873792995657
+    rv_252: 0.32775095023147405
+    selected:
+    - TSLA
+    - ZM
+    - MRNA
+    - DOCU
+    - NVDA
+    spy_sig: 0.12835874073217513
+    tip_sig: 0.0497498883196294
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-09-30 00:00:00'
+  weights:
+    DOCU: 0.2
+    MRNA: 0.2
+    NVDA: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      DOCU: 0.714698028383299
+      JD: 0.7091883176774094
+      MRNA: 0.8398209369271046
+      TSLA: 1.7257370150550724
+      ZM: 2.2000814732806706
+    n_candidates: 66
+    ndx_gate_on: true
+    rv_20: 0.21002337272928276
+    rv_252: 0.33115124383416084
+    selected:
+    - ZM
+    - TSLA
+    - MRNA
+    - DOCU
+    - JD
+    spy_sig: 0.05251810904169907
+    tip_sig: 0.030001949742695905
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-10-30 00:00:00'
+  weights:
+    DOCU: 0.2
+    JD: 0.2
+    MRNA: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      MELI: 0.7770097059082841
+      MRNA: 2.6507981672424084
+      PDD: 1.2601014177456826
+      TSLA: 2.65053219866666
+      ZM: 1.8988696286251825
+    n_candidates: 83
+    ndx_gate_on: true
+    rv_20: 0.16252725644072843
+    rv_252: 0.3343689802112812
+    selected:
+    - MRNA
+    - TSLA
+    - ZM
+    - PDD
+    - MELI
+    spy_sig: 0.1308440038518009
+    tip_sig: 0.03941500770872597
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-11-30 00:00:00'
+  weights:
+    MELI: 0.2
+    MRNA: 0.2
+    PDD: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      MRNA: 1.2821469933738614
+      PDD: 1.610899988385522
+      PTON: 1.7003364774582317
+      TSLA: 2.6475169412435045
+      ZM: 0.927701645503018
+    n_candidates: 84
+    ndx_gate_on: true
+    rv_20: 0.08387035103036639
+    rv_252: 0.3345364628270286
+    selected:
+    - TSLA
+    - PTON
+    - PDD
+    - MRNA
+    - ZM
+    spy_sig: 0.14101774187521066
+    tip_sig: 0.04519756356270527
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2020-12-31 00:00:00'
+  weights:
+    MRNA: 0.2
+    PDD: 0.2
+    PTON: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      MRNA: 2.750884126169513
+      PDD: 1.3211081859633826
+      PTON: 1.2367199711577275
+      TSLA: 2.010327778000225
+      ZM: 1.0630098373898635
+    n_candidates: 86
+    ndx_gate_on: true
+    rv_20: 0.16373903425303804
+    rv_252: 0.3364338109808175
+    selected:
+    - MRNA
+    - TSLA
+    - PDD
+    - PTON
+    - ZM
+    spy_sig: 0.110610880176948
+    tip_sig: 0.035201640528549405
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-01-29 00:00:00'
+  weights:
+    MRNA: 0.2
+    PDD: 0.2
+    PTON: 0.2
+    TSLA: 0.2
+    ZM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      BIDU: 0.970901296973508
+      MRNA: 1.5659037959650877
+      PDD: 1.243515728754681
+      PTON: 0.9861920964483614
+      TSLA: 1.1132816451495775
+    n_candidates: 80
+    ndx_gate_on: true
+    rv_20: 0.1591946692497536
+    rv_252: 0.33066604909957353
+    selected:
+    - MRNA
+    - PDD
+    - TSLA
+    - PTON
+    - BIDU
+    spy_sig: 0.12214603723843404
+    tip_sig: 0.009404174106519864
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-02-26 00:00:00'
+  weights:
+    BIDU: 0.2
+    MRNA: 0.2
+    PDD: 0.2
+    PTON: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.9727554227455328
+      MRNA: 1.0806289289811761
+      NWSA: 0.7978547251562584
+      PDD: 0.7642614986096242
+      TSLA: 1.4663999780222083
+    n_candidates: 90
+    ndx_gate_on: true
+    rv_20: 0.14124366692242396
+    rv_252: 0.20876916004818596
+    selected:
+    - TSLA
+    - MRNA
+    - AMAT
+    - NWSA
+    - PDD
+    spy_sig: 0.215907277998092
+    tip_sig: 0.013940509361114434
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-03-31 00:00:00'
+  weights:
+    AMAT: 0.2
+    MRNA: 0.2
+    NWSA: 0.2
+    PDD: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.8310167793003832
+      LRCX: 0.6530359684884799
+      MRNA: 1.2342114475449013
+      NWSA: 0.7651242778176064
+      TSLA: 1.0803000998132348
+    n_candidates: 89
+    ndx_gate_on: true
+    rv_20: 0.1031121264240155
+    rv_252: 0.17628587784412203
+    selected:
+    - MRNA
+    - TSLA
+    - AMAT
+    - NWSA
+    - LRCX
+    spy_sig: 0.2328621998338679
+    tip_sig: 0.022144356859377212
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-04-30 00:00:00'
+  weights:
+    AMAT: 0.2
+    LRCX: 0.2
+    MRNA: 0.2
+    NWSA: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.594365161322545
+      LRCX: 0.5109728201151207
+      MRNA: 0.6123150342446064
+      NWSA: 0.48671795853700706
+      TSLA: 0.6630500401485768
+    n_candidates: 85
+    ndx_gate_on: true
+    rv_20: 0.14040275104953784
+    rv_252: 0.1696333783411182
+    selected:
+    - TSLA
+    - MRNA
+    - AMAT
+    - LRCX
+    - NWSA
+    spy_sig: 0.1714497098464794
+    tip_sig: 0.028506251184650166
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-05-28 00:00:00'
+  weights:
+    AMAT: 0.2
+    LRCX: 0.2
+    MRNA: 0.2
+    NWSA: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.5334705854744839
+      DOCU: 0.4121504490565769
+      MRNA: 1.2433328876672058
+      NVDA: 0.593004065124471
+      TSLA: 0.5538174889376002
+    n_candidates: 86
+    ndx_gate_on: true
+    rv_20: 0.08998543207716651
+    rv_252: 0.14992905052032865
+    selected:
+    - MRNA
+    - NVDA
+    - TSLA
+    - AMAT
+    - DOCU
+    spy_sig: 0.1668249059309473
+    tip_sig: 0.028661587944867895
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-06-30 00:00:00'
+  weights:
+    AMAT: 0.2
+    DOCU: 0.2
+    MRNA: 0.2
+    NVDA: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.4999127349231416
+      AMAT: 0.4221047178527325
+      ASML: 0.4795669940087241
+      MRNA: 1.574047103628184
+      TEAM: 0.4703645648815488
+    n_candidates: 86
+    ndx_gate_on: true
+    rv_20: 0.11534776460687153
+    rv_252: 0.14862361736082594
+    selected:
+    - MRNA
+    - ALGN
+    - ASML
+    - TEAM
+    - AMAT
+    spy_sig: 0.1585922699274636
+    tip_sig: 0.04371397164142682
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-07-30 00:00:00'
+  weights:
+    ALGN: 0.2
+    AMAT: 0.2
+    ASML: 0.2
+    MRNA: 0.2
+    TEAM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.46448122122209845
+      ASML: 0.5085953501850045
+      CRWD: 0.47719634296333013
+      MRNA: 1.8349118855676487
+      TEAM: 0.540212863677116
+    n_candidates: 82
+    ndx_gate_on: true
+    rv_20: 0.08260790707862387
+    rv_252: 0.1483233239895848
+    selected:
+    - MRNA
+    - TEAM
+    - ASML
+    - CRWD
+    - ALGN
+    spy_sig: 0.15381686148609808
+    tip_sig: 0.034789035388295364
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-08-31 00:00:00'
+  weights:
+    ALGN: 0.2
+    ASML: 0.2
+    CRWD: 0.2
+    MRNA: 0.2
+    TEAM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.3222857874674414
+      ASML: 0.30372647434887207
+      MRNA: 1.7595579428814427
+      TEAM: 0.650139506092547
+      TSLA: 0.2908953031461485
+    n_candidates: 70
+    ndx_gate_on: true
+    rv_20: 0.13054726500326747
+    rv_252: 0.13638446263270587
+    selected:
+    - MRNA
+    - TEAM
+    - ALGN
+    - ASML
+    - TSLA
+    spy_sig: 0.08710599123926444
+    tip_sig: 0.026959929175006864
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-09-30 00:00:00'
+  weights:
+    ALGN: 0.2
+    ASML: 0.2
+    MRNA: 0.2
+    TEAM: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      DXCM: 0.4781852778401186
+      MRNA: 1.2300581882594792
+      NVDA: 0.572904854911301
+      TEAM: 0.7247120437594059
+      TSLA: 0.8746728778430083
+    n_candidates: 77
+    ndx_gate_on: true
+    rv_20: 0.10683878422479873
+    rv_252: 0.12720667309066452
+    selected:
+    - MRNA
+    - TSLA
+    - TEAM
+    - NVDA
+    - DXCM
+    spy_sig: 0.16367581095360761
+    tip_sig: 0.03169209302302056
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2021-10-29 00:00:00'
+  weights:
+    DXCM: 0.2
+    MRNA: 0.2
+    NVDA: 0.2
+    TEAM: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: SHV
+    reason: vol20_crossover_off
+    rv_20: 0.13115076178108165
+    rv_252: 0.12279268421030619
+    selected: []
+    spy_sig: 0.09290547395249882
+    tip_sig: 0.0323481334296889
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2021-11-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: SHV
+    reason: vol20_crossover_off
+    rv_20: 0.16451176257055786
+    rv_252: 0.12988702058931795
+    selected: []
+    spy_sig: 0.1403062529896118
+    tip_sig: 0.03154692884061566
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2021-12-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.18675339581410874
+    rv_252: 0.13220760468650308
+    selected: []
+    spy_sig: 0.048802837903569235
+    tip_sig: -0.0007615067663249708
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-01-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: SHV
+    reason: vol20_crossover_off
+    rv_20: 0.22910767105604518
+    rv_252: 0.13923573794853966
+    selected: []
+    spy_sig: 0.017245087440049323
+    tip_sig: 0.01571485945874443
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-02-28 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.23451482992039765
+    rv_252: 0.14922920706445905
+    selected: []
+    spy_sig: 0.051351536950579924
+    tip_sig: -0.0037918600047166517
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-03-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.24937570745682222
+    rv_252: 0.16299930276953714
+    selected: []
+    spy_sig: -0.06645762978703917
+    tip_sig: -0.02222496740931923
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-04-29 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.32008941135133406
+    rv_252: 0.1812877409281715
+    selected: []
+    spy_sig: -0.035160197858144365
+    tip_sig: -0.03311516002051773
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-05-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.3042329671458911
+    rv_252: 0.19885078326508904
+    selected: []
+    spy_sig: -0.13738613982493092
+    tip_sig: -0.05906792927324109
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-06-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off
+    rv_20: 0.19171947594292846
+    rv_252: 0.2042666223917668
+    selected: []
+    spy_sig: -0.007051783535449219
+    tip_sig: -0.006381338333343783
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-07-29 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off
+    rv_20: 0.19676503634590387
+    rv_252: 0.21068575142623974
+    selected: []
+    spy_sig: -0.0700662732015894
+    tip_sig: -0.04290923639903363
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-08-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.24370782208655567
+    rv_252: 0.21891362054103713
+    selected: []
+    spy_sig: -0.12482919576760079
+    tip_sig: -0.08778252923374202
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-09-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.2735470440663432
+    rv_252: 0.23083979667954205
+    selected: []
+    spy_sig: -0.04461122490437347
+    tip_sig: -0.06509851188480817
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-10-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off; vol20_crossover_off
+    rv_20: 0.2851193275401308
+    rv_252: 0.2416448292404431
+    selected: []
+    spy_sig: -0.0011188126560685296
+    tip_sig: -0.04464787742277737
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-11-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off
+    rv_20: 0.1845399137724604
+    rv_252: 0.24195312669051106
+    selected: []
+    spy_sig: -0.03530080272003386
+    tip_sig: -0.037970658407835256
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2022-12-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.1659305058173769
+    rv_252: 0.2418119699839809
+    selected: []
+    spy_sig: 0.008390011614960502
+    tip_sig: -0.02374266244072093
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-01-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; spy_trend_off
+    rv_20: 0.16181075500912975
+    rv_252: 0.23720144502371654
+    selected: []
+    spy_sig: -0.028737659667070453
+    tip_sig: -0.0420673149118343
+    trend_ok: 'False'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-02-28 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.30092948454477875
+      BKNG: 0.2776547507832083
+      MELI: 0.3345766455286821
+      META: 0.37196875064498464
+      NVDA: 0.6014654500539418
+    n_candidates: 76
+    ndx_gate_on: true
+    rv_20: 0.18527784326191474
+    rv_252: 0.23364814073436255
+    selected:
+    - NVDA
+    - META
+    - MELI
+    - AMD
+    - BKNG
+    spy_sig: 0.04732495190154182
+    tip_sig: 0.01442570655668704
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2023-03-31 00:00:00'
+  weights:
+    AMD: 0.2
+    BKNG: 0.2
+    MELI: 0.2
+    META: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ALGN: 0.24396300966196074
+      CPRT: 0.2508681564538733
+      META: 0.6313867278294205
+      NVDA: 0.49348031300861295
+      SBUX: 0.26291419930542337
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.1263497500201318
+    rv_252: 0.2287495661492091
+    selected:
+    - META
+    - NVDA
+    - SBUX
+    - CPRT
+    - ALGN
+    spy_sig: 0.03894974528095729
+    tip_sig: 0.004052332960824689
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2023-04-28 00:00:00'
+  weights:
+    ALGN: 0.2
+    CPRT: 0.2
+    META: 0.2
+    NVDA: 0.2
+    SBUX: 0.2
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.1272866109659875
+    rv_252: 0.20957593855195386
+    selected: []
+    spy_sig: 0.03144166556657968
+    tip_sig: -0.006900872277353226
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-05-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.10506415724876086
+    rv_252: 0.19376905147306064
+    selected: []
+    spy_sig: 0.12842030750774075
+    tip_sig: -0.00332226514672071
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-06-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.07984538539445798
+    rv_252: 0.1873235713767058
+    selected: []
+    spy_sig: 0.10037599724791774
+    tip_sig: -0.017555075606699
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-07-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.12198912060279461
+    rv_252: 0.181477921127031
+    selected: []
+    spy_sig: 0.09220599418956005
+    tip_sig: -0.012774886099297555
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-08-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.10914768844184643
+    rv_252: 0.17194403689892346
+    selected: []
+    spy_sig: 0.04693680616380039
+    tip_sig: -0.018708160985677902
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-09-29 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off
+    rv_20: 0.13948329663114672
+    rv_252: 0.15543046238589492
+    selected: []
+    spy_sig: 0.0019155886328739435
+    tip_sig: -0.024789482052818473
+    trend_ok: 'True'
+    vol_ok: true
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2023-10-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      CRWD: 0.5721693018368093
+      META: 0.5493736772977158
+      NVDA: 0.5239210858268989
+      PANW: 0.3867097978977729
+      PDD: 0.7494671484657989
+    n_candidates: 73
+    ndx_gate_on: true
+    rv_20: 0.11245010652291329
+    rv_252: 0.14155121049332092
+    selected:
+    - PDD
+    - CRWD
+    - META
+    - NVDA
+    - PANW
+    spy_sig: 0.08641595644766698
+    tip_sig: 0.004558800502454996
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2023-11-30 00:00:00'
+  weights:
+    CRWD: 0.2
+    META: 0.2
+    NVDA: 0.2
+    PANW: 0.2
+    PDD: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.5550793788538493
+      CRWD: 0.6915165707796802
+      META: 0.6089301949716603
+      NVDA: 0.6896362544058328
+      PDD: 0.5986211118095167
+    n_candidates: 90
+    ndx_gate_on: true
+    rv_20: 0.09479477753648771
+    rv_252: 0.1313941458526688
+    selected:
+    - CRWD
+    - NVDA
+    - META
+    - PDD
+    - AMD
+    spy_sig: 0.12605285017602447
+    tip_sig: 0.031208394505905235
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2023-12-29 00:00:00'
+  weights:
+    AMD: 0.2
+    CRWD: 0.2
+    META: 0.2
+    NVDA: 0.2
+    PDD: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.6343093893321006
+      CRWD: 0.8429265472532188
+      META: 0.5601651910018444
+      NVDA: 0.8047146794744349
+      PANW: 0.5072427276315368
+    n_candidates: 80
+    ndx_gate_on: true
+    rv_20: 0.11210394662765855
+    rv_252: 0.12635081584794575
+    selected:
+    - CRWD
+    - NVDA
+    - AMD
+    - META
+    - PANW
+    spy_sig: 0.1110249760177005
+    tip_sig: 0.02506137244424328
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2024-01-31 00:00:00'
+  weights:
+    AMD: 0.2
+    CRWD: 0.2
+    META: 0.2
+    NVDA: 0.2
+    PANW: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.7521079771776604
+      CEG: 0.6654972717177391
+      CRWD: 0.7875187826101968
+      META: 0.8050726148056924
+      NVDA: 0.9974553487931606
+    n_candidates: 80
+    ndx_gate_on: true
+    rv_20: 0.1213758004790162
+    rv_252: 0.12291572104564286
+    selected:
+    - NVDA
+    - META
+    - CRWD
+    - AMD
+    - CEG
+    spy_sig: 0.15209227351673077
+    tip_sig: 0.011962175823691357
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2024-02-29 00:00:00'
+  weights:
+    AMD: 0.2
+    CEG: 0.2
+    CRWD: 0.2
+    META: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      CEG: 0.6913896193381361
+      CRWD: 0.6239100206774921
+      DASH: 0.5994935486952404
+      MU: 0.5985191133481844
+      NVDA: 1.0745644037122322
+    n_candidates: 82
+    ndx_gate_on: true
+    rv_20: 0.09733693039108275
+    rv_252: 0.11536842110846252
+    selected:
+    - NVDA
+    - CEG
+    - CRWD
+    - DASH
+    - MU
+    spy_sig: 0.16629430827656
+    tip_sig: 0.012890306526514211
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2024-03-28 00:00:00'
+  weights:
+    CEG: 0.2
+    CRWD: 0.2
+    DASH: 0.2
+    MU: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.13751722282110712
+    rv_252: 0.11628020154078454
+    selected: []
+    spy_sig: 0.1089434044375096
+    tip_sig: -0.004901771993298498
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2024-04-30 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      CEG: 0.7183065051056675
+      MRNA: 0.4471283988810496
+      MU: 0.49424618944006676
+      NVDA: 0.9744503768166808
+      QCOM: 0.4924549381021914
+    n_candidates: 70
+    ndx_gate_on: true
+    rv_20: 0.09433771078979593
+    rv_252: 0.1137415014384873
+    selected:
+    - NVDA
+    - CEG
+    - MU
+    - QCOM
+    - MRNA
+    spy_sig: 0.13398510415452236
+    tip_sig: 0.01564233707949947
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2024-05-31 00:00:00'
+  weights:
+    CEG: 0.2
+    MRNA: 0.2
+    MU: 0.2
+    NVDA: 0.2
+    QCOM: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AVGO: 0.4400035934757714
+      CEG: 0.4830990147912536
+      CRWD: 0.631690933892195
+      MU: 0.45176051613942503
+      NVDA: 0.977647151530022
+    n_candidates: 66
+    ndx_gate_on: true
+    rv_20: 0.06736137162233712
+    rv_252: 0.1113697015040203
+    selected:
+    - NVDA
+    - CRWD
+    - CEG
+    - MU
+    - AVGO
+    spy_sig: 0.11904933780705468
+    tip_sig: 0.012006607767476196
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2024-06-28 00:00:00'
+  weights:
+    AVGO: 0.2
+    CEG: 0.2
+    CRWD: 0.2
+    MU: 0.2
+    NVDA: 0.2
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.14901769685291147
+    rv_252: 0.11621806753528052
+    selected: []
+    spy_sig: 0.12021493765909774
+    tip_sig: 0.030999134453049082
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2024-07-31 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.1768899403747203
+    rv_252: 0.12322515783974416
+    selected: []
+    spy_sig: 0.12032239039690779
+    tip_sig: 0.03517059728998018
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2024-08-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.13626807253116638
+    rv_252: 0.12428461818555257
+    selected: []
+    spy_sig: 0.13567049399315817
+    tip_sig: 0.05021997356953284
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2024-09-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      ARM: 0.5577375578208355
+      CEG: 0.5412536310603273
+      DASH: 0.45404285275577816
+      NVDA: 0.7552794863593126
+      TTD: 0.394686201891102
+    n_candidates: 74
+    ndx_gate_on: true
+    rv_20: 0.1150673348830712
+    rv_252: 0.12179145378377411
+    selected:
+    - NVDA
+    - ARM
+    - CEG
+    - DASH
+    - TTD
+    spy_sig: 0.13616674748354934
+    tip_sig: 0.02919974020640223
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2024-10-31 00:00:00'
+  weights:
+    ARM: 0.2
+    CEG: 0.2
+    DASH: 0.2
+    NVDA: 0.2
+    TTD: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      APP: 3.682939999462925
+      DASH: 0.5283683760809373
+      NVDA: 0.6044254802855791
+      TEAM: 0.5125963376509515
+      TSLA: 0.5923637222661353
+    n_candidates: 75
+    ndx_gate_on: true
+    rv_20: 0.1188848277800636
+    rv_252: 0.12158418426278673
+    selected:
+    - APP
+    - NVDA
+    - TSLA
+    - DASH
+    - TEAM
+    spy_sig: 0.15492597717324402
+    tip_sig: 0.02501590889429861
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2024-11-29 00:00:00'
+  weights:
+    APP: 0.2
+    DASH: 0.2
+    NVDA: 0.2
+    TEAM: 0.2
+    TSLA: 0.2
+- diag:
+    canary_ok: 'False'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: canary_off; vol20_crossover_off
+    rv_20: 0.1464492537235639
+    rv_252: 0.12568982441656237
+    selected: []
+    spy_sig: 0.08339281403834761
+    tip_sig: -0.005521894581645731
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2024-12-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: SHV
+    reason: vol20_crossover_off
+    rv_20: 0.13943849680519166
+    rv_252: 0.12875258264627662
+    selected: []
+    spy_sig: 0.1126795125396084
+    tip_sig: 0.011870561162640514
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2025-01-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.12887278736385394
+    rv_252: 0.1280355408729095
+    selected: []
+    spy_sig: 0.05552405785136111
+    tip_sig: 0.029673531457174218
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2025-02-28 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: 'False'
+    picked_safe: SHV
+    reason: spy_trend_off; vol20_crossover_off
+    rv_20: 0.20507771571532823
+    rv_252: 0.13881432764192733
+    selected: []
+    spy_sig: -0.008540420657890624
+    tip_sig: 0.030212411729836408
+    trend_ok: 'False'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2025-03-31 00:00:00'
+  weights:
+    SHV: 1.0
+- diag:
+    canary_ok: 'True'
+    ndx_gate_on: false
+    picked_safe: IEF
+    reason: vol20_crossover_off
+    rv_20: 0.5405295484620497
+    rv_252: 0.2002643749231596
+    selected: []
+    spy_sig: 0.003933831158845963
+    tip_sig: 0.03560770385073325
+    trend_ok: 'True'
+    vol_ok: false
+  regime: GATE_OFF (NDX_defensive)
+  sig_d: '2025-04-30 00:00:00'
+  weights:
+    IEF: 1.0
+- diag:
+    canary_ok: 'True'
+    momenta:
+      APP: 1.1640189410694946
+      AVGO: 0.4553941624577326
+      AXON: 0.6167995795995658
+      MSTR: 0.4472872342320408
+      PLTR: 1.6768443429719666
+    n_candidates: 60
+    ndx_gate_on: true
+    rv_20: 0.1733752969528182
+    rv_252: 0.20397904094521255
+    selected:
+    - PLTR
+    - APP
+    - AXON
+    - AVGO
+    - MSTR
+    spy_sig: 0.0434995864415135
+    tip_sig: 0.017393863130432036
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-05-30 00:00:00'
+  weights:
+    APP: 0.2
+    AVGO: 0.2
+    AXON: 0.2
+    MSTR: 0.2
+    PLTR: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      APP: 0.8749342011392529
+      AXON: 0.7211209641684957
+      DASH: 0.5664595205274706
+      MSTR: 0.7069613173310976
+      PLTR: 1.458459481257652
+    n_candidates: 77
+    ndx_gate_on: true
+    rv_20: 0.09940569084938883
+    rv_252: 0.20480888400925829
+    selected:
+    - PLTR
+    - APP
+    - AXON
+    - MSTR
+    - DASH
+    spy_sig: 0.09227448116499742
+    tip_sig: 0.02930524798288403
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-06-30 00:00:00'
+  weights:
+    APP: 0.2
+    AXON: 0.2
+    DASH: 0.2
+    MSTR: 0.2
+    PLTR: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.44861632571991333
+      APP: 1.172834444517466
+      AXON: 0.4552402265529544
+      DASH: 0.4745038458531684
+      PLTR: 1.5767505675693407
+    n_candidates: 71
+    ndx_gate_on: true
+    rv_20: 0.06757915712309054
+    rv_252: 0.20209000653978845
+    selected:
+    - PLTR
+    - APP
+    - DASH
+    - AXON
+    - AMD
+    spy_sig: 0.09615555417348187
+    tip_sig: 0.01871284458420569
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-07-31 00:00:00'
+  weights:
+    AMD: 0.2
+    APP: 0.2
+    AXON: 0.2
+    DASH: 0.2
+    PLTR: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      APP: 1.26632828455278
+      AVGO: 0.39763195456752093
+      MSTR: 0.39321159296453145
+      PLTR: 1.2505719532415802
+      SHOP: 0.41063023054707326
+    n_candidates: 64
+    ndx_gate_on: true
+    rv_20: 0.1043209676874161
+    rv_252: 0.19690121738137323
+    selected:
+    - APP
+    - PLTR
+    - SHOP
+    - AVGO
+    - MSTR
+    spy_sig: 0.09222457248298194
+    tip_sig: 0.029102579151772834
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-08-29 00:00:00'
+  weights:
+    APP: 0.2
+    AVGO: 0.2
+    MSTR: 0.2
+    PLTR: 0.2
+    SHOP: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      APP: 1.9423985046484327
+      LRCX: 0.5565344295541591
+      MU: 0.5782829316503753
+      PLTR: 1.3918433445063325
+      WBD: 0.892356756104237
+    n_candidates: 64
+    ndx_gate_on: true
+    rv_20: 0.06535769642809074
+    rv_252: 0.19412991404217614
+    selected:
+    - APP
+    - PLTR
+    - WBD
+    - MU
+    - LRCX
+    spy_sig: 0.12244069001189539
+    tip_sig: 0.0213798978837334
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-09-30 00:00:00'
+  weights:
+    APP: 0.2
+    LRCX: 0.2
+    MU: 0.2
+    PLTR: 0.2
+    WBD: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMD: 0.8610936311020629
+      APP: 1.1618152528431636
+      MU: 1.1393221601245385
+      PLTR: 1.2202889530050585
+      WBD: 1.0512279462472232
+    n_candidates: 62
+    ndx_gate_on: true
+    rv_20: 0.147121541138551
+    rv_252: 0.196561723566675
+    selected:
+    - PLTR
+    - APP
+    - MU
+    - WBD
+    - AMD
+    spy_sig: 0.13923855956199932
+    tip_sig: 0.028158054640688213
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-10-31 00:00:00'
+  weights:
+    AMD: 0.2
+    APP: 0.2
+    MU: 0.2
+    PLTR: 0.2
+    WBD: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AVGO: 0.6573658505763842
+      INTC: 0.610282264889672
+      LRCX: 0.6562316949155019
+      MU: 0.9942238642617848
+      WBD: 0.9570489814115486
+    n_candidates: 55
+    ndx_gate_on: true
+    rv_20: 0.14979640285586318
+    rv_252: 0.1969761489502311
+    selected:
+    - MU
+    - WBD
+    - AVGO
+    - LRCX
+    - INTC
+    spy_sig: 0.09460378533853248
+    tip_sig: 0.025833747099179682
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-11-28 00:00:00'
+  weights:
+    AVGO: 0.2
+    INTC: 0.2
+    LRCX: 0.2
+    MU: 0.2
+    WBD: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      LRCX: 0.6340551437031283
+      MU: 1.1593973684598486
+      STX: 0.8348256218469683
+      WBD: 0.9794826477291488
+      WDC: 1.256457249970547
+    n_candidates: 60
+    ndx_gate_on: true
+    rv_20: 0.08930678343191494
+    rv_252: 0.1945165535416163
+    selected:
+    - WDC
+    - MU
+    - WBD
+    - STX
+    - LRCX
+    spy_sig: 0.07866716103123067
+    tip_sig: 0.02007440455953019
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2025-12-31 00:00:00'
+  weights:
+    LRCX: 0.2
+    MU: 0.2
+    STX: 0.2
+    WBD: 0.2
+    WDC: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      INTC: 0.7900055796158747
+      LRCX: 1.05657380581024
+      MU: 1.9189319647847074
+      STX: 1.5006216001368466
+      WDC: 1.8521089473763466
+    n_candidates: 59
+    ndx_gate_on: true
+    rv_20: 0.10263181648550486
+    rv_252: 0.19247279764095304
+    selected:
+    - MU
+    - WDC
+    - STX
+    - LRCX
+    - INTC
+    spy_sig: 0.07414808886829222
+    tip_sig: 0.022463330487981548
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2026-01-30 00:00:00'
+  weights:
+    INTC: 0.2
+    LRCX: 0.2
+    MU: 0.2
+    STX: 0.2
+    WDC: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.8334812533289593
+      LRCX: 0.9808004367380723
+      MU: 1.6564241995975497
+      STX: 1.2520657922103133
+      WDC: 2.014549961897116
+    n_candidates: 60
+    ndx_gate_on: true
+    rv_20: 0.13057007473394894
+    rv_252: 0.19371948812328343
+    selected:
+    - WDC
+    - MU
+    - STX
+    - LRCX
+    - AMAT
+    spy_sig: 0.058942346978927695
+    tip_sig: 0.023781152758065027
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2026-02-27 00:00:00'
+  weights:
+    AMAT: 0.2
+    LRCX: 0.2
+    MU: 0.2
+    STX: 0.2
+    WDC: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      AMAT: 0.5751799010129265
+      LRCX: 0.6812318802975587
+      MU: 0.9808254805829334
+      STX: 1.1813052364190697
+      WDC: 1.8783731901221428
+    n_candidates: 47
+    ndx_gate_on: true
+    rv_20: 0.18738226237886135
+    rv_252: 0.19054978275970996
+    selected:
+    - WDC
+    - STX
+    - MU
+    - LRCX
+    - AMAT
+    spy_sig: 0.016152800355939023
+    tip_sig: 0.005496337947618252
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2026-03-31 00:00:00'
+  weights:
+    AMAT: 0.2
+    LRCX: 0.2
+    MU: 0.2
+    STX: 0.2
+    WDC: 0.2
+- diag:
+    canary_ok: 'True'
+    momenta:
+      INTC: 1.8092937818026895
+      MU: 1.9569198181049614
+      SNDK: 9.819557592641038
+      STX: 2.378616476212156
+      WDC: 3.0474831276284995
+    n_candidates: 64
+    ndx_gate_on: true
+    rv_20: 0.11971579492638192
+    rv_252: 0.12468224306345722
+    selected:
+    - SNDK
+    - WDC
+    - STX
+    - MU
+    - INTC
+    spy_sig: 0.12923344661395897
+    tip_sig: 0.01741205240556476
+    trend_ok: 'True'
+    vol_ok: true
+  regime: NDX_ACTIVE
+  sig_d: '2026-04-30 00:00:00'
+  weights:
+    INTC: 0.2
+    MU: 0.2
+    SNDK: 0.2
+    STX: 0.2
+    WDC: 0.2
