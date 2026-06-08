@@ -385,11 +385,14 @@ def compute_target_weights(
     cpi_ma12 = cpi_yoy_lagged.rolling(12).mean()
 
     is_stress = False
-    if sig_d in cpi_yoy_lagged.index:
-        val_lagged = cpi_yoy_lagged.loc[sig_d]
-        val_ma12 = cpi_ma12.loc[sig_d]
-        if pd.notna(val_lagged) and pd.notna(val_ma12):
-            is_stress = (val_lagged > 4.0) and (val_lagged > val_ma12)
+    cpi_lookup = cpi_yoy_lagged.dropna()
+    if not cpi_lookup.empty:
+        cpi_d = cpi_lookup.index.asof(sig_d)
+        if pd.notna(cpi_d):
+            val_lagged = cpi_lookup.loc[cpi_d]
+            val_ma12 = cpi_ma12.loc[cpi_d]
+            if pd.notna(val_lagged) and pd.notna(val_ma12):
+                is_stress = (val_lagged > 4.0) and (val_lagged > val_ma12)
 
     cpi_frac = 0.0 if is_stress else 1.0
 
