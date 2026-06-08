@@ -7,9 +7,11 @@ seq/z/weighted/sma200 over a 5-premia universe + SHV cash.
 from __future__ import annotations
 
 import io
+import json
 import os
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlencode
 from urllib.request import urlopen
 
 import pandas as pd
@@ -40,6 +42,23 @@ def _read_csv_url_timeout(url: str, timeout_s: float = 15.0) -> pd.DataFrame:
     return pd.read_csv(io.StringIO(text))
 
 
+def _read_fred_api_observations_timeout(id_: str, api_key: str, timeout_s: float = 15.0) -> pd.DataFrame:
+    params = urlencode({"series_id": id_, "api_key": api_key, "file_type": "json"})
+    url = f"https://api.stlouisfed.org/fred/series/observations?{params}"
+    with urlopen(url, timeout=timeout_s) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    observations = payload.get("observations") if isinstance(payload, dict) else None
+    if not isinstance(observations, list) or not observations:
+        raise ValueError(f"Invalid FRED API payload for {id_}: missing observations")
+
+    df_obs = pd.DataFrame(observations)
+    if "date" not in df_obs.columns or "value" not in df_obs.columns:
+        raise ValueError(f"Invalid FRED API payload for {id_}: missing date/value")
+
+    return pd.DataFrame({"date": df_obs["date"], id_: df_obs["value"]})
+
+
 def _parse_fred_series(df: pd.DataFrame, id_: str) -> pd.Series:
     if df.shape[1] < 2:
         raise ValueError(f"Invalid FRED payload for {id_}: expected >=2 columns")
@@ -56,9 +75,14 @@ def _fetch_fred_series(id_: str, fallback_paths: list[Path] | None = None) -> pd
     fallback_paths = fallback_paths or [DATA_DIR / f"fred_{id_}.csv"]
 
     if os.environ.get("REFRESH_FRED") == "1":
-        url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={id_}"
+        api_key = os.environ.get("FRED_API_KEY", "").strip()
         try:
-            return _parse_fred_series(_read_csv_url_timeout(url, timeout_s=15.0), id_)
+            if api_key:
+                remote_df = _read_fred_api_observations_timeout(id_, api_key, timeout_s=15.0)
+            else:
+                url = f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={id_}"
+                remote_df = _read_csv_url_timeout(url, timeout_s=15.0)
+            return _parse_fred_series(remote_df, id_)
         except Exception:
             pass
 
