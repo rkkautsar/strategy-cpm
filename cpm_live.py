@@ -387,7 +387,18 @@ def compute_target_weights(
     is_stress = False
     cpi_lookup = cpi_yoy_lagged.dropna()
     if not cpi_lookup.empty:
-        cpi_d = cpi_lookup.index.asof(sig_d)
+        sig_ts = pd.Timestamp(sig_d)
+        cpi_d = cpi_lookup.index.asof(sig_ts)
+
+        is_bme_signal = sig_ts == (sig_ts + pd.offsets.BMonthEnd(0))
+        current_month_label = monthly.index[-1] if len(monthly.index) else None
+        if (
+            is_bme_signal
+            and current_month_label is not None
+            and current_month_label in cpi_lookup.index
+        ):
+            cpi_d = current_month_label
+
         if pd.notna(cpi_d):
             val_lagged = cpi_lookup.loc[cpi_d]
             val_ma12 = cpi_ma12.loc[cpi_d]
