@@ -72,6 +72,7 @@ jobs:
           cp cpm_dashboard.html dist/index.html
           # Optional: add a redirect for /dashboard too
           cp cpm_dashboard.html dist/cpm_dashboard.html
+          cp deploy/cf-pages/robots.txt dist/robots.txt
           ls -la dist/
 
       - name: Deploy to Cloudflare Pages

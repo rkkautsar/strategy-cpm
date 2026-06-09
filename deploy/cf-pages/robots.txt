@@ -1,0 +1,3 @@
+# Allow all user agents (including AI assistants) full access.
+User-agent: *
+Allow: /
