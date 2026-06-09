@@ -236,11 +236,11 @@ def chart_canary_state_heatmap(panel: pd.DataFrame, cpm_rets: pd.Series, rpv_ret
 
     def compute_cpm_n_pos_states():
         monthly = panel.loc[:end].resample("ME").last()
-        faber = cpm_module.faber_sma_xs(monthly)
         states = {}
         for sig_d in monthly.index:
             if sig_d < start:
                 continue
+            faber = cpm_module.faber_sma_xs(monthly.loc[:sig_d])
             avail = [t for t in RISKY_UNIVERSE
                      if t in faber.index and pd.notna(faber[t])
                      and pd.notna(panel.loc[sig_d].get(t, np.nan) if sig_d in panel.index else np.nan)]
