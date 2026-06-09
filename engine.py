@@ -26,6 +26,8 @@ def _assert_open_cache_adjusted(opens_df, closes_df, threshold=OPEN_CACHE_INTRAD
 
 from data_loader import load_open_close  # noqa: F401  re-export: consumed via engine.load_open_close() in dashboard_engine; do NOT autoflake/ruff --fix away
 
+_VALID_CONVENTIONS = frozenset({"moo", "mooex", "moc", "moc1"})
+
 
 def _segment_returns_conv(
     close,
@@ -38,6 +40,11 @@ def _segment_returns_conv(
     intraday_ret=None,
     overnight_ret=None,
 ):
+    if convention not in _VALID_CONVENTIONS:
+        raise ValueError(
+            f"_segment_returns_conv: unknown convention {convention!r}; "
+            f"valid: {sorted(_VALID_CONVENTIONS)}"
+        )
     exec_lag = 1 if convention == "moc1" else 0
     monthly_idx = pd.DataFrame({"x": 1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
     sigs = monthly_idx.index[(monthly_idx.index >= start) & (monthly_idx.index <= end)].tolist()
