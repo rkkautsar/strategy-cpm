@@ -12,25 +12,25 @@
     GLD: 0.3333333333333333
     QQQ: 0.3333333333333333
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2008-06-30 00:00:00'
   weights:
     IEF: 1.0
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2008-07-31 00:00:00'
   weights:
     IEF: 1.0
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2008-08-29 00:00:00'
   weights:
@@ -60,9 +60,9 @@
   weights:
     IEF: 1.0
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2008-12-31 00:00:00'
   weights:
@@ -84,9 +84,9 @@
   weights:
     IEF: 1.0
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2009-03-31 00:00:00'
   weights:
@@ -472,9 +472,9 @@
     IEF: 0.5
     TLT: 0.16666666666666666
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2011-09-30 00:00:00'
   weights:
@@ -732,9 +732,9 @@
   - SPHQ
   - QQQ
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-05-31 00:00:00'
   weights:
@@ -745,9 +745,9 @@
   - SPHQ
   - QQQ
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-06-28 00:00:00'
   weights:
@@ -758,9 +758,9 @@
   - SPHQ
   - QQQ
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-07-31 00:00:00'
   weights:
@@ -771,9 +771,9 @@
   - QQQ
   - SPHQ
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-08-30 00:00:00'
   weights:
@@ -785,9 +785,9 @@
   - QQQ
   - SPHQ
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-09-30 00:00:00'
   weights:
@@ -799,9 +799,9 @@
   - QQQ
   - SPHQ
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-10-31 00:00:00'
   weights:
@@ -812,9 +812,9 @@
   - QQQ
   - SPHQ
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-11-29 00:00:00'
   weights:
@@ -825,9 +825,9 @@
   - QQQ
   - SPHQ
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2013-12-31 00:00:00'
   weights:
@@ -838,9 +838,9 @@
   - QQQ
   - SPHQ
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: IEF
   sig_d: '2014-01-31 00:00:00'
   weights:
@@ -851,9 +851,9 @@
   - QQQ
   - SPHQ
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: IEF
   sig_d: '2014-02-28 00:00:00'
   weights:
@@ -864,9 +864,9 @@
   - SPHQ
   - QQQ
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2014-03-31 00:00:00'
   weights:
@@ -877,9 +877,9 @@
   - SPHQ
   - EFA
   - TLT
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2014-04-30 00:00:00'
   weights:
@@ -942,9 +942,9 @@
   - QQQ
   - TLT
   - SPHQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: IEF
   sig_d: '2014-09-30 00:00:00'
   weights:
@@ -964,32 +964,22 @@
     SPHQ: 0.3333333333333333
     TLT: 0.3333333333333333
     VNQ: 0.3333333333333333
-- basket:
-  - SPHQ
-  - VNQ
-  - TLT
-  canary_positive_count: 1
-  regime: RISK_ON
-  risk_state: 'ON'
+- basket: null
+  canary_positive_count: 0
+  regime: DEFENSIVE
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2014-11-28 00:00:00'
   weights:
-    SPHQ: 0.3333333333333333
-    TLT: 0.3333333333333333
-    VNQ: 0.3333333333333333
-- basket:
-  - TLT
-  - VNQ
-  - SPHQ
-  canary_positive_count: 1
-  regime: RISK_ON
-  risk_state: 'ON'
+    IEF: 1.0
+- basket: null
+  canary_positive_count: 0
+  regime: DEFENSIVE
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2014-12-31 00:00:00'
   weights:
-    SPHQ: 0.3333333333333333
-    TLT: 0.3333333333333333
-    VNQ: 0.3333333333333333
+    IEF: 1.0
 - basket:
   - TLT
   - VNQ
@@ -1046,43 +1036,31 @@
   - QQQ
   - SPHQ
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: IEF
   sig_d: '2015-05-29 00:00:00'
   weights:
     EFA: 0.3333333333333333
     QQQ: 0.3333333333333333
     SPHQ: 0.3333333333333333
-- basket:
-  - QQQ
-  - SPHQ
-  - EFA
+- basket: null
   canary_positive_count: 0
-  regime: RISK_ON
+  regime: DEFENSIVE
   risk_state: 'OFF'
   safe: SHV
   sig_d: '2015-06-30 00:00:00'
   weights:
-    EFA: 0.16666666666666666
-    QQQ: 0.16666666666666666
-    SHV: 0.5
-    SPHQ: 0.16666666666666666
-- basket:
-  - QQQ
-  - SPHQ
-  - EFA
+    SHV: 1.0
+- basket: null
   canary_positive_count: 0
-  regime: RISK_ON
+  regime: DEFENSIVE
   risk_state: 'OFF'
   safe: IEF
   sig_d: '2015-07-31 00:00:00'
   weights:
-    EFA: 0.16666666666666666
-    IEF: 0.5
-    QQQ: 0.16666666666666666
-    SPHQ: 0.16666666666666666
+    IEF: 1.0
 - basket: null
   canary_positive_count: 0
   regime: DEFENSIVE
@@ -1099,48 +1077,30 @@
   sig_d: '2015-09-30 00:00:00'
   weights:
     IEF: 1.0
-- basket:
-  - QQQ
-  - SPHQ
-  - VNQ
+- basket: null
   canary_positive_count: 0
-  regime: RISK_ON
+  regime: DEFENSIVE
   risk_state: 'OFF'
   safe: IEF
   sig_d: '2015-10-30 00:00:00'
   weights:
-    IEF: 0.5
-    QQQ: 0.16666666666666666
-    SPHQ: 0.16666666666666666
-    VNQ: 0.16666666666666666
-- basket:
-  - QQQ
-  - SPHQ
-  - VNQ
+    IEF: 1.0
+- basket: null
   canary_positive_count: 0
-  regime: RISK_ON
+  regime: DEFENSIVE
   risk_state: 'OFF'
   safe: IEF
   sig_d: '2015-11-30 00:00:00'
   weights:
-    IEF: 0.5
-    QQQ: 0.16666666666666666
-    SPHQ: 0.16666666666666666
-    VNQ: 0.16666666666666666
-- basket:
-  - VNQ
-  - QQQ
-  - SPHQ
+    IEF: 1.0
+- basket: null
   canary_positive_count: 0
-  regime: RISK_ON
+  regime: DEFENSIVE
   risk_state: 'OFF'
   safe: IEF
   sig_d: '2015-12-31 00:00:00'
   weights:
-    IEF: 0.5
-    QQQ: 0.16666666666666666
-    SPHQ: 0.16666666666666666
-    VNQ: 0.16666666666666666
+    IEF: 1.0
 - basket: null
   canary_positive_count: 0
   regime: DEFENSIVE
@@ -1149,19 +1109,14 @@
   sig_d: '2016-01-29 00:00:00'
   weights:
     IEF: 1.0
-- basket:
-  - GLD
-  - TLT
-  - SPHQ
-  canary_positive_count: 1
-  regime: RISK_ON
-  risk_state: 'ON'
+- basket: null
+  canary_positive_count: 0
+  regime: DEFENSIVE
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2016-02-29 00:00:00'
   weights:
-    GLD: 0.3333333333333333
-    SPHQ: 0.3333333333333333
-    TLT: 0.3333333333333333
+    IEF: 1.0
 - basket:
   - GLD
   - SPHQ
@@ -1361,9 +1316,9 @@
   - EFA
   - QQQ
   - SPHQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2017-06-30 00:00:00'
   weights:
@@ -1374,9 +1329,9 @@
   - EFA
   - QQQ
   - SPHQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2017-07-31 00:00:00'
   weights:
@@ -1400,9 +1355,9 @@
   - EFA
   - SPHQ
   - QQQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2017-09-29 00:00:00'
   weights:
@@ -1465,9 +1420,9 @@
   - QQQ
   - SPHQ
   - DBC
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2018-02-28 00:00:00'
   weights:
@@ -1491,9 +1446,9 @@
   - DBC
   - EFA
   - GLD
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2018-04-30 00:00:00'
   weights:
@@ -1556,9 +1511,9 @@
   - SPHQ
   - DBC
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2018-09-28 00:00:00'
   weights:
@@ -1773,40 +1728,29 @@
     QQQ: 0.16666666666666666
     TLT: 0.16666666666666666
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2020-03-31 00:00:00'
   weights:
     IEF: 1.0
-- basket:
-  - TLT
-  - GLD
-  - QQQ
-  canary_positive_count: 1
-  regime: RISK_ON
-  risk_state: 'ON'
+- basket: null
+  canary_positive_count: 0
+  regime: DEFENSIVE
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2020-04-30 00:00:00'
   weights:
-    GLD: 0.16666666666666666
-    IEF: 0.5
-    QQQ: 0.16666666666666666
-    TLT: 0.16666666666666666
-- basket:
-  - GLD
-  - TLT
-  - SPHQ
-  canary_positive_count: 1
-  regime: RISK_ON
-  risk_state: 'ON'
+    IEF: 1.0
+- basket: null
+  canary_positive_count: 0
+  regime: DEFENSIVE
+  risk_state: 'OFF'
   safe: IEF
   sig_d: '2020-05-29 00:00:00'
   weights:
-    GLD: 0.3333333333333333
-    SPHQ: 0.3333333333333333
-    TLT: 0.3333333333333333
+    IEF: 1.0
 - basket:
   - GLD
   - TLT
@@ -1963,62 +1907,97 @@
     DBC: 0.3333333333333333
     EFA: 0.3333333333333333
     SPHQ: 0.3333333333333333
-- basket: null
+- basket:
+  - DBC
+  - VNQ
+  - EFA
   canary_positive_count: 1
-  regime: DEFENSIVE
+  regime: RISK_ON
   risk_state: 'ON'
   safe: SHV
   sig_d: '2021-06-30 00:00:00'
   weights:
-    SHV: 1.0
-- basket: null
+    DBC: 0.3333333333333333
+    EFA: 0.3333333333333333
+    VNQ: 0.3333333333333333
+- basket:
+  - DBC
+  - VNQ
+  - SPHQ
   canary_positive_count: 1
-  regime: DEFENSIVE
+  regime: RISK_ON
   risk_state: 'ON'
   safe: IEF
   sig_d: '2021-07-30 00:00:00'
   weights:
-    IEF: 1.0
-- basket: null
+    DBC: 0.3333333333333333
+    SPHQ: 0.3333333333333333
+    VNQ: 0.3333333333333333
+- basket:
+  - VNQ
+  - SPHQ
+  - DBC
   canary_positive_count: 1
-  regime: DEFENSIVE
+  regime: RISK_ON
   risk_state: 'ON'
   safe: IEF
   sig_d: '2021-08-31 00:00:00'
   weights:
-    IEF: 1.0
-- basket: null
+    DBC: 0.3333333333333333
+    SPHQ: 0.3333333333333333
+    VNQ: 0.3333333333333333
+- basket:
+  - DBC
+  - VNQ
+  - SPHQ
   canary_positive_count: 1
-  regime: DEFENSIVE
+  regime: RISK_ON
   risk_state: 'ON'
   safe: SHV
   sig_d: '2021-09-30 00:00:00'
   weights:
-    SHV: 1.0
-- basket: null
+    DBC: 0.3333333333333333
+    SPHQ: 0.3333333333333333
+    VNQ: 0.3333333333333333
+- basket:
+  - DBC
+  - VNQ
+  - SPHQ
   canary_positive_count: 1
-  regime: DEFENSIVE
+  regime: RISK_ON
   risk_state: 'ON'
   safe: SHV
   sig_d: '2021-10-29 00:00:00'
   weights:
-    SHV: 1.0
-- basket: null
+    DBC: 0.3333333333333333
+    SPHQ: 0.3333333333333333
+    VNQ: 0.3333333333333333
+- basket:
+  - SPHQ
+  - VNQ
+  - TLT
   canary_positive_count: 1
-  regime: DEFENSIVE
+  regime: RISK_ON
   risk_state: 'ON'
   safe: SHV
   sig_d: '2021-11-30 00:00:00'
   weights:
-    SHV: 1.0
-- basket: null
+    SPHQ: 0.3333333333333333
+    TLT: 0.3333333333333333
+    VNQ: 0.3333333333333333
+- basket:
+  - VNQ
+  - SPHQ
+  - DBC
   canary_positive_count: 1
-  regime: DEFENSIVE
+  regime: RISK_ON
   risk_state: 'ON'
   safe: SHV
   sig_d: '2021-12-31 00:00:00'
   weights:
-    SHV: 1.0
+    DBC: 0.3333333333333333
+    SPHQ: 0.3333333333333333
+    VNQ: 0.3333333333333333
 - basket: null
   canary_positive_count: 0
   regime: DEFENSIVE
@@ -2028,9 +2007,9 @@
   weights:
     SHV: 1.0
 - basket: null
-  canary_positive_count: 1
+  canary_positive_count: 0
   regime: DEFENSIVE
-  risk_state: 'ON'
+  risk_state: 'OFF'
   safe: SHV
   sig_d: '2022-02-28 00:00:00'
   weights:
@@ -2119,28 +2098,23 @@
   - GLD
   - EEM
   - SPHQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2023-01-31 00:00:00'
   weights:
     EEM: 0.3333333333333333
     GLD: 0.3333333333333333
     SPHQ: 0.3333333333333333
-- basket:
-  - EFA
-  - GLD
-  - SPHQ
+- basket: null
   canary_positive_count: 0
-  regime: RISK_ON
+  regime: DEFENSIVE
   risk_state: 'OFF'
   safe: SHV
   sig_d: '2023-02-28 00:00:00'
   weights:
-    EFA: 0.3333333333333333
-    GLD: 0.3333333333333333
-    SPHQ: 0.3333333333333333
+    SHV: 1.0
 - basket:
   - GLD
   - EFA
@@ -2167,26 +2141,21 @@
     EFA: 0.3333333333333333
     GLD: 0.3333333333333333
     SPHQ: 0.3333333333333333
-- basket:
-  - GLD
-  - EFA
-  - SPHQ
+- basket: null
   canary_positive_count: 0
-  regime: RISK_ON
+  regime: DEFENSIVE
   risk_state: 'OFF'
   safe: SHV
   sig_d: '2023-05-31 00:00:00'
   weights:
-    EFA: 0.3333333333333333
-    GLD: 0.3333333333333333
-    SPHQ: 0.3333333333333333
+    SHV: 1.0
 - basket:
   - SPHQ
   - EFA
   - EEM
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2023-06-30 00:00:00'
   weights:
@@ -2197,9 +2166,9 @@
   - SPHQ
   - EFA
   - EEM
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2023-07-31 00:00:00'
   weights:
@@ -2210,9 +2179,9 @@
   - SPHQ
   - DBC
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2023-08-31 00:00:00'
   weights:
@@ -2223,9 +2192,9 @@
   - QQQ
   - DBC
   - SPHQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2023-09-29 00:00:00'
   weights:
@@ -2237,9 +2206,9 @@
   - GLD
   - DBC
   - SPHQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2023-10-31 00:00:00'
   weights:
@@ -2315,9 +2284,9 @@
   - GLD
   - SPHQ
   - EFA
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2024-04-30 00:00:00'
   weights:
@@ -2419,9 +2388,9 @@
   - GLD
   - SPHQ
   - VNQ
-  canary_positive_count: 0
+  canary_positive_count: 1
   regime: RISK_ON
-  risk_state: 'OFF'
+  risk_state: 'ON'
   safe: SHV
   sig_d: '2024-12-31 00:00:00'
   weights:

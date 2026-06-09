@@ -50,12 +50,11 @@ RISKY_UNIVERSE = (US_EQUITY + US_FACTOR + INTERNATIONAL + REAL_ESTATE
                    + DIVERSIFIERS)
 SAFE_POOL = ["SHV", "IEF"]      # HAA-style best-of-safe by 13612U momentum.
 
-# CPM canary: DISABLED (de-canary C1, 2026-06-05). CPM now self-de-risks via the
-# C1 cliff in risky_fraction (breadth of its own top-K picks), removing the single
-# TIP signal that previously gated ~90% of the blend. CANARY_ASSETS kept only so
-# compute_live_weights still includes TIP in the panel columns (harmless, not a gate).
-CANARY_ASSETS = ["TIP"]
-CANARY_RULE = "disabled"  # de-canary: gate moved into the risky_fraction C1 cliff
+# CPM gate inputs kept in panel columns:
+# - TIP is used by NDX/VAL via cpm_panel["TIP"] in ndx_sleeve_live.py/value_sleeve_live.py.
+# - HYG is the CPM credit-momentum gate input.
+CANARY_ASSETS = ["TIP", "HYG"]
+CANARY_RULE = "hyg_credit_momentum"
 # C1 cliff: top-K positive-faber breadth -> risky fraction; <=2 positives -> 100% safe.
 CPM_RISKY_FRACTION_CURVE = {1: 0.0, 2: 0.0, 3: 0.5, 4: 1.0}
 
@@ -340,8 +339,7 @@ def compute_target_weights(
     monthly = close_panel.loc[:sig_d].resample("ME").last()
     safe = best_safe(monthly, sig_d, safe_pool)
     
-    # De-canary (C1): no external canary gate. CPM self-de-risks via the C1 cliff
-    # in risky_fraction below (breadth of its own top-K picks; <=2 positive -> safe).
+    # CPM uses breadth-cliff plus HYG credit-momentum gate in risky_fraction below.
 
     # Volatility-adjusted Faber ranker (EAA adoption):
     #   score(A) = faber_score(A) / vol_252d(A)
@@ -378,41 +376,13 @@ def compute_target_weights(
     positive_picks = list(positive.index)
     n_pos = len(positive_picks)
 
-    # CPI B1 macro gate check (lagged CPI YoY > 4% and rising vs 12-month MA)
-    from data_loader import _fetch_fred_series
-    cpi = _fetch_fred_series("CPIAUCSL", fallback_paths=[DATA_DIR / "fred_CPIAUCSL.csv"])
-    cpi_m = cpi.resample("ME").last()
-    cpi_yoy = 100.0 * (cpi_m / cpi_m.shift(12) - 1.0)
-    cpi_yoy_lagged = cpi_yoy.shift(1).reindex(monthly.index).ffill()
-    cpi_ma12 = cpi_yoy_lagged.rolling(12).mean()
+    # HYG 13612U credit-momentum gate: risk-off when momentum < 0.
+    hyg_mom = sig_13612U(monthly["HYG"]) if "HYG" in monthly.columns else float("nan")
+    hyg_frac = 0.0 if pd.notna(hyg_mom) and hyg_mom < 0.0 else 1.0
 
-    is_stress = False
-    cpi_lookup = cpi_yoy_lagged.dropna()
-    if not cpi_lookup.empty:
-        sig_ts = pd.Timestamp(sig_d)
-        cpi_d = cpi_lookup.index.asof(sig_ts)
-
-        is_bme_signal = sig_ts == (sig_ts + pd.offsets.BMonthEnd(0))
-        current_month_label = monthly.index[-1] if len(monthly.index) else None
-        if (
-            is_bme_signal
-            and current_month_label is not None
-            and current_month_label in cpi_lookup.index
-        ):
-            cpi_d = current_month_label
-
-        if pd.notna(cpi_d):
-            val_lagged = cpi_lookup.loc[cpi_d]
-            val_ma12 = cpi_ma12.loc[cpi_d]
-            if pd.notna(val_lagged) and pd.notna(val_ma12):
-                is_stress = (val_lagged > 4.0) and (val_lagged > val_ma12)
-
-    cpi_frac = 0.0 if is_stress else 1.0
-
-    # C1 cliff de-risk (replaces TIP canary): <=2 positive top-K picks -> 100% safe.
+    # C1 cliff de-risk: <=2 positive top-K picks -> 100% safe.
     breadth_frac = CPM_RISKY_FRACTION_CURVE.get(min(n_pos, 4), 0.0)
-    # Hard macro cap on CPM breadth: risky_fraction = min(breadth_frac, cpi_frac)
-    risky_fraction = min(breadth_frac, cpi_frac)
+    risky_fraction = min(breadth_frac, hyg_frac)
 
     if risky_fraction <= 1e-12:
         return {safe: 1.0}, None, "DEFENSIVE", safe

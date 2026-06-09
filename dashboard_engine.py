@@ -563,8 +563,10 @@ def _compute_cpm_signal_records(panel: pd.DataFrame, start: pd.Timestamp, end: p
     records = []
     for sig_d in sig_dates:
         monthly = close.loc[:sig_d].resample("ME").last()
-        n_pos = cpm_module.canary_positive_count(monthly, CANARY_ASSETS)
-        risk_state = cpm_module.canary_risk_state(n_pos)
+        hyg_mom = sig_13612U(monthly["HYG"]) if "HYG" in monthly.columns else float("nan")
+        hyg_gate_on = not (pd.notna(hyg_mom) and hyg_mom < 0.0)
+        n_pos = 1 if hyg_gate_on else 0
+        risk_state = "ON" if hyg_gate_on else "OFF"
         weights, new_basket, regime, safe = compute_target_weights(close, sig_d)
         records.append({
             "sig_d": sig_d,
