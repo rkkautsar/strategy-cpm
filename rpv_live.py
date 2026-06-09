@@ -213,10 +213,14 @@ def compute_rpv_weights(close_panel: pd.DataFrame, sig_d: pd.Timestamp) -> tuple
     """Sequential filter variant: value z>0 -> SMA200 gate -> fully-invested z-weighted survivors (no per-asset cap)."""
     Z = compute_rpv_signals()
     if sig_d not in Z.index:
-        valid_ds = Z.index[Z.index <= sig_d]
-        if len(valid_ds) == 0:
-            return {"SHV": 1.0}, "CASH", {"reason": "no_signal"}
-        sig_d = valid_ds[-1]
+        month_end = sig_d + pd.offsets.MonthEnd(0)
+        if month_end in Z.index:
+            sig_d = month_end
+        else:
+            valid_ds = Z.index[Z.index <= sig_d]
+            if len(valid_ds) == 0:
+                return {"SHV": 1.0}, "CASH", {"reason": "no_signal"}
+            sig_d = valid_ds[-1]
 
     zrow = Z.loc[sig_d].dropna()
     prices = _build_rpv_price_panel(close_panel)

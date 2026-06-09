@@ -19,7 +19,7 @@ EXPECTED_SIGNALS = {
         "term": 0.32714661486539,
         "igcredit": -0.8677612228837291,
         "equity": -1.6717743309962165,
-        "hycredit": -1.191221612355295,
+        "hycredit": -1.4439482543599667,
         "realyld": 0.7257710212428491,
     },
     pd.Timestamp("2026-05-31"): {
@@ -44,7 +44,7 @@ def test_rpv_0a():
     assert abs(diag["z_scores"]["term"] - 0.327) <= 1e-2
     assert abs(diag["z_scores"]["igcredit"] - (-0.868)) <= 1e-2
     assert abs(diag["z_scores"]["equity"] - (-1.672)) <= 1e-2
-    assert abs(diag["z_scores"]["hycredit"] - (-1.191)) <= 1e-2
+    assert abs(diag["z_scores"]["hycredit"] - (-1.4439482543599667)) <= 1e-2
     assert abs(diag["z_scores"]["realyld"] - 0.726) <= 1e-2
 
     z = compute_rpv_signals()

@@ -296,7 +296,9 @@ def best_safe(monthly: pd.DataFrame, sig_d: pd.Timestamp, safe_pool: list) -> st
     13612U = average of 1, 3, 6, 12-month total returns. Robustly identifies
     short-duration vs intermediate-duration regime preference for the safe leg.
     """
-    sub = monthly.loc[:sig_d]
+    me = sig_d + pd.offsets.MonthEnd(0)
+    cutoff = me if me in monthly.index else sig_d
+    sub = monthly.loc[:cutoff]
     available = [s for s in safe_pool if s in sub.columns and sub[s].first_valid_index() is not None]
     if not available:
         return DEFAULT_CASH

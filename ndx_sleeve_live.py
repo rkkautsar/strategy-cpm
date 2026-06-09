@@ -69,6 +69,7 @@ def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:
     """Refresh NDX constituent prices by stitching a short live tail onto committed history."""
     import yfinance as yf
 
+    # Do not rebuild prices.parquet from empty state: fresh fetch returns only current constituents and biases history.
     try:
         base = load_ndx_panel().sort_index()
     except FileNotFoundError:

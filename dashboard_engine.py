@@ -78,22 +78,21 @@ def faber_gtaa5(panel, start, end):
     cols = [c for c in universe if c in panel.columns]
     if "SHV" not in panel.columns: return pd.Series(dtype=float)
     cols += ["SHV"]
-    close = panel[cols]; monthly = close.resample("ME").last()
-    monthly_idx = pd.DataFrame({"x":1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
-    dates = monthly_idx.index[(monthly_idx.index>=start)&(monthly_idx.index<=end)].tolist()
+    close = panel[cols]
+    sig_dates = _b_monthly_signal_dates(close, start, end)
     weights_map = {}
-    for d in dates:
-        m = monthly.loc[:d]
-        if len(m) < 11: weights_map[d] = {"SHV": 1.0}; continue
+    for sd in sig_dates:
+        m = close.loc[:sd].resample("ME").last()
+        if len(m) < 11: weights_map[sd] = {"SHV": 1.0}; continue
         sma = m.rolling(10).mean().iloc[-1]; last = m.iloc[-1]
         in_u = [a for a in universe if a in last.index and pd.notna(sma.get(a)) and pd.notna(last[a]) and last[a] > sma[a]]
         w = {a: 0.20 for a in in_u}
         if 5 - len(in_u) > 0: w["SHV"] = 0.20*(5-len(in_u))
-        weights_map[d] = w if w else {"SHV": 1.0}
+        weights_map[sd] = w if w else {"SHV": 1.0}
     daily_ret = close.ffill().pct_change()
     out = pd.Series(0.0, index=close.index)
-    for i, d in enumerate(dates):
-        nxt = dates[i+1] if i+1 < len(dates) else end
+    for i, d in enumerate(sig_dates):
+        nxt = sig_dates[i+1] if i+1 < len(sig_dates) else end
         seg = close.index[(close.index > d) & (close.index <= nxt)]
         w = weights_map.get(d, {})
         if not w: continue
@@ -107,27 +106,26 @@ def keller_vaa_g4(panel, start, end):
     defensive = ["SHV","IEF"]
     cols = list(dict.fromkeys(offensive + defensive))
     cols = [c for c in cols if c in panel.columns]
-    close = panel[cols]; monthly = close.resample("ME").last()
-    monthly_idx = pd.DataFrame({"x":1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
-    dates = monthly_idx.index[(monthly_idx.index>=start)&(monthly_idx.index<=end)].tolist()
+    close = panel[cols]
+    sig_dates = _b_monthly_signal_dates(close, start, end)
     weights_map = {}
-    for d in dates:
-        m = monthly.loc[:d]
+    for sd in sig_dates:
+        m = close.loc[:sd].resample("ME").last()
         scores_off = {a: sig_13612U(m[a]) for a in offensive if a in m.columns}
         if any(pd.isna(v) for v in scores_off.values()):
-            weights_map[d] = {"SHV":1.0}; continue
+            weights_map[sd] = {"SHV":1.0}; continue
         if all(v > 0 for v in scores_off.values()):
             best = max(scores_off, key=scores_off.get)
-            weights_map[d] = {best:1.0}
+            weights_map[sd] = {best:1.0}
         else:
-            sd = {a: sig_13612U(m[a]) for a in defensive if a in m.columns}
-            valid = {k:v for k,v in sd.items() if pd.notna(v)}
+            sd_scores = {a: sig_13612U(m[a]) for a in defensive if a in m.columns}
+            valid = {k:v for k,v in sd_scores.items() if pd.notna(v)}
             best = max(valid, key=valid.get) if valid else "SHV"
-            weights_map[d] = {best:1.0}
+            weights_map[sd] = {best:1.0}
     daily_ret = close.ffill().pct_change()
     out = pd.Series(0.0, index=close.index)
-    for i, d in enumerate(dates):
-        nxt = dates[i+1] if i+1 < len(dates) else end
+    for i, d in enumerate(sig_dates):
+        nxt = sig_dates[i+1] if i+1 < len(sig_dates) else end
         seg = close.index[(close.index > d) & (close.index <= nxt)]
         w = weights_map.get(d, {})
         if not w: continue
@@ -138,50 +136,61 @@ def keller_vaa_g4(panel, start, end):
 
 
 def _haa_safe_pick(monthly, defensive=("BIL", "IEF", "SHV")):
-    avail = [s for s in defensive if s in monthly.columns]
-    if not avail: return "SHV"
-    scs = {s: sig_13612U(monthly[s]) for s in avail}
-    scs = {k: v for k, v in scs.items() if pd.notna(v)}
-    if not scs: return avail[0]
-    return max(scs, key=scs.get)
+    from cpm_live import best_safe as _best_safe
+    safe_pool = list(defensive)
+    sig_d = monthly.index[-1]
+    return _best_safe(monthly, sig_d, safe_pool)
 
 
-def _haa_run(panel, start, end, top_k):
-    offensive = ["SPY","IWM","VEA","VWO","VNQ","DBC","GLD","TLT"]
-    cols = list(dict.fromkeys(offensive + ["TIP","BIL","IEF","SHV"]))
-    cols = [c for c in cols if c in panel.columns]
-    if "TIP" not in cols or "SHV" not in cols: return pd.Series(dtype=float)
-    close = panel[cols]; monthly = close.resample("ME").last()
-    monthly_idx = pd.DataFrame({"x":1}, index=close.index).groupby(pd.Grouper(freq="ME")).tail(1)
-    dates = monthly_idx.index[(monthly_idx.index>=start)&(monthly_idx.index<=end)].tolist()
-    weights_map = {}
-    for d in dates:
-        m = monthly.loc[:d]
-        if len(m) < 13: weights_map[d] = {"SHV": 1.0}; continue
-        tip_s = sig_13612U(m["TIP"]) if "TIP" in m.columns else float("nan")
+def _haa_run(panel, start, end, top_k, cost_bps=10.0):
+    from cpm_live import sig_13612U, best_safe as _best_safe
+    
+    # Canonical HAA-8 offensive universe (replaces GLD with IEF)
+    offensive = ["SPY", "IWM", "VEA", "VWO", "VNQ", "DBC", "IEF", "TLT"]
+    safe_pool = ["SHV", "IEF"]
+    
+    cols = sorted(set(offensive + safe_pool + ["TIP"]) & set(panel.columns))
+    close = panel[cols]
+    
+    # 1. Fix stale-signal slice bug by using the correct _b_monthly_signal_dates helper
+    sig_dates = _b_monthly_signal_dates(close, start, end)
+    
+    wh = []
+    for sd in sig_dates:
+        # Slice daily first, then resample monthly to avoid stale-signal bug
+        monthly = close.loc[:sd].resample("ME").last()
+        safe = _best_safe(monthly, sd, safe_pool)
+        
+        tip_s = sig_13612U(monthly["TIP"]) if "TIP" in monthly.columns else float("nan")
         if pd.isna(tip_s) or tip_s <= 0:
-            weights_map[d] = {_haa_safe_pick(m): 1.0}; continue
-        scs = {a: sig_13612U(m[a]) for a in offensive if a in m.columns and pd.notna(m[a].iloc[-1])}
+            wh.append((sd, {safe: 1.0}))
+            continue
+            
+        scs = {a: sig_13612U(monthly[a]) for a in offensive if a in monthly.columns}
         scs = {k: v for k, v in scs.items() if pd.notna(v)}
         if not scs:
-            weights_map[d] = {_haa_safe_pick(m): 1.0}; continue
+            wh.append((sd, {safe: 1.0}))
+            continue
+            
         ranked = sorted(scs.items(), key=lambda kv: kv[1], reverse=True)[:top_k]
-        safe = _haa_safe_pick(m); n = len(ranked); w = {}
+        
+        # Absolute-momentum screen: positive 13612U per selected slot -> asset, else safe
+        w = {}
         for ticker, sc in ranked:
-            if sc > 0: w[ticker] = w.get(ticker, 0) + 1.0/n
-            else: w[safe] = w.get(safe, 0) + 1.0/n
-        weights_map[d] = w
-    daily_ret = close.ffill().pct_change()
-    out = pd.Series(0.0, index=close.index)
-    for i, d in enumerate(dates):
-        nxt = dates[i+1] if i+1 < len(dates) else end
-        seg = close.index[(close.index > d) & (close.index <= nxt)]
-        w = weights_map.get(d, {})
-        if not w: continue
-        cs = [c for c in w if c in daily_ret.columns]
-        if not cs: continue
-        out.loc[seg] = daily_ret.loc[seg, cs].mul(pd.Series({k: w[k] for k in cs}), axis=1).sum(axis=1, min_count=1).fillna(0.0)
-    return out.loc[(out.index>=start)&(out.index<=end)]
+            if sc > 0:
+                w[ticker] = w.get(ticker, 0.0) + 1.0 / top_k
+            else:
+                w[safe] = w.get(safe, 0.0) + 1.0 / top_k
+                
+        # If fewer than top_k names were ranked (degenerate early history), remaining slots go to safe
+        missing_slots = top_k - len(ranked)
+        if missing_slots > 0:
+            w[safe] = w.get(safe, 0.0) + (1.0 / top_k) * missing_slots
+            
+        wh.append((sd, w))
+        
+    # 2 & 3. Build portfolio with 10 bps transaction cost per side and mooex execution (1-day lag)
+    return _b_build_port(close, wh, start, end, cost_bps)
 
 
 def haa_simple(panel, start, end):
