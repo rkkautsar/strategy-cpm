@@ -38,6 +38,12 @@ OPEN_CACHE = DATA_DIR / "macro_opens"
 OPEN_CACHE_INTRADAY_SANITY_MAX = 0.50
 OHLC_TICKERS = ["SPY", "QQQ", "SPHQ", "EFA", "EEM", "VNQ", "GLD", "TLT", "DBC", "SHV", "IEF", "HYG", "TIP"]
 
+# 2026-06-09 recycling audit: these delisted NDX symbols are recycled by yfinance/EDGAR
+# to a different current entity (ticker reuse); none are current NDX members; drop to avoid
+# wrong-entity contamination.
+RECYCLED_PRICE_TICKERS = {"CA", "DELL", "GENZ", "GOLD", "JAVA", "LIFE", "MEDI", "MICC", "SHLD", "SPLS", "BBBY", "BMC"}
+RECYCLED_FUND_SYMBOLS = {"BBBY", "LIFE", "GOLD", "BATRA"}
+
 
 # ===========================================================================
 # 1. Core CPM Panel Loader
@@ -263,7 +269,9 @@ def load_panel(start: pd.Timestamp = None, end: pd.Timestamp = None,
 
 def load_ndx_panel() -> pd.DataFrame:
     """Load NDX constituent prices from disk."""
-    return pd.read_parquet(NDX_PRICES_FILE)
+    panel = pd.read_parquet(NDX_PRICES_FILE)
+    panel = panel.drop(columns=[c for c in RECYCLED_PRICE_TICKERS if c in panel.columns])
+    return panel
 
 
 # ===========================================================================
@@ -346,10 +354,30 @@ def load_open_close() -> tuple[pd.DataFrame, pd.DataFrame]:
 @functools.lru_cache(maxsize=1)
 def load_valuein_cache(cache_dir: str = "data/valuein") -> tuple[dict, dict]:
     """Loads local parquet files: fact, security and builds FLOWS and BS dicts."""
-    import value_sleeve_live  # Lazy import
+    import value_sleeve_live as vsl
     
     fact = pd.read_parquet(Path(cache_dir) / "fact.parquet")
     sec = pd.read_parquet(Path(cache_dir) / "security.parquet")
+    fact["_src"] = 0
+
+    fact_edgar_path = Path(cache_dir) / "fact_edgar.parquet"
+    sec_edgar_path = Path(cache_dir) / "security_edgar.parquet"
+    fact_edgar = pd.read_parquet(fact_edgar_path) if fact_edgar_path.exists() else None
+    security_edgar = pd.read_parquet(sec_edgar_path) if sec_edgar_path.exists() else None
+
+    if security_edgar is not None:
+        _bad_ids = set(security_edgar.loc[security_edgar["symbol"].isin(RECYCLED_FUND_SYMBOLS), "entity_id"])
+        if fact_edgar is not None:
+            fact_edgar = fact_edgar[~fact_edgar["entity_id"].isin(_bad_ids)]
+        security_edgar = security_edgar[~security_edgar["entity_id"].isin(_bad_ids)]
+
+    if fact_edgar is not None:
+        fact_edgar = fact_edgar.copy()
+        fact_edgar["_src"] = 1
+        fact = pd.concat([fact, fact_edgar], ignore_index=True)
+    if security_edgar is not None:
+        sec = pd.concat([sec, security_edgar], ignore_index=True)
+
     prim = sec[sec.is_primary_ticker][["entity_id", "symbol"]].drop_duplicates("entity_id")
     e2t = dict(zip(prim.entity_id, prim.symbol))
 
@@ -357,15 +385,32 @@ def load_valuein_cache(cache_dir: str = "data/valuein") -> tuple[dict, dict]:
     fact["ticker"] = fact.entity_id.map(e2t)
     fact["accepted"] = pd.to_datetime(fact["accepted_at"]).dt.tz_localize(None).dt.normalize()
     fact["period_end"] = pd.to_datetime(fact["period_end"])
-    
-    fact = fact.sort_values("accepted")
-    fact = fact.drop_duplicates(
-        subset=["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end"],
-        keep="first"
+
+    loader_key = ["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end"]
+    loader_full_key = loader_key + ["_src", "accepted"]
+
+    is_bs = fact["standard_concept"].isin(vsl.BS_CONCEPTS)
+    if is_bs.any():
+        bs = fact.loc[is_bs].copy()
+        bs["absval"] = bs["value_as_filed"].abs()
+        bs["_inst"] = bs["period_start"].isna().astype(int)
+        bs = bs.sort_values(
+            loader_full_key + ["_inst", "absval"],
+            ascending=[True] * len(loader_full_key) + [False, False],
+            kind="stable",
+        )
+        bs = bs.drop_duplicates(subset=loader_full_key, keep="first")
+        bs = bs.drop(columns=["absval", "_inst"])
+        fact = pd.concat([fact.loc[~is_bs], bs], ignore_index=True)
+
+    fact = fact.sort_values(
+        ["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end", "_src", "accepted"],
+        kind="stable",
     )
-    
-    FLOWS = value_sleeve_live._build_pit_flows(fact)
-    BS = value_sleeve_live._build_pit_bs(fact)
+    fact = fact.drop_duplicates(subset=loader_key, keep="first")
+
+    FLOWS = vsl._build_pit_flows(fact)
+    BS = vsl._build_pit_bs(fact)
     return FLOWS, BS
 
 

@@ -15,6 +15,7 @@ Spec:
 """
 from __future__ import annotations
 import functools
+import json
 import os
 import pickle
 import sys
@@ -39,6 +40,31 @@ CASH_TICKER = DEFAULT_CASH
 FLOW_CONCEPTS = ["TotalRevenue", "NetIncome", "GrossProfit", "OperatingIncome", "OperatingCashFlow", "CAPEX"]
 BS_CONCEPTS = ["TotalAssets", "TotalLiabilities", "StockholdersEquity", "ShortTermDebt", "LongTermDebt", "CommonSharesOutstanding"]
 
+# ===========================================================================
+# PIT Static Splits and Manifest Loading (No Network Path allowed)
+# ===========================================================================
+SPLITS_CALENDAR_PATH = ROOT / "data" / "splits_calendar.json"
+SPLITS_COVERED_PATH = ROOT / "data" / "splits_covered_manifest.json"
+
+# Enforce strictly offline compilation
+if not SPLITS_CALENDAR_PATH.exists() or not SPLITS_COVERED_PATH.exists():
+    raise FileNotFoundError(
+        "Static split calendar or covered manifest is missing! "
+        "Run 'python scripts/build_static_splits.py' once offline first."
+    )
+
+with open(SPLITS_CALENDAR_PATH, "r") as _f:
+    _cal_raw = json.load(_f)
+    # Parse date strings to pandas Timestamps for point-in-time logic
+    SPLIT_CAL = {
+        t: [(pd.Timestamp(d), float(f)) for d, f in v]
+        for t, v in _cal_raw.items() if v
+    }
+
+with open(SPLITS_COVERED_PATH, "r") as _f:
+    _cov_raw = json.load(_f)
+    COVERED_TICKERS = set(_cov_raw["covered"])
+
 
 # ===========================================================================
 # 1. Local Cache Reader and Builders
@@ -48,52 +74,30 @@ from data_loader import load_valuein_cache
 
 def _build_pit_flows(fact: pd.DataFrame) -> dict:
     """(ticker, flow concept) -> DataFrame[period_end, accepted, value] sorted by period_end."""
-    flows = fact.loc[
-        fact.standard_concept.isin(FLOW_CONCEPTS),
-        ["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end", "accepted", "value_as_filed"],
-    ].copy()
+    flows = fact.loc[fact.standard_concept.isin(FLOW_CONCEPTS),
+        ["ticker", "standard_concept", "fiscal_year", "fiscal_period", "period_end", "accepted", "value_as_filed"]].copy()
+
     if flows.empty:
         return {}
-
+    flows = flows.sort_values(
+        ["ticker", "standard_concept", "fiscal_year", "fiscal_period", "accepted", "period_end", "value_as_filed"],
+        ascending=[True, True, True, True, True, False, True], kind="stable").reset_index(drop=True)
     flows["_ord"] = np.arange(len(flows), dtype=np.int64)
     fy_keys = ["ticker", "standard_concept", "fiscal_year"]
-
-    direct = flows.loc[
-        flows.fiscal_period.isin(["Q1", "Q2", "Q3", "Q4"]),
-        ["ticker", "standard_concept", "period_end", "accepted", "value_as_filed", "_ord"],
-    ].rename(columns={"value_as_filed": "value"})
-
-    fy_first = (
-        flows.loc[
-            flows.fiscal_period == "FY",
-            fy_keys + ["period_end", "accepted", "value_as_filed", "_ord"],
-        ]
-        .sort_values("_ord", kind="stable")
-        .drop_duplicates(fy_keys, keep="first")
-    )
-
+    direct = flows.loc[flows.fiscal_period.isin(["Q1", "Q2", "Q3", "Q4"]),
+        ["ticker", "standard_concept", "period_end", "accepted", "value_as_filed", "_ord"]].rename(columns={"value_as_filed": "value"})
+    fy_first = (flows.loc[flows.fiscal_period == "FY", fy_keys + ["period_end", "accepted", "value_as_filed", "_ord"]]
+        .sort_values("_ord", kind="stable").drop_duplicates(fy_keys, keep="first"))
     derived = pd.DataFrame(columns=["ticker", "standard_concept", "period_end", "accepted", "value", "_ord"])
     if not fy_first.empty:
-        q_first = (
-            flows.loc[
-                flows.fiscal_period.isin(["Q1", "Q2", "Q3", "Q4"]),
-                fy_keys + ["fiscal_period", "value_as_filed", "_ord"],
-            ]
-            .sort_values("_ord", kind="stable")
-            .drop_duplicates(fy_keys + ["fiscal_period"], keep="first")
-        )
-        q_pivot = q_first.pivot(
-            index=fy_keys,
-            columns="fiscal_period",
-            values="value_as_filed",
-        ).reset_index()
-
+        q_first = (flows.loc[flows.fiscal_period.isin(["Q1", "Q2", "Q3", "Q4"]), fy_keys + ["fiscal_period", "value_as_filed", "_ord"]]
+            .sort_values("_ord", kind="stable").drop_duplicates(fy_keys + ["fiscal_period"], keep="first"))
+        q_pivot = q_first.pivot(index=fy_keys, columns="fiscal_period", values="value_as_filed").reset_index()
         q = fy_first.merge(q_pivot, on=fy_keys, how="left")
-        q1 = q["Q1"] if "Q1" in q.columns else pd.Series(np.nan, index=q.index)
-        q2 = q["Q2"] if "Q2" in q.columns else pd.Series(np.nan, index=q.index)
-        q3 = q["Q3"] if "Q3" in q.columns else pd.Series(np.nan, index=q.index)
-        q4 = q["Q4"] if "Q4" in q.columns else pd.Series(np.nan, index=q.index)
-
+        q1 = q.get("Q1", pd.Series(np.nan, index=q.index))
+        q2 = q.get("Q2", pd.Series(np.nan, index=q.index))
+        q3 = q.get("Q3", pd.Series(np.nan, index=q.index))
+        q4 = q.get("Q4", pd.Series(np.nan, index=q.index))
         ok = q4.isna() & q1.notna() & q2.notna() & q3.notna()
         q = q.loc[ok].copy()
         if not q.empty:
@@ -101,30 +105,32 @@ def _build_pit_flows(fact: pd.DataFrame) -> dict:
             q["value"] = q["value_as_filed"] - q1.loc[q.index] - q2.loc[q.index] - q3.loc[q.index]
             q["_ord"] = np.arange(len(q), dtype=np.int64) + (int(direct["_ord"].max()) + 1 if not direct.empty else 0)
             derived = q[["ticker", "standard_concept", "period_end", "accepted", "value", "_ord"]]
-
     combined = pd.concat([direct, derived], ignore_index=True)
     if combined.empty:
         return {}
 
-    combined = combined.drop_duplicates(
-        subset=["ticker", "standard_concept", "period_end"],
-        keep="first",
-    )
+    combined = combined.sort_values(["ticker", "standard_concept", "period_end", "value"], kind="stable")
+    combined = combined.drop_duplicates(["ticker", "standard_concept", "period_end"], keep="first")
     combined = combined.sort_values(["ticker", "standard_concept", "period_end"]).reset_index(drop=True)
-
-    out = {}
-    for (tic, con), g in combined.groupby(["ticker", "standard_concept"], sort=False):
-        out[(tic, con)] = g[["period_end", "accepted", "value"]].reset_index(drop=True)
-    return out
+    return {(t, c): g[["period_end", "accepted", "value"]].reset_index(drop=True)
+            for (t, c), g in combined.groupby(["ticker", "standard_concept"], sort=False)}
 
 
 def _build_pit_bs(fact: pd.DataFrame) -> dict:
     """(ticker, bs concept) -> DataFrame[period_end, accepted, value] sorted by period_end."""
     out = {}
     bs = fact[fact.standard_concept.isin(BS_CONCEPTS)]
+    if bs.empty:
+        return out
+
     for (tic, con), g in bs.groupby(["ticker", "standard_concept"]):
-        df = g[["period_end", "accepted", "value_as_filed"]].rename(columns={"value_as_filed": "value"})
-        df = df.sort_values("period_end").drop_duplicates("period_end", keep="last").reset_index(drop=True)
+        df = g[["period_end", "accepted", "_src", "period_start", "value_as_filed"]].rename(columns={"value_as_filed": "value"})
+        df["absval"] = df["value"].abs()
+        df["_inst"] = df["period_start"].isna().astype(int)
+        df = (df.sort_values(["period_end", "_src", "accepted", "_inst", "absval"],
+                             ascending=[True, True, True, False, False], kind="stable")
+              .drop_duplicates("period_end", keep="first")
+              .sort_values("period_end")[["period_end", "accepted", "value"]].reset_index(drop=True))
         out[(tic, con)] = df
     return out
 
@@ -176,6 +182,75 @@ def _z(s: pd.Series) -> pd.Series:
 
 def compute_fundamental_composites(cands: dict, sig_d: pd.Timestamp, FLOWS: dict, BS: dict) -> pd.DataFrame:
     """Computes PIT VALUE and QUALITY composites for all eligible candidates."""
+
+    # --- Decision 2b Hybrid Mcap Guard & Loose Absolute Floor ---
+    LB = 21
+    K = 2.5
+    GROSS = 50.0
+    LO, HI = 1e6, 1e14
+
+    def _accept_asof(df: pd.DataFrame | None, asof_d: pd.Timestamp) -> tuple[float, pd.Timestamp | None]:
+        if df is None or df.empty:
+            return np.nan, None
+        acc = df["accepted"].to_numpy()
+        idx = np.flatnonzero(acc <= asof_d)
+        if idx.size == 0:
+            return np.nan, None
+        return float(df["value"].to_numpy()[idx[-1]]), pd.Timestamp(acc[idx[-1]])
+
+    def cumsplit(ticker: str, d0: pd.Timestamp, d1: pd.Timestamp) -> float:
+        s = 1.0
+        for d, f in SPLIT_CAL.get(ticker, []):
+            if d0 < d <= d1:
+                s *= f
+        return s
+
+    kept_cands = {}
+    for t, ds in cands.items():
+        if len(ds) < LB + 1:
+            # Fall back to a simple absolute floor check when price history is too short for prior legs
+            price = float(ds.iloc[-1])
+            shares = _bs_asof(BS.get((t, "CommonSharesOutstanding")), sig_d)
+            if pd.notna(shares) and shares > 0 and price > 0:
+                mcap_now = price * shares
+                if LO <= mcap_now <= HI:
+                    kept_cands[t] = ds
+            continue
+
+        p_now = float(ds.iloc[-1])
+        p_ref = float(ds.iloc[-(LB + 1)])
+        rd = ds.index[-(LB + 1)]
+
+        shdf = BS.get((t, "CommonSharesOutstanding"))
+        sh_now, acc_now = _accept_asof(shdf, sig_d)
+        sh_ref, acc_ref = _accept_asof(shdf, rd)
+
+        if not (p_now > 0 and p_ref > 0 and pd.notna(sh_now) and sh_now > 0 and pd.notna(sh_ref) and sh_ref > 0):
+            continue
+
+        mcap_now = p_now * sh_now
+
+        # Leg 1: Loose Absolute Floor
+        if mcap_now < LO or mcap_now > HI:
+            continue
+
+        # Leg 2: Ratio check (split-corrected vs. gross-50 fallback)
+        raw_ratio = (p_now * sh_now) / (p_ref * sh_ref)
+        if t in COVERED_TICKERS:
+            S = cumsplit(t, acc_ref, acc_now) if (acc_ref and acc_now) else 1.0
+            rc = raw_ratio / S
+            if rc > K or rc < (1.0 / K):
+                continue
+        else:
+            if raw_ratio > GROSS or raw_ratio < (1.0 / GROSS):
+                continue
+
+        kept_cands[t] = ds
+
+    # Re-bind cands to the filtered universe
+    cands = kept_cands
+    # --- End of Guard Logic ---
+
     recs = []
     for t, ds in cands.items():
         price = float(ds.iloc[-1])
