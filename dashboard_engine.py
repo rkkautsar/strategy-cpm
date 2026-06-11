@@ -259,18 +259,18 @@ def qqq_trend_follow(panel, start, end, cost_bps=10.0, ticker="SPY"):
 
 
 # ============================================================================
-# Literature benchmarks (apples-to-apples vs PROD 60/20/20).
+# Literature benchmarks.
 #
 # Naming follows research/benchmark_comparison_2026_05.py:
 #   B2: AAA + TIP canary on the canonical AAA 7-asset cross-asset pool
 #       (Butler-Philbrick 2012 + Keller TIP veto)
 #   B3: HAA-Simple SPY (Keller 2022; AllocateSmartly canonical N=1 form)
 #   B5: QQQ 12mo trend (Antonacci 2014 GEM single-asset form)
-#   BB4 = 60% B2 + 20% B3 + 20% B5 (best literature 60/20/20 blend tested)
+#   BB4 = 60% B2 + 20% B3 + 20% B5 (legacy 60/20/20 literature blend; unused)
 #
-# BB4 is the canonical apples-to-apples benchmark for PROD: same 60/20/20
-# weighting, all three sleeves backed by published TAA papers, and it was the
-# strongest literature blend across all multi-sleeve combinations tested.
+# The live PROD peer benchmark is bench_blend_4leg (60% AAA+TIP / 15% HAA-Simple
+# QQQ / 15% HAA-Simple SPY / 10% PP), matching the PROD 60/15/15/10 weighting,
+# all sleeves backed by published TAA papers.
 # Per-sleeve alpha decomposition uses:
 #   CPM         vs B2 (AAA + TIP)
 #   RPV sleeve  vs B3 (HAA-Simple SPY)
@@ -404,9 +404,9 @@ def bench_static_pp_qqq(panel, start, end, pp_weight=0.80, growth_ticker="QQQ"):
       20% SHV  (from PP)
       20% QQQ  (growth sleeve)
     Total ~40% equity (SPY + QQQ), 40% defensive (IEF + SHV), 20% gold.
-    Chosen for closest Vol match to PROD 60/20/20 (PROD Vol ~8.9%, this ~9.1%).
+    Chosen for closest Vol match to PROD (PROD Vol ~9.5%, this ~9.1%).
     Acts as a 'what if you didn't time anything' static baseline alongside the
-    BB4 active-TAA peer benchmark.
+    bench_blend_4leg active-TAA peer benchmark.
     """
     from cpm_live import run_pp_backtest
     pp = run_pp_backtest(panel, start, end)
@@ -422,7 +422,7 @@ def bench_static_pp_qqq(panel, start, end, pp_weight=0.80, growth_ticker="QQQ"):
 
 def bench_bb4_blend(panel, start, end):
     """BB4 literature blend: 60% B2 (AAA+TIP) + 20% B3 (HAA-Simple SPY) +
-    20% B5 (QQQ 12mo trend). Apples-to-apples 60/20/20 vs PROD."""
+    20% B5 (QQQ 12mo trend). Legacy 60/20/20 literature blend (unused)."""
     b2 = bench_aaa_tip(panel, start, end)
     b3 = bench_haa_simple(panel, start, end, asset="SPY")
     b5 = bench_qqq_12mo_trend(panel, start, end)

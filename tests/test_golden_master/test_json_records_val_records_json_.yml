@@ -68,83 +68,78 @@
   sig_d: '2009-06-30 00:00:00'
   weights:
     SHV: 1.0
-- regime: VAL_ACTIVE
+- regime: VAL_PARTIAL_2
   selected:
-  - AAPL
-  - AMZN
-  - ISRG
-  - EBAY
+  - TEVA
   - ADBE
   sig_d: '2009-07-31 00:00:00'
+  weights:
+    ADBE: 0.2
+    IEF: 0.6
+    TEVA: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ADBE
+  - AAPL
+  - FAST
+  - AMZN
+  - ISRG
+  sig_d: '2009-08-31 00:00:00'
   weights:
     AAPL: 0.2
     ADBE: 0.2
     AMZN: 0.2
-    EBAY: 0.2
-    ISRG: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - AAPL
-  - AMZN
-  - ISRG
-  - EBAY
-  - FAST
-  sig_d: '2009-08-31 00:00:00'
-  weights:
-    AAPL: 0.2
-    AMZN: 0.2
-    EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - ADBE
   - AAPL
+  - FAST
   - AMZN
   - ISRG
-  - EBAY
-  - FAST
   sig_d: '2009-09-30 00:00:00'
   weights:
     AAPL: 0.2
+    ADBE: 0.2
     AMZN: 0.2
-    EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - ADBE
   - AAPL
+  - FAST
   - AMZN
   - ISRG
-  - EBAY
-  - FAST
   sig_d: '2009-10-30 00:00:00'
   weights:
     AAPL: 0.2
+    ADBE: 0.2
     AMZN: 0.2
-    EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - ADBE
   - AAPL
+  - FAST
   - AMZN
   - ISRG
-  - EBAY
-  - FAST
   sig_d: '2009-11-30 00:00:00'
   weights:
     AAPL: 0.2
+    ADBE: 0.2
     AMZN: 0.2
-    EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
 - regime: VAL_ACTIVE
   selected:
   - AAPL
+  - FAST
   - AMZN
   - ISRG
   - EBAY
-  - FAST
   sig_d: '2009-12-31 00:00:00'
   weights:
     AAPL: 0.2
@@ -154,60 +149,60 @@
     ISRG: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - AAPL
+  - FAST
   - AMZN
   - ISRG
   - EBAY
-  - FAST
-  - CTSH
   sig_d: '2010-01-29 00:00:00'
   weights:
+    AAPL: 0.2
     AMZN: 0.2
-    CTSH: 0.2
     EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - FAST
   - AMZN
   - ISRG
   - EBAY
-  - FAST
-  - CTSH
+  - MCHP
   sig_d: '2010-02-26 00:00:00'
   weights:
     AMZN: 0.2
-    CTSH: 0.2
     EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - FAST
   - AMZN
   - ISRG
   - EBAY
-  - FAST
-  - CTSH
+  - MCHP
   sig_d: '2010-03-31 00:00:00'
   weights:
     AMZN: 0.2
-    CTSH: 0.2
     EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - FAST
   - AMZN
   - ISRG
   - EBAY
-  - FAST
-  - CTSH
+  - MCHP
   sig_d: '2010-04-30 00:00:00'
   weights:
     AMZN: 0.2
-    CTSH: 0.2
     EBAY: 0.2
     FAST: 0.2
     ISRG: 0.2
+    MCHP: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2010-05-28 00:00:00'
@@ -230,130 +225,130 @@
     IEF: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2010-09-30 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2010-10-29 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2010-11-30 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2010-12-31 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2011-01-31 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2011-02-28 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2011-03-31 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - FAST
-  - ORLY
+  - AMZN
+  - MCHP
   - COST
-  - ORCL
+  - MAT
   sig_d: '2011-04-29 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
     FAST: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
+  - FAST
   - AMZN
-  - ORLY
+  - MCHP
   - COST
-  - ORCL
-  - DLTR
+  - MAT
   sig_d: '2011-05-31 00:00:00'
   weights:
     AMZN: 0.2
     COST: 0.2
-    DLTR: 0.2
-    ORCL: 0.2
-    ORLY: 0.2
+    FAST: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2011-06-30 00:00:00'
@@ -386,73 +381,73 @@
     IEF: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - ORLY
+  - FAST
+  - MCHP
   - COST
-  - DLTR
+  - MAT
   - BIIB
-  - KLAC
   sig_d: '2011-12-30 00:00:00'
   weights:
     BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
-    KLAC: 0.2
-    ORLY: 0.2
+    FAST: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - ORLY
+  - FAST
+  - MCHP
   - COST
-  - DLTR
+  - MAT
   - BIIB
-  - KLAC
   sig_d: '2012-01-31 00:00:00'
   weights:
     BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
-    KLAC: 0.2
-    ORLY: 0.2
+    FAST: 0.2
+    MAT: 0.2
+    MCHP: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - ORLY
+  - MCHP
   - COST
-  - DLTR
-  - BIIB
+  - MAT
+  - ORLY
   - KLAC
   sig_d: '2012-02-29 00:00:00'
   weights:
-    BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
     KLAC: 0.2
+    MAT: 0.2
+    MCHP: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - ORLY
+  - MCHP
   - COST
-  - DLTR
-  - BIIB
+  - MAT
+  - ORLY
   - KLAC
   sig_d: '2012-03-30 00:00:00'
   weights:
-    BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
     KLAC: 0.2
+    MAT: 0.2
+    MCHP: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - ORLY
+  - MCHP
   - COST
-  - DLTR
-  - BIIB
+  - MAT
+  - ORLY
   - KLAC
   sig_d: '2012-04-30 00:00:00'
   weights:
-    BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
     KLAC: 0.2
+    MAT: 0.2
+    MCHP: 0.2
     ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
@@ -462,73 +457,73 @@
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - DLTR
-  - BIIB
+  - MAT
   - KLAC
   - AMZN
+  - MNST
   sig_d: '2012-06-29 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
     KLAC: 0.2
+    MAT: 0.2
+    MNST: 0.2
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - DLTR
-  - BIIB
+  - MAT
   - KLAC
   - AMZN
+  - MNST
   sig_d: '2012-07-31 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
     KLAC: 0.2
+    MAT: 0.2
+    MNST: 0.2
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - DLTR
-  - BIIB
+  - MAT
   - KLAC
   - AMZN
+  - ESRX
   sig_d: '2012-08-31 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
+    ESRX: 0.2
     KLAC: 0.2
+    MAT: 0.2
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - DLTR
-  - BIIB
+  - MAT
   - AMZN
-  - HSIC
+  - ESRX
+  - ROST
   sig_d: '2012-09-28 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    DLTR: 0.2
-    HSIC: 0.2
+    ESRX: 0.2
+    MAT: 0.2
+    ROST: 0.2
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - BIIB
+  - MAT
   - AMZN
-  - ORCL
-  - GILD
+  - ESRX
+  - ROST
   sig_d: '2012-10-31 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    GILD: 0.2
-    ORCL: 0.2
+    ESRX: 0.2
+    MAT: 0.2
+    ROST: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2012-11-30 00:00:00'
@@ -537,31 +532,31 @@
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - BIIB
+  - MAT
   - AMZN
-  - ORCL
-  - GILD
+  - FAST
+  - CTSH
   sig_d: '2012-12-31 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    GILD: 0.2
-    ORCL: 0.2
+    CTSH: 0.2
+    FAST: 0.2
+    MAT: 0.2
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - BIIB
+  - MAT
   - AMZN
-  - ORCL
-  - GILD
+  - FAST
+  - CTSH
   sig_d: '2013-01-31 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    GILD: 0.2
-    ORCL: 0.2
+    CTSH: 0.2
+    FAST: 0.2
+    MAT: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2013-02-28 00:00:00'
@@ -570,17 +565,17 @@
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - BIIB
+  - MAT
   - AMZN
-  - ORCL
-  - GILD
+  - FAST
+  - CTSH
   sig_d: '2013-03-28 00:00:00'
   weights:
     AMZN: 0.2
-    BIIB: 0.2
     COST: 0.2
-    GILD: 0.2
-    ORCL: 0.2
+    CTSH: 0.2
+    FAST: 0.2
+    MAT: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2013-04-30 00:00:00'
@@ -649,29 +644,29 @@
 - regime: VAL_ACTIVE
   selected:
   - COST
-  - BIIB
+  - CTSH
   - ORLY
   - STX
   - MNST
   sig_d: '2014-05-30 00:00:00'
   weights:
-    BIIB: 0.2
     COST: 0.2
+    CTSH: 0.2
     MNST: 0.2
     ORLY: 0.2
     STX: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - BIIB
+  - CTSH
   - ORLY
   - STX
   - MNST
-  - NXPI
+  - CHKP
   sig_d: '2014-06-30 00:00:00'
   weights:
-    BIIB: 0.2
+    CHKP: 0.2
+    CTSH: 0.2
     MNST: 0.2
-    NXPI: 0.2
     ORLY: 0.2
     STX: 0.2
 - regime: GATE_OFF (VAL_defensive)
@@ -681,16 +676,16 @@
     IEF: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - BIIB
   - ORLY
   - STX
   - MNST
-  - NXPI
+  - CHKP
+  - ISRG
   sig_d: '2014-08-29 00:00:00'
   weights:
-    BIIB: 0.2
+    CHKP: 0.2
+    ISRG: 0.2
     MNST: 0.2
-    NXPI: 0.2
     ORLY: 0.2
     STX: 0.2
 - regime: GATE_OFF (VAL_defensive)
@@ -708,15 +703,15 @@
   - ORLY
   - STX
   - MNST
-  - NXPI
-  - TSCO
+  - CHKP
+  - ISRG
   sig_d: '2014-11-28 00:00:00'
   weights:
+    CHKP: 0.2
+    ISRG: 0.2
     MNST: 0.2
-    NXPI: 0.2
     ORLY: 0.2
     STX: 0.2
-    TSCO: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2014-12-31 00:00:00'
@@ -732,15 +727,15 @@
   - ORLY
   - STX
   - MNST
-  - NXPI
-  - TSCO
+  - CHKP
+  - ISRG
   sig_d: '2015-02-27 00:00:00'
   weights:
+    CHKP: 0.2
+    ISRG: 0.2
     MNST: 0.2
-    NXPI: 0.2
     ORLY: 0.2
     STX: 0.2
-    TSCO: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2015-03-31 00:00:00'
@@ -750,14 +745,14 @@
   selected:
   - ORLY
   - MNST
-  - NXPI
+  - CHKP
+  - ISRG
   - TSCO
-  - HSIC
   sig_d: '2015-04-30 00:00:00'
   weights:
-    HSIC: 0.2
+    CHKP: 0.2
+    ISRG: 0.2
     MNST: 0.2
-    NXPI: 0.2
     ORLY: 0.2
     TSCO: 0.2
 - regime: GATE_OFF (VAL_defensive)
@@ -813,44 +808,44 @@
 - regime: VAL_ACTIVE
   selected:
   - ORLY
+  - CHKP
+  - ISRG
   - TSCO
-  - HSIC
   - NVDA
-  - GOOGL
   sig_d: '2016-03-31 00:00:00'
   weights:
-    GOOGL: 0.2
-    HSIC: 0.2
+    CHKP: 0.2
+    ISRG: 0.2
     NVDA: 0.2
     ORLY: 0.2
     TSCO: 0.2
 - regime: VAL_ACTIVE
   selected:
   - ORLY
+  - CHKP
+  - ISRG
   - TSCO
-  - HSIC
   - NVDA
-  - AMZN
   sig_d: '2016-04-29 00:00:00'
   weights:
-    AMZN: 0.2
-    HSIC: 0.2
+    CHKP: 0.2
+    ISRG: 0.2
     NVDA: 0.2
     ORLY: 0.2
     TSCO: 0.2
 - regime: VAL_ACTIVE
   selected:
   - ORLY
+  - CHKP
+  - ISRG
   - TSCO
-  - HSIC
-  - AMZN
-  - TMUS
+  - NVDA
   sig_d: '2016-05-31 00:00:00'
   weights:
-    AMZN: 0.2
-    HSIC: 0.2
+    CHKP: 0.2
+    ISRG: 0.2
+    NVDA: 0.2
     ORLY: 0.2
-    TMUS: 0.2
     TSCO: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
@@ -860,31 +855,31 @@
 - regime: VAL_ACTIVE
   selected:
   - ORLY
+  - ISRG
   - TSCO
-  - HSIC
-  - AMZN
-  - TMUS
+  - NVDA
+  - GOOGL
   sig_d: '2016-07-29 00:00:00'
   weights:
-    AMZN: 0.2
-    HSIC: 0.2
+    GOOGL: 0.2
+    ISRG: 0.2
+    NVDA: 0.2
     ORLY: 0.2
-    TMUS: 0.2
     TSCO: 0.2
 - regime: VAL_ACTIVE
   selected:
   - ORLY
-  - AMZN
-  - TMUS
+  - ISRG
   - NVDA
+  - GOOGL
   - CSX
   sig_d: '2016-08-31 00:00:00'
   weights:
-    AMZN: 0.2
     CSX: 0.2
+    GOOGL: 0.2
+    ISRG: 0.2
     NVDA: 0.2
     ORLY: 0.2
-    TMUS: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2016-09-30 00:00:00'
@@ -892,116 +887,116 @@
     IEF: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
+  - ISRG
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
   sig_d: '2016-10-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
+    ISRG: 0.2
     NVDA: 0.2
-    TMUS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2016-11-30 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2016-12-30 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2017-01-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2017-02-28 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2017-03-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2017-04-28 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
-  - TMUS
   - NVDA
-  - CSX
   - GOOGL
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2017-05-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    SWKS: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2017-06-30 00:00:00'
@@ -1024,46 +1019,46 @@
     SHV: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - NVDA
-  - CSX
   - GOOGL
-  - CTAS
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2017-10-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
-    CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - NVDA
-  - CSX
   - GOOGL
-  - CTAS
+  - CSX
+  - AMZN
+  - SWKS
   sig_d: '2017-11-30 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
-    CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    SWKS: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - NVDA
-  - CSX
   - GOOGL
-  - CTAS
+  - CSX
+  - AMZN
+  - ORLY
   sig_d: '2017-12-29 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
-    CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2018-01-31 00:00:00'
@@ -1086,60 +1081,60 @@
     SHV: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - NVDA
-  - CSX
   - GOOGL
-  - CTAS
+  - CSX
+  - AMZN
+  - ORLY
   sig_d: '2018-05-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
-    CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - NVDA
-  - CSX
   - GOOGL
-  - CTAS
+  - CSX
+  - AMZN
+  - ORLY
   sig_d: '2018-06-29 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
-    CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - NVDA
-  - CSX
   - GOOGL
-  - CTAS
+  - CSX
+  - AMZN
+  - ORLY
   sig_d: '2018-07-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
-    CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - AMZN
   - NVDA
-  - CSX
   - GOOGL
-  - CTAS
+  - CSX
+  - AMZN
+  - ORLY
   sig_d: '2018-08-31 00:00:00'
   weights:
     AMZN: 0.2
     CSX: 0.2
-    CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2018-09-28 00:00:00'
@@ -1168,43 +1163,43 @@
 - regime: VAL_ACTIVE
   selected:
   - CSX
-  - LRCX
   - ORLY
-  - KLAC
-  - MNST
+  - AVGO
+  - LRCX
+  - CTAS
   sig_d: '2019-02-28 00:00:00'
   weights:
+    AVGO: 0.2
     CSX: 0.2
-    KLAC: 0.2
+    CTAS: 0.2
     LRCX: 0.2
-    MNST: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - CSX
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
+  - CHKP
   sig_d: '2019-03-29 00:00:00'
   weights:
-    COST: 0.2
+    CHKP: 0.2
     CSX: 0.2
-    KLAC: 0.2
+    CTAS: 0.2
     LRCX: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - CSX
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
+  - CHKP
   sig_d: '2019-04-30 00:00:00'
   weights:
-    COST: 0.2
+    CHKP: 0.2
     CSX: 0.2
-    KLAC: 0.2
+    CTAS: 0.2
     LRCX: 0.2
     ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
@@ -1215,31 +1210,31 @@
 - regime: VAL_ACTIVE
   selected:
   - CSX
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
+  - CHKP
   sig_d: '2019-06-28 00:00:00'
   weights:
-    COST: 0.2
+    CHKP: 0.2
     CSX: 0.2
-    KLAC: 0.2
+    CTAS: 0.2
     LRCX: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
   - GOOGL
+  - UAL
   sig_d: '2019-07-31 00:00:00'
   weights:
-    COST: 0.2
+    CTAS: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     ORLY: 0.2
+    UAL: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2019-08-30 00:00:00'
@@ -1247,60 +1242,60 @@
     IEF: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
   - GOOGL
+  - UAL
   sig_d: '2019-09-30 00:00:00'
   weights:
-    COST: 0.2
+    CTAS: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     ORLY: 0.2
+    UAL: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
   - GOOGL
+  - UAL
   sig_d: '2019-10-31 00:00:00'
   weights:
-    COST: 0.2
+    CTAS: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     ORLY: 0.2
+    UAL: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
   - GOOGL
+  - UAL
   sig_d: '2019-11-29 00:00:00'
   weights:
-    COST: 0.2
+    CTAS: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     ORLY: 0.2
+    UAL: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
+  - LRCX
+  - CTAS
   - GOOGL
+  - UAL
   sig_d: '2019-12-31 00:00:00'
   weights:
-    COST: 0.2
+    CTAS: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     ORLY: 0.2
+    UAL: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2020-01-31 00:00:00'
@@ -1323,254 +1318,254 @@
     IEF: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - LRCX
   - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-05-29 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
   - LRCX
-  - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-06-30 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - LRCX
-  - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-07-31 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - LRCX
-  - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-08-31 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - LRCX
-  - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-09-30 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - LRCX
-  - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-10-30 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - LRCX
-  - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-11-30 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - LRCX
-  - ORLY
-  - KLAC
-  - COST
-  - GOOGL
-  sig_d: '2020-12-31 00:00:00'
-  weights:
-    COST: 0.2
-    GOOGL: 0.2
-    KLAC: 0.2
-    LRCX: 0.2
-    ORLY: 0.2
-- regime: VAL_ACTIVE
-  selected:
-  - LRCX
-  - KLAC
-  - COST
   - GOOGL
   - AMZN
+  - BIIB
+  sig_d: '2020-05-29 00:00:00'
+  weights:
+    AMZN: 0.2
+    BIIB: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ORLY
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  sig_d: '2020-06-30 00:00:00'
+  weights:
+    AMZN: 0.2
+    FAST: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ORLY
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  sig_d: '2020-07-31 00:00:00'
+  weights:
+    AMZN: 0.2
+    FAST: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ORLY
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  sig_d: '2020-08-31 00:00:00'
+  weights:
+    AMZN: 0.2
+    FAST: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ORLY
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  sig_d: '2020-09-30 00:00:00'
+  weights:
+    AMZN: 0.2
+    FAST: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ORLY
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  sig_d: '2020-10-30 00:00:00'
+  weights:
+    AMZN: 0.2
+    FAST: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ORLY
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  sig_d: '2020-11-30 00:00:00'
+  weights:
+    AMZN: 0.2
+    FAST: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - ORLY
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  sig_d: '2020-12-31 00:00:00'
+  weights:
+    AMZN: 0.2
+    FAST: 0.2
+    GOOGL: 0.2
+    LRCX: 0.2
+    ORLY: 0.2
+- regime: VAL_ACTIVE
+  selected:
+  - LRCX
+  - GOOGL
+  - AMZN
+  - FAST
+  - NVDA
   sig_d: '2021-01-29 00:00:00'
   weights:
     AMZN: 0.2
-    COST: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
+    NVDA: 0.2
 - regime: VAL_ACTIVE
   selected:
   - LRCX
-  - KLAC
   - GOOGL
   - AMZN
+  - FAST
   - NVDA
   sig_d: '2021-02-26 00:00:00'
   weights:
     AMZN: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     NVDA: 0.2
 - regime: VAL_ACTIVE
   selected:
   - LRCX
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   sig_d: '2021-03-31 00:00:00'
   weights:
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - LRCX
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   sig_d: '2021-04-30 00:00:00'
   weights:
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - LRCX
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   sig_d: '2021-05-28 00:00:00'
   weights:
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - LRCX
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   sig_d: '2021-06-30 00:00:00'
   weights:
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - LRCX
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   sig_d: '2021-07-30 00:00:00'
   weights:
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     LRCX: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - AMZN
   sig_d: '2021-08-31 00:00:00'
   weights:
     AMZN: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - CTAS
   sig_d: '2021-09-30 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - CTAS
   sig_d: '2021-10-29 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
@@ -1655,30 +1650,30 @@
     SHV: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - CTAS
   sig_d: '2023-03-31 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - CTAS
   sig_d: '2023-04-28 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
@@ -1713,73 +1708,73 @@
     SHV: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - CTAS
   sig_d: '2023-11-30 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - CTAS
   sig_d: '2023-12-29 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
+  - FAST
   - NVDA
   - ORLY
   - CTAS
   sig_d: '2024-01-31 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
     NVDA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
-  - NVDA
+  - FAST
   - ORLY
   - CTAS
+  - NWSA
   sig_d: '2024-02-29 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
-    NVDA: 0.2
+    NWSA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
-  - NVDA
+  - FAST
   - ORLY
   - CTAS
+  - NWSA
   sig_d: '2024-03-28 00:00:00'
   weights:
     CTAS: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
-    NVDA: 0.2
+    NWSA: 0.2
     ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
@@ -1788,32 +1783,32 @@
     SHV: 1.0
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
-  - NVDA
+  - FAST
   - CTAS
-  - TMUS
+  - NWSA
+  - FANG
   sig_d: '2024-05-31 00:00:00'
   weights:
     CTAS: 0.2
+    FANG: 0.2
+    FAST: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
-    NVDA: 0.2
-    TMUS: 0.2
+    NWSA: 0.2
 - regime: VAL_ACTIVE
   selected:
-  - KLAC
   - GOOGL
-  - NVDA
   - CTAS
-  - TMUS
+  - NWSA
+  - FANG
+  - ORLY
   sig_d: '2024-06-28 00:00:00'
   weights:
     CTAS: 0.2
+    FANG: 0.2
     GOOGL: 0.2
-    KLAC: 0.2
-    NVDA: 0.2
-    TMUS: 0.2
+    NWSA: 0.2
+    ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2024-07-31 00:00:00'
@@ -1832,31 +1827,31 @@
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - NVDA
   - CTAS
-  - TMUS
-  - BKR
+  - NWSA
+  - ORLY
+  - NVDA
   sig_d: '2024-10-31 00:00:00'
   weights:
-    BKR: 0.2
     CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    NWSA: 0.2
+    ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - NVDA
   - CTAS
-  - TMUS
-  - BKR
+  - NWSA
+  - ORLY
+  - NVDA
   sig_d: '2024-11-29 00:00:00'
   weights:
-    BKR: 0.2
     CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
-    TMUS: 0.2
+    NWSA: 0.2
+    ORLY: 0.2
 - regime: GATE_OFF (VAL_defensive)
   selected: []
   sig_d: '2024-12-31 00:00:00'
@@ -1885,168 +1880,168 @@
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - NVDA
   - CTAS
-  - TMUS
+  - NWSA
   - ORLY
+  - NVDA
   sig_d: '2025-05-30 00:00:00'
   weights:
     CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    NWSA: 0.2
     ORLY: 0.2
-    TMUS: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - NVDA
   - CTAS
-  - TMUS
+  - NWSA
   - ORLY
+  - NVDA
   sig_d: '2025-06-30 00:00:00'
   weights:
     CTAS: 0.2
     GOOGL: 0.2
     NVDA: 0.2
+    NWSA: 0.2
     ORLY: 0.2
-    TMUS: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
   - CTAS
+  - NWSA
   - ORLY
-  - BKR
-  - GILD
+  - NVDA
   sig_d: '2025-07-31 00:00:00'
   weights:
-    BKR: 0.2
     CTAS: 0.2
-    GILD: 0.2
     GOOGL: 0.2
+    NVDA: 0.2
+    NWSA: 0.2
     ORLY: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
+  - NWSA
   - ORLY
-  - BKR
-  - GILD
+  - NVDA
   - WBD
   sig_d: '2025-08-29 00:00:00'
   weights:
-    BKR: 0.2
-    GILD: 0.2
     GOOGL: 0.2
+    NVDA: 0.2
+    NWSA: 0.2
     ORLY: 0.2
     WBD: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
+  - NWSA
   - ORLY
-  - BKR
-  - GILD
+  - NVDA
   - WBD
   sig_d: '2025-09-30 00:00:00'
   weights:
-    BKR: 0.2
-    GILD: 0.2
     GOOGL: 0.2
+    NVDA: 0.2
+    NWSA: 0.2
     ORLY: 0.2
     WBD: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - BKR
-  - GILD
+  - NVDA
   - WBD
   - ROST
+  - GILD
   sig_d: '2025-10-31 00:00:00'
   weights:
-    BKR: 0.2
     GILD: 0.2
     GOOGL: 0.2
+    NVDA: 0.2
     ROST: 0.2
     WBD: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - BKR
-  - GILD
+  - NVDA
   - WBD
   - ROST
+  - GILD
   sig_d: '2025-11-28 00:00:00'
   weights:
-    BKR: 0.2
     GILD: 0.2
     GOOGL: 0.2
+    NVDA: 0.2
     ROST: 0.2
     WBD: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - BKR
-  - GILD
+  - NVDA
   - WBD
   - ROST
+  - GILD
   sig_d: '2025-12-31 00:00:00'
   weights:
-    BKR: 0.2
     GILD: 0.2
     GOOGL: 0.2
+    NVDA: 0.2
     ROST: 0.2
     WBD: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - BKR
-  - GILD
+  - NVDA
   - WBD
   - ROST
+  - GILD
   sig_d: '2026-01-30 00:00:00'
   weights:
-    BKR: 0.2
     GILD: 0.2
     GOOGL: 0.2
+    NVDA: 0.2
     ROST: 0.2
     WBD: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - BKR
-  - GILD
   - WBD
   - ROST
+  - GILD
+  - WMT
   sig_d: '2026-02-27 00:00:00'
   weights:
-    BKR: 0.2
     GILD: 0.2
     GOOGL: 0.2
     ROST: 0.2
     WBD: 0.2
+    WMT: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - BKR
-  - GILD
   - WBD
   - ROST
+  - GILD
+  - WMT
   sig_d: '2026-03-31 00:00:00'
   weights:
-    BKR: 0.2
     GILD: 0.2
     GOOGL: 0.2
     ROST: 0.2
     WBD: 0.2
+    WMT: 0.2
 - regime: VAL_ACTIVE
   selected:
   - GOOGL
-  - BKR
-  - GILD
   - WBD
   - ROST
+  - GILD
+  - WMT
   sig_d: '2026-04-30 00:00:00'
   weights:
-    BKR: 0.2
     GILD: 0.2
     GOOGL: 0.2
     ROST: 0.2
     WBD: 0.2
+    WMT: 0.2

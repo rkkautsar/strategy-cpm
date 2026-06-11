@@ -198,7 +198,7 @@
       STLD: 0.3193761234238709
       STX: 0.3995034033884125
       TCOM: 0.45868370177488815
-    n_candidates: 54
+    n_candidates: 53
     ndx_gate_on: true
     rv_20: 0.2758378079577974
     rv_252: 0.4559733737375712
@@ -244,7 +244,7 @@
       ISRG: 0.4757195845016882
       STX: 0.6630383009226309
       TCOM: 0.5856672802325267
-    n_candidates: 57
+    n_candidates: 55
     ndx_gate_on: true
     rv_20: 0.17482611152574346
     rv_252: 0.45586188860689103
@@ -274,7 +274,7 @@
       GRMN: 0.4183844190981816
       SBUX: 0.42209829765804424
       STX: 0.7281977959949736
-    n_candidates: 61
+    n_candidates: 59
     ndx_gate_on: true
     rv_20: 0.15909797919497853
     rv_252: 0.45491677760610616
@@ -304,7 +304,7 @@
       ISRG: 0.654579259984902
       STX: 0.5921076690693181
       WYNN: 0.9339976008565978
-    n_candidates: 66
+    n_candidates: 64
     ndx_gate_on: true
     rv_20: 0.12756067182447522
     rv_252: 0.43603455684668846
@@ -334,7 +334,7 @@
       CTSH: 0.4695105515409219
       EXPE: 0.522672266351981
       STX: 0.47395396838508064
-    n_candidates: 56
+    n_candidates: 54
     ndx_gate_on: true
     rv_20: 0.2032531989013894
     rv_252: 0.3495963537322748
@@ -364,7 +364,7 @@
       BKNG: 0.9488385879422012
       STX: 0.8840727767835264
       TCOM: 0.9530283547918756
-    n_candidates: 62
+    n_candidates: 60
     ndx_gate_on: true
     rv_20: 0.15256522234187256
     rv_252: 0.2961599967446727
@@ -394,7 +394,7 @@
       MRVL: 0.8802253367795811
       STX: 1.0689223424220824
       VMED: 0.8510690123484107
-    n_candidates: 63
+    n_candidates: 61
     ndx_gate_on: true
     rv_20: 0.10096829175175459
     rv_252: 0.2663352732577224
@@ -424,7 +424,7 @@
       ISRG: 0.7584925813445373
       STX: 0.987034877052693
       VMED: 0.5855826329838655
-    n_candidates: 62
+    n_candidates: 61
     ndx_gate_on: true
     rv_20: 0.164823530844558
     rv_252: 0.24836621933580622
@@ -454,7 +454,7 @@
       STX: 1.1438016362118266
       TCOM: 0.9123792095600674
       VMED: 0.7330743954474795
-    n_candidates: 65
+    n_candidates: 63
     ndx_gate_on: true
     rv_20: 0.17593259100949654
     rv_252: 0.2334030315898618
@@ -484,7 +484,7 @@
       ISRG: 0.7820832863593403
       VMED: 0.7316893678161861
       WYNN: 0.9159417425300871
-    n_candidates: 66
+    n_candidates: 64
     ndx_gate_on: true
     rv_20: 0.07570522352212064
     rv_252: 0.18757233881986674
@@ -514,7 +514,7 @@
       BKNG: 0.6822198975947222
       ISRG: 0.5267433316725625
       WYNN: 0.6766914144332297
-    n_candidates: 66
+    n_candidates: 64
     ndx_gate_on: true
     rv_20: 0.15289723798745428
     rv_252: 0.17283448053093994
@@ -608,7 +608,7 @@
       BKNG: 0.6587436580404947
       NTAP: 0.49095977088504406
       VMED: 0.3707414080622402
-    n_candidates: 51
+    n_candidates: 49
     ndx_gate_on: true
     rv_20: 0.1290045486507447
     rv_252: 0.18797922700018366
@@ -638,7 +638,7 @@
       NTAP: 0.45821139603512917
       TCOM: 0.43859316264931997
       WYNN: 0.44836676567482486
-    n_candidates: 57
+    n_candidates: 56
     ndx_gate_on: true
     rv_20: 0.1058773284191676
     rv_252: 0.18248577253888199
@@ -668,7 +668,7 @@
       EXPD: 0.3693375971980075
       ILMN: 0.5044021423574903
       WYNN: 0.3441827109348929
-    n_candidates: 53
+    n_candidates: 52
     ndx_gate_on: true
     rv_20: 0.15295542659317066
     rv_252: 0.17975870850884926
@@ -698,7 +698,7 @@
       ILMN: 0.4651458537258234
       NFLX: 0.6858175843971397
       WYNN: 0.4319977110727054
-    n_candidates: 62
+    n_candidates: 60
     ndx_gate_on: true
     rv_20: 0.04353787420519956
     rv_252: 0.17929557496214432
@@ -728,7 +728,7 @@
       ILMN: 0.4520229932238038
       NFLX: 0.9946090699403405
       NVDA: 0.9250867505780995
-    n_candidates: 63
+    n_candidates: 61
     ndx_gate_on: true
     rv_20: 0.10211642052678536
     rv_252: 0.1749013625149835
@@ -758,7 +758,7 @@
       NFLX: 0.6861581069368051
       NVDA: 0.6099416114309459
       WYNN: 0.5044809612606003
-    n_candidates: 62
+    n_candidates: 60
     ndx_gate_on: true
     rv_20: 0.11537863091667684
     rv_252: 0.17177259451582352
@@ -788,7 +788,7 @@
       ILMN: 0.33534461181700903
       NFLX: 0.7986900611589435
       WYNN: 0.415288672144942
-    n_candidates: 58
+    n_candidates: 57
     ndx_gate_on: true
     rv_20: 0.1522326166239874
     rv_252: 0.17699653233008164
@@ -1170,7 +1170,7 @@
       EXPE: 0.3821387238765613
       ROST: 0.3080265349724779
       STX: 0.4730178679384728
-    n_candidates: 40
+    n_candidates: 39
     ndx_gate_on: true
     rv_20: 0.1441748144870112
     rv_252: 0.23164265614248206
@@ -1200,7 +1200,7 @@
       ROST: 0.31756821011096986
       STX: 0.6429471023051315
       VRSN: 0.28540726049703696
-    n_candidates: 51
+    n_candidates: 50
     ndx_gate_on: true
     rv_20: 0.0600756819413357
     rv_252: 0.188639105940025
@@ -1225,21 +1225,21 @@
 - diag:
     canary_ok: 'True'
     momenta:
-      BBBY: 0.44448978086545865
+      AKAM: 0.2980220028239889
       EXPE: 0.40313031162038
       GILD: 0.37758498589897244
       SIRI: 0.3150394693283557
       STX: 0.6330656816530313
-    n_candidates: 49
+    n_candidates: 48
     ndx_gate_on: true
     rv_20: 0.11392261353896746
     rv_252: 0.17405563360972118
     selected:
     - STX
-    - BBBY
     - EXPE
     - GILD
     - SIRI
+    - AKAM
     spy_sig: 0.10541916803686202
     tip_sig: 0.041636916496139376
     trend_ok: 'True'
@@ -1247,7 +1247,7 @@
   regime: NDX_ACTIVE
   sig_d: '2012-09-28 00:00:00'
   weights:
-    BBBY: 0.2
+    AKAM: 0.2
     EXPE: 0.2
     GILD: 0.2
     SIRI: 0.2
@@ -1255,21 +1255,21 @@
 - diag:
     canary_ok: 'True'
     momenta:
-      BBBY: 0.9147653943616489
       CMCSA: 0.27369620009738743
       EXPE: 0.250803467302958
       GILD: 0.2883342451809911
       SIRI: 0.29514036812621236
-    n_candidates: 35
+      VMED: 0.24603798663394655
+    n_candidates: 34
     ndx_gate_on: true
     rv_20: 0.10899411520939707
     rv_252: 0.15539644229944538
     selected:
-    - BBBY
     - SIRI
     - GILD
     - CMCSA
     - EXPE
+    - VMED
     spy_sig: 0.046341644424744755
     tip_sig: 0.032226799276286966
     trend_ok: 'True'
@@ -1277,11 +1277,11 @@
   regime: NDX_ACTIVE
   sig_d: '2012-10-31 00:00:00'
   weights:
-    BBBY: 0.2
     CMCSA: 0.2
     EXPE: 0.2
     GILD: 0.2
     SIRI: 0.2
+    VMED: 0.2
 - diag:
     canary_ok: 'True'
     ndx_gate_on: false
@@ -1301,21 +1301,21 @@
 - diag:
     canary_ok: 'True'
     momenta:
-      BBBY: 0.5551875879818038
       EXPE: 0.3817252915854715
       REGN: 0.6683784627862845
+      SIRI: 0.3517054058596512
       STX: 0.365094557945095
       VMED: 0.37993406956416464
-    n_candidates: 52
+    n_candidates: 51
     ndx_gate_on: true
     rv_20: 0.11581163294301905
     rv_252: 0.1273540567481395
     selected:
     - REGN
-    - BBBY
     - EXPE
     - VMED
     - STX
+    - SIRI
     spy_sig: 0.05610667027547939
     tip_sig: 0.020783690252028836
     trend_ok: 'True'
@@ -1323,29 +1323,29 @@
   regime: NDX_ACTIVE
   sig_d: '2012-12-31 00:00:00'
   weights:
-    BBBY: 0.2
     EXPE: 0.2
     REGN: 0.2
+    SIRI: 0.2
     STX: 0.2
     VMED: 0.2
 - diag:
     canary_ok: 'True'
     momenta:
-      BBBY: 0.3715350284940965
+      EBAY: 0.32296083376282814
       EXPE: 0.3475460679845924
       GILD: 0.3289276744150926
       REGN: 0.36132287885220854
       VMED: 0.34132689613812156
-    n_candidates: 59
+    n_candidates: 58
     ndx_gate_on: true
     rv_20: 0.055052453142565065
     rv_252: 0.12777624353385925
     selected:
-    - BBBY
     - REGN
     - EXPE
     - VMED
     - GILD
+    - EBAY
     spy_sig: 0.0959091024156537
     tip_sig: 0.005672826634072176
     trend_ok: 'True'
@@ -1353,7 +1353,7 @@
   regime: NDX_ACTIVE
   sig_d: '2013-01-31 00:00:00'
   weights:
-    BBBY: 0.2
+    EBAY: 0.2
     EXPE: 0.2
     GILD: 0.2
     REGN: 0.2
@@ -1377,12 +1377,12 @@
 - diag:
     canary_ok: 'True'
     momenta:
-      BBBY: 0.3653778978339049
+      AMGN: 0.27016455027405223
       BIIB: 0.3234079973210089
       GILD: 0.4892831405024709
       MU: 0.4165144172943102
       VMED: 0.5031968288389588
-    n_candidates: 54
+    n_candidates: 53
     ndx_gate_on: true
     rv_20: 0.07613473943131281
     rv_252: 0.12830898694206222
@@ -1390,8 +1390,8 @@
     - VMED
     - GILD
     - MU
-    - BBBY
     - BIIB
+    - AMGN
     spy_sig: 0.09529557146092177
     tip_sig: 0.01436345974141734
     trend_ok: 'True'
@@ -1399,7 +1399,7 @@
   regime: NDX_ACTIVE
   sig_d: '2013-03-28 00:00:00'
   weights:
-    BBBY: 0.2
+    AMGN: 0.2
     BIIB: 0.2
     GILD: 0.2
     MU: 0.2
@@ -1758,7 +1758,7 @@
       NXPI: 0.3381622604796738
       VIP: 0.34647605622556327
       VRTX: 0.4089315696936703
-    n_candidates: 62
+    n_candidates: 61
     ndx_gate_on: true
     rv_20: 0.054767210929249965
     rv_252: 0.10680247099179987
@@ -1820,7 +1820,7 @@
       EA: 0.4637514080955732
       MNST: 0.4920527401466969
       ROST: 0.29789074023930356
-    n_candidates: 65
+    n_candidates: 64
     ndx_gate_on: true
     rv_20: 0.1067039526526993
     rv_252: 0.11432766517505778
@@ -1866,7 +1866,7 @@
       MNST: 0.39246016297058073
       NFLX: 0.4350127060158736
       NXPI: 0.29534957322917854
-    n_candidates: 64
+    n_candidates: 63
     ndx_gate_on: true
     rv_20: 0.08610005398662478
     rv_252: 0.1148597516561028
@@ -2116,7 +2116,7 @@
       NTES: 0.23945614500910872
       NVDA: 0.6088768394046393
       ULTA: 0.36282359135891556
-    n_candidates: 49
+    n_candidates: 48
     ndx_gate_on: true
     rv_20: 0.10981183678722235
     rv_252: 0.16645274904093624
@@ -2162,7 +2162,7 @@
       NVDA: 0.9226741545714441
       TXN: 0.2784877302837636
       ULTA: 0.3353271009861475
-    n_candidates: 69
+    n_candidates: 68
     ndx_gate_on: true
     rv_20: 0.0746395070377869
     rv_252: 0.16988166699211174
@@ -2268,7 +2268,7 @@
       MU: 0.2709580123603672
       NVDA: 0.9294106374854081
       STX: 0.34567169974750517
-    n_candidates: 56
+    n_candidates: 55
     ndx_gate_on: true
     rv_20: 0.10273753063181136
     rv_252: 0.13876753886915502

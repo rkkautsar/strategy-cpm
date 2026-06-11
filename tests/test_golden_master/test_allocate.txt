@@ -20,12 +20,12 @@ CPM-NDX-VAL-RPV Allocation @ 2026-04-30 (signal date)
 
 [VAL sleeve — 15.0%]
   Regime: VAL_ACTIVE
-  Picks: GOOGL, BKR, GILD, WBD, ROST
+  Picks: GOOGL, WBD, ROST, GILD, WMT
     GOOGL     20.0%
-    BKR       20.0%
-    GILD      20.0%
     WBD       20.0%
     ROST      20.0%
+    GILD      20.0%
+    WMT       20.0%
 
 [RPV sleeve — 10.0%]
   Regime: WEIGHTED_GUARDED
@@ -43,9 +43,9 @@ CPM-NDX-VAL-RPV Allocation @ 2026-04-30 (signal date)
     MU         3.0%
     INTC       3.0%
     GOOGL      3.0%
-    BKR        3.0%
-    GILD       3.0%
     WBD        3.0%
     ROST       3.0%
+    GILD       3.0%
+    WMT        3.0%
 
   Weight sum: 1.000000
