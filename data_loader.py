@@ -520,6 +520,8 @@ def load_macro_data() -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Se
     except Exception:
         sp500 = pd.Series(dtype=float, index=pd.DatetimeIndex([]))
 
+    # TODO: Shiller earnings data (sp500_earnings.csv) is latest-vintage and the equity premium
+    #       carries lookahead bias. A point-in-time earnings source would be needed to fix this.
     fpath_earnings = DATA_DIR / "sp500_earnings.csv"
     try:
         df_earn = pd.read_csv(fpath_earnings)

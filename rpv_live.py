@@ -95,6 +95,60 @@ def _fetch_fred_series(id_: str, fallback_paths: list[Path] | None = None) -> pd
 from data_loader import load_macro_data
 
 
+def _fetch_fred_series_realtime(id_: str, fallback_csv_path: Path | None = None) -> pd.Series:
+    """Fetch FRED series via ALFRED vintage API to get first-release (initial-vintage) values.
+
+    For each observation_date, the earliest realtime_period (first publication) is used.
+    Caches result to DATA_DIR / f"fred_realtime_{id_}.csv".
+    Only hits the API when REFRESH_FRED=1 is set; otherwise reads cached CSV.
+    """
+    cache_path = fallback_csv_path or (DATA_DIR / f"fred_realtime_{id_}.csv")
+
+    if os.environ.get("REFRESH_FRED") == "1":
+        api_key = os.environ.get("FRED_API_KEY", "").strip()
+        if api_key:
+            try:
+                params = urlencode({
+                    "series_id": id_,
+                    "realtime_start": "1776-07-04",
+                    "realtime_end": "9999-12-31",
+                    "api_key": api_key,
+                    "file_type": "json",
+                })
+                url = f"https://api.stlouisfed.org/fred/series/observations?{params}"
+                with urlopen(url, timeout=30.0) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+
+                obs = payload.get("observations") if isinstance(payload, dict) else None
+                if not isinstance(obs, list) or not obs:
+                    raise ValueError(f"No ALFRED observations for {id_}")
+
+                df_obs = pd.DataFrame(obs)
+                df_obs["realtime_start"] = pd.to_datetime(df_obs["realtime_start"])
+                df_obs["date"] = pd.to_datetime(df_obs["date"])
+                df_obs["value"] = pd.to_numeric(df_obs["value"], errors="coerce")
+                df_obs = df_obs.dropna(subset=["value"])
+
+                # First release = earliest realtime_start for each observation_date
+                df_first = (
+                    df_obs.sort_values("realtime_start")
+                    .groupby("date", as_index=False)
+                    .first()
+                )
+                df_first = df_first.sort_values("date")
+
+                df_out = df_first[["date", "value"]].copy()
+                df_out.to_csv(cache_path, index=False)
+            except Exception:
+                pass
+
+    if cache_path.exists():
+        return _parse_fred_series(pd.read_csv(cache_path), id_)
+    raise FileNotFoundError(
+        f"FRED realtime series {id_} not found locally and REFRESH_FRED not set or web fetch failed."
+    )
+
+
 def _trailing_z(df: pd.DataFrame, w: int) -> pd.DataFrame:
     return df.apply(lambda s: (s - s.rolling(w).mean()) / s.rolling(w).std(ddof=0))
 
@@ -189,7 +243,8 @@ def compute_rpv_signals() -> pd.DataFrame:
     baa_m = me(baa)
     daaa_m = me(daaa)
 
-    cpi = _fetch_fred_series("CPIAUCSL", fallback_paths=[DATA_DIR / "fred_CPIAUCSL.csv"])
+    # Use ALFRED first-release CPI to avoid lookahead bias from latest-vintage revisions.
+    cpi = _fetch_fred_series_realtime("CPIAUCSL", fallback_csv_path=DATA_DIR / "fred_realtime_CPIAUCSL.csv")
     cpi_m = me(cpi)
     cpi_yoy = 100.0 * (cpi_m / cpi_m.shift(12) - 1.0)
     # Live-tail robustness without look-ahead: shift by 1 month to use last released (M-1) CPI at each signal month.
