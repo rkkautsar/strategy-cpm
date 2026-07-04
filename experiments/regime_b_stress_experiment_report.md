@@ -12,7 +12,7 @@ Four variants were tested over the full backtest period (2008-06 to 2026-04, 17 
 | 4 | Hybrid | Regime B OR Sahm fires |
 
 Normal weights: CPM=60%, NDX=15%, VAL=15%, RPV=10%
-Stress weights: CPM=60%, NDX=7.5%, VAL=7.5%, RPV=25%
+Stress weights: CPM=50%, NDX=15%, VAL=15%, RPV=20%
 
 Signal at month-end, applied T+1, 10bps/side cost.
 

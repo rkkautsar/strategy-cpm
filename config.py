@@ -8,10 +8,10 @@ BASE_BLEND_WEIGHTS = {
 }
 
 SAHM_STRESS_BLEND_WEIGHTS = {
-    "cpm": 0.60,
-    "ndx": 0.075,
-    "val": 0.075,
-    "rpv": 0.25,
+    "cpm": 0.50,
+    "ndx": 0.15,
+    "val": 0.15,
+    "rpv": 0.20,
 }
 
 SAHM_STRESS_THRESHOLD = 0.50
