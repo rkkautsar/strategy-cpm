@@ -100,6 +100,14 @@ def main() -> None:
     parts.append(fmt_alloc(rpv_w, f"RPV sleeve ({_fmt_weight_pct(blend_weights['rpv'])}%)", blend_weights["rpv"]))
     parts.append("")
     parts.append(fmt_alloc(combined, "Combined portfolio (100%)"))
+    staleness_path = Path("data_staleness_warnings.txt")
+    if staleness_path.exists():
+        warnings = [ln.strip() for ln in staleness_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        if warnings:
+            parts.append("")
+            parts.append("⚠️ *Data staleness*")
+            parts.extend(warnings)
+
     parts.append("")
     parts.append("⚠️ Backtest only · see dashboard caveats before trading")
 

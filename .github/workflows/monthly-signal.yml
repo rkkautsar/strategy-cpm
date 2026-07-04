@@ -57,6 +57,10 @@ jobs:
           REFRESH_FRED: "1"
         run: uv run python refresh_fred.py
 
+      - name: Check data staleness
+        if: github.event_name != 'push'
+        run: uv run python deploy/cf-pages/check_data_staleness.py --out data_staleness_warnings.txt
+
       - name: Generate signal allocation
         id: signal
         run: |
@@ -125,5 +129,20 @@ jobs:
           path: |
             signal_raw.txt
             signal_message.txt
+            data_staleness_warnings.txt
             dist/index.html
           retention-days: 90
+
+      - name: Send Telegram failure alert
+        if: failure() && github.event_name != 'push'
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          printf "❌ monthly-signal workflow FAILED at step level — check https://github.com/%s/actions/runs/%s\n" "$REPO" "$RUN_ID" > failure_telegram.txt
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "parse_mode=Markdown" \
+            --data-urlencode "text@failure_telegram.txt"
