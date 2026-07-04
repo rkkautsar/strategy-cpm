@@ -2,18 +2,13 @@ name = "cpm-bull-cron"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# Two cron schedules:
-#   1. Monthly signal:  02:00 UTC, day 1      -> event_type=monthly-signal
-#   2. Daily circuit-check:  22:35 UTC, weekdays   -> event_type=circuit-check
+# Monthly signal: 02:00 UTC, day 1 -> event_type=monthly-signal
 #
-# Monthly: 02:00 UTC = 10:00 AM SGT (UTC+8). Signal date = last biz day of
-# prior month. Signal close at 4 PM ET does not change over the weekend or
-# overnight, so notification arriving Mon-Fri 10 AM SGT on day 1 is always
-# valid for that month's signal.
-#
-# Weekday-only (1-5) because US market is closed weekends; no new data.
+# 02:00 UTC = 10:00 AM SGT (UTC+8). Signal date = last biz day of prior month.
+# Signal close at 4 PM ET does not change over the weekend or overnight, so
+# notification arriving 10 AM SGT on day 1 is valid for that month's signal.
 [triggers]
-crons = ["0 2 1 * *", "35 22 * * 1-5"]
+crons = ["0 2 1 * *"]
 
 [vars]
 GH_OWNER = "rkkautsar"

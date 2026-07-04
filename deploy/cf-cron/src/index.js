@@ -1,9 +1,8 @@
 /**
  * CF Workers cron trigger -> fires GH Actions repository_dispatch event.
  *
- * Two cron schedules (see wrangler.toml):
- *   1. Monthly signal:       0 2 1 * *     (1st of month, 10am SGT) -> event_type: monthly-signal
- *   2. Daily circuit-check:  35 22 * * 1-5 (weekdays 22:35 UTC, 6:35am SGT) -> event_type: circuit-check
+ * Cron schedule (see wrangler.toml):
+ *   - Monthly signal: 0 2 1 * * (1st of month, 10am SGT) -> event_type: monthly-signal
  *
  * Why CF Workers cron: GitHub Actions scheduled workflows auto-disable after
  * 60 days of repo inactivity. CF Workers cron has no inactivity penalty.
@@ -11,7 +10,6 @@
 
 const EVENT_BY_CRON = {
   "0 2 1 * *": "monthly-signal",
-  "35 22 * * 1-5": "circuit-check",
 };
 
 async function dispatchToGitHub(env, cronStr, eventType) {
@@ -58,8 +56,7 @@ export default {
   },
 
   // HTTP handler for manual testing.
-  // POST / with X-Trigger-Token => monthly-signal (default)
-  // POST /?event=circuit-check with X-Trigger-Token => circuit-check
+  // POST / with X-Trigger-Token => monthly-signal
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
       return new Response("POST with X-Trigger-Token header to trigger manually\n", { status: 405 });
@@ -70,7 +67,7 @@ export default {
     }
     const url = new URL(request.url);
     const eventType = url.searchParams.get("event") || "monthly-signal";
-    if (!["monthly-signal", "circuit-check"].includes(eventType)) {
+    if (!["monthly-signal"].includes(eventType)) {
       return new Response(`Unknown event=${eventType}\n`, { status: 400 });
     }
     try {
