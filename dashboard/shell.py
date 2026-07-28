@@ -12,9 +12,11 @@ def render_head(ctx: SimpleNamespace) -> str:
 <style>
   :root { --bg:#fafafa; --card:#fff; --border:#e8e8e8; --text:#222; --muted:#666; --pos:#1a8a1a; --neg:#cc3333; }
   * { box-sizing: border-box; }
-  html, body { overflow-x:hidden; max-width:100vw; }
+  html { max-width:100%; }
   body { font-family:-apple-system,BlinkMacSystemFont,'SF Pro',Segoe UI,Roboto,sans-serif;
-         background:var(--bg); color:var(--text); margin:0; padding:8px; line-height:1.45; font-size:14px; }
+         background:var(--bg); color:var(--text); margin:0; padding:8px; line-height:1.45; font-size:14px;
+         max-width:100%; min-width:0; }
+  p, h1, h2, h3, h4, summary, .audit-block { overflow-wrap:anywhere; }
   h1 { font-size:1.4rem; margin:0 0 0.3rem; }
   h2 { font-size:1.1rem; margin:1.2rem 0 0.4rem; padding-bottom:0.3rem; border-bottom:1px solid var(--border); }
   h3 { font-size:1rem; margin:0.8rem 0 0.4rem; }
@@ -23,8 +25,9 @@ def render_head(ctx: SimpleNamespace) -> str:
   .meta { color:var(--muted); font-size:0.82rem; }
   .strategy-summary { margin:0.45rem 0 0.2rem; font-size:0.9rem; color:#333; }
   .card { background:var(--card); border:1px solid var(--border); border-radius:8px;
-           padding:8px; margin:8px 0; overflow:hidden; }
-  .table-scroll { position:relative; overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; }
+           padding:8px; margin:8px 0; overflow:hidden; min-width:0; }
+  .table-scroll { position:relative; width:100%; max-width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px; }
+  .alloc-grid, .alloc-row, .alloc-grid > *, .alloc-row > * { min-width:0; }
   table { border-collapse: collapse; width:100%; font-size:0.85rem; min-width:fit-content; }
   th, td { padding:5px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
   th { background:#f3f3f3; font-weight:600; text-align:left; position:sticky; top:0; }
