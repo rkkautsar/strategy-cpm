@@ -71,7 +71,7 @@ def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:
 
     # Do not rebuild prices.parquet from empty state: fresh fetch returns only current constituents and biases history.
     try:
-        base = load_ndx_panel().sort_index()
+        base = pd.read_parquet(PRICES_FILE).sort_index()
     except FileNotFoundError:
         base = pd.DataFrame()
 
