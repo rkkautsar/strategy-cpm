@@ -62,7 +62,7 @@ def _ndx_vol_gate_ok(daily_spy: pd.Series, sig_d: pd.Timestamp) -> tuple[bool, d
     return vol_ok, {"rv_20": rv_20, "rv_252": rv_252, "vol_ok": vol_ok}
 
 
-from data_loader import load_ndx_panel
+from data_loader import latest_signal_date, load_ndx_panel
 
 
 def refresh_ndx_panel(start: str = "1995-01-01") -> pd.DataFrame:
@@ -373,11 +373,7 @@ if __name__ == "__main__":
     if args.sig_date:
         sig_d = pd.Timestamp(args.sig_date)
     else:
-        today = pd.Timestamp.today().normalize()
-        # last completed month-end
-        prior_me = today.replace(day=1) - pd.Timedelta(days=1)
-        candidates = cpm_panel.index[cpm_panel.index <= prior_me]
-        sig_d = candidates[-1] if len(candidates) > 0 else today
+        sig_d = latest_signal_date(cpm_panel.index)
 
     weights, regime, diag = compute_ndx_weights(cpm_panel, ndx_panel, sig_d)
     print(f"\nNDX sleeve allocation (signal date: {sig_d.date()})")

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import pandas as pd
 import cpm_live as cpm
 from cpm_live import load_panel, compute_live_weights
+from data_loader import latest_signal_date
 from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
 from rpv_live import compute_rpv_weights
 from core import cached_value_backtest
@@ -35,15 +36,13 @@ def _fmt_weight_pct(weight: float) -> str:
 def main() -> None:
     panel = load_panel(live=True)
     ndx_panel = load_ndx_panel()
-    # Use last completed month-end as signal date
-    today = pd.Timestamp.today().normalize()
-    prior_me = (today.replace(day=1) - pd.Timedelta(days=1))
-    candidates = panel.index[panel.index <= prior_me]
-    sig_d = candidates[-1] if len(candidates) > 0 else today
-    # Prior month's signal = last panel date on/before the prior calendar month-end
-    prior_month_end = sig_d.replace(day=1) - pd.Timedelta(days=1)
-    prior_cands = panel.index[panel.index <= prior_month_end]
-    prior_sig_d = prior_cands[-1] if len(prior_cands) > 0 else None
+    sig_d = latest_signal_date(panel.index)
+    # Prior month's signal date uses the same month-start oracle.
+    prior_index = panel.index[panel.index < sig_d.replace(day=1)]
+    try:
+        prior_sig_d = latest_signal_date(prior_index, today=sig_d)
+    except ValueError:
+        prior_sig_d = None
 
     from sleeves import compute_live_blend, get_blend_weights
     blend_weights = get_blend_weights(sig_d)

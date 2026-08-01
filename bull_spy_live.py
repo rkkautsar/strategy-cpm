@@ -29,6 +29,7 @@ from cpm_live import (
     load_panel,
     run_cpm_backtest,
 )
+from data_loader import latest_signal_date
 from core import sig_13612U, perf_metrics
 
 
@@ -240,10 +241,7 @@ def cmd_allocate(args):
     sig_d = pd.Timestamp(args.signal_date) if args.signal_date else None
     panel = load_panel(start=pd.Timestamp("1995-01-01"), end=sig_d)
     if sig_d is None:
-        today = panel.index[-1]
-        prior_month_end = today.replace(day=1) - pd.Timedelta(days=1)
-        candidates = panel.index[panel.index <= prior_month_end]
-        sig_d = candidates[-1] if len(candidates) > 0 else today
+        sig_d = latest_signal_date(panel.index)
 
     print(f"BULL-SPY Allocation @ {sig_d.date()} (signal date)")
     print("=" * 60)

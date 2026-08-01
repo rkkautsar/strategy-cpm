@@ -175,7 +175,7 @@ def _assert_live_panel_fresh(
         )
 
 
-from data_loader import load_panel
+from data_loader import latest_signal_date, load_panel
 
 
 # ---------- Signals ----------
@@ -531,6 +531,20 @@ def run_pp_backtest(panel: pd.DataFrame, start, end) -> pd.Series:
 
 # ---------- CLI commands ----------
 
+def _validate_canary_data(panel: pd.DataFrame, sig_d: pd.Timestamp) -> None:
+    """Require every canary to be present and finite on the selected signal date."""
+    for asset in CANARY_ASSETS:
+        if asset not in panel.columns or sig_d not in panel.index:
+            raise ValueError(f"Missing canary asset {asset} at signal date {sig_d.date()}")
+        value = panel.loc[sig_d, asset]
+        try:
+            finite = bool(np.isfinite(value))
+        except (TypeError, ValueError):
+            finite = False
+        if not finite:
+            raise ValueError(f"Missing canary asset {asset} at signal date {sig_d.date()}")
+
+
 def cmd_allocate(args):
     """Print this month's target allocation."""
     from ndx_sleeve_live import compute_ndx_weights, load_ndx_panel
@@ -540,24 +554,8 @@ def cmd_allocate(args):
     sig_d = pd.Timestamp(args.signal_date) if args.signal_date else None
     panel = load_panel(end=sig_d, live=True)
     if sig_d is None:
-        # Use most recent COMPLETED month-end as signal date.
-        # (e.g. on May 14, signal date = April 30 close, trade for May)
-        today = panel.index[-1]
-        # Last day of prior month
-        prior_month_end = (today.replace(day=1) - pd.Timedelta(days=1))
-        # Find actual last trading day of that month in panel
-        candidates = panel.index[panel.index <= prior_month_end]
-        if len(candidates) == 0:
-            sig_d = today  # fallback
-        else:
-            sig_d = candidates[-1]
-        # Validate signal date has data for canary assets
-        for c in CANARY_ASSETS:
-            if c in panel.columns and pd.isna(panel.loc[sig_d, c]):
-                # Walk back to last non-NaN date for canary
-                valid = panel[c].loc[:sig_d].dropna()
-                if len(valid) > 0:
-                    sig_d = min(sig_d, valid.index[-1])
+        sig_d = latest_signal_date(panel.index)
+    _validate_canary_data(panel, sig_d)
 
     ndx_panel = load_ndx_panel()
 

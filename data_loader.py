@@ -45,6 +45,16 @@ RECYCLED_PRICE_TICKERS = {"CA", "DELL", "GENZ", "GOLD", "JAVA", "LIFE", "MEDI", 
 RECYCLED_FUND_SYMBOLS = {"BBBY", "LIFE", "GOLD", "BATRA"}
 
 
+def latest_signal_date(index: pd.Index, today: pd.Timestamp | None = None) -> pd.Timestamp:
+    """Return the latest panel date before the current calendar month starts."""
+    if len(index) == 0:
+        raise ValueError("Cannot resolve a signal date from an empty panel index")
+    wall_clock = pd.Timestamp.today() if today is None else pd.Timestamp(today)
+    month_start = wall_clock.normalize().replace(day=1)
+    candidates = index[index < month_start]
+    return candidates[-1] if len(candidates) else index[-1]
+
+
 # ===========================================================================
 # 1. Core CPM Panel Loader
 # ===========================================================================
