@@ -120,12 +120,13 @@ Never make this bucket public. For an initial seed from a machine that already
 has the full private cache and Valuein Parquet files, run
 `uv run python -m taa_engine.r2_snapshot publish` with the R2 variables set.
 
-The monthly dashboard pipeline is Cloudflare Cron Worker → GitHub Actions →
-private R2 → Cloudflare Pages. It runs on day 3 after the first monthly US market
-close is normally available. GitHub Actions replays the full cached history to
+The monthly dashboard pipeline is GitHub Actions → private R2 → Cloudflare Pages.
+It is scheduled for 9:17 PM EST / 10:17 PM EDT on the 3rd, after the prior
+month's US market close. GitHub Actions replays the full cached history to
 preserve vectorbt results; it does not append a single month because the current
 engine has no serialized portfolio/VAL state checkpoint. The R2 archive keeps
-immutable monthly cache and results snapshots. VAL still uses its cached
+immutable monthly cache and results snapshots. Failed refreshes also preserve
+private cache progress so a retry can resume. VAL still uses its cached
 Valuein Parquet bootstrap snapshot and applies manifest-aware per-CIK updates;
 the Valuein API has no row-level cursor, so the updater replaces only the
 relevant company partitions instead of downloading the full market-wide fact
@@ -133,10 +134,12 @@ table.
 
 Configure GitHub repository secrets `CPM_R2_BUCKET`, `CPM_R2_ACCOUNT_ID`,
 `CPM_R2_ACCESS_KEY_ID`, `CPM_R2_SECRET_ACCESS_KEY`, `FRED_API_KEY`,
-`VALUEIN_API_KEY`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. Deploy the Worker from
-`deploy/cf-cron` and set `GH_TOKEN` (fine-grained `Contents: write` on this repo)
-and `TRIGGER_TOKEN` as Worker secrets. Blend definitions and selected strategy
-are already saved in browser localStorage and remain on that browser/origin.
+`VALUEIN_API_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
+`NOTIFICATION_DISPATCH_TOKEN`, and `RESEND_API_KEY`; configure `RESEND_FROM` and
+`DASHBOARD_URL` as repository variables. Set `UNSUBSCRIBE_SIGNING_SECRET` as a
+Cloudflare Pages production secret. No separate cron Worker or GitHub dispatch
+token is needed. Blend definitions and selected strategy are already saved in
+browser localStorage and remain on that browser/origin.
 
 Yahoo Finance data accessed through `yfinance` is unofficial and intended for
 personal/research use. This starter is for private research; confirm data rights

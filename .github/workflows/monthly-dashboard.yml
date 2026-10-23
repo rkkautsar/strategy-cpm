@@ -1,14 +1,21 @@
 name: Monthly TAA dashboard
 
 on:
-  repository_dispatch:
-    types: [monthly-dashboard]
+  schedule:
+    # 02:17 UTC on the 4th is 9:17 PM EST / 10:17 PM EDT on the 3rd in New York.
+    # Running off the hour reduces GitHub scheduled-run contention.
+    - cron: "17 2 4 * *"
   workflow_dispatch:
     inputs:
       notification_email:
         description: "Optional: send the allocation only to this active subscription"
         required: false
         type: string
+      send_all_notifications:
+        description: "Send this month's allocation to every eligible subscriber"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -34,6 +41,7 @@ jobs:
       NOTIFICATION_DISPATCH_TOKEN: ${{ secrets.NOTIFICATION_DISPATCH_TOKEN }}
       DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
       VALUEIN_MAX_PARTITION_DOWNLOADS: "100"
+      CPM_MAX_PRICE_AGE_DAYS: "7"
 
     steps:
       - name: Checkout
@@ -46,6 +54,20 @@ jobs:
 
       - name: Install locked dependencies
         run: uv sync --frozen --extra r2
+
+      - name: Check scheduled email configuration
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.send_all_notifications || inputs.notification_email != ''))
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ vars.RESEND_FROM }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test -n "$NOTIFICATION_DISPATCH_TOKEN" || { echo "NOTIFICATION_DISPATCH_TOKEN is required for allocation email delivery."; exit 1; }
+          test -n "$RESEND_API_KEY" || { echo "RESEND_API_KEY is required for allocation email delivery."; exit 1; }
+          test -n "$RESEND_FROM" || { echo "RESEND_FROM is required for allocation email delivery."; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "CLOUDFLARE_API_TOKEN is required to deploy the dashboard."; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "CLOUDFLARE_ACCOUNT_ID is required to deploy the dashboard."; exit 1; }
 
       - name: Update cached sources and build dashboard
         run: uv run taa-backtest --output results
@@ -77,24 +99,38 @@ jobs:
           command: pages deploy dist --project-name=cpm-bull-dashboard --commit-message="Monthly TAA dashboard ${{ github.run_number }}"
 
       - name: Email monthly allocations to blend subscribers
-        if: env.NOTIFICATION_DISPATCH_TOKEN != '' && (github.event_name == 'repository_dispatch' || inputs.notification_email != '')
+        if: github.event_name == 'schedule' || inputs.send_all_notifications || inputs.notification_email != ''
         env:
           NOTIFICATION_DISPATCH_TOKEN: ${{ secrets.NOTIFICATION_DISPATCH_TOKEN }}
           DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
-          TARGET_NOTIFICATION_EMAIL: ${{ inputs.notification_email }}
         run: |
           SITE_URL="${DASHBOARD_URL:-https://cpm.rakha.dev}"
+          TARGET_NOTIFICATION_EMAIL="$(jq -r '.inputs.notification_email // empty' "$GITHUB_EVENT_PATH")"
+          SEND_ALL_NOTIFICATIONS="$(jq -r '.inputs.send_all_notifications // false' "$GITHUB_EVENT_PATH")"
+          if [ -n "$TARGET_NOTIFICATION_EMAIL" ] && [ "$SEND_ALL_NOTIFICATIONS" = "true" ]; then
+            echo "Choose a single recipient or all subscribers, not both."
+            exit 2
+          fi
           PAYLOAD_FILE=results/notification_data.json
           if [ -n "$TARGET_NOTIFICATION_EMAIL" ]; then
             echo "::add-mask::$TARGET_NOTIFICATION_EMAIL"
             PAYLOAD_FILE="$RUNNER_TEMP/notification_data.json"
             jq --arg target_email "$TARGET_NOTIFICATION_EMAIL" '. + {target_email: $target_email}' results/notification_data.json > "$PAYLOAD_FILE"
           fi
-          curl --fail-with-body --silent --show-error \
-            -X POST "${SITE_URL}/api/notifications/dispatch" \
-            -H "Authorization: Bearer ${NOTIFICATION_DISPATCH_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data-binary "@$PAYLOAD_FILE"
+          for attempt in 1 2 3; do
+            if curl --fail-with-body --silent --show-error \
+              -X POST "${SITE_URL}/api/notifications/dispatch" \
+              -H "Authorization: Bearer ${NOTIFICATION_DISPATCH_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data-binary "@$PAYLOAD_FILE"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Allocation dispatch attempt $attempt failed; retrying in 15 seconds."
+              sleep 15
+            fi
+          done
+          exit 1
 
       - name: Keep monthly outputs
         uses: actions/upload-artifact@v4

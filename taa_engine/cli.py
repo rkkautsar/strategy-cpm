@@ -37,16 +37,46 @@ def main() -> None:
     snapshot_status = restore_latest_snapshot()
     print(f"Private state: {snapshot_status}")
 
+    try:
+        _build_monthly_outputs(args)
+    except Exception:
+        if os.getenv("CPM_REQUIRE_R2") == "1":
+            try:
+                checkpoint_status = publish_snapshot(include_results=False)
+                print(f"Preserved private cache checkpoint after failed build: {checkpoint_status}")
+            except Exception as checkpoint_error:
+                print(
+                    "Could not preserve the private cache checkpoint "
+                    f"({type(checkpoint_error).__name__})."
+                )
+        raise
+
+
+def _build_monthly_outputs(args: argparse.Namespace) -> None:
     prices, data_status = load_daily_prices(
         start=args.start, end=args.end, refresh=args.refresh,
     )
     ndx_prices, ndx_data_status = load_ndx_constituent_prices(
         start=args.start, end=args.end, refresh=args.refresh,
     )
+    requires_fresh_data = os.getenv("CPM_REQUIRE_FRESH_DATA") == "1"
+    if requires_fresh_data:
+        max_price_age_days = int(os.getenv("CPM_MAX_PRICE_AGE_DAYS", "7"))
+        today_ny = pd.Timestamp.now(tz="America/New_York").date()
+        for label, panel in (("ETF", prices), ("Nasdaq-100 constituent", ndx_prices)):
+            if panel.empty:
+                raise RuntimeError(f"Required {label} price panel is empty.")
+            latest = pd.Timestamp(panel.index[-1]).date()
+            age_days = (today_ny - latest).days
+            if age_days < 0 or age_days > max_price_age_days:
+                raise RuntimeError(
+                    f"Required {label} prices are stale: latest session {latest}, "
+                    f"{age_days} calendar days before today in New York; "
+                    f"maximum allowed is {max_price_age_days}."
+                )
     rpv_signals, rpv_data_status = load_rpv_signals(
         prices, refresh=not args.no_refresh_macro or args.refresh,
     )
-    requires_fresh_data = os.getenv("CPM_REQUIRE_FRESH_DATA") == "1"
     if args.no_refresh_valuein and requires_fresh_data:
         raise RuntimeError("CPM_REQUIRE_FRESH_DATA=1 forbids --no-refresh-valuein.")
     if args.no_refresh_valuein:

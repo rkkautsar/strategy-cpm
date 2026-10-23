@@ -21,17 +21,10 @@ Configure these GitHub repository secrets and variables:
 
 The workflow copies the Resend credentials into Pages during deployment. Configure `UNSUBSCRIBE_SIGNING_SECRET` as a Pages production secret. The Pages `DASHBOARD_URL` variable comes from `wrangler.toml`; the workflow reads the GitHub `DASHBOARD_URL` variable when dispatching email.
 
-After setup, the workflow posts the generated target-only payload to Pages after the dashboard deploy succeeds; dispatches are idempotent per subscription and month.
-
-Deploy the cron Worker so the 9 PM Eastern schedule takes effect:
-
-   ```sh
-   cd deploy/cf-cron
-   npx wrangler deploy
-   ```
+After setup, the workflow posts the generated target-only payload to Pages after the dashboard deploy succeeds. Delivery is idempotent per subscription and signal month, so rerunning a failed workflow retries only subscribers who were not recorded as delivered.
 
 The earlier single-recipient sender used Resend's `onboarding@resend.dev` default. Resend restricts that sender to the account owner's verified address, so a verified sender domain is required for subscriptions from other people.
 
 ## Schedule
 
-Cloudflare Cron runs at both possible UTC hours for 9 PM `America/New_York` on the third calendar day of each month. The Worker checks the Eastern date and hour and dispatches GitHub Actions only for the matching run, accounting for daylight saving time. The workflow fetches data, builds and deploys the dashboard, then emails verified subscribers. If the dispatch token is not configured, email delivery is skipped and the dashboard still builds.
+GitHub Actions schedules the monthly workflow for 02:17 UTC on the 4th, which is 9:17 PM EST or 10:17 PM EDT on the 3rd in New York. This is after the prior month has closed and leaves time for Yahoo Finance to settle before the next market session. Scheduled runs fail if the notification dispatch token is missing. If GitHub delays or misses a scheduled run, use the Actions tab to start the workflow manually and select “Send this month's allocation to every eligible subscriber”; D1 delivery records prevent duplicate sends.

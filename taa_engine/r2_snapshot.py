@@ -25,10 +25,11 @@ def _client():
     return client, bucket
 
 
-def _archive_bytes() -> bytes:
+def _archive_bytes(*, include_results: bool = True) -> bytes:
     with tempfile.TemporaryFile() as stream:
         with tarfile.open(fileobj=stream, mode="w:gz") as archive:
-            for root in SNAPSHOT_PATHS:
+            roots = SNAPSHOT_PATHS if include_results else (Path(".cache"),)
+            for root in roots:
                 if not root.exists():
                     continue
                 for path in sorted(root.rglob("*")):
@@ -64,12 +65,12 @@ def restore_latest_snapshot() -> str:
     return f"restored {manifest['snapshot_id']} ({manifest['created_at']})"
 
 
-def publish_snapshot() -> str:
+def publish_snapshot(*, include_results: bool = True) -> str:
     """Write an immutable archive, then advance the latest pointer last."""
     client, bucket = _client()
     if client is None:
         return "R2 snapshots disabled"
-    payload = _archive_bytes()
+    payload = _archive_bytes(include_results=include_results)
     digest = hashlib.sha256(payload).hexdigest()
     created = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     snapshot_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
