@@ -26,6 +26,8 @@ jobs:
       CPM_R2_SECRET_ACCESS_KEY: ${{ secrets.CPM_R2_SECRET_ACCESS_KEY }}
       FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
       VALUEIN_API_KEY: ${{ secrets.VALUEIN_API_KEY }}
+      NOTIFICATION_DISPATCH_TOKEN: ${{ secrets.NOTIFICATION_DISPATCH_TOKEN }}
+      DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
       VALUEIN_MAX_PARTITION_DOWNLOADS: "100"
 
     steps:
@@ -49,6 +51,7 @@ jobs:
           cp results/dashboard.html dist/index.html
           cp results/dashboard.html dist/dashboard.html
           printf 'User-agent: *\nDisallow:\n' > dist/robots.txt
+          printf '{"version":1,"include":["/api/*"],"exclude":[]}' > dist/_routes.json
 
       - name: Deploy dashboard to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -56,6 +59,19 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy dist --project-name=taa-dashboard --commit-message="Monthly TAA dashboard ${{ github.run_number }}"
+
+      - name: Email monthly allocations to blend subscribers
+        if: github.event_name == 'repository_dispatch' && env.NOTIFICATION_DISPATCH_TOKEN != ''
+        env:
+          NOTIFICATION_DISPATCH_TOKEN: ${{ secrets.NOTIFICATION_DISPATCH_TOKEN }}
+          DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+        run: |
+          SITE_URL="${DASHBOARD_URL:-https://taa-dashboard.pages.dev}"
+          curl --fail-with-body --silent --show-error \
+            -X POST "${SITE_URL}/api/notifications/dispatch" \
+            -H "Authorization: Bearer ${NOTIFICATION_DISPATCH_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data-binary @results/notification_data.json
 
       - name: Keep monthly outputs
         uses: actions/upload-artifact@v4

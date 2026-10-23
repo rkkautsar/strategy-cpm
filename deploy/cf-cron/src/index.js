@@ -1,5 +1,16 @@
 const EVENT_TYPE = "monthly-dashboard";
 
+function isEasternNinePmOnThird(eventTime) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    day: "numeric",
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(eventTime);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return Number(values.day) === 3 && Number(values.hour) === 21;
+}
+
 async function dispatch(env, trigger) {
   const { GH_OWNER, GH_REPO, GH_TOKEN } = env;
   if (!GH_OWNER || !GH_REPO || !GH_TOKEN) throw new Error("Missing GitHub dispatch configuration.");
@@ -21,6 +32,7 @@ async function dispatch(env, trigger) {
 
 export default {
   async scheduled(event, env) {
+    if (!isEasternNinePmOnThird(new Date(event.scheduledTime))) return;
     await dispatch(env, event.cron);
   },
   async fetch(request, env) {

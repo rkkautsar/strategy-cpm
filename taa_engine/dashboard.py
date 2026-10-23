@@ -80,6 +80,10 @@ def build_dashboard(
             "previous": {str(ticker): float(weight) for ticker, weight in previous_targets.items() if abs(float(weight)) > 1e-8},
         }
     blend_target_state_json = json.dumps(blend_target_state, separators=(",", ":"))
+    notification_data = {
+        "as_of": as_of.strftime("%Y-%m-%d"),
+        "targets": blend_target_state,
+    }
     strategy_descriptions = {
         "CPM": "Ranks risky assets by trend-adjusted momentum and scales risk with market breadth.",
         "HAA-Simple": "Uses the SPY trend signal with a TIP canary and BIL as the defensive asset.",
@@ -167,4 +171,7 @@ def build_dashboard(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html, encoding="utf-8")
+    output_path.with_name("notification_data.json").write_text(
+        json.dumps(notification_data, separators=(",", ":")), encoding="utf-8"
+    )
     return output_path

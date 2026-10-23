@@ -71,6 +71,11 @@
     .icon-button { width:36px; height:36px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); font-size:17px; cursor:pointer; }
     #blend-dialog { width:min(680px,calc(100% - 24px)); max-width:680px; max-height:min(88vh,900px); padding:0; border:0; border-radius:18px; color:var(--ink); box-shadow:0 24px 80px rgba(18,34,55,.3); }
     #blend-dialog::backdrop { background:rgba(15,28,45,.48); backdrop-filter:blur(3px); }
+    #notification-dialog { width:min(470px,calc(100% - 24px)); max-width:470px; max-height:88vh; padding:0; border:0; border-radius:18px; color:var(--ink); box-shadow:0 24px 80px rgba(18,34,55,.3); }
+    #notification-dialog::backdrop { background:rgba(15,28,45,.48); backdrop-filter:blur(3px); }
+    .notification-form { display:grid; gap:10px; }
+    .notification-form label { font-size:12px; font-weight:700; }
+    .notification-form input { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
     .dialog-content { padding:22px; overflow:auto; max-height:88vh; }
     .dialog-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
     .dialog-head h2 { margin:0; font-size:20px; }
@@ -126,7 +131,8 @@
       <p id="blend-feature-copy" class="blend-feature-copy">Combine the TAA strategies into one portfolio, with your target weight for each sleeve.</p>
       <div id="blend-feature-summary" class="blend-feature-summary"></div></div>
     <div class="blend-feature-actions"><button id="view-blend" type="button" class="primary-button">View blend</button>
-      <button id="edit-blend" type="button" class="secondary-button">Build blend</button></div>
+      <button id="edit-blend" type="button" class="secondary-button">Build blend</button>
+      <button id="monthly-notifications" type="button" class="secondary-button" disabled>Email monthly trades</button></div>
   </section>
   <section aria-label="Inspect individual strategies">
     <div class="portfolio-heading"><div><h2>Explore strategies</h2><p class="card-intro">Select one to inspect its history and current allocation.</p></div>
@@ -143,6 +149,14 @@
         <span id="blend-total" class="muted" aria-live="polite">Selected: 0%</span></div>
       <p class="footnote">Strategy trading fees are included; transfers between strategy sleeves have no added cost.</p>
       <p id="blend-message" class="blend-message muted" aria-live="polite">Select strategies and set targets that total 100%.</p>
+    </div></dialog>
+  <dialog id="notification-dialog" aria-labelledby="notification-title"><div class="dialog-content">
+      <div class="dialog-head"><div><div class="eyebrow">Monthly email</div><h2 id="notification-title">Get your blend allocation</h2></div><button id="close-notification-dialog" class="icon-button" type="button" aria-label="Close email settings">×</button></div>
+      <p class="card-intro">After the monthly update, receive what to hold and target changes versus the prior month. Confirm your email once; unsubscribe from any email.</p>
+      <form id="notification-form" class="notification-form"><label for="notification-email">Email address</label>
+        <input id="notification-email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com">
+        <button id="subscribe-notifications" class="primary-button" type="submit">Send confirmation email</button></form>
+      <p id="notification-message" class="blend-message muted" aria-live="polite"></p>
     </div></dialog>
   <div id="portfolio-results">
   <div class="portfolio-heading"><div><div class="eyebrow">Performance</div><h2 id="selected-strategy">CPM</h2></div>
@@ -479,6 +493,7 @@
     const hasBlend = Boolean(activeBlend);
     const canViewBlend = hasBlend;
     document.getElementById('view-blend').disabled = !canViewBlend;
+    document.getElementById('monthly-notifications').disabled = !hasBlend;
     document.getElementById('view-blend').textContent = portfolioMode === 'blend' && hasBlend ? 'Viewing blend' : 'View blend';
     document.getElementById('blend-feature-title').textContent = hasBlend ? 'Your strategy blend' : 'Build your strategy blend';
     document.getElementById('blend-feature-copy').textContent = hasBlend
@@ -507,6 +522,31 @@
   document.getElementById('view-blend').addEventListener('click', () => setPortfolioMode('blend'));
   document.getElementById('edit-blend').addEventListener('click', () => document.getElementById('blend-dialog').showModal());
   document.getElementById('close-blend-dialog').addEventListener('click', () => document.getElementById('blend-dialog').close());
+  document.getElementById('monthly-notifications').addEventListener('click', () => {
+    document.getElementById('notification-message').textContent = '';
+    document.getElementById('notification-dialog').showModal();
+  });
+  document.getElementById('close-notification-dialog').addEventListener('click', () => document.getElementById('notification-dialog').close());
+  document.getElementById('notification-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = document.getElementById('subscribe-notifications');
+    const message = document.getElementById('notification-message');
+    if (!savedBlendDefinition.length) { message.textContent = 'Save a blend first.'; return; }
+    button.disabled = true;
+    message.textContent = 'Sending confirmation email…';
+    try {
+      const response = await fetch('/api/subscriptions', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: document.getElementById('notification-email').value, blend: savedBlendDefinition}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not create subscription.');
+      message.textContent = result.message || 'Check your email to confirm.';
+    } catch (error) {
+      message.textContent = error.message;
+      message.style.color = '#a94a4a';
+    } finally { button.disabled = false; }
+  });
   document.getElementById('strategy-prev').addEventListener('click', () => document.getElementById('strategy-carousel').scrollBy({left: -310, behavior: 'smooth'}));
   document.getElementById('strategy-next').addEventListener('click', () => document.getElementById('strategy-carousel').scrollBy({left: 310, behavior: 'smooth'}));
 

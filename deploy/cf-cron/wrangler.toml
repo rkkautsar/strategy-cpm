@@ -2,10 +2,10 @@ name = "taa-dashboard-cron"
 main = "src/index.js"
 compatibility_date = "2026-10-23"
 
-# 07:00 UTC on day 3 (3:00 PM Singapore), after the first US trading close
-# of the month is normally available from Yahoo Finance.
+# Trigger at both possible UTC hours for 9 PM America/New_York on the 3rd.
+# The Worker checks the local time, so only one cron dispatches in each month.
 [triggers]
-crons = ["0 7 3 * *"]
+crons = ["0 1 4 * *", "0 2 4 * *"]
 
 [vars]
 GH_OWNER = "rkkautsar"
