@@ -1,156 +1,114 @@
-# CPM-NDX-VAL-RPV
+# TAA backtest engine
 
-60% CPM + 15% NDX + 15% VAL + 10% RPV.
+A small Python backtest for CPM and seven monthly TAA strategies,
+compared with SPY buy-and-hold and an annually rebalanced 60/40 SPY/AGG portfolio.
 
-Monthly rebalance, mooex execution (signal at month-end close, trade next-session open), no leverage, 10 bps per side base cost.
+## Rules
 
-- CPM (60%): cross-asset momentum on QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC. Self-de-risks via the breadth cliff on its top-4 picks (risky fraction 0% when <=2 positives, 50% at 3, 100% at 4) and an additional HYG 13612U credit-momentum gate (forces 0% risky fraction when HYG 13612U momentum < 0); min-var 3-of-4 at full breadth; safe fraction routed to HAA best-of-safe (SHV/IEF).
-- NDX (15%): top-5 PIT Nasdaq-100 momentum sleeve, gated by TIP 13612U > 0, SPY 13612U > 0, and SPY RV20 < RV252.
-- VAL (15%): Nasdaq-100 fundamental value+quality stock-picking sleeve, gated by the same TIP-canary + SPY-trend + SPY-volatility activation model as NDX (routes to HAA best-of-safe when off).
-- RPV (10%): 5-premia macro value sleeve (term, IG, HY, equity, real-yield) over SPY/TLT/LQD/HYG/TIP + SHV.
+- Risky universe: QQQ, SPHQ, EFA, EEM, VNQ, GLD, TLT, DBC.
+- Rank the top four by 10-month Faber trend distance divided by trailing
+  252-trading-day annualized volatility.
+- Count positive-trend assets among those four. Risky exposure is 0% for
+  breadth one or two, 50% for breadth three, and 100% for breadth four.
+- At breadth four, hold the equal-weight minimum-variance trio from the four
+  candidates. At breadth one through three, hold all positive candidates equally.
+- Put the remaining exposure in the higher 1/3/6/12-month momentum asset from
+  BIL and IEF.
+- Calculate at month-end and apply target weights at the next trading day's
+  close. The default cost is 10 bps per side.
 
+The SPY benchmark buys and holds SPY. The 60/40 benchmark buys 60% SPY and 40%
+AGG at the start, then restores those weights on the first trading day of each
+calendar year. QQQ remains part of CPM's risky universe.
 
-## Headline performance
+## Strategy comparisons
 
-Clean window: 2008-05-30 to 2026-04-30 (post-cost, mooex).
+- **HAA-Simple:** Hold SPY only when both TIP and SPY have positive
+  1/3/6/12-month average momentum; otherwise hold the stronger of BIL and IEF
+  by that same momentum score.
+- **HAA-Balanced:** Same canary and HAA-8 universe, with four equal 25% slots;
+  each selected slot with nonpositive momentum goes to the stronger of BIL and
+  IEF.
+- **BAA-G12:** Balanced Keller BAA with SPY/VEA/VWO/BND canaries using 13612W;
+  all four must be positive to hold the six strongest offensive assets by
+  13-month SMA ratio. Otherwise hold the three strongest defensive assets,
+  replacing any below BIL's SMA ratio with BIL.
+- **VAA-G12:** Rank SPY/IWM/QQQ/VGK/EWJ/EEM/VNQ/GSG/GLD/TLT/HYG/LQD by 13612W momentum; hold the top two equally when at most one asset has nonpositive momentum, the top asset and strongest of SHY/IEF/LQD at 50% each when two or three are nonpositive, and only that defensive asset when four or more are nonpositive.
+- **AAA:** ReSolve's 10-asset universe (SPY/EZU/EWJ/EEM/IYR/RWX/IEF/TLT/
+  DBC/GLD); select the top five by six-month return and assign long-only
+  minimum-variance weights using 126-day correlation and 20-day volatility.
+  There is no canary, positive-momentum screen, or cash sleeve.
 
-| Strategy | Raw Sharpe | Excess Sharpe (vs SHV) | CAGR | Vol | MaxDD | Calmar |
-|---|---:|---:|---:|---:|---:|---:|
-| PROD 60/15/15/10 | 1.61 | 1.47 | 16.0% | 9.5% | -7.1% | 2.27 |
-| CPM | 1.28 | 1.16 | 13.9% | 10.6% | -10.7% | 1.30 |
-| NDX | 1.14 | 1.08 | 26.5% | 23.0% | -31.8% | 0.83 |
-| VAL | 1.46 | 1.36 | 20.3% | 13.3% | -17.4% | 1.16 |
-| RPV | 1.05 | 0.90 | 8.8% | 8.4% | -13.4% | 0.66 |
+The comparison strategies share the same adjusted daily price panel, monthly
+signal dates, next-trading-day-close execution, initial cash, and transaction
+cost assumption as CPM. Strategy-specific ETF histories limit the common data
+window; the backtest does not synthesize pre-inception prices.
 
-Anchor (exact, clean CPM): Sharpe 1.2823, CAGR 13.89%, MaxDD -10.70%, Calmar 1.2978.
+**NDX** is a separate stock-selection strategy. It uses historical
+point-in-time Nasdaq-100 membership, the TIP/SPY/realized-volatility gate,
+positive 1/3/6/12-month momentum, five equal stock slots, and BIL/IEF for the
+defensive position and any unfilled slots; a held name that stops quoting gets
+a one-time 10% liquidation haircut. Constituent closes are stored in a
+separate local cache; newly added symbols are backfilled from the selected start
+date. The dashboard lets NDX be inspected and included in a strategy blend.
 
-Extended window single row:
+**RPV** uses the old five-premium model: term, investment-grade credit, equity,
+high-yield credit, and real yield. Each monthly premium is standardized against
+its trailing 120 months; after a 36-observation burn-in, positive scores are
+eligible only when their ETF is above its 200-day SMA. Eligible sleeves are
+weighted by positive z-score, with BIL held when none qualify. Macro inputs are
+refreshed from FRED and the Shiller S&P 500 dataset on each run, with local
+snapshots as fallback; `--no-refresh-macro` skips the requests. CPI uses first
+release values when available, shifted by one month. The Shiller earnings
+history is revised and therefore gives the equity-premium leg lookahead bias.
+RPV is available in the strategy picker and blend editor.
 
-| Strategy | Window | Sharpe | CAGR | MaxDD | Calmar |
-|---|---|---:|---:|---:|---:|
-| CPM | 1999-03-10 to 2026-04-30 | 1.33 | 14.4% | -15.2% | 0.94 |
+**VAL** selects five Nasdaq-100 stocks using point-in-time Valuein fundamentals,
+quality/value ranking, a stateful 10-month trend band, and a TIP/SPY/volatility
+risk gate. It uses the local Parquet snapshot in `.cache/valuein` (or
+`--valuein-cache` / `VALUEIN_CACHE_DIR`) and routes defensive or unused weight
+to the stronger of BIL and IEF. The local snapshot is not refreshed by the
+engine; keep its `accepted_at` data current before relying on the live signal.
 
+## Run
 
-## Literature benchmarks
+```bash
+python -m venv .venv
+. .venv/bin/activate
+pip install -e .
+taa-backtest --start 2007-01-01
+```
 
-| Strategy | Sharpe | CAGR | MaxDD | Calmar |
-|---|---:|---:|---:|---:|
-| AAA + TIP canary | 0.96 | 10.1% | -18.8% | 0.54 |
-| HAA-Simple SPY | 0.97 | 11.5% | -20.3% | 0.57 |
-| QQQ 12m trend | 0.89 | 16.0% | -28.6% | 0.56 |
-| Conservative lit blend (60% AAA+TIP / 40% HAA-Simple SPY) | 1.11 | 10.8% | -14.8% | 0.73 |
-| Literature blend (60% AAA+TIP / 15% HAA-Simple QQQ / 15% HAA-Simple SPY / 10% PP) | 1.14 | 10.6% | -13.2% | 0.81 |
-| PROD 60/15/15/10 | 1.61 | 16.0% | -7.1% | 2.27 |
+The first run downloads split- and dividend-adjusted daily closes from Yahoo
+Finance and caches the complete panel at `.cache/cpm_daily_prices.csv.gz` with a
+small metadata sidecar. Later runs refresh a 35-day overlap and fetch only missing
+prices; pass `--refresh` to rebuild the full adjusted history. Historical adjusted
+prices can be revised, so the overlap is replaced on each update.
 
+The first NDX-enabled run also downloads the historical constituent universe in
+30-symbol batches. Later runs refresh the recent overlap for cached symbols and
+download full history for new members.
 
-## Concentration
+Each run writes `performance.csv`, `equity.csv`, `target_weights.csv`, and a
+mobile-friendly `dashboard.html` under `results/`. The dashboard includes
+synchronized timeframe selectors for the charts and performance summary, a
+rolling three-month maximum drawdown chart, CPM target holdings, and changes
+from the prior month's target. Trade changes are shown as target-weight
+percentage points; share quantities require portfolio size and current
+holdings. The strategy-blend editor lets you choose TAA strategies and target
+weights that sum to 100%; it rebalances the strategy sleeves monthly and adds
+the blend to both charts and the performance table. The static dashboard
+already embeds each strategy's daily net equity curve, so it needs no extra
+price or monthly-return store. Component strategy fees are included; the blend
+does not add a cost for transfers between sleeves.
 
-Risk-contribution share, clean CPM.
+For a persistent private cache across ephemeral monthly build runners, configure
+a private Cloudflare R2 bucket and set `CPM_R2_BUCKET`, `CPM_R2_ACCOUNT_ID`,
+`CPM_R2_ACCESS_KEY_ID`, and `CPM_R2_SECRET_ACCESS_KEY`. Install R2 support with
+`uv sync --extra r2`; each run restores the cache, updates only recent/missing
+prices, and writes it back. Never make this bucket public.
 
-| Asset | Share |
-|---|---:|
-| SPHQ | 29.3% |
-| QQQ | 20.2% |
-| EFA | 18.6% |
-| VNQ | 11.1% |
-| EEM | 8.2% |
-| GLD | 6.5% |
-| DBC | 6.1% |
-| TLT | 0.0% |
-
-Top-3 share: 68.1%. TLT contributes ~0 (its raw risk contribution is slightly negative; it acts as a hedge).
-
-
-## Robustness and operations
-
-### Sharpe bootstrap CI (block bootstrap, B=2000, block=21, seed=42)
-
-| Strategy | Point | 95% CI |
-|---|---:|---:|
-| CPM | 1.28 | [0.89, 1.68] |
-| PROD 60/15/15/10 | 1.61 | [1.22, 2.02] |
-
-### dSharpe verdicts (CPM vs baseline benchmarks)
-
-| Pair | dSharpe point | CI includes zero |
-|---|---:|---:|
-| CPM - AAA | +0.35 | No |
-| CPM - 60/40 | +0.50 | No |
-| CPM - Naive 12m | +0.65 | No |
-| CPM - Buy-hold vol-parity | +0.63 | No |
-
-### Crisis MaxDD (extended series, within-calendar windows)
-
-| Episode | Window | MaxDD |
-|---|---|---:|
-| GFC | 2007-10 to 2009-06 | -6.2% |
-| Euro debt | 2011-04 to 2012-01 | -6.5% |
-| COVID | 2020-02 to 2020-06 | -8.1% |
-| 2022 bear | 2022-01 to 2022-12 | -5.2% |
-| 2025 tariff shock | 2025-01 to 2025-12 | -10.7% |
-
-### Gate/Cliff ablation (clean CPM)
-
-| Variant | Sharpe | CAGR | MaxDD | Calmar |
-|---|---:|---:|---:|---:|
-| CPM (breadth cliff) | 1.28 | 13.9% | -10.7% | 1.30 |
-| CPM (cliff OFF, full-invest) | 0.92 | 12.3% | -35.6% | 0.34 |
-
-Read: breadth cliff keeps drawdown shallow; removing the cliff pushes MaxDD to -35.6%.
-
-### Execution timing cliff (mooex, clean, CPM)
-
-| EOM | EOM+1 | EOM+2 | EOM+3 | EOM to EOM+3 |
-|---:|---:|---:|---:|---:|
-| 1.2823 | 1.0520 | 1.0335 | 0.9412 | -26.6% |
-
-- Longest underwater duration (clean CPM): 551 trading days.
-- Cost sensitivity (10/25/50 bps per side): CPM Sharpe 1.28/1.19/1.05; PROD Sharpe 1.61/1.50/1.31.
-- Turnover (one-way, annualized, excluding initial portfolio establishment): 3.079 per year.
-- Fully-safe months (risky fraction exactly 0 at month-end target): 19.4% (42/216).
-
-
-## Forward assumptions
-
-Forward planning Sharpe ladder (CPM):
-
-- In-sample: 1.2823
-- x0.76 implementation/regime haircut -> 0.97
-- x0.85 crowding/capacity haircut -> 0.83
-- x0.88 governance margin -> 0.73
-
-Deflated Sharpe verdict: positive under conservative multiple-testing deflation.
-
-
-## Governance and caveats
-
-- Backtest only. Not yet live-traded.
-- Tax-aware deployment required due monthly rotation.
-- Engine is month-end discipline dependent; offset drift degrades Sharpe.
-- Parameter set is fixed unless falsification gates fail.
-
-Falsification gates:
-
-1. Two consecutive years with out-of-sample Sharpe below 0.20.
-2. Realized MaxDD worse than -18% without benchmark-relative protection benefit.
-3. Slippage+fees above 35 bps per side for six consecutive rebalances.
-4. Persistent process drift from month-end signal/execution schedule.
-
-Operational controls:
-
-- Freeze parameter set (universe, ranker, breadth cliff, min-var 3-of-4, safe selector).
-- Monthly runbook with pre-trade and post-trade audit logs.
-- Quarterly revalidation of data lineage and PIT assumptions.
-- Annual decision memo for keep/trim/retire based on falsification gates.
-
-
-## Files
-
-- `cpm_live.py` - CPM sleeve engine.
-- `ndx_sleeve_live.py` - NDX sleeve engine.
-- `value_sleeve_live.py` - VAL sleeve engine.
-- `rpv_live.py` - RPV sleeve engine.
-- `config.py` - production sleeve weights and constants.
-- `dashboard_engine.py` - data assembly and metrics layer.
-- `build_dashboard.py` - dashboard build entrypoint.
-- `research/` - research scripts and audit logs.
+Yahoo Finance data accessed through `yfinance` is unofficial and intended for
+personal/research use. This starter is for private research; confirm data rights
+before publishing price history or building a public service on it. The local
+cache is ignored by Git and should not be committed or redistributed.

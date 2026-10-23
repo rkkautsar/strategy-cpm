@@ -1,38 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "strategy-cpm"
+name = "taa-engine"
 version = "0.1.0"
-description = "CPM-NDX-VAL-RPV — 4-sleeve monthly TAA strategy"
-readme = "README.md"
+description = "A small tactical asset allocation backtest engine"
 requires-python = ">=3.11"
 dependencies = [
-    "pandas>=2.0",
-    "numpy>=1.24",
-    "yfinance>=0.2",
-    "scipy>=1.10",
-    "matplotlib>=3.7",
-    "requests>=2.31",
-    "lxml>=6.1.1",
-    "pyarrow>=24.0.0",
-    "markdown>=3.10.2",
-    "valuein-sdk==3.5.1",
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "scipy>=1.11",
+  "vectorbt>=0.26",
+  "yfinance>=0.2.54",
+  "index-constitution>=0.6.1,<1",
+  "pyarrow>=26.0.0",
+  "python-dotenv>=1.2.4",
 ]
 
 [project.optional-dependencies]
-dashboard = ["matplotlib>=3.7"]
+r2 = ["boto3>=1.34"]
 
-[dependency-groups]
-dev = [
-    "index-constitution>=0.6.1",
-    "pytest>=9.0.3",
-    "pytest-regressions>=2.11.0",
-]
+[project.scripts]
+taa-backtest = "taa_engine.cli:main"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
-addopts = "-q"
-markers = [
-    "slow: marks tests that run full golden-master backtest generation",
-]
-
-
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["taa_engine*"]

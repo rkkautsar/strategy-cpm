@@ -1,49 +1,9 @@
-
-# IDE
-# Lambda build artifacts
-# OS
-# Python
-# Secrets (never commit!)
-*.egg-info/
-*.env
-*.log
-*.pyc
-*.pyo
-*.swp
-.DS_Store
-.env
-.idea/
 .venv/
-.vscode/
-.wrangler/
-Thumbs.db
 __pycache__/
-deploy/lambda/*.zip
-deploy/lambda/build/
-dist/
-node_modules/
-secrets.json
-venv/
-data/ndx_constituents/*
-!data/ndx_constituents/*.parquet
-research/ndx_sleeve/cache/
+*.py[cod]
+results/
 .cache/
-
-# ============================================================================
-# Research/ heavy data artifacts (Step F cleanup) - reproducible, not versioned.
-# Keep .md summaries (findings of record) and .py reproducer/shim scripts.
-# ============================================================================
-research/**/*.csv
-research/**/*.parquet
-research/**/*.json
-research/**/*.prof
-research/**/*.pkl
-research/**/*.txt
-research/**/*.html
-research/**/*.log
-research/**/*.out
-research/**/cache/
-research/**/__pycache__/
-
-!research/**/*.py
-!research/**/*.md
+*.egg-info/
+.env
+.env.*
+!.env.example
