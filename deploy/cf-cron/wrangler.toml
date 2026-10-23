@@ -1,0 +1,12 @@
+name = "cpm-bull-cron"
+main = "src/index.js"
+compatibility_date = "2026-10-23"
+
+# 02:17 UTC on the 4th is 9:17 PM EST / 10:17 PM EDT on the 3rd in New York.
+# This runs after the prior trading month's close and is independent of repo activity.
+[triggers]
+crons = ["17 2 4 * *"]
+
+[vars]
+GH_OWNER = "rkkautsar"
+GH_REPO = "strategy-cpm"

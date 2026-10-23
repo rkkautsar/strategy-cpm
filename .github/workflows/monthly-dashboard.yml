@@ -1,10 +1,8 @@
 name: Monthly TAA dashboard
 
 on:
-  schedule:
-    # 02:17 UTC on the 4th is 9:17 PM EST / 10:17 PM EDT on the 3rd in New York.
-    # Running off the hour reduces GitHub scheduled-run contention.
-    - cron: "17 2 4 * *"
+  repository_dispatch:
+    types: [monthly-signal]
   workflow_dispatch:
     inputs:
       notification_email:
@@ -56,7 +54,7 @@ jobs:
         run: uv sync --frozen --extra r2
 
       - name: Check scheduled email configuration
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.send_all_notifications || inputs.notification_email != ''))
+        if: github.event_name == 'repository_dispatch' || (github.event_name == 'workflow_dispatch' && (inputs.send_all_notifications || inputs.notification_email != ''))
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM: ${{ vars.RESEND_FROM }}
@@ -99,7 +97,7 @@ jobs:
           command: pages deploy dist --project-name=cpm-bull-dashboard --commit-message="Monthly TAA dashboard ${{ github.run_number }}"
 
       - name: Email monthly allocations to blend subscribers
-        if: github.event_name == 'schedule' || inputs.send_all_notifications || inputs.notification_email != ''
+        if: github.event_name == 'repository_dispatch' || inputs.send_all_notifications || inputs.notification_email != ''
         env:
           NOTIFICATION_DISPATCH_TOKEN: ${{ secrets.NOTIFICATION_DISPATCH_TOKEN }}
           DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
