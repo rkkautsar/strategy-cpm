@@ -4,6 +4,11 @@ on:
   repository_dispatch:
     types: [monthly-dashboard]
   workflow_dispatch:
+    inputs:
+      notification_email:
+        description: "Optional: send the allocation only to this active subscription"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -72,17 +77,24 @@ jobs:
           command: pages deploy dist --project-name=cpm-bull-dashboard --commit-message="Monthly TAA dashboard ${{ github.run_number }}"
 
       - name: Email monthly allocations to blend subscribers
-        if: github.event_name == 'repository_dispatch' && env.NOTIFICATION_DISPATCH_TOKEN != ''
+        if: env.NOTIFICATION_DISPATCH_TOKEN != '' && (github.event_name == 'repository_dispatch' || inputs.notification_email != '')
         env:
           NOTIFICATION_DISPATCH_TOKEN: ${{ secrets.NOTIFICATION_DISPATCH_TOKEN }}
           DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+          TARGET_NOTIFICATION_EMAIL: ${{ inputs.notification_email }}
         run: |
           SITE_URL="${DASHBOARD_URL:-https://cpm.rakha.dev}"
+          PAYLOAD_FILE=results/notification_data.json
+          if [ -n "$TARGET_NOTIFICATION_EMAIL" ]; then
+            echo "::add-mask::$TARGET_NOTIFICATION_EMAIL"
+            PAYLOAD_FILE="$RUNNER_TEMP/notification_data.json"
+            jq --arg target_email "$TARGET_NOTIFICATION_EMAIL" '. + {target_email: $target_email}' results/notification_data.json > "$PAYLOAD_FILE"
+          fi
           curl --fail-with-body --silent --show-error \
             -X POST "${SITE_URL}/api/notifications/dispatch" \
             -H "Authorization: Bearer ${NOTIFICATION_DISPATCH_TOKEN}" \
             -H "Content-Type: application/json" \
-            --data-binary @results/notification_data.json
+            --data-binary "@$PAYLOAD_FILE"
 
       - name: Keep monthly outputs
         uses: actions/upload-artifact@v4

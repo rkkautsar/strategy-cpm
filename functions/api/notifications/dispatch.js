@@ -74,9 +74,15 @@ export async function onRequestPost({ request, env }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data?.as_of || "") || !data.targets || typeof data.targets !== "object") {
     return json({ error: "Payload must include as_of and targets." }, 400);
   }
+  const targetEmail = data.target_email == null ? "" : String(data.target_email).trim().toLowerCase();
+  if (data.target_email != null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+    return json({ error: "target_email must be a valid email address." }, 400);
+  }
   const month = data.as_of.slice(0, 7);
   const dashboardUrl = env.DASHBOARD_URL || new URL(request.url).origin;
-  const users = await env.DB.prepare("SELECT id, email, blend_json FROM subscriptions WHERE status='active'").all();
+  const users = targetEmail
+    ? await env.DB.prepare("SELECT id, email, blend_json FROM subscriptions WHERE status='active' AND lower(email)=?").bind(targetEmail).all()
+    : await env.DB.prepare("SELECT id, email, blend_json FROM subscriptions WHERE status='active'").all();
   let sent = 0;
   let skipped = 0;
   const errors = [];
