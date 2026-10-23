@@ -22,6 +22,7 @@ def build_dashboard(
     output_path: Path,
     fee_bps: float,
     rebalance_dates: list[pd.Timestamp],
+    strategy_notes: dict[str, str] | None = None,
 ) -> Path:
     """Write a mobile-friendly static dashboard without publishing price bars."""
     as_of = prices.index[-1]
@@ -83,6 +84,7 @@ def build_dashboard(
     notification_data = {
         "as_of": as_of.strftime("%Y-%m-%d"),
         "targets": blend_target_state,
+        "notes": strategy_notes or {},
     }
     strategy_descriptions = {
         "CPM": "Ranks risky assets by trend-adjusted momentum and scales risk with market breadth.",
@@ -93,7 +95,7 @@ def build_dashboard(
         "VAA-G12": "Rotates among global assets and defensive bonds using 1/3/6/12-month momentum.",
         "NDX": "Applies a momentum rotation to point-in-time Nasdaq-100 constituents.",
         "RPV": "Allocates across asset classes using rolling valuation and risk-premia signals.",
-        "VAL": "Ranks Nasdaq-100 companies using point-in-time value and quality fundamentals.",
+        "VAL": "Ranks Valuein-covered Nasdaq-100 companies using point-in-time value and quality fundamentals.",
     }
 
     performance_data = {

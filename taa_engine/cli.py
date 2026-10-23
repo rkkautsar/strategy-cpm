@@ -132,6 +132,12 @@ def _build_monthly_outputs(args: argparse.Namespace) -> None:
             for events in (targets, *additional_targets.values())
             for date in events.dropna(how="all").index
         }),
+        strategy_notes={
+            "VAL": (
+                "VAL ranks only Nasdaq-100 companies covered by the configured "
+                "Valuein plan; the current S&P 500 plan does not cover every member."
+            ),
+        },
     )
     snapshot_status = publish_snapshot()
 
