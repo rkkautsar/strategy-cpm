@@ -1,9 +1,9 @@
-name = "taa-dashboard"
+name = "cpm-bull-dashboard"
 compatibility_date = "2026-10-23"
 pages_build_output_dir = "./dist"
 
 [vars]
-DASHBOARD_URL = "https://taa-dashboard.pages.dev"
+DASHBOARD_URL = "https://cpm.rakha.dev"
 
 [[d1_databases]]
 binding = "DB"

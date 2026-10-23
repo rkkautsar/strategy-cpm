@@ -53,12 +53,23 @@ jobs:
           printf 'User-agent: *\nDisallow:\n' > dist/robots.txt
           printf '{"version":1,"include":["/api/*"],"exclude":[]}' > dist/_routes.json
 
+      - name: Configure Pages email credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ vars.RESEND_FROM }}
+        run: |
+          npm install --global wrangler@4
+          printf '%s' "$RESEND_API_KEY" | wrangler pages secret put RESEND_API_KEY --project-name=cpm-bull-dashboard
+          printf '%s' "$RESEND_FROM" | wrangler pages secret put RESEND_FROM --project-name=cpm-bull-dashboard
+
       - name: Deploy dashboard to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=taa-dashboard --commit-message="Monthly TAA dashboard ${{ github.run_number }}"
+          command: pages deploy dist --project-name=cpm-bull-dashboard --commit-message="Monthly TAA dashboard ${{ github.run_number }}"
 
       - name: Email monthly allocations to blend subscribers
         if: github.event_name == 'repository_dispatch' && env.NOTIFICATION_DISPATCH_TOKEN != ''
@@ -66,7 +77,7 @@ jobs:
           NOTIFICATION_DISPATCH_TOKEN: ${{ secrets.NOTIFICATION_DISPATCH_TOKEN }}
           DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
         run: |
-          SITE_URL="${DASHBOARD_URL:-https://taa-dashboard.pages.dev}"
+          SITE_URL="${DASHBOARD_URL:-https://cpm.rakha.dev}"
           curl --fail-with-body --silent --show-error \
             -X POST "${SITE_URL}/api/notifications/dispatch" \
             -H "Authorization: Bearer ${NOTIFICATION_DISPATCH_TOKEN}" \
@@ -76,6 +87,6 @@ jobs:
       - name: Keep monthly outputs
         uses: actions/upload-artifact@v4
         with:
-          name: taa-dashboard-${{ github.run_number }}
+          name: cpm-dashboard-${{ github.run_number }}
           path: results/
           retention-days: 90

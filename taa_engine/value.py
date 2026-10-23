@@ -47,15 +47,21 @@ def _valuein_response(url: str, token: str, *, json_response: bool):
         except HTTPError as exc:
             if exc.code == 429:
                 retry_after = exc.headers.get("Retry-After", "unknown")
+                try:
+                    delay = float(retry_after)
+                except (TypeError, ValueError):
+                    delay = None
+                if delay is not None and attempt < 3 and 0 <= delay <= 300:
+                    delay = int(delay) + 1
+                    print(f"Valuein rate limited this request; retrying after {delay}s", flush=True)
+                    time.sleep(delay)
+                    continue
                 raise RuntimeError(
                     f"Valuein daily request quota reached; retry after {retry_after} seconds. "
                     "Any completed CIK partitions are checkpointed; rerun after the quota resets."
                 ) from exc
-            if exc.code == 503 and attempt < 3:
-                time.sleep(2 ** attempt)
-                continue
-            if 500 <= exc.code < 600 and attempt == 0:
-                time.sleep(1)
+            if 500 <= exc.code < 600 and attempt < 3:
+                time.sleep(min(2 ** attempt, 8))
                 continue
             raise RuntimeError(f"Valuein request failed with HTTP {exc.code} for {url.split('/v1/')[-1]}.") from exc
         except URLError as exc:
@@ -117,10 +123,10 @@ def refresh_valuein_cache(
 
     account = _valuein_response(f"{VALUEIN_API}/v1/me", token, json_response=True)
     plan = str(account.get("plan", "")).lower()
-    if str(account.get("status", "")).lower() != "active" or plan not in {"pro", "full"}:
+    if str(account.get("status", "")).lower() != "active" or plan not in {"sp500", "pro", "full"}:
         raise RuntimeError(
-            f"Valuein plan '{plan or 'unknown'}' cannot guarantee Nasdaq-100 coverage for VAL; "
-            "an active Pro or Full plan is required."
+            f"Valuein plan '{plan or 'unknown'}' cannot provide fundamentals for VAL; "
+            "an active S&P 500, Pro, or Full plan is required."
         )
     manifest = _valuein_response(f"{VALUEIN_API}/v1/manifest", token, json_response=True)
     snapshot = str(manifest.get("snapshot", ""))
@@ -174,14 +180,21 @@ def refresh_valuein_cache(
     ciks_by_symbol: dict[str, set[str]] = {}
     for row in active[["_symbol", "_cik"]].itertuples(index=False, name=None):
         ciks_by_symbol.setdefault(row[0], set()).add(row[1])
-    missing = [ticker for ticker in members if len(ciks_by_symbol.get(ticker, set())) != 1]
-    if missing:
-        preview = ", ".join(missing[:12])
+    ambiguous = [ticker for ticker in members if len(ciks_by_symbol.get(ticker, set())) > 1]
+    if ambiguous:
+        preview = ", ".join(ambiguous[:12])
+        raise RuntimeError(f"Valuein {plan} security snapshot has ambiguous CIK mappings for {preview}.")
+    covered_members = [ticker for ticker in members if len(ciks_by_symbol.get(ticker, set())) == 1]
+    uncovered_members = sorted(set(members) - set(covered_members))
+    if uncovered_members and plan != "sp500":
+        preview = ", ".join(uncovered_members[:12])
         raise RuntimeError(
-            f"Valuein {plan} security snapshot cannot map {len(missing)} current Nasdaq-100 tickers to one CIK "
-            f"({preview}). VAL refresh aborted to avoid publishing incomplete fundamentals."
+            f"Valuein {plan} security snapshot cannot map {len(uncovered_members)} current Nasdaq-100 tickers "
+            f"to one CIK ({preview}); refresh aborted to avoid incomplete fundamentals."
         )
-    current_ciks = sorted({next(iter(ciks_by_symbol[ticker])) for ticker in members})
+    if not covered_members:
+        raise RuntimeError(f"Valuein {plan} security snapshot contains no current Nasdaq-100 constituents.")
+    current_ciks = sorted({next(iter(ciks_by_symbol[ticker])) for ticker in covered_members})
     partition_snapshots = metadata["partition_snapshots"]
     pending = [
         cik for cik in current_ciks
@@ -191,9 +204,12 @@ def refresh_valuein_cache(
         metadata.update({
             "plan": plan, "snapshot": snapshot, "last_updated": manifest.get("last_updated"),
             "last_checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "current_nasdaq100_symbols": covered_members,
+            "uncovered_nasdaq100_symbols": uncovered_members,
         })
         _atomic_json(metadata, metadata_path)
-        return f"unchanged ({snapshot}; {len(current_ciks)} current Nasdaq-100 CIKs already current)"
+        suffix = f"; {len(uncovered_members)} NDX symbols outside Valuein {plan} coverage" if uncovered_members else ""
+        return f"unchanged ({snapshot}; {len(current_ciks)} covered current Nasdaq-100 CIKs already current{suffix})"
 
     if len(pending) > max_partitions:
         batch = pending[:max_partitions]
@@ -231,8 +247,8 @@ def refresh_valuein_cache(
             prior["entity_id"] = _normalize_cik(prior["entity_id"])
             prior["period_end"] = pd.to_datetime(prior["period_end"])
             partition["period_end"] = pd.to_datetime(partition["period_end"])
-            # Pro is a rolling 15-year plan. Retain older bootstrap history so
-            # refreshing a current CIK does not erase the backtest's early years.
+            # Retain older bootstrap history when a plan's partition has a
+            # shorter lookback, so refreshes do not erase the backtest's early years.
             earliest_remote_period = partition.period_end.min()
             partition = pd.concat([
                 prior.loc[prior.period_end < earliest_remote_period], partition,
@@ -257,9 +273,12 @@ def refresh_valuein_cache(
         "plan": plan, "snapshot": snapshot, "last_updated": manifest.get("last_updated"),
         "last_refreshed_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "current_nasdaq100_ciks": current_ciks,
+        "current_nasdaq100_symbols": covered_members,
+        "uncovered_nasdaq100_symbols": uncovered_members,
     })
     _atomic_json(metadata, metadata_path)
-    return f"refreshed {len(batch)} Nasdaq-100 CIK partitions to {snapshot}"
+    suffix = f"; {len(uncovered_members)} NDX symbols outside Valuein {plan} coverage" if uncovered_members else ""
+    return f"refreshed {len(batch)} covered Nasdaq-100 CIK partitions to {snapshot}{suffix}"
 
 
 def load_valuein_cache(cache_dir: Path = VALUEIN_CACHE) -> tuple[dict, dict, str]:
@@ -308,7 +327,7 @@ def load_valuein_cache(cache_dir: Path = VALUEIN_CACHE) -> tuple[dict, dict, str
     entity_to_ticker = dict(zip(primary["entity_id"], primary["symbol"].astype(str)))
     fact = fact[fact["entity_id"].isin(entity_to_ticker)].copy()
     fact["ticker"] = fact["entity_id"].map(entity_to_ticker)
-    accepted = pd.to_datetime(fact["accepted_at"])
+    accepted = pd.to_datetime(fact["accepted_at"], utc=True)
     if accepted.dt.tz is not None:
         accepted = accepted.dt.tz_localize(None)
     fact["accepted"] = accepted.dt.normalize()
