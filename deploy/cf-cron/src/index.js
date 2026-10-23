@@ -1,4 +1,4 @@
-const EVENT_TYPE = "monthly-signal";
+const WORKFLOW_FILE = "monthly-dashboard.yml";
 
 async function dispatchMonthlyWorkflow(env, cron) {
   const { GH_OWNER, GH_REPO, GH_TOKEN } = env;
@@ -7,7 +7,7 @@ async function dispatchMonthlyWorkflow(env, cron) {
   }
 
   const response = await fetch(
-    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/dispatches`,
+    `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`,
     {
       method: "POST",
       headers: {
@@ -17,18 +17,18 @@ async function dispatchMonthlyWorkflow(env, cron) {
         "X-GitHub-Api-Version": "2022-11-28",
       },
       body: JSON.stringify({
-        event_type: EVENT_TYPE,
-        client_payload: { triggered_at: new Date().toISOString(), cron },
+        ref: "main",
+        inputs: { send_all_notifications: "true" },
       }),
     },
   );
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`GitHub repository_dispatch failed (${response.status}): ${body}`);
+    throw new Error(`GitHub workflow dispatch failed (${response.status}): ${body}`);
   }
 
-  console.log(`Dispatched ${EVENT_TYPE} for ${GH_OWNER}/${GH_REPO}; cron=${cron}`);
+  console.log(`Dispatched ${WORKFLOW_FILE} for ${GH_OWNER}/${GH_REPO}; cron=${cron}; triggered_at=${new Date().toISOString()}`);
 }
 
 export default {
