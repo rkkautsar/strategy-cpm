@@ -1,0 +1,65 @@
+name: Monthly TAA dashboard
+
+on:
+  repository_dispatch:
+    types: [monthly-dashboard]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monthly-taa-dashboard
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUNBUFFERED: "1"
+      CPM_REQUIRE_R2: "1"
+      CPM_REQUIRE_FRESH_DATA: "1"
+      CPM_R2_BUCKET: ${{ secrets.CPM_R2_BUCKET }}
+      CPM_R2_ACCOUNT_ID: ${{ secrets.CPM_R2_ACCOUNT_ID }}
+      CPM_R2_ACCESS_KEY_ID: ${{ secrets.CPM_R2_ACCESS_KEY_ID }}
+      CPM_R2_SECRET_ACCESS_KEY: ${{ secrets.CPM_R2_SECRET_ACCESS_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      VALUEIN_API_KEY: ${{ secrets.VALUEIN_API_KEY }}
+      VALUEIN_MAX_PARTITION_DOWNLOADS: "100"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: uv sync --frozen --extra r2
+
+      - name: Update cached sources and build dashboard
+        run: uv run taa-backtest --output results
+
+      - name: Prepare static site
+        run: |
+          mkdir -p dist
+          cp results/dashboard.html dist/index.html
+          cp results/dashboard.html dist/dashboard.html
+          printf 'User-agent: *\nDisallow:\n' > dist/robots.txt
+
+      - name: Deploy dashboard to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=taa-dashboard --commit-message="Monthly TAA dashboard ${{ github.run_number }}"
+
+      - name: Keep monthly outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: taa-dashboard-${{ github.run_number }}
+          path: results/
+          retention-days: 90

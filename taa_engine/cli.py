@@ -12,7 +12,8 @@ from .cpm import cpm_monthly_targets
 from .dashboard import build_dashboard
 from .data import load_daily_prices, load_ndx_constituent_prices
 from .rpv import load_rpv_signals, rpv_monthly_targets
-from .value import load_valuein_cache, val_monthly_targets
+from .r2_snapshot import publish_snapshot, restore_latest_snapshot
+from .value import load_valuein_cache, refresh_valuein_cache, val_monthly_targets
 from .strategies import (
     aaa_monthly_targets, baa_g12_targets, haa_balanced_targets, haa_simple_targets,
     ndx_backtest_inputs, ndx_monthly_targets, vaa_g12_targets,
@@ -29,8 +30,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("results"), help="Directory for CSV outputs.")
     parser.add_argument("--refresh", action="store_true", help="Redownload and replace the full local price cache.")
     parser.add_argument("--no-refresh-macro", action="store_true", help="Use cached/bundled RPV macro data without refreshing public sources.")
+    parser.add_argument("--no-refresh-valuein", action="store_true", help="Use the private Valuein cache without checking for a newer snapshot.")
     parser.add_argument("--valuein-cache", type=Path, default=Path(os.environ.get("VALUEIN_CACHE_DIR", ".cache/valuein")), help="Directory containing local Valuein parquet snapshots.")
     args = parser.parse_args()
+
+    snapshot_status = restore_latest_snapshot()
+    print(f"Private state: {snapshot_status}")
 
     prices, data_status = load_daily_prices(
         start=args.start, end=args.end, refresh=args.refresh,
@@ -41,7 +46,20 @@ def main() -> None:
     rpv_signals, rpv_data_status = load_rpv_signals(
         prices, refresh=not args.no_refresh_macro or args.refresh,
     )
+    requires_fresh_data = os.getenv("CPM_REQUIRE_FRESH_DATA") == "1"
+    if args.no_refresh_valuein and requires_fresh_data:
+        raise RuntimeError("CPM_REQUIRE_FRESH_DATA=1 forbids --no-refresh-valuein.")
+    if args.no_refresh_valuein:
+        valuein_refresh_status = "skipped by --no-refresh-valuein"
+    else:
+        valuein_refresh_status = refresh_valuein_cache(
+            args.valuein_cache,
+            as_of=prices.index[-1],
+            required=requires_fresh_data,
+            max_partitions=int(os.getenv("VALUEIN_MAX_PARTITION_DOWNLOADS", "100")),
+        )
     val_flows, val_balance_sheets, val_data_status = load_valuein_cache(args.valuein_cache)
+    val_data_status = f"{val_data_status}; {valuein_refresh_status}"
     targets = cpm_monthly_targets(prices)
     additional_targets = {
         "HAA-Simple": haa_simple_targets(prices),
@@ -85,6 +103,7 @@ def main() -> None:
             for date in events.dropna(how="all").index
         }),
     )
+    snapshot_status = publish_snapshot()
 
     print(f"Data: {prices.index[0].date()} to {prices.index[-1].date()} ({len(prices):,} daily rows)")
     print(f"Prices: {data_status}")
@@ -99,6 +118,7 @@ def main() -> None:
     print(display_metrics.to_string())
     print(f"Saved outputs to {args.output.resolve()}")
     print(f"Dashboard: {dashboard_path.resolve()}")
+    print(f"Private state: {snapshot_status}")
 
 
 if __name__ == "__main__":

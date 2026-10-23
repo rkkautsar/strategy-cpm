@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from io import BytesIO
 import json
 import os
 from pathlib import Path
+import time
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import numpy as np
 import pandas as pd
@@ -23,6 +28,238 @@ _SPLIT_CAL = {
     for ticker, records in json.loads(_SPLITS_PATH.read_text()).items()
 } if _SPLITS_PATH.exists() else {}
 _COVERED_TICKERS = set(json.loads(_COVERED_PATH.read_text()).get("covered", [])) if _COVERED_PATH.exists() else set()
+VALUEIN_API = "https://data.valuein.biz"
+VALUEIN_REFRESH_PATH = "valuein_refresh.json"
+
+
+def _valuein_response(url: str, token: str, *, json_response: bool):
+    """Fetch one Valuein response with bounded retries and no credential logging."""
+    request = Request(url, headers={
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json" if json_response else "application/octet-stream",
+        "User-Agent": "taa-engine-valuein-refresh/1.0",
+    })
+    for attempt in range(4):
+        try:
+            with urlopen(request, timeout=90) as response:
+                body = response.read()
+            return json.loads(body) if json_response else body
+        except HTTPError as exc:
+            if exc.code == 429:
+                retry_after = exc.headers.get("Retry-After", "unknown")
+                raise RuntimeError(
+                    f"Valuein daily request quota reached; retry after {retry_after} seconds. "
+                    "Any completed CIK partitions are checkpointed; rerun after the quota resets."
+                ) from exc
+            if exc.code == 503 and attempt < 3:
+                time.sleep(2 ** attempt)
+                continue
+            if 500 <= exc.code < 600 and attempt == 0:
+                time.sleep(1)
+                continue
+            raise RuntimeError(f"Valuein request failed with HTTP {exc.code} for {url.split('/v1/')[-1]}.") from exc
+        except URLError as exc:
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            raise RuntimeError(f"Valuein request failed: {exc.reason}") from exc
+    raise RuntimeError("Valuein request failed after retries.")
+
+
+def _atomic_parquet(frame: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.stem}.refresh.parquet")
+    frame.to_parquet(temp_path, index=False)
+    temp_path.replace(path)
+
+
+def _atomic_json(payload: dict, path: Path) -> None:
+    temp_path = path.with_name(f".{path.name}.tmp")
+    temp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temp_path.replace(path)
+
+
+def _normalize_cik(values: pd.Series) -> pd.Series:
+    return values.astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(10)
+
+
+def refresh_valuein_cache(
+    cache_dir: Path = VALUEIN_CACHE,
+    *,
+    as_of: pd.Timestamp,
+    required: bool = False,
+    max_partitions: int = 100,
+) -> str:
+    """Refresh only changed Valuein snapshots and current Nasdaq-100 fact partitions.
+
+    Valuein exposes full company partitions rather than row cursors. We therefore
+    replace each current Nasdaq-100 CIK's complete fact partition when the global
+    snapshot changes. Successfully downloaded partitions are checkpointed so a
+    quota limit or interrupted run can resume without repeating completed work.
+    """
+    cache_dir = Path(cache_dir)
+    token = os.getenv("VALUEIN_API_KEY", "").strip()
+    if not token:
+        if required:
+            raise RuntimeError("Monthly builds require VALUEIN_API_KEY to refresh VAL fundamentals.")
+        return "skipped (VALUEIN_API_KEY is not configured)"
+
+    fact_path = cache_dir / "fact.parquet"
+    security_path = cache_dir / "security.parquet"
+    metadata_path = cache_dir / VALUEIN_REFRESH_PATH
+    if not fact_path.exists() or not security_path.exists():
+        raise FileNotFoundError(
+            f"Valuein incremental refresh needs a private bootstrap cache containing "
+            f"{fact_path.name} and {security_path.name}; it will not silently download a full market snapshot."
+        )
+    if max_partitions < 1:
+        raise ValueError("VALUEIN_MAX_PARTITION_DOWNLOADS must be at least 1.")
+
+    account = _valuein_response(f"{VALUEIN_API}/v1/me", token, json_response=True)
+    plan = str(account.get("plan", "")).lower()
+    if str(account.get("status", "")).lower() != "active" or plan not in {"pro", "full"}:
+        raise RuntimeError(
+            f"Valuein plan '{plan or 'unknown'}' cannot guarantee Nasdaq-100 coverage for VAL; "
+            "an active Pro or Full plan is required."
+        )
+    manifest = _valuein_response(f"{VALUEIN_API}/v1/manifest", token, json_response=True)
+    snapshot = str(manifest.get("snapshot", ""))
+    if not snapshot:
+        raise RuntimeError("Valuein manifest did not include a snapshot identifier.")
+    tables = set(manifest.get("tables", []))
+    if not {"fact", "security"}.issubset(tables):
+        raise RuntimeError("Valuein plan manifest does not include both fact and security tables.")
+    metadata = json.loads(metadata_path.read_text()) if metadata_path.exists() else {}
+    metadata.setdefault("partition_snapshots", {})
+
+    if metadata.get("security_snapshot") != snapshot or metadata.get("plan") != plan:
+        security_bytes = _valuein_response(
+            f"{VALUEIN_API}/v1/{plan}/security", token, json_response=False,
+        )
+        security = pd.read_parquet(BytesIO(security_bytes))
+        if security.empty:
+            raise RuntimeError("Valuein returned an empty security table; the existing cache was preserved.")
+        cik_col = "entity_id" if "entity_id" in security else "cik" if "cik" in security else None
+        symbol_col = "symbol" if "symbol" in security else "ticker" if "ticker" in security else None
+        if cik_col is None or symbol_col is None:
+            raise RuntimeError("Valuein security table is missing its CIK or ticker columns.")
+        security[cik_col] = _normalize_cik(security[cik_col])
+        _atomic_parquet(security, security_path)
+        metadata.update({"plan": plan, "security_snapshot": snapshot})
+        metadata["security_columns"] = {"cik": cik_col, "symbol": symbol_col}
+        _atomic_json(metadata, metadata_path)
+
+    security = pd.read_parquet(security_path)
+    cik_col = "entity_id" if "entity_id" in security else "cik" if "cik" in security else None
+    symbol_col = "symbol" if "symbol" in security else "ticker" if "ticker" in security else None
+    if cik_col is None or symbol_col is None:
+        raise RuntimeError("Cached Valuein security table is missing its CIK or ticker columns.")
+    active = security.copy()
+    if "is_active" in active:
+        active_flag = active.is_active.astype(str).str.lower().isin({"true", "1", "yes"})
+        active = active[active_flag]
+    active = active.assign(
+        _cik=_normalize_cik(active[cik_col]),
+        _symbol=active[symbol_col].astype(str).str.upper(),
+    )
+
+    try:
+        import index_constitution as ic
+        constituent_frame = ic.constituents_at("nasdaq100", pd.Timestamp(as_of).strftime("%Y-%m-%d"))
+    except Exception as exc:
+        raise RuntimeError(f"Could not resolve point-in-time Nasdaq-100 members for Valuein refresh: {exc}") from exc
+    if "symbol" not in constituent_frame:
+        raise RuntimeError("Nasdaq-100 constituent data did not include a symbol column.")
+    members = sorted(set(constituent_frame.symbol.dropna().astype(str).str.upper()))
+    ciks_by_symbol: dict[str, set[str]] = {}
+    for row in active[["_symbol", "_cik"]].itertuples(index=False, name=None):
+        ciks_by_symbol.setdefault(row[0], set()).add(row[1])
+    missing = [ticker for ticker in members if len(ciks_by_symbol.get(ticker, set())) != 1]
+    if missing:
+        preview = ", ".join(missing[:12])
+        raise RuntimeError(
+            f"Valuein {plan} security snapshot cannot map {len(missing)} current Nasdaq-100 tickers to one CIK "
+            f"({preview}). VAL refresh aborted to avoid publishing incomplete fundamentals."
+        )
+    current_ciks = sorted({next(iter(ciks_by_symbol[ticker])) for ticker in members})
+    partition_snapshots = metadata["partition_snapshots"]
+    pending = [
+        cik for cik in current_ciks
+        if partition_snapshots.get(cik) != {"snapshot": snapshot, "plan": plan}
+    ]
+    if not pending:
+        metadata.update({
+            "plan": plan, "snapshot": snapshot, "last_updated": manifest.get("last_updated"),
+            "last_checked_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        })
+        _atomic_json(metadata, metadata_path)
+        return f"unchanged ({snapshot}; {len(current_ciks)} current Nasdaq-100 CIKs already current)"
+
+    if len(pending) > max_partitions:
+        batch = pending[:max_partitions]
+        deferred = len(pending) - max_partitions
+    else:
+        batch = pending
+        deferred = 0
+    base_fact = pd.read_parquet(fact_path) if any(not (cache_dir / "fact_partitions" / f"{cik}.parquet").exists() for cik in batch) else None
+    if base_fact is not None:
+        base_fact["entity_id"] = _normalize_cik(base_fact["entity_id"])
+    for offset, cik in enumerate(batch, start=1):
+        fact_bytes = _valuein_response(
+            f"{VALUEIN_API}/v1/{plan}/fact/{cik}.parquet", token, json_response=False,
+        )
+        partition = pd.read_parquet(BytesIO(fact_bytes))
+        if partition.empty or "entity_id" not in partition:
+            raise RuntimeError(f"Valuein returned no usable fact rows for Nasdaq-100 CIK {cik}; refresh aborted.")
+        partition["entity_id"] = _normalize_cik(partition["entity_id"])
+        if set(partition["entity_id"].unique()) != {cik}:
+            raise RuntimeError(f"Valuein fact partition for CIK {cik} contained unexpected entity IDs.")
+        required_columns = {
+            "standard_concept", "period_start", "period_end", "fiscal_year", "fiscal_period",
+            "accepted_at", "value_as_filed",
+        }
+        if missing_columns := required_columns - set(partition.columns):
+            raise RuntimeError(f"Valuein fact partition for CIK {cik} is missing columns: {', '.join(sorted(missing_columns))}.")
+
+        partition_path = cache_dir / "fact_partitions" / f"{cik}.parquet"
+        prior = (
+            pd.read_parquet(partition_path)
+            if partition_path.exists()
+            else base_fact.loc[base_fact.entity_id == cik].copy()
+        )
+        if not prior.empty:
+            prior["entity_id"] = _normalize_cik(prior["entity_id"])
+            prior["period_end"] = pd.to_datetime(prior["period_end"])
+            partition["period_end"] = pd.to_datetime(partition["period_end"])
+            # Pro is a rolling 15-year plan. Retain older bootstrap history so
+            # refreshing a current CIK does not erase the backtest's early years.
+            earliest_remote_period = partition.period_end.min()
+            partition = pd.concat([
+                prior.loc[prior.period_end < earliest_remote_period], partition,
+            ], ignore_index=True)
+        _atomic_parquet(partition, partition_path)
+        partition_snapshots[cik] = {"snapshot": snapshot, "plan": plan}
+        metadata.update({
+            "plan": plan, "security_snapshot": snapshot,
+            "last_partition_cik": cik,
+            "last_partition_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        })
+        _atomic_json(metadata, metadata_path)
+        if offset == 1 or offset % 10 == 0 or offset == len(batch):
+            print(f"Valuein refreshed {offset}/{len(batch)} CIK partitions")
+
+    if deferred:
+        raise RuntimeError(
+            f"Valuein refresh checkpointed {len(batch)} CIK partitions; {deferred} remain for snapshot {snapshot}. "
+            "Rerun after the API quota resets to finish before publishing the dashboard."
+        )
+    metadata.update({
+        "plan": plan, "snapshot": snapshot, "last_updated": manifest.get("last_updated"),
+        "last_refreshed_at_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "current_nasdaq100_ciks": current_ciks,
+    })
+    _atomic_json(metadata, metadata_path)
+    return f"refreshed {len(batch)} Nasdaq-100 CIK partitions to {snapshot}"
 
 
 def load_valuein_cache(cache_dir: Path = VALUEIN_CACHE) -> tuple[dict, dict, str]:
@@ -38,6 +275,17 @@ def load_valuein_cache(cache_dir: Path = VALUEIN_CACHE) -> tuple[dict, dict, str
 
     fact = pd.read_parquet(cache_dir / "fact.parquet")
     security = pd.read_parquet(cache_dir / "security.parquet")
+    fact_partitions = cache_dir / "fact_partitions"
+    if fact_partitions.exists():
+        fact["entity_id"] = _normalize_cik(fact["entity_id"])
+        for partition_path in sorted(fact_partitions.glob("*.parquet")):
+            partition = pd.read_parquet(partition_path)
+            if partition.empty or "entity_id" not in partition:
+                raise ValueError(f"Invalid Valuein fact partition: {partition_path.name}")
+            partition["entity_id"] = _normalize_cik(partition["entity_id"])
+            fact = pd.concat([
+                fact.loc[~fact.entity_id.isin(partition.entity_id.unique())], partition,
+            ], ignore_index=True)
     fact["_src"] = 0
     fact_edgar_path = cache_dir / "fact_edgar.parquet"
     security_edgar_path = cache_dir / "security_edgar.parquet"

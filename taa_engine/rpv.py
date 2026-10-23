@@ -50,12 +50,24 @@ def _fred_series(series_id: str, *, refresh: bool) -> tuple[pd.Series, str]:
     source = "cache" if cached_path.exists() else "bundled snapshot"
     if refresh:
         try:
-            remote = _fetch_csv(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series_id}")
+            query = {"id": series_id}
+            if cached_path.exists():
+                existing = _parse_date_value(pd.read_csv(cached_path), series_id)
+                if not existing.empty:
+                    query["cosd"] = (existing.index.max() - pd.Timedelta(days=60)).date().isoformat()
+            remote = _fetch_csv(f"https://fred.stlouisfed.org/graph/fredgraph.csv?{urlencode(query)}")
             if remote.shape[1] < 2:
                 raise ValueError(f"FRED returned an invalid {series_id} CSV.")
+            if cached_path.exists() and "cosd" in query:
+                old = pd.read_csv(cached_path)
+                merged = pd.concat([old, remote], ignore_index=True)
+                merged = merged.drop_duplicates(merged.columns[0], keep="last").sort_values(merged.columns[0])
+                remote = merged
             remote.to_csv(cached_path, index=False)
-            source = "FRED refreshed"
-        except Exception:
+            source = "FRED tail refreshed (60-day overlap)" if "cosd" in query else "FRED history initialized"
+        except Exception as exc:
+            if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
+                raise RuntimeError(f"Required FRED refresh failed for {series_id}.") from exc
             source += " (FRED refresh unavailable)"
     path = cached_path if cached_path.exists() else fallback_path
     if not path.exists():
@@ -71,10 +83,15 @@ def _cpi_first_release(*, refresh: bool) -> tuple[pd.Series, str]:
     api_key = os.environ.get("FRED_API_KEY", "").strip()
     if refresh and api_key:
         try:
-            params = urlencode({
+            params_dict = {
                 "series_id": "CPIAUCSL", "realtime_start": "1776-07-04",
                 "realtime_end": "9999-12-31", "api_key": api_key, "file_type": "json",
-            })
+            }
+            if cached_path.exists():
+                old = pd.read_csv(cached_path, parse_dates=["date"])
+                if not old.empty:
+                    params_dict["observation_start"] = (old["date"].max() - pd.Timedelta(days=550)).date().isoformat()
+            params = urlencode(params_dict)
             with urlopen(f"https://api.stlouisfed.org/fred/series/observations?{params}", timeout=30) as response:
                 payload = json.loads(response.read().decode("utf-8"))
             observations = payload.get("observations")
@@ -84,12 +101,21 @@ def _cpi_first_release(*, refresh: bool) -> tuple[pd.Series, str]:
             data["date"] = pd.to_datetime(data["date"])
             data["realtime_start"] = pd.to_datetime(data["realtime_start"])
             data["value"] = pd.to_numeric(data["value"], errors="coerce")
-            data = data.dropna(subset=["value"]).sort_values("realtime_start").groupby("date", as_index=False).first()
+            data = data.dropna(subset=["value"])
+            if cached_path.exists():
+                old = pd.read_csv(cached_path, parse_dates=["date"])
+                old["realtime_start"] = old["date"]
+                data = pd.concat([old, data], ignore_index=True)
+            data = data.sort_values("realtime_start").groupby("date", as_index=False).first()
             data[["date", "value"]].to_csv(cached_path, index=False)
-            source = "ALFRED first releases refreshed"
-        except Exception:
+            source = "ALFRED first-release tail refreshed (18-month overlap)" if "observation_start" in params_dict else "ALFRED first-release history initialized"
+        except Exception as exc:
+            if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
+                raise RuntimeError("Required ALFRED first-release CPI refresh failed.") from exc
             source += " (ALFRED refresh unavailable)"
     elif refresh:
+        if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
+            raise RuntimeError("Required ALFRED refresh needs FRED_API_KEY.")
         source += " (no FRED_API_KEY; using cached first releases)"
     path = cached_path if cached_path.exists() else fallback_path
     if not path.exists():
@@ -105,9 +131,16 @@ def _shiller_earnings(*, refresh: bool) -> tuple[pd.Series, pd.Series, str]:
     if refresh:
         try:
             remote = _fetch_csv("https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv")
+            if cached_path.exists():
+                old = pd.read_csv(cached_path)
+                date_column = "Date"
+                remote = pd.concat([old, remote], ignore_index=True)
+                remote = remote.drop_duplicates(date_column, keep="last").sort_values(date_column)
             remote.to_csv(cached_path, index=False)
-            source = "Shiller dataset refreshed"
-        except Exception:
+            source = "Shiller dataset merged with latest source rows"
+        except Exception as exc:
+            if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
+                raise RuntimeError("Required Shiller earnings refresh failed.") from exc
             source += " (refresh unavailable)"
     path = cached_path if cached_path.exists() else fallback_path
     if not path.exists():

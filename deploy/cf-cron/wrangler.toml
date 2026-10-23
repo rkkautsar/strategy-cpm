@@ -1,0 +1,15 @@
+name = "taa-dashboard-cron"
+main = "src/index.js"
+compatibility_date = "2026-10-23"
+
+# 07:00 UTC on day 3 (3:00 PM Singapore), after the first US trading close
+# of the month is normally available from Yahoo Finance.
+[triggers]
+crons = ["0 7 3 * *"]
+
+[vars]
+GH_OWNER = "rkkautsar"
+GH_REPO = "strategy-cpm"
+
+# Configure secrets with `wrangler secret put GH_TOKEN` and
+# `wrangler secret put TRIGGER_TOKEN`. GH_TOKEN needs Contents:write on this repo.

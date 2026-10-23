@@ -67,8 +67,14 @@ RPV is available in the strategy picker and blend editor.
 quality/value ranking, a stateful 10-month trend band, and a TIP/SPY/volatility
 risk gate. It uses the local Parquet snapshot in `.cache/valuein` (or
 `--valuein-cache` / `VALUEIN_CACHE_DIR`) and routes defensive or unused weight
-to the stronger of BIL and IEF. The local snapshot is not refreshed by the
-engine; keep its `accepted_at` data current before relying on the live signal.
+to the stronger of BIL and IEF. With `VALUEIN_API_KEY`, each run checks the
+Valuein manifest and skips unchanged snapshots. On a new snapshot it refreshes
+the security map and the full fact partitions for current Nasdaq-100 CIKs,
+replacing only those company partitions and retaining older bootstrap history.
+Each company partition is checkpointed separately, so rate-limited runs resume
+without redownloading completed CIKs. An active Pro or Full plan is required;
+the updater blocks publication if coverage is incomplete. Historical
+`accepted_at` vintages remain intact for point-in-time VAL signals.
 
 ## Run
 
@@ -105,8 +111,32 @@ does not add a cost for transfers between sleeves.
 For a persistent private cache across ephemeral monthly build runners, configure
 a private Cloudflare R2 bucket and set `CPM_R2_BUCKET`, `CPM_R2_ACCOUNT_ID`,
 `CPM_R2_ACCESS_KEY_ID`, and `CPM_R2_SECRET_ACCESS_KEY`. Install R2 support with
-`uv sync --extra r2`; each run restores the cache, updates only recent/missing
-prices, and writes it back. Never make this bucket public.
+`uv sync --extra r2`. The runner restores one checksummed snapshot, updates
+recent/missing Yahoo prices (35-day overlap), FRED observations (60-day overlap),
+and ALFRED first-release CPI (18-month overlap), then writes an immutable new
+snapshot and advances the latest pointer only after upload. Shiller has no
+small incremental API, so its compact CSV is re-fetched and merged by date.
+Never make this bucket public. For an initial seed from a machine that already
+has the full private cache and Valuein Parquet files, run
+`uv run python -m taa_engine.r2_snapshot publish` with the R2 variables set.
+
+The monthly dashboard pipeline is Cloudflare Cron Worker → GitHub Actions →
+private R2 → Cloudflare Pages. It runs on day 3 after the first monthly US market
+close is normally available. GitHub Actions replays the full cached history to
+preserve vectorbt results; it does not append a single month because the current
+engine has no serialized portfolio/VAL state checkpoint. The R2 archive keeps
+immutable monthly cache and results snapshots. VAL still uses its cached
+Valuein Parquet bootstrap snapshot and applies manifest-aware per-CIK updates;
+the Valuein API has no row-level cursor, so the updater replaces only the
+relevant company partitions instead of downloading the full market-wide fact
+table.
+
+Configure GitHub repository secrets `CPM_R2_BUCKET`, `CPM_R2_ACCOUNT_ID`,
+`CPM_R2_ACCESS_KEY_ID`, `CPM_R2_SECRET_ACCESS_KEY`, `FRED_API_KEY`,
+`VALUEIN_API_KEY`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. Deploy the Worker from
+`deploy/cf-cron` and set `GH_TOKEN` (fine-grained `Contents: write` on this repo)
+and `TRIGGER_TOKEN` as Worker secrets. Blend definitions and selected strategy
+are already saved in browser localStorage and remain on that browser/origin.
 
 Yahoo Finance data accessed through `yfinance` is unofficial and intended for
 personal/research use. This starter is for private research; confirm data rights
