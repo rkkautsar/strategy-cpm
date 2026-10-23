@@ -42,7 +42,7 @@ def build_dashboard(
     chart_data = []
     colors = {
         "CPM": "#147d8b", "HAA-Simple": "#8b67b4", "HAA-Balanced": "#3399cc",
-        "BAA-G12": "#c28725", "AAA": "#778397", "VAA-G12": "#cb5973", "NDX": "#d45b42", "RPV": "#34875b", "SPY B&H": "#a6afbd",
+        "BAA-G12": "#c28725", "AAA": "#778397", "VAA-G12": "#cb5973", "NDX": "#d45b42", "RPV": "#34875b", "VAL": "#bd6e35", "SPY B&H": "#a6afbd",
         "60/40 Annual": "#5476d2",
     }
     for name, portfolio in portfolios.items():
@@ -57,7 +57,7 @@ def build_dashboard(
             "values": [float(item) for item in value.to_numpy()],
         })
     chart_data_json = json.dumps(chart_data, separators=(",", ":"))
-    blendable_names = [name for name in ("CPM", "HAA-Simple", "HAA-Balanced", "BAA-G12", "AAA", "VAA-G12", "NDX", "RPV") if name in portfolios]
+    blendable_names = [name for name in ("CPM", "HAA-Simple", "HAA-Balanced", "BAA-G12", "AAA", "VAA-G12", "NDX", "RPV", "VAL") if name in portfolios]
     blend_controls = "".join(
         f'<label class="blend-leg"><input type="checkbox" class="blend-enabled" data-strategy="{escape(name)}">'
         f'<span>{escape(name)}</span><input type="number" class="blend-weight" data-strategy="{escape(name)}" '
@@ -241,7 +241,7 @@ def build_dashboard(
       <button id="mode-blend" class="mode-button" type="button" aria-pressed="false">My blend</button>
     </div>
     <div id="single-controls" class="portfolio-controls">
-      <div class="strategy-picker"><label for="strategy-select">Inspect strategy</label><select id="strategy-select"><option value="CPM">CPM</option><option value="HAA-Simple">HAA-Simple</option><option value="HAA-Balanced">HAA-Balanced</option><option value="BAA-G12">BAA-G12</option><option value="AAA">AAA</option><option value="VAA-G12">VAA-G12</option><option value="NDX">NDX</option><option value="RPV">RPV</option></select></div>
+      <div class="strategy-picker"><label for="strategy-select">Inspect strategy</label><select id="strategy-select"><option value="CPM">CPM</option><option value="HAA-Simple">HAA-Simple</option><option value="HAA-Balanced">HAA-Balanced</option><option value="BAA-G12">BAA-G12</option><option value="AAA">AAA</option><option value="VAA-G12">VAA-G12</option><option value="NDX">NDX</option><option value="RPV">RPV</option><option value="VAL">VAL</option></select></div>
     </div>
     <div id="blend-controls-panel" class="portfolio-controls" hidden>
       <div id="blend-summary" class="blend-summary" hidden><div class="blend-summary-copy"><span class="blend-summary-title">Saved blend</span><span id="blend-summary-value" class="blend-summary-value"></span></div><button id="edit-blend" type="button" class="secondary-button">Edit</button></div>
