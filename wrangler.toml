@@ -1,0 +1,11 @@
+name = "taa-dashboard"
+compatibility_date = "2026-10-23"
+pages_build_output_dir = "./dist"
+
+[vars]
+DASHBOARD_URL = "https://taa-dashboard.pages.dev"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "taa-dashboard-notifications"
+database_id = "0c8540ac-d50f-43b8-ada5-d2156441e978"
