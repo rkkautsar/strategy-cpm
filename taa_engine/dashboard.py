@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from hashlib import sha256
 from html import escape
 import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
-
-def _pct(value: float) -> str:
-    return f"{value:.1%}"
-
 
 def build_dashboard(
     *,
@@ -27,18 +23,6 @@ def build_dashboard(
     """Write a mobile-friendly static dashboard without publishing price bars."""
     as_of = prices.index[-1]
     built_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-
-    performance_rows = []
-    for name in metrics.index:
-        row = metrics.loc[name]
-        performance_rows.append(
-            f"<tr><th>{escape(str(name))}</th>"
-            f"<td>{_pct(float(row['Total return']))}</td>"
-            f"<td>{_pct(float(row['CAGR']))}</td>"
-            f"<td>{_pct(float(row['Volatility']))}</td>"
-            f"<td>{float(row['Sharpe']):.2f}</td>"
-            f"<td>{_pct(float(row['Max drawdown']))}</td></tr>"
-        )
 
     chart_data = []
     colors = {
@@ -57,7 +41,6 @@ def build_dashboard(
             "dates": [timestamp.strftime("%Y-%m-%d") for timestamp in value.index],
             "values": [float(item) for item in value.to_numpy()],
         })
-    chart_data_json = json.dumps(chart_data, separators=(",", ":"))
     blendable_names = [name for name in ("CPM", "HAA-Simple", "HAA-Balanced", "BAA-G12", "AAA", "VAA-G12", "NDX", "RPV", "VAL") if name in portfolios]
     blend_controls = "".join(
         f'<label class="blend-leg"><input type="checkbox" class="blend-enabled" data-strategy="{escape(name)}">'
@@ -66,7 +49,7 @@ def build_dashboard(
         f'<span>%</span></label>'
         for name in blendable_names
     )
-    rebalance_dates_json = json.dumps([pd.Timestamp(date).strftime("%Y-%m-%d") for date in rebalance_dates])
+    rebalance_date_values = [pd.Timestamp(date).strftime("%Y-%m-%d") for date in rebalance_dates]
     blend_target_state = {}
     for name in blendable_names:
         events = strategy_targets[name].dropna(how="all")
@@ -80,7 +63,6 @@ def build_dashboard(
             "current": {str(ticker): float(weight) for ticker, weight in current_targets.items() if abs(float(weight)) > 1e-8},
             "previous": {str(ticker): float(weight) for ticker, weight in previous_targets.items() if abs(float(weight)) > 1e-8},
         }
-    blend_target_state_json = json.dumps(blend_target_state, separators=(",", ":"))
     notification_data = {
         "as_of": as_of.strftime("%Y-%m-%d"),
         "targets": blend_target_state,
@@ -141,11 +123,16 @@ def build_dashboard(
                 "max_drawdown": float(drawdown.min()),
             })
         performance_data[str(years)] = rows
-    performance_data_json = json.dumps(performance_data, separators=(",", ":"))
-    strategies_json = json.dumps(blendable_names, separators=(",", ":"))
-    strategy_descriptions_json = json.dumps(
-        {name: strategy_descriptions[name] for name in blendable_names}, separators=(",", ":")
-    )
+    dashboard_data = {
+        "portfolios": chart_data,
+        "performance": performance_data,
+        "targets": blend_target_state,
+        "strategies": blendable_names,
+        "descriptions": {name: strategy_descriptions[name] for name in blendable_names},
+        "rebalance_dates": rebalance_date_values,
+    }
+    dashboard_data_json = json.dumps(dashboard_data, separators=(",", ":"))
+    asset_name = f"dashboard-data-{sha256(dashboard_data_json.encode('utf-8')).hexdigest()[:16]}.json"
 
     template_path = Path(__file__).resolve().parent / "templates" / "dashboard.html"
     from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -154,24 +141,22 @@ def build_dashboard(
         loader=FileSystemLoader(template_path.parent),
         autoescape=select_autoescape(("html", "xml")),
     )
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     html = environment.get_template(template_path.name).render(
         as_of=escape(as_of.strftime("%d %b %Y")),
         built_at=escape(built_at),
+        data_asset_url=escape(asset_name),
         blend_controls=blend_controls,
-        blend_target_state_json=blend_target_state_json,
-        chart_data_json=chart_data_json,
-        rebalance_dates_json=rebalance_dates_json,
-        performance_data_json=performance_data_json,
-        strategies_json=strategies_json,
-        strategy_descriptions_json=strategy_descriptions_json,
-        performance_rows="".join(performance_rows),
         period=escape(f'{metrics.attrs.get("start", "")} {metrics.attrs.get("end", "")}'.strip())
         if metrics.attrs.get("start") else escape(f"{prices.index[0]:%d %b %Y} – {as_of:%d %b %Y}"),
         fee_bps=f"{fee_bps:g}",
     )
 
-    output_path = Path(output_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    for previous_asset in output_path.parent.glob("dashboard-data-*.json"):
+        if previous_asset.name != asset_name:
+            previous_asset.unlink()
+    (output_path.parent / asset_name).write_text(dashboard_data_json, encoding="utf-8")
     output_path.write_text(html, encoding="utf-8")
     output_path.with_name("notification_data.json").write_text(
         json.dumps(notification_data, separators=(",", ":")), encoding="utf-8"

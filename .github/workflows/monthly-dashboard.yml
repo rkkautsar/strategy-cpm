@@ -73,7 +73,18 @@ jobs:
           mkdir -p dist
           cp results/dashboard.html dist/index.html
           cp results/dashboard.html dist/dashboard.html
+          cp results/dashboard-data-*.json dist/
           printf 'User-agent: *\nDisallow:\n' > dist/robots.txt
+          cat > dist/_headers <<'EOF'
+          /dashboard-data-*
+            Cache-Control: public, max-age=31536000, immutable
+          /index.html
+            Cache-Control: public, max-age=0, must-revalidate
+          /
+            Cache-Control: public, max-age=0, must-revalidate
+          /dashboard.html
+            Cache-Control: public, max-age=0, must-revalidate
+          EOF
           printf '{"version":1,"include":["/api/*"],"exclude":[]}' > dist/_routes.json
 
       - name: Configure Pages email credentials

@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4f7fb">
-    <title>TAA Dashboard</title>
+  <link rel="preload" href="{{ data_asset_url }}" as="fetch" crossorigin>
+  <title>TAA Dashboard</title>
   <style>
     :root { color-scheme: light; --ink:#17263c; --muted:#68778b; --line:#e5ebf1; --panel:#fff; --bg:#f4f7fb; --accent:#147d8b; }
     * { box-sizing:border-box; }
@@ -48,6 +49,8 @@
     .echart { width:100%; height:390px; }
     #drawdown-chart { height:300px; }
     .footnote { padding:12px 4px 0; font-size:11px; color:var(--muted); }
+    #dashboard-loading { max-width:1120px; margin:12vh auto; padding:22px; color:var(--muted); text-align:center; }
+    main[hidden],#dashboard-loading[hidden] { display:none; }
     .performance { margin-top:16px; }
     .blend-feature { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:18px; border:1px solid #cbdfe4; background:linear-gradient(125deg,#fff 0%,#edf7f7 100%); }
     .blend-feature h2 { margin:3px 0 4px; font-size:21px; letter-spacing:-.03em; }
@@ -57,8 +60,10 @@
     .portfolio-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:20px 0 10px; }
     .portfolio-heading h2 { margin:0; font-size:18px; }
     .strategy-carousel { display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth; padding:2px 2px 12px; scrollbar-width:thin; }
-    .strategy-card { flex:0 0 min(320px,calc(100vw - 66px)); scroll-snap-align:start; border:1px solid var(--line); border-radius:15px; background:#fff; padding:15px; box-shadow:0 4px 15px rgba(25,48,78,.03); }
-    .strategy-card[aria-current="true"] { border-color:#74aeb4; box-shadow:0 0 0 2px rgba(20,125,139,.12); }
+    .strategy-card { flex:0 0 min(320px,calc(100vw - 66px)); scroll-snap-align:start; border:1px solid var(--line); border-radius:15px; background:#fff; padding:15px; box-shadow:0 4px 15px rgba(25,48,78,.03); color:var(--ink); text-align:left; font:inherit; cursor:pointer; transition:border-color .15s,background .15s,box-shadow .15s; }
+    .strategy-card:hover { border-color:#9cbcc1; }
+    .strategy-card:focus-visible { outline:3px solid rgba(20,125,139,.32); outline-offset:2px; }
+    .strategy-card[aria-current="true"] { border-color:var(--accent); background:#edf7f7; box-shadow:0 0 0 2px rgba(20,125,139,.2); }
     .strategy-card-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
     .strategy-card h3 { margin:0; font-size:15px; }
     .strategy-card p { min-height:38px; margin:7px 0 12px; color:var(--muted); font-size:12px; line-height:1.45; }
@@ -66,7 +71,8 @@
     .strategy-card-metric { padding:8px; border-radius:9px; background:#f5f8fa; }
     .strategy-card-metric span { display:block; color:var(--muted); font-size:10px; }
     .strategy-card-metric strong { display:block; margin-top:2px; font-size:14px; }
-    .strategy-card .inspect-strategy { width:100%; margin-top:10px; }
+    .strategy-card-state { display:none; padding:4px 8px; border-radius:999px; background:#dceff0; color:#126a74; font-size:10px; font-weight:750; }
+    .strategy-card[aria-current="true"] .strategy-card-state { display:inline-flex; }
     .carousel-actions { display:flex; gap:7px; }
     .icon-button { width:36px; height:36px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); font-size:17px; cursor:pointer; }
     #blend-dialog { width:min(680px,calc(100% - 24px)); max-width:680px; max-height:min(88vh,900px); padding:0; border:0; border-radius:18px; color:var(--ink); box-shadow:0 24px 80px rgba(18,34,55,.3); }
@@ -120,7 +126,8 @@
   </style>
 </head>
 <body>
-<main>
+<div id="dashboard-loading" role="status" aria-live="polite">Loading dashboard data…</div>
+<main id="dashboard" hidden>
   <header>
     <div><div class="eyebrow">Tactical asset allocation · Monthly</div><h1>TAA Dashboard</h1>
       <div class="subtitle">Inspect strategy performance, current targets, and monthly target changes.</div></div>
@@ -132,7 +139,7 @@
       <div id="blend-feature-summary" class="blend-feature-summary"></div></div>
     <div class="blend-feature-actions"><button id="view-blend" type="button" class="primary-button">View blend</button>
       <button id="edit-blend" type="button" class="secondary-button">Build blend</button>
-      <button id="monthly-notifications" type="button" class="secondary-button" disabled>Email monthly trades</button></div>
+      <button id="monthly-notifications" type="button" class="secondary-button" disabled>Notify me</button></div>
   </section>
   <section aria-label="Inspect individual strategies">
     <div class="portfolio-heading"><div><h2>Explore strategies</h2><p class="card-intro">Select one to inspect its history and current allocation.</p></div>
@@ -184,21 +191,28 @@
   <section class="card performance">
     <div class="chart-head"><div><h2>Performance summary</h2><p class="card-intro">Same selected period and transaction-cost assumption for all portfolios</p></div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Portfolio</th><th>Total return</th><th>CAGR</th><th>Volatility</th><th>Sharpe</th><th>Max drawdown</th></tr></thead><tbody id="performance-rows">{{ performance_rows|safe }}</tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Portfolio</th><th>Total return</th><th>CAGR</th><th>Volatility</th><th>Sharpe</th><th>Max drawdown</th></tr></thead><tbody id="performance-rows"></tbody></table></div>
   </section>
   <p class="footnote">{{ period }} · {{ fee_bps }} bps per side · Source prices are not included in this dashboard.</p>
   </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js"></script>
-<script>
+<script type="module">
+  async function startDashboard() {
+  const echarts = window.echarts;
+  if (!echarts) throw new Error('Chart library failed to load.');
+  const response = await fetch("{{ data_asset_url }}", {cache: 'force-cache'});
+  if (!response.ok) throw new Error(`Could not load dashboard data (${response.status}).`);
+  const dashboardData = await response.json();
+  document.getElementById('dashboard').hidden = false;
   const selectors = [document.getElementById('timeframe')];
-  const basePortfolioSeries = {{ chart_data_json|safe }};
+  const basePortfolioSeries = dashboardData.portfolios;
   let portfolioSeries = basePortfolioSeries.slice();
-  const performanceByRange = {{ performance_data_json|safe }};
-  const strategyTargetState = {{ blend_target_state_json|safe }};
-  const strategyNames = {{ strategies_json|safe }};
-  const strategyDescriptions = {{ strategy_descriptions_json|safe }};
-  const rebalanceDates = new Set({{ rebalance_dates_json|safe }});
+  const performanceByRange = dashboardData.performance;
+  const strategyTargetState = dashboardData.targets;
+  const strategyNames = dashboardData.strategies;
+  const strategyDescriptions = dashboardData.descriptions;
+  const rebalanceDates = new Set(dashboardData.rebalance_dates);
   const blendFeeBps = Number({{ fee_bps }});
   let firstDate = 0;
   let lastDate = 0;
@@ -379,11 +393,14 @@
     const rows = performanceByRange[range] ?? performanceByRange.all;
     container.replaceChildren(...strategyNames.map(name => {
       const row = rows.find(item => item.name === name);
-      const card = document.createElement('article');
+      const card = document.createElement('button');
+      card.type = 'button';
       card.className = 'strategy-card';
       card.setAttribute('aria-current', String(name === lastSingleStrategy));
       const heading = document.createElement('div'); heading.className = 'strategy-card-head';
-      const title = document.createElement('h3'); title.textContent = name; heading.append(title);
+      const title = document.createElement('h3'); title.textContent = name;
+      const state = document.createElement('span'); state.className = 'strategy-card-state'; state.textContent = 'Selected';
+      heading.append(title, state);
       const description = document.createElement('p'); description.textContent = strategyDescriptions[name] || '';
       const stats = document.createElement('div'); stats.className = 'strategy-card-metrics';
       [['CAGR', row ? percent(row.cagr) : '—'], ['MDD', row ? percent(row.max_drawdown) : '—'], ['Sharpe', row ? Number(row.sharpe).toFixed(2) : '—']].forEach(([label, value]) => {
@@ -392,14 +409,13 @@
         const metric = document.createElement('strong'); metric.textContent = value;
         item.append(caption, metric); stats.append(item);
       });
-      const inspect = document.createElement('button'); inspect.type = 'button'; inspect.className = 'secondary-button inspect-strategy';
-      inspect.textContent = name === lastSingleStrategy ? 'Inspecting' : 'Inspect strategy';
-      inspect.addEventListener('click', () => {
+      card.addEventListener('click', () => {
         lastSingleStrategy = name;
         try { localStorage.setItem('taa-selected-strategy', name); } catch (_) {}
         setPortfolioMode('single');
       });
-      card.append(heading, description, stats, inspect);
+      card.setAttribute('aria-label', `${name}${name === lastSingleStrategy ? ', selected' : ''}`);
+      card.append(heading, description, stats);
       return card;
     }));
   }
@@ -507,8 +523,7 @@
     document.getElementById('strategy-carousel').querySelectorAll('.strategy-card').forEach(card => {
       const active = card.querySelector('h3')?.textContent === lastSingleStrategy;
       card.setAttribute('aria-current', String(active));
-      const button = card.querySelector('.inspect-strategy');
-      if (button) button.textContent = active ? 'Inspecting' : 'Inspect strategy';
+      card.setAttribute('aria-label', `${card.querySelector('h3')?.textContent}${active ? ', selected' : ''}`);
     });
   }
   function setPortfolioMode(mode) {
@@ -527,6 +542,13 @@
     document.getElementById('notification-dialog').showModal();
   });
   document.getElementById('close-notification-dialog').addEventListener('click', () => document.getElementById('notification-dialog').close());
+  document.getElementById('notification-dialog').addEventListener('click', event => {
+    const dialog = event.currentTarget;
+    const bounds = dialog.getBoundingClientRect();
+    const clickIsOutside = event.clientX < bounds.left || event.clientX > bounds.right
+      || event.clientY < bounds.top || event.clientY > bounds.bottom;
+    if (clickIsOutside) dialog.close();
+  });
   document.getElementById('notification-form').addEventListener('submit', async event => {
     event.preventDefault();
     const button = document.getElementById('subscribe-notifications');
@@ -720,6 +742,14 @@
     renderPerformance(document.getElementById('timeframe').value);
   }
   window.addEventListener('resize', () => { equityChart.resize(); drawdownChart.resize(); });
+  document.getElementById('dashboard-loading').hidden = true;
+  requestAnimationFrame(() => { equityChart.resize(); drawdownChart.resize(); });
+  }
+  startDashboard().catch(error => {
+    console.error('Dashboard initialization failed:', error);
+    document.getElementById('dashboard').hidden = true;
+    document.getElementById('dashboard-loading').textContent = 'Could not load the dashboard data. Check your connection and reload.';
+  });
 </script>
 </body>
 </html>
