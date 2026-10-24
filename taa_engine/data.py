@@ -46,7 +46,9 @@ def download_daily_prices(
     """Download daily, dividend/split-adjusted closes for the requested ETFs."""
     raw = yf.download(
         list(tickers), start=start, end=end, auto_adjust=True,
-        actions=False, progress=False, threads=True,
+        # yfinance's parallel requests can contend on its SQLite cache in CI,
+        # leaving one ETF (often AGG) empty and the entire common panel unusable.
+        actions=False, progress=False, threads=False,
     )
     if raw.empty:
         raise ValueError("Yahoo Finance returned no price history.")
