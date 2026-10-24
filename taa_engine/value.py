@@ -19,7 +19,6 @@ VALUEIN_CACHE = Path(os.environ.get("VALUEIN_CACHE_DIR", ".cache/valuein"))
 FLOW_CONCEPTS = ("TotalRevenue", "NetIncome", "GrossProfit", "OperatingIncome", "OperatingCashFlow", "CAPEX")
 BS_CONCEPTS = ("TotalAssets", "TotalLiabilities", "StockholdersEquity", "ShortTermDebt", "LongTermDebt", "CommonSharesOutstanding")
 SELECT_K = 5
-START_DATE = pd.Timestamp("2010-06-01")
 RECYCLED_FUND_SYMBOLS = {"BBBY", "LIFE", "GOLD", "BATRA"}
 _SPLITS_PATH = VALUEIN_CACHE / "splits_calendar.json"
 _COVERED_PATH = VALUEIN_CACHE / "splits_covered_manifest.json"
@@ -297,13 +296,29 @@ def load_valuein_cache(cache_dir: Path = VALUEIN_CACHE) -> tuple[dict, dict, str
     fact_partitions = cache_dir / "fact_partitions"
     if fact_partitions.exists():
         fact["entity_id"] = _normalize_cik(fact["entity_id"])
-        for partition_path in sorted(fact_partitions.glob("*.parquet")):
+        partition_facts = []
+        partition_entity_ids = set()
+        # Reversing the sorted paths preserves the previous last-partition-wins
+        # behavior if an entity appears in more than one cache partition.
+        for partition_path in reversed(sorted(fact_partitions.glob("*.parquet"))):
             partition = pd.read_parquet(partition_path)
             if partition.empty or "entity_id" not in partition:
                 raise ValueError(f"Invalid Valuein fact partition: {partition_path.name}")
             partition["entity_id"] = _normalize_cik(partition["entity_id"])
+            entity_ids = set(partition["entity_id"].unique())
+            unseen_ids = entity_ids - partition_entity_ids
+            if unseen_ids != entity_ids:
+                partition = partition.loc[partition.entity_id.isin(unseen_ids)]
+            partition_entity_ids.update(entity_ids)
+            if not partition.empty:
+                partition_facts.append(partition)
+        if partition_facts:
+            # Bootstrap facts are replaced by refreshed per-CIK partitions. Do
+            # that exclusion once; filtering and concatenating the entire base
+            # table once per partition makes startup scale quadratically.
             fact = pd.concat([
-                fact.loc[~fact.entity_id.isin(partition.entity_id.unique())], partition,
+                fact.loc[~fact.entity_id.isin(partition_entity_ids)],
+                *reversed(partition_facts),
             ], ignore_index=True)
     fact["_src"] = 0
     fact_edgar_path = cache_dir / "fact_edgar.parquet"
@@ -569,7 +584,9 @@ def val_monthly_targets(
     state: dict[str, list[str]] = {"held": []}
 
     for signal_date in monthly.index:
-        if signal_date < START_DATE or len(monthly.loc[:signal_date]) < 13:
+        # Let the available price, universe, and point-in-time fundamentals
+        # determine VAL's first valid month instead of imposing a calendar floor.
+        if len(monthly.loc[:signal_date]) < 13:
             continue
         available = monthly.loc[:signal_date]
         safe_scores = {ticker: _momentum_13612(available, ticker) for ticker in NDX_SAFE}

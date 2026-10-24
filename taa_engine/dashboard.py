@@ -9,6 +9,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+
+DEFAULT_ENABLED_STRATEGIES = (
+    "CPM", "HAA-Simple", "HAA-Balanced", "NDX", "RPV", "VAL",
+)
+
+
 def build_dashboard(
     *,
     prices: pd.DataFrame,
@@ -24,7 +30,7 @@ def build_dashboard(
     as_of = prices.index[-1]
     built_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    chart_data = []
+    portfolio_values = {}
     colors = {
         "CPM": "#147d8b", "HAA-Simple": "#8b67b4", "HAA-Balanced": "#3399cc",
         "BAA-G12": "#c28725", "AAA": "#778397", "VAA-G12": "#cb5973", "NDX": "#d45b42", "RPV": "#34875b", "VAL": "#bd6e35", "SPY B&H": "#a6afbd",
@@ -34,7 +40,27 @@ def build_dashboard(
         value = portfolio.value() if hasattr(portfolio, "value") else portfolio
         if isinstance(value, pd.DataFrame):
             value = value.iloc[:, 0]
-        value = value.dropna()
+        portfolio_values[str(name)] = value.dropna()
+
+    # Anchor the shared view to strategies enabled by default in the selector.
+    # Optional strategies remain available, but should not shorten the default
+    # comparison window until a user enables them.
+    enabled_values = {
+        name: portfolio_values[name]
+        for name in DEFAULT_ENABLED_STRATEGIES
+        if name in portfolio_values and not portfolio_values[name].empty
+    }
+    if not enabled_values:
+        raise ValueError("No enabled strategy portfolios are available for the dashboard.")
+    common_start = max(value.index[0] for value in enabled_values.values())
+    common_end = min(value.index[-1] for value in enabled_values.values())
+    portfolio_values = {
+        name: value.loc[(value.index >= common_start) & (value.index <= common_end)]
+        for name, value in portfolio_values.items()
+    }
+
+    chart_data = []
+    for name, value in portfolio_values.items():
         chart_data.append({
             "name": str(name),
             "color": colors.get(str(name), "#7a8797"),
@@ -45,7 +71,7 @@ def build_dashboard(
     blend_controls = "".join(
         f'<label class="blend-leg"><input type="checkbox" class="blend-enabled" data-strategy="{escape(name)}">'
         f'<span>{escape(name)}</span><input type="number" class="blend-weight" data-strategy="{escape(name)}" '
-        f'min="0" max="100" step="1" value="0" disabled aria-label="{escape(name)} target percent">'
+        f'min="0" max="100" step="5" value="0" disabled aria-label="{escape(name)} target percent">'
         f'<span>%</span></label>'
         for name in blendable_names
     )
@@ -80,48 +106,34 @@ def build_dashboard(
         "VAL": "Ranks Valuein-covered Nasdaq-100 companies using point-in-time value and quality fundamentals.",
     }
 
+    def performance_row(name: str, value: pd.Series, cutoff: pd.Timestamp | None = None) -> dict:
+        period = value.loc[value.index >= cutoff] if cutoff is not None else value
+        daily_returns = period.pct_change().dropna()
+        elapsed_years = max((period.index[-1] - period.index[0]).days / 365.25, 1 / 365.25)
+        total_return = float(period.iloc[-1] / period.iloc[0] - 1)
+        daily_volatility = daily_returns.std(ddof=1) if len(daily_returns) > 1 else 0.0
+        return {
+            "name": name,
+            "total_return": total_return,
+            "cagr": float((period.iloc[-1] / period.iloc[0]) ** (1 / elapsed_years) - 1),
+            "volatility": float(daily_volatility * np.sqrt(252)),
+            "sharpe": float(daily_returns.mean() / daily_volatility * np.sqrt(252))
+            if daily_volatility > 0 else 0.0,
+            "max_drawdown": float((period / period.cummax() - 1).min()),
+        }
+
     performance_data = {
-        "all": [
-            {
-                "name": str(name),
-                "total_return": float(row["Total return"]),
-                "cagr": float(row["CAGR"]),
-                "volatility": float(row["Volatility"]),
-                "sharpe": float(row["Sharpe"]),
-                "max_drawdown": float(row["Max drawdown"]),
-            }
-            for name, row in metrics.iterrows()
-        ]
+        "all": [performance_row(name, value) for name, value in portfolio_values.items()]
     }
-    end_date = as_of
+    end_date = common_end
     for years in (10, 5, 3, 1):
         cutoff = end_date - pd.DateOffset(years=years)
         rows = []
-        for name, portfolio in portfolios.items():
-            value = portfolio.value() if hasattr(portfolio, "value") else portfolio
-            if isinstance(value, pd.DataFrame):
-                value = value.iloc[:, 0]
-            value = value.dropna()
+        for name, value in portfolio_values.items():
             period = value.loc[value.index >= cutoff]
             if len(period) < 2:
                 continue
-            daily_returns = period.pct_change().dropna()
-            elapsed_years = max((period.index[-1] - period.index[0]).days / 365.25, 1 / 365.25)
-            total_return = float(period.iloc[-1] / period.iloc[0] - 1)
-            volatility = float(daily_returns.std(ddof=1) * np.sqrt(252)) if len(daily_returns) > 1 else 0.0
-            sharpe = (
-                float(daily_returns.mean() / daily_returns.std(ddof=1) * np.sqrt(252))
-                if len(daily_returns) > 1 and daily_returns.std(ddof=1) > 0 else 0.0
-            )
-            drawdown = period / period.cummax() - 1
-            rows.append({
-                "name": str(name),
-                "total_return": total_return,
-                "cagr": float((period.iloc[-1] / period.iloc[0]) ** (1 / elapsed_years) - 1),
-                "volatility": volatility,
-                "sharpe": sharpe,
-                "max_drawdown": float(drawdown.min()),
-            })
+            rows.append(performance_row(name, value, cutoff))
         performance_data[str(years)] = rows
     dashboard_data = {
         "portfolios": chart_data,
@@ -130,6 +142,8 @@ def build_dashboard(
         "strategies": blendable_names,
         "descriptions": {name: strategy_descriptions[name] for name in blendable_names},
         "rebalance_dates": rebalance_date_values,
+        "comparison_start": common_start.strftime("%Y-%m-%d"),
+        "comparison_end": common_end.strftime("%Y-%m-%d"),
     }
     dashboard_data_json = json.dumps(dashboard_data, separators=(",", ":"))
     asset_name = f"dashboard-data-{sha256(dashboard_data_json.encode('utf-8')).hexdigest()[:16]}.json"
@@ -148,8 +162,7 @@ def build_dashboard(
         built_at=escape(built_at),
         data_asset_url=escape(asset_name),
         blend_controls=blend_controls,
-        period=escape(f'{metrics.attrs.get("start", "")} {metrics.attrs.get("end", "")}'.strip())
-        if metrics.attrs.get("start") else escape(f"{prices.index[0]:%d %b %Y} – {as_of:%d %b %Y}"),
+        period=escape(f"{common_start:%d %b %Y} – {common_end:%d %b %Y}"),
         fee_bps=f"{fee_bps:g}",
     )
 

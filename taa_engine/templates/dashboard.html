@@ -10,7 +10,7 @@
     :root { color-scheme: light; --ink:#17263c; --muted:#68778b; --line:#e5ebf1; --panel:#fff; --bg:#f4f7fb; --accent:#147d8b; }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
-    main { max-width:1120px; padding:28px 22px 44px; margin:0 auto; }
+    main { display:flex; flex-direction:column; max-width:1120px; padding:28px 22px 44px; margin:0 auto; }
     header { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin:4px 0 22px; }
     .eyebrow { color:var(--accent); font-weight:750; font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
     h1 { margin:4px 0 2px; font-size:clamp(26px,4vw,36px); line-height:1.15; letter-spacing:-.04em; }
@@ -18,8 +18,9 @@
     .updated { text-align:right; color:var(--muted); font-size:12px; white-space:nowrap; }
     .grid { display:grid; gap:16px; }
     .metrics { grid-template-columns:repeat(3,minmax(0,1fr)); margin-bottom:16px; }
-    .portfolio-panel { margin-bottom:18px; border-color:#d8e5eb; background:linear-gradient(135deg,#fff 0%,#f2f8fa 100%); }
     #portfolio-results[hidden] { display:none; }
+    #portfolio-selector { order:2; }
+    #portfolio-results { order:3; }
     .strategy-name { color:var(--accent); font-weight:750; }
     .two-col { grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr); }
     .card,.metric { background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:0 5px 20px rgba(25,48,78,.035); }
@@ -38,6 +39,11 @@
     th,td { padding:10px 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
     th:first-child,td:first-child { text-align:left; }
     thead th { color:var(--muted); font-weight:600; font-size:11px; }
+    .sort-button { display:flex; align-items:center; gap:5px; border:0; padding:0; background:none; color:inherit; font:inherit; white-space:nowrap; cursor:pointer; }
+    th:not(:first-child) .sort-button { justify-content:flex-end; margin-left:auto; }
+    .sort-button:hover,.sort-button:focus-visible { color:var(--ink); }
+    .sort-button:focus-visible { outline:2px solid rgba(20,125,139,.4); outline-offset:3px; border-radius:3px; }
+    .sort-indicator { min-width:8px; color:var(--accent); }
     tbody tr:last-child td,tbody tr:last-child th { border-bottom:0; }
     .action { display:inline-block; margin-right:5px; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:750; }
     .buy { color:#13744d; background:#e8f6ef; }
@@ -52,13 +58,15 @@
     #dashboard-loading { max-width:1120px; margin:12vh auto; padding:22px; color:var(--muted); text-align:center; }
     main[hidden],#dashboard-loading[hidden] { display:none; }
     .performance { margin-top:16px; }
-    .blend-feature { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:18px; border:1px solid #cbdfe4; background:linear-gradient(125deg,#fff 0%,#edf7f7 100%); }
-    .blend-feature h2 { margin:3px 0 4px; font-size:21px; letter-spacing:-.03em; }
-    .blend-feature-copy { color:var(--muted); margin:0; font-size:13px; }
-    .blend-feature-summary { color:var(--ink); margin-top:9px; font-size:12px; font-weight:650; }
-    .blend-feature-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+    .range-toolbar { position:sticky; top:8px; z-index:30; display:flex; align-self:flex-end; width:max-content; align-items:center; gap:8px; margin:0 0 8px; pointer-events:none; }
+    .range-toolbar label { display:flex; align-items:center; gap:8px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; pointer-events:auto; }
     .portfolio-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:20px 0 10px; }
     .portfolio-heading h2 { margin:0; font-size:18px; }
+    .blend-detail-actions { display:flex; gap:8px; }
+    .blend-detail-actions[hidden] { display:none; }
+    #portfolio-selector .portfolio-heading { margin-top:8px; }
+    #portfolio-selector .portfolio-heading h2 { font-size:16px; }
+    #portfolio-selector .card-intro { margin:3px 0 0; }
     .strategy-carousel { display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth; padding:2px 2px 12px; scrollbar-width:thin; }
     .strategy-card { flex:0 0 min(320px,calc(100vw - 66px)); scroll-snap-align:start; border:1px solid var(--line); border-radius:15px; background:#fff; padding:15px; box-shadow:0 4px 15px rgba(25,48,78,.03); color:var(--ink); text-align:left; font:inherit; cursor:pointer; transition:border-color .15s,background .15s,box-shadow .15s; }
     .strategy-card:hover { border-color:#9cbcc1; }
@@ -74,15 +82,21 @@
     .strategy-card-state { display:none; padding:4px 8px; border-radius:999px; background:#dceff0; color:#126a74; font-size:10px; font-weight:750; }
     .strategy-card[aria-current="true"] .strategy-card-state { display:inline-flex; }
     .carousel-actions { display:flex; gap:7px; }
+    .optional-strategies { position:relative; }
+    .optional-strategies summary { list-style:none; cursor:pointer; border:1px solid var(--line); border-radius:9px; padding:7px 10px; background:#fff; color:var(--ink); font-size:11px; font-weight:700; white-space:nowrap; }
+    .optional-strategies summary::-webkit-details-marker { display:none; }
+    .optional-strategy-menu { position:absolute; z-index:5; top:calc(100% + 6px); right:0; display:grid; gap:8px; min-width:150px; padding:11px; border:1px solid var(--line); border-radius:11px; background:#fff; box-shadow:0 8px 24px rgba(25,48,78,.14); }
+    .optional-strategy-menu label { display:flex; align-items:center; gap:8px; font-size:12px; white-space:nowrap; }
+    .optional-strategy-menu input { accent-color:var(--accent); }
     .icon-button { width:36px; height:36px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); font-size:17px; cursor:pointer; }
-    #blend-dialog { width:min(680px,calc(100% - 24px)); max-width:680px; max-height:min(88vh,900px); padding:0; border:0; border-radius:18px; color:var(--ink); box-shadow:0 24px 80px rgba(18,34,55,.3); }
+    #blend-dialog { width:min(680px,calc(100% - 24px)); max-width:680px; max-height:min(88vh,900px); overflow:hidden; padding:0; border:0; border-radius:18px; color:var(--ink); box-shadow:0 24px 80px rgba(18,34,55,.3); }
     #blend-dialog::backdrop { background:rgba(15,28,45,.48); backdrop-filter:blur(3px); }
-    #notification-dialog { width:min(470px,calc(100% - 24px)); max-width:470px; max-height:88vh; padding:0; border:0; border-radius:18px; color:var(--ink); box-shadow:0 24px 80px rgba(18,34,55,.3); }
+    #notification-dialog { width:min(470px,calc(100% - 24px)); max-width:470px; max-height:88vh; overflow:hidden; padding:0; border:0; border-radius:18px; color:var(--ink); box-shadow:0 24px 80px rgba(18,34,55,.3); }
     #notification-dialog::backdrop { background:rgba(15,28,45,.48); backdrop-filter:blur(3px); }
     .notification-form { display:grid; gap:10px; }
     .notification-form label { font-size:12px; font-weight:700; }
     .notification-form input { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
-    .dialog-content { padding:22px; overflow:auto; max-height:88vh; }
+    .dialog-content { padding:22px; overflow-y:auto; overflow-x:hidden; max-height:inherit; overscroll-behavior:contain; }
     .dialog-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
     .dialog-head h2 { margin:0; font-size:20px; }
     .blend-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:9px; }
@@ -92,6 +106,8 @@
     .blend-actions { display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-top:12px; }
     .primary-button,.secondary-button { border:0; border-radius:8px; padding:9px 13px; font:inherit; font-size:12px; font-weight:700; cursor:pointer; }
     .primary-button { background:var(--accent); color:#fff; }
+    .notify-button { min-width:86px; font-size:13px; box-shadow:0 3px 10px rgba(20,125,139,.24); }
+    .notify-button:hover { background:#0e6874; }
     .secondary-button { background:#eef3f6; color:var(--ink); }
     .blend-message { min-height:1.5em; margin:9px 0 0; font-size:12px; }
     .blend-holdings { margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
@@ -100,9 +116,11 @@
       main { padding:20px 13px 32px; }
       header { align-items:flex-start; flex-direction:column; margin-bottom:16px; }
       .updated { text-align:left; white-space:normal; }
-      .blend-feature { grid-template-columns:1fr; gap:13px; }
-      .blend-feature-actions { justify-content:stretch; }
-      .blend-feature-actions button { flex:1; }
+      .range-toolbar { justify-content:flex-end; top:4px; }
+      #portfolio-selector { order:2; }
+      #portfolio-results { order:3; }
+      .blend-detail-actions { gap:6px; }
+      .blend-detail-actions button { padding:8px 10px; }
       .portfolio-heading { align-items:flex-start; }
       .strategy-card { flex-basis:86vw; }
       .dialog-content { padding:17px 14px; }
@@ -133,17 +151,16 @@
       <div class="subtitle">Inspect strategy performance, current targets, and monthly target changes.</div></div>
     <div class="updated">Prices through {{ as_of }}<br>Dashboard built {{ built_at }}</div>
   </header>
-  <section class="card blend-feature" aria-label="Your strategy blend">
-    <div><div class="eyebrow">Your portfolio</div><h2 id="blend-feature-title">Build your strategy blend</h2>
-      <p id="blend-feature-copy" class="blend-feature-copy">Combine the TAA strategies into one portfolio, with your target weight for each sleeve.</p>
-      <div id="blend-feature-summary" class="blend-feature-summary"></div></div>
-    <div class="blend-feature-actions"><button id="view-blend" type="button" class="primary-button">View blend</button>
-      <button id="edit-blend" type="button" class="secondary-button">Build blend</button>
-      <button id="monthly-notifications" type="button" class="secondary-button" disabled>Notify me</button></div>
-  </section>
-  <section aria-label="Inspect individual strategies">
-    <div class="portfolio-heading"><div><h2>Explore strategies</h2><p class="card-intro">Select one to inspect its history and current allocation.</p></div>
-      <div class="carousel-actions"><button id="strategy-prev" class="icon-button" type="button" aria-label="Previous strategies">‹</button><button id="strategy-next" class="icon-button" type="button" aria-label="Next strategies">›</button></div></div>
+  <div class="range-toolbar">
+    <label class="muted" for="timeframe">Range <select class="range-select" id="timeframe"><option value="all">All</option><option value="10">10 years</option><option value="5">5 years</option><option value="3">3 years</option><option value="1">1 year</option></select></label>
+  </div>
+  <section id="portfolio-selector" aria-label="Choose a portfolio">
+    <div class="portfolio-heading"><div><h2>Choose a portfolio</h2><p class="card-intro">Select a card to view its performance and allocation.</p></div>
+      <div class="carousel-actions"><details class="optional-strategies"><summary>More strategies</summary><div class="optional-strategy-menu">
+        <label><input class="optional-strategy-toggle" type="checkbox" value="BAA-G12"> BAA-G12</label>
+        <label><input class="optional-strategy-toggle" type="checkbox" value="VAA-G12"> VAA-G12</label>
+        <label><input class="optional-strategy-toggle" type="checkbox" value="AAA"> AAA</label>
+      </div></details><button id="strategy-prev" class="icon-button" type="button" aria-label="Previous strategies">‹</button><button id="strategy-next" class="icon-button" type="button" aria-label="Next strategies">›</button></div></div>
     <div id="strategy-carousel" class="strategy-carousel" aria-live="polite"></div>
   </section>
   <dialog id="blend-dialog" aria-labelledby="blend-dialog-title"><div class="dialog-content">
@@ -151,10 +168,11 @@
       <p class="card-intro">Set target weights that total 100%. The blend rebalances strategy sleeves monthly using their daily returns.</p>
       <div class="blend-grid">{{ blend_controls|safe }}</div>
       <div class="blend-actions"><button id="equal-weight" type="button" class="secondary-button">Equal weight selected</button>
+        <button id="auto-optimize" type="button" class="secondary-button">Auto-optimize</button>
         <button id="apply-blend" type="button" class="primary-button">Save blend</button>
         <button id="clear-blend" type="button" class="secondary-button">Clear blend</button>
         <span id="blend-total" class="muted" aria-live="polite">Selected: 0%</span></div>
-      <p class="footnote">Strategy trading fees are included; transfers between strategy sleeves have no added cost.</p>
+      <p class="footnote">Auto-optimize scans 5% weight steps for the highest historical Sharpe using returns between rebalances across shared history. This is a historical fit, not a forecast. Strategy trading fees are included; transfers between strategy sleeves have no added cost.</p>
       <p id="blend-message" class="blend-message muted" aria-live="polite">Select strategies and set targets that total 100%.</p>
     </div></dialog>
   <dialog id="notification-dialog" aria-labelledby="notification-title"><div class="dialog-content">
@@ -166,8 +184,12 @@
       <p id="notification-message" class="blend-message muted" aria-live="polite"></p>
     </div></dialog>
   <div id="portfolio-results">
-  <div class="portfolio-heading"><div><div class="eyebrow">Performance</div><h2 id="selected-strategy">CPM</h2></div>
-    <label class="muted" for="timeframe">Range&nbsp; <select class="range-select" id="timeframe"><option value="all">All</option><option value="10">10 years</option><option value="5">5 years</option><option value="3">3 years</option><option value="1">1 year</option></select></label></div>
+  <div class="portfolio-heading"><div><div class="eyebrow">Portfolio</div><h2 id="selected-strategy">CPM</h2></div>
+    <div id="blend-detail-actions" class="blend-detail-actions" hidden>
+      <button id="edit-blend" type="button" class="secondary-button">Edit</button>
+      <button id="monthly-notifications" type="button" class="primary-button notify-button">Notify</button>
+    </div>
+  </div>
   <section id="headline-metrics" class="grid metrics"></section>
   <section class="grid two-col">
     <article class="card"><h2>Latest target allocation</h2>
@@ -191,16 +213,20 @@
   <section class="card performance">
     <div class="chart-head"><div><h2>Performance summary</h2><p class="card-intro">Same selected period and transaction-cost assumption for all portfolios</p></div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Portfolio</th><th>Total return</th><th>CAGR</th><th>Volatility</th><th>Sharpe</th><th>Max drawdown</th></tr></thead><tbody id="performance-rows"></tbody></table></div>
+    <div class="table-wrap"><table id="performance-table"><thead><tr>
+      <th><button class="sort-button" type="button" data-sort-key="name">Portfolio<span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+      <th><button class="sort-button" type="button" data-sort-key="total_return">Total return<span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+      <th><button class="sort-button" type="button" data-sort-key="cagr">CAGR<span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+      <th><button class="sort-button" type="button" data-sort-key="volatility">Volatility<span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+      <th><button class="sort-button" type="button" data-sort-key="sharpe">Sharpe<span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+      <th><button class="sort-button" type="button" data-sort-key="max_drawdown">Max drawdown<span class="sort-indicator" aria-hidden="true">↕</span></button></th>
+    </tr></thead><tbody id="performance-rows"></tbody></table></div>
   </section>
   <p class="footnote">{{ period }} · {{ fee_bps }} bps per side · Source prices are not included in this dashboard.</p>
   </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js"></script>
 <script type="module">
   async function startDashboard() {
-  const echarts = window.echarts;
-  if (!echarts) throw new Error('Chart library failed to load.');
   const response = await fetch("{{ data_asset_url }}", {cache: 'force-cache'});
   if (!response.ok) throw new Error(`Could not load dashboard data (${response.status}).`);
   const dashboardData = await response.json();
@@ -211,6 +237,8 @@
   const performanceByRange = dashboardData.performance;
   const strategyTargetState = dashboardData.targets;
   const strategyNames = dashboardData.strategies;
+  const optionalStrategyNames = new Set(['BAA-G12', 'VAA-G12', 'AAA']);
+  const enabledOptionalStrategies = new Set();
   const strategyDescriptions = dashboardData.descriptions;
   const rebalanceDates = new Set(dashboardData.rebalance_dates);
   const blendFeeBps = Number({{ fee_bps }});
@@ -218,6 +246,9 @@
   let lastDate = 0;
   let selectedStrategy = 'CPM';
   let activeBlendTargetState = null;
+  let equityChart = null;
+  let drawdownChart = null;
+  let chartsStarted = false;
   function updateBounds() {
     const starts = portfolioSeries.map(item => Date.parse(item.dates[0] + 'T00:00:00Z'));
     const ends = portfolioSeries.map(item => Date.parse(item.dates[item.dates.length - 1] + 'T00:00:00Z'));
@@ -225,14 +256,10 @@
     lastDate = Math.max(...ends);
   }
   updateBounds();
-  const equityChart = echarts.init(document.getElementById('equity-chart'), null, {useCoarsePointer: true, pointerSize: 44});
-  const drawdownChart = echarts.init(document.getElementById('drawdown-chart'), null, {useCoarsePointer: true, pointerSize: 44});
-  equityChart.group = 'cpm-performance';
-  drawdownChart.group = 'cpm-performance';
-  echarts.connect('cpm-performance');
 
   function rebaseSeries(start, end, drawdown) {
-    return portfolioSeries.map(item => {
+    return portfolioSeries.filter(item => !optionalStrategyNames.has(item.name) || enabledOptionalStrategies.has(item.name)).map(item => {
+      const highlighted = item.name === selectedStrategy || item.name === 'My blend';
       const dates = item.dates.map(date => Date.parse(date + 'T00:00:00Z'));
       let firstVisible = dates.findIndex(date => date >= start);
       if (firstVisible < 0) firstVisible = dates.length - 1;
@@ -261,8 +288,8 @@
           peak = Math.max(peak, value);
           return [date, rollingDrawdown[index]];
         }),
-        lineStyle: {color: item.color, width: item.name === selectedStrategy ? 3.2 : 1.7, opacity: item.name === selectedStrategy ? 1 : 0.82},
-        itemStyle: {color: item.color, opacity: item.name === selectedStrategy ? 1 : 0.82},
+        lineStyle: {color: item.color, width: highlighted ? 3.2 : 1.7, opacity: highlighted ? 1 : 0.82},
+        itemStyle: {color: item.color, opacity: highlighted ? 1 : 0.82},
         emphasis: {focus: 'series'}
       };
     });
@@ -299,6 +326,16 @@
     };
   }
 
+  async function initializeCharts() {
+  if (chartsStarted) return;
+  chartsStarted = true;
+  try {
+  const echarts = await loadECharts();
+  equityChart = echarts.init(document.getElementById('equity-chart'), null, {useCoarsePointer: true, pointerSize: 44});
+  drawdownChart = echarts.init(document.getElementById('drawdown-chart'), null, {useCoarsePointer: true, pointerSize: 44});
+  equityChart.group = 'cpm-performance';
+  drawdownChart.group = 'cpm-performance';
+  echarts.connect('cpm-performance');
   const baseOption = {
     animation: false,
     color: portfolioSeries.map(item => item.color),
@@ -331,8 +368,42 @@
   };
   equityChart.setOption(equityOption);
   drawdownChart.setOption(drawdownOption);
+  applyTimeframe(document.getElementById('timeframe').value);
+  requestAnimationFrame(() => { equityChart.resize(); drawdownChart.resize(); });
+  } catch (error) {
+    console.error('Chart initialization failed:', error);
+    document.getElementById('equity-chart').textContent = 'Charts could not be loaded. Check your connection and reload.';
+    document.getElementById('drawdown-chart').textContent = 'Charts could not be loaded. Check your connection and reload.';
+  }
+  }
+
+  function loadECharts() {
+    if (window.echarts) return Promise.resolve(window.echarts);
+    if (window.taaEchartsPromise) return window.taaEchartsPromise;
+    window.taaEchartsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/echarts@6.1.0/dist/echarts.min.js';
+      script.async = true;
+      script.onload = () => window.echarts ? resolve(window.echarts) : reject(new Error('Chart library did not initialize.'));
+      script.onerror = () => reject(new Error('Chart library failed to load.'));
+      document.head.append(script);
+    });
+    return window.taaEchartsPromise;
+  }
+
+  const chartObserver = 'IntersectionObserver' in window
+    ? new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        chartObserver.disconnect();
+        initializeCharts();
+      }
+    }, {rootMargin: '300px 0px'})
+    : null;
+  if (chartObserver) chartObserver.observe(document.getElementById('equity-chart'));
+  else initializeCharts();
 
   function updateRange(start, end) {
+    if (!equityChart || !drawdownChart) return;
     equityChart.setOption({yAxis: equityYAxis(start, end), series: rebaseSeries(start, end, false)}, {replaceMerge: ['series']});
     drawdownChart.setOption({series: rebaseSeries(start, end, true)}, {replaceMerge: ['series']});
   }
@@ -340,9 +411,21 @@
   let portfolioMode = 'single';
   let lastSingleStrategy = 'CPM';
   let savedBlendDefinition = [];
+  let performanceSort = {key: 'sharpe', direction: -1};
+  function updatePerformanceSortIndicators() {
+    document.querySelectorAll('#performance-table .sort-button').forEach(button => {
+      const header = button.closest('th');
+      const indicator = button.querySelector('.sort-indicator');
+      const active = performanceSort?.key === button.dataset.sortKey;
+      if (active) header.setAttribute('aria-sort', performanceSort.direction === 1 ? 'ascending' : 'descending');
+      else header.removeAttribute('aria-sort');
+      indicator.textContent = active ? (performanceSort.direction === 1 ? '▲' : '▼') : '↕';
+    });
+  }
   function renderPerformance(range) {
     const tbody = document.getElementById('performance-rows');
-    const rows = [...(performanceByRange[range] ?? performanceByRange.all)];
+    const rows = [...(performanceByRange[range] ?? performanceByRange.all)].filter(row =>
+      !optionalStrategyNames.has(row.name) || enabledOptionalStrategies.has(row.name));
     if (activeBlend) {
       const dates = activeBlend.dates.map(date => Date.parse(date + 'T00:00:00Z'));
       const cutoff = range === 'all' ? dates[0] : (() => {
@@ -373,6 +456,14 @@
         });
       }
     }
+    if (performanceSort) {
+      rows.sort((left, right) => {
+        const a = left[performanceSort.key];
+        const b = right[performanceSort.key];
+        const difference = performanceSort.key === 'name' ? String(a).localeCompare(String(b)) : Number(a) - Number(b);
+        return (difference || String(left.name).localeCompare(String(right.name))) * performanceSort.direction;
+      });
+    }
     tbody.replaceChildren(...rows.map(row => {
       const tr = document.createElement('tr');
       const values = [row.name, `${(row.total_return * 100).toFixed(1)}%`, `${(row.cagr * 100).toFixed(1)}%`, `${(row.volatility * 100).toFixed(1)}%`, row.sharpe.toFixed(2), `${(row.max_drawdown * 100).toFixed(1)}%`];
@@ -383,6 +474,7 @@
       });
       return tr;
     }));
+    updatePerformanceSortIndicators();
     renderStrategyCards(range);
     renderHeadline(selectedStrategy, range);
   }
@@ -391,17 +483,27 @@
   function renderStrategyCards(range) {
     const container = document.getElementById('strategy-carousel');
     const rows = performanceByRange[range] ?? performanceByRange.all;
-    container.replaceChildren(...strategyNames.map(name => {
-      const row = rows.find(item => item.name === name);
+    selectedStrategy = portfolioMode === 'blend' && activeBlend ? 'My blend' : lastSingleStrategy;
+    const blendRow = activeBlend ? blendMetrics(range) : null;
+    const portfolios = [
+      {name: 'My blend', row: blendRow, isBlend: true,
+        description: activeBlend
+          ? savedBlendDefinition.map(leg => `${leg.name} ${Math.round(leg.weight * 100)}%`).join(' · ')
+        : 'Build a monthly rebalanced mix of TAA strategies.'},
+      ...strategyNames.filter(name => !optionalStrategyNames.has(name) || enabledOptionalStrategies.has(name))
+        .map(name => ({name, row: rows.find(item => item.name === name), description: strategyDescriptions[name] || ''})),
+    ];
+    container.replaceChildren(...portfolios.map(({name, row, isBlend, description}) => {
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'strategy-card';
-      card.setAttribute('aria-current', String(name === lastSingleStrategy));
+      const active = name === selectedStrategy && (!isBlend || Boolean(activeBlend));
+      card.setAttribute('aria-current', String(active));
       const heading = document.createElement('div'); heading.className = 'strategy-card-head';
       const title = document.createElement('h3'); title.textContent = name;
       const state = document.createElement('span'); state.className = 'strategy-card-state'; state.textContent = 'Selected';
       heading.append(title, state);
-      const description = document.createElement('p'); description.textContent = strategyDescriptions[name] || '';
+      const copy = document.createElement('p'); copy.textContent = description;
       const stats = document.createElement('div'); stats.className = 'strategy-card-metrics';
       [['CAGR', row ? percent(row.cagr) : '—'], ['MDD', row ? percent(row.max_drawdown) : '—'], ['Sharpe', row ? Number(row.sharpe).toFixed(2) : '—']].forEach(([label, value]) => {
         const item = document.createElement('div'); item.className = 'strategy-card-metric';
@@ -410,12 +512,13 @@
         item.append(caption, metric); stats.append(item);
       });
       card.addEventListener('click', () => {
+        if (isBlend) { setPortfolioMode('blend'); return; }
         lastSingleStrategy = name;
         try { localStorage.setItem('taa-selected-strategy', name); } catch (_) {}
         setPortfolioMode('single');
       });
-      card.setAttribute('aria-label', `${name}${name === lastSingleStrategy ? ', selected' : ''}`);
-      card.append(heading, description, stats);
+      card.setAttribute('aria-label', `${name}${active ? ', selected' : ''}${isBlend && !activeBlend ? ', create blend' : ''}`);
+      card.append(heading, copy, stats);
       return card;
     }));
   }
@@ -496,7 +599,10 @@
     savedBlendDefinition = Array.isArray(parsedBlend) ? parsedBlend : [];
     rememberedMode = localStorage.getItem('taa-portfolio-mode') || (savedBlendDefinition.length ? 'blend' : 'single');
   } catch (_) { savedBlendDefinition = []; }
-  if (strategyNames.includes(rememberedStrategy)) lastSingleStrategy = rememberedStrategy;
+  if (strategyNames.includes(rememberedStrategy)
+      && (!optionalStrategyNames.has(rememberedStrategy) || enabledOptionalStrategies.has(rememberedStrategy))) {
+    lastSingleStrategy = rememberedStrategy;
+  }
   selectedStrategy = lastSingleStrategy;
   if (Array.isArray(savedBlendDefinition)) savedBlendDefinition.forEach(leg => {
     const checkbox = document.querySelector(`.blend-enabled[data-strategy="${leg.name}"]`);
@@ -507,34 +613,21 @@
   });
   function refreshPortfolioPanel() {
     const hasBlend = Boolean(activeBlend);
-    const canViewBlend = hasBlend;
-    document.getElementById('view-blend').disabled = !canViewBlend;
-    document.getElementById('monthly-notifications').disabled = !hasBlend;
-    document.getElementById('view-blend').textContent = portfolioMode === 'blend' && hasBlend ? 'Viewing blend' : 'View blend';
-    document.getElementById('blend-feature-title').textContent = hasBlend ? 'Your strategy blend' : 'Build your strategy blend';
-    document.getElementById('blend-feature-copy').textContent = hasBlend
-      ? 'Your target mix of TAA strategies, rebalanced monthly.'
-      : 'Combine TAA strategies into one portfolio with a target weight for each sleeve.';
-    document.getElementById('blend-feature-summary').textContent = hasBlend
-      ? savedBlendDefinition.map(leg => `${leg.name} ${Math.round(leg.weight * 100)}%`).join(' · ')
-      : 'No blend saved yet';
-    document.getElementById('edit-blend').textContent = hasBlend ? 'Edit blend' : 'Build blend';
     selectedStrategy = portfolioMode === 'blend' && hasBlend ? 'My blend' : lastSingleStrategy;
-    document.getElementById('strategy-carousel').querySelectorAll('.strategy-card').forEach(card => {
-      const active = card.querySelector('h3')?.textContent === lastSingleStrategy;
-      card.setAttribute('aria-current', String(active));
-      card.setAttribute('aria-label', `${card.querySelector('h3')?.textContent}${active ? ', selected' : ''}`);
-    });
+    document.getElementById('blend-detail-actions').hidden = selectedStrategy !== 'My blend';
+    document.getElementById('monthly-notifications').disabled = !hasBlend;
   }
   function setPortfolioMode(mode) {
-    if (mode === 'blend' && !activeBlend) { document.getElementById('blend-dialog').showModal(); return; }
+    if (mode === 'blend' && !activeBlend) {
+      document.getElementById('blend-dialog').showModal();
+      return;
+    }
     portfolioMode = mode;
     try { localStorage.setItem('taa-portfolio-mode', mode); } catch (_) {}
     refreshPortfolioPanel();
     applyTimeframe(document.getElementById('timeframe').value);
-    equityChart.resize(); drawdownChart.resize();
+    equityChart?.resize(); drawdownChart?.resize();
   }
-  document.getElementById('view-blend').addEventListener('click', () => setPortfolioMode('blend'));
   document.getElementById('edit-blend').addEventListener('click', () => document.getElementById('blend-dialog').showModal());
   document.getElementById('close-blend-dialog').addEventListener('click', () => document.getElementById('blend-dialog').close());
   document.getElementById('monthly-notifications').addEventListener('click', () => {
@@ -542,12 +635,11 @@
     document.getElementById('notification-dialog').showModal();
   });
   document.getElementById('close-notification-dialog').addEventListener('click', () => document.getElementById('notification-dialog').close());
-  document.getElementById('notification-dialog').addEventListener('click', event => {
-    const dialog = event.currentTarget;
-    const bounds = dialog.getBoundingClientRect();
-    const clickIsOutside = event.clientX < bounds.left || event.clientX > bounds.right
-      || event.clientY < bounds.top || event.clientY > bounds.bottom;
-    if (clickIsOutside) dialog.close();
+  ['blend-dialog', 'notification-dialog'].forEach(id => {
+    const dialog = document.getElementById(id);
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
   });
   document.getElementById('notification-form').addEventListener('submit', async event => {
     event.preventDefault();
@@ -571,6 +663,18 @@
   });
   document.getElementById('strategy-prev').addEventListener('click', () => document.getElementById('strategy-carousel').scrollBy({left: -310, behavior: 'smooth'}));
   document.getElementById('strategy-next').addEventListener('click', () => document.getElementById('strategy-carousel').scrollBy({left: 310, behavior: 'smooth'}));
+  document.querySelectorAll('.optional-strategy-toggle').forEach(toggle => toggle.addEventListener('change', () => {
+    if (toggle.checked) enabledOptionalStrategies.add(toggle.value);
+    else {
+      enabledOptionalStrategies.delete(toggle.value);
+      if (lastSingleStrategy === toggle.value) {
+        lastSingleStrategy = 'CPM';
+        try { localStorage.setItem('taa-selected-strategy', lastSingleStrategy); } catch (_) {}
+      }
+    }
+    refreshPortfolioPanel();
+    applyTimeframe(document.getElementById('timeframe').value);
+  }));
 
   function applyBlend(restoring = false) {
     const chosen = [...document.querySelectorAll('.blend-enabled:checked')].map(checkbox => {
@@ -680,15 +784,123 @@
       document.querySelectorAll('.blend-enabled').forEach(checkbox => { checkbox.checked = true; });
       selected = [...document.querySelectorAll('.blend-enabled:checked')];
     }
-    const baseWeight = Math.floor(100 / selected.length);
-    const remainder = 100 - baseWeight * selected.length;
+    const baseWeight = Math.floor(20 / selected.length);
+    const remainder = 20 - baseWeight * selected.length;
     selected.forEach((checkbox, index) => {
       const input = document.querySelector(`.blend-weight[data-strategy="${checkbox.dataset.strategy}"]`);
       input.disabled = false;
-      input.value = baseWeight + (index < remainder ? 1 : 0);
+      input.value = (baseWeight + (index < remainder ? 1 : 0)) * 5;
     });
     refreshBlendTotal();
   });
+  async function optimizeBlend() {
+    const button = document.getElementById('auto-optimize');
+    const message = document.getElementById('blend-message');
+    const selected = [...document.querySelectorAll('.blend-enabled:checked')];
+    if (!selected.length) {
+      message.textContent = 'Select the strategies to include, then auto-optimize their weights.';
+      message.style.color = '#a94a4a';
+      return;
+    }
+    button.disabled = true;
+    message.style.color = 'var(--muted)';
+    try {
+      const legs = selected.map(checkbox => ({
+        name: checkbox.dataset.strategy,
+        series: basePortfolioSeries.find(item => item.name === checkbox.dataset.strategy),
+      }));
+      if (legs.some(leg => !leg.series)) throw new Error('Could not load one of the selected strategy histories.');
+      const maps = legs.map(leg => new Map(leg.series.dates.map((date, index) => [date, leg.series.values[index]])));
+      const commonStart = Math.max(...legs.map(leg => Date.parse(leg.series.dates[0] + 'T00:00:00Z')));
+      const commonEnd = Math.min(...legs.map(leg => Date.parse(leg.series.dates.at(-1) + 'T00:00:00Z')));
+      const dates = legs[0].series.dates.filter(date => {
+        const timestamp = Date.parse(date + 'T00:00:00Z');
+        return timestamp >= commonStart && timestamp <= commonEnd && maps.every(map => map.has(date));
+      });
+      if (dates.length < 3) throw new Error('The selected strategies do not have enough shared history to optimize.');
+
+      const boundaries = [0];
+      for (let index = 1; index < dates.length; index += 1) {
+        if (rebalanceDates.has(dates[index])) boundaries.push(index);
+      }
+      if (boundaries.at(-1) !== dates.length - 1) boundaries.push(dates.length - 1);
+      const intervalCount = boundaries.length - 1;
+      if (intervalCount < 2) throw new Error('There are too few shared rebalance periods to optimize.');
+      const periodReturns = new Float64Array(intervalCount * legs.length);
+      for (let period = 0; period < intervalCount; period += 1) {
+        const from = dates[boundaries[period]];
+        const to = dates[boundaries[period + 1]];
+        legs.forEach((leg, index) => {
+          periodReturns[period * legs.length + index] = maps[index].get(to) / maps[index].get(from) - 1;
+        });
+      }
+
+      const units = 20;
+      const combinations = [];
+      function generateWeights(index, remaining, current) {
+        if (index === legs.length - 1) {
+          combinations.push([...current, remaining + 1]);
+          return;
+        }
+        for (let extra = 0; extra <= remaining; extra += 1) {
+          current.push(extra + 1);
+          generateWeights(index + 1, remaining - extra, current);
+          current.pop();
+        }
+      }
+      generateWeights(0, units - legs.length, []);
+      let bestWeights = null;
+      let bestSharpe = Number.NEGATIVE_INFINITY;
+      let cursor = 0;
+      const elapsedYears = Math.max((Date.parse(dates.at(-1) + 'T00:00:00Z') - Date.parse(dates[0] + 'T00:00:00Z')) / (365.25 * 86400000), 1 / 365.25);
+
+      await new Promise(resolve => {
+        const batch = () => {
+          const stop = Math.min(cursor + 256, combinations.length);
+          for (; cursor < stop; cursor += 1) {
+            const weights = combinations[cursor];
+            let sum = 0;
+            let sumSquares = 0;
+            for (let period = 0; period < intervalCount; period += 1) {
+              let portfolioReturn = 0;
+              for (let leg = 0; leg < legs.length; leg += 1) {
+                portfolioReturn += weights[leg] / units * periodReturns[period * legs.length + leg];
+              }
+              sum += portfolioReturn;
+              sumSquares += portfolioReturn * portfolioReturn;
+            }
+            const mean = sum / intervalCount;
+            const variance = Math.max(0, (sumSquares - sum * sum / intervalCount) / (intervalCount - 1));
+            const sharpe = variance > 0 ? mean / Math.sqrt(variance) * Math.sqrt(intervalCount / elapsedYears) : Number.NEGATIVE_INFINITY;
+            if (sharpe > bestSharpe) { bestSharpe = sharpe; bestWeights = weights; }
+          }
+          if (cursor < combinations.length) {
+            message.textContent = `Scanning weight mixes… ${Math.round(cursor / combinations.length * 100)}%`;
+            setTimeout(batch, 0);
+          } else resolve();
+        };
+        batch();
+      });
+
+      if (!bestWeights) throw new Error('No valid weight mix was found.');
+      legs.forEach((leg, index) => {
+        const checkbox = document.querySelector(`.blend-enabled[data-strategy="${leg.name}"]`);
+        const input = document.querySelector(`.blend-weight[data-strategy="${leg.name}"]`);
+        checkbox.checked = true;
+        input.disabled = false;
+        input.value = String(bestWeights[index] * 100 / units);
+      });
+      refreshBlendTotal();
+      message.textContent = `Suggested weights maximize historical Sharpe across ${dates[0]} to ${dates.at(-1)}. Review them, then save the blend.`;
+      message.style.color = 'var(--muted)';
+    } catch (error) {
+      message.textContent = error.message;
+      message.style.color = '#a94a4a';
+    } finally {
+      button.disabled = false;
+    }
+  }
+  document.getElementById('auto-optimize').addEventListener('click', optimizeBlend);
   document.getElementById('apply-blend').addEventListener('click', () => applyBlend(false));
   document.getElementById('clear-blend').addEventListener('click', () => {
     activeBlend = null;
@@ -719,19 +931,26 @@
     selectors.forEach(select => { select.value = range; });
     renderPerformance(range);
     if (range === 'all') {
-      equityChart.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', start: 0, end: 100});
-      drawdownChart.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', start: 0, end: 100});
+      equityChart?.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', start: 0, end: 100});
+      drawdownChart?.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', start: 0, end: 100});
       updateRange(firstDate, lastDate);
       return;
     }
     const start = new Date(lastDate);
     start.setUTCFullYear(start.getUTCFullYear() - Number(range));
     const startValue = start.getTime();
-    equityChart.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', startValue, endValue: lastDate});
-    drawdownChart.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', startValue, endValue: lastDate});
+    equityChart?.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', startValue, endValue: lastDate});
+    drawdownChart?.dispatchAction({type: 'dataZoom', dataZoomId: 'shared-slider', startValue, endValue: lastDate});
     updateRange(startValue, lastDate);
   }
   selectors.forEach(select => select.addEventListener('change', () => applyTimeframe(select.value)));
+  document.querySelectorAll('#performance-table .sort-button').forEach(button => button.addEventListener('click', () => {
+    const key = button.dataset.sortKey;
+    performanceSort = performanceSort?.key === key
+      ? {key, direction: -performanceSort.direction}
+      : {key, direction: key === 'name' ? 1 : -1};
+    renderPerformance(document.getElementById('timeframe').value);
+  }));
   portfolioMode = rememberedMode === 'blend' ? 'blend' : 'single';
   refreshPortfolioPanel();
   if (savedBlendDefinition.length) {
@@ -741,9 +960,8 @@
     updateRange(firstDate, lastDate);
     renderPerformance(document.getElementById('timeframe').value);
   }
-  window.addEventListener('resize', () => { equityChart.resize(); drawdownChart.resize(); });
+  window.addEventListener('resize', () => { equityChart?.resize(); drawdownChart?.resize(); });
   document.getElementById('dashboard-loading').hidden = true;
-  requestAnimationFrame(() => { equityChart.resize(); drawdownChart.resize(); });
   }
   startDashboard().catch(error => {
     console.error('Dashboard initialization failed:', error);
