@@ -29,7 +29,6 @@ def main() -> None:
     parser.add_argument("--cash", type=float, default=100_000.0, help="Initial portfolio value.")
     parser.add_argument("--output", type=Path, default=Path("results"), help="Directory for CSV outputs.")
     parser.add_argument("--refresh", action="store_true", help="Redownload and replace the full local price cache.")
-    parser.add_argument("--no-refresh-macro", action="store_true", help="Use cached/bundled RPV macro data without refreshing public sources.")
     parser.add_argument("--no-refresh-valuein", action="store_true", help="Use the private Valuein cache without checking for a newer snapshot.")
     parser.add_argument("--valuein-cache", type=Path, default=Path(os.environ.get("VALUEIN_CACHE_DIR", ".cache/valuein")), help="Directory containing local Valuein parquet snapshots.")
     args = parser.parse_args()
@@ -74,9 +73,7 @@ def _build_monthly_outputs(args: argparse.Namespace) -> None:
                     f"{age_days} calendar days before today in New York; "
                     f"maximum allowed is {max_price_age_days}."
                 )
-    rpv_signals, rpv_data_status = load_rpv_signals(
-        prices, refresh=not args.no_refresh_macro or args.refresh,
-    )
+    rpv_signals, rpv_data_status = load_rpv_signals(prices)
     if args.no_refresh_valuein and requires_fresh_data:
         raise RuntimeError("CPM_REQUIRE_FRESH_DATA=1 forbids --no-refresh-valuein.")
     if args.no_refresh_valuein:

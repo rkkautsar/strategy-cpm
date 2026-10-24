@@ -33,6 +33,9 @@ def _archive_bytes(*, include_results: bool = True) -> bytes:
                 if not root.exists():
                     continue
                 for path in sorted(root.rglob("*")):
+                    relative = path.relative_to(root)
+                    if root == Path(".cache") and relative.parts and relative.parts[0] == "rpv_macro":
+                        continue
                     if path.is_file() and not path.is_symlink():
                         archive.add(path, arcname=path.as_posix(), recursive=False)
         stream.seek(0)
@@ -59,6 +62,8 @@ def restore_latest_snapshot() -> str:
             path = PurePosixPath(member.name)
             if path.is_absolute() or not path.parts or path.parts[0] not in allowed or ".." in path.parts:
                 raise ValueError(f"Unsafe path in R2 snapshot: {member.name}")
+            if path.parts[0] == ".cache" and len(path.parts) > 1 and path.parts[1] == "rpv_macro":
+                continue
             if member.isfile():
                 members.append(member)
         archive.extractall(".", members=members)

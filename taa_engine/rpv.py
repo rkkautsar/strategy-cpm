@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from time import sleep
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
+import io
 
 import pandas as pd
 
@@ -22,8 +24,6 @@ ASSET_OF = {
     "realyld": "TIP",
 }
 RPV_ASSETS = tuple(ASSET_OF.values()) + ("BIL",)
-DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "rpv_macro"
-CACHE_DIR = Path(".cache/rpv_macro")
 FRED_SERIES = ("DGS10", "DGS3MO", "DBAA", "SP500", "BAA", "DAAA")
 
 
@@ -38,120 +38,89 @@ def _parse_date_value(frame: pd.DataFrame, name: str) -> pd.Series:
     return out[name]
 
 
+def _fetch_url(url: str, *, timeout: int) -> bytes:
+    """Fetch a source response, retrying transient network and server errors."""
+    for attempt in range(3):
+        try:
+            with urlopen(url, timeout=timeout) as response:
+                return response.read()
+        except HTTPError as exc:
+            if exc.code != 429 and exc.code < 500:
+                raise
+            if attempt == 2:
+                raise
+        except (URLError, TimeoutError, OSError):
+            if attempt == 2:
+                raise
+        sleep(2 ** attempt)
+    raise RuntimeError("Source request failed after retries.")
+
+
 def _fetch_csv(url: str) -> pd.DataFrame:
-    with urlopen(url, timeout=20) as response:
-        return pd.read_csv(response)
+    return pd.read_csv(io.BytesIO(_fetch_url(url, timeout=30)))
 
 
-def _fred_series(series_id: str, *, refresh: bool) -> tuple[pd.Series, str]:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cached_path = CACHE_DIR / f"fred_{series_id}.csv"
-    fallback_path = DATA_DIR / f"fred_{series_id}.csv"
-    source = "cache" if cached_path.exists() else "bundled snapshot"
-    if refresh:
-        try:
-            query = {"id": series_id}
-            if cached_path.exists():
-                existing = _parse_date_value(pd.read_csv(cached_path), series_id)
-                if not existing.empty:
-                    query["cosd"] = (existing.index.max() - pd.Timedelta(days=60)).date().isoformat()
-            remote = _fetch_csv(f"https://fred.stlouisfed.org/graph/fredgraph.csv?{urlencode(query)}")
-            if remote.shape[1] < 2:
-                raise ValueError(f"FRED returned an invalid {series_id} CSV.")
-            if cached_path.exists() and "cosd" in query:
-                old = pd.read_csv(cached_path)
-                merged = pd.concat([old, remote], ignore_index=True)
-                merged = merged.drop_duplicates(merged.columns[0], keep="last").sort_values(merged.columns[0])
-                remote = merged
-            remote.to_csv(cached_path, index=False)
-            source = "FRED tail refreshed (60-day overlap)" if "cosd" in query else "FRED history initialized"
-        except Exception as exc:
-            if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
-                raise RuntimeError(f"Required FRED refresh failed for {series_id}.") from exc
-            source += " (FRED refresh unavailable)"
-    path = cached_path if cached_path.exists() else fallback_path
-    if not path.exists():
-        raise FileNotFoundError(f"Missing macro series {series_id}: expected {path}.")
-    return _parse_date_value(pd.read_csv(path), series_id), source
+def _fred_series(series_id: str) -> tuple[pd.Series, str]:
+    """Fetch the full current series; never read or persist a local snapshot."""
+    query = urlencode({"id": series_id})
+    try:
+        remote = _fetch_csv(f"https://fred.stlouisfed.org/graph/fredgraph.csv?{query}")
+        if remote.shape[1] < 2:
+            raise ValueError("FRED returned a CSV without date and value columns.")
+        return _parse_date_value(remote, series_id), "FRED full history fetched fresh"
+    except Exception as exc:
+        raise RuntimeError(f"Fresh FRED fetch failed for {series_id}.") from exc
 
 
-def _cpi_first_release(*, refresh: bool) -> tuple[pd.Series, str]:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cached_path = CACHE_DIR / "fred_realtime_CPIAUCSL.csv"
-    fallback_path = DATA_DIR / "fred_realtime_CPIAUCSL.csv"
-    source = "cache" if cached_path.exists() else "bundled ALFRED snapshot"
+def _cpi_first_release() -> tuple[pd.Series, str]:
+    """Fetch ALFRED's first-release CPI observations without writing a cache."""
     api_key = os.environ.get("FRED_API_KEY", "").strip()
-    if refresh and api_key:
-        try:
-            params_dict = {
-                "series_id": "CPIAUCSL", "realtime_start": "1776-07-04",
-                "realtime_end": "9999-12-31", "api_key": api_key, "file_type": "json",
-            }
-            if cached_path.exists():
-                old = pd.read_csv(cached_path, parse_dates=["date"])
-                if not old.empty:
-                    params_dict["observation_start"] = (old["date"].max() - pd.Timedelta(days=550)).date().isoformat()
-            params = urlencode(params_dict)
-            with urlopen(f"https://api.stlouisfed.org/fred/series/observations?{params}", timeout=30) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-            observations = payload.get("observations")
-            if not isinstance(observations, list) or not observations:
-                raise ValueError("FRED returned no CPI vintage observations.")
-            data = pd.DataFrame(observations)
-            data["date"] = pd.to_datetime(data["date"])
-            data["realtime_start"] = pd.to_datetime(data["realtime_start"])
-            data["value"] = pd.to_numeric(data["value"], errors="coerce")
-            data = data.dropna(subset=["value"])
-            if cached_path.exists():
-                old = pd.read_csv(cached_path, parse_dates=["date"])
-                old["realtime_start"] = old["date"]
-                data = pd.concat([old, data], ignore_index=True)
-            data = data.sort_values("realtime_start").groupby("date", as_index=False).first()
-            data[["date", "value"]].to_csv(cached_path, index=False)
-            source = "ALFRED first-release tail refreshed (18-month overlap)" if "observation_start" in params_dict else "ALFRED first-release history initialized"
-        except Exception as exc:
-            if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
-                raise RuntimeError("Required ALFRED first-release CPI refresh failed.") from exc
-            source += " (ALFRED refresh unavailable)"
-    elif refresh:
-        if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
-            raise RuntimeError("Required ALFRED refresh needs FRED_API_KEY.")
-        source += " (no FRED_API_KEY; using cached first releases)"
-    path = cached_path if cached_path.exists() else fallback_path
-    if not path.exists():
-        raise FileNotFoundError("Missing CPI first-release data; provide FRED_API_KEY or a bundled ALFRED snapshot.")
-    return _parse_date_value(pd.read_csv(path), "CPIAUCSL"), source
+    if not api_key:
+        raise RuntimeError("Fresh ALFRED CPI fetch requires FRED_API_KEY.")
+    params = {
+        "series_id": "CPIAUCSL", "api_key": api_key, "file_type": "json",
+        # ALFRED otherwise defaults the real-time period to today. On dates
+        # without a vintage (for example weekends), that returns HTTP 400.
+        # Initial-release output needs the full vintage span to return history.
+        "output_type": 4, "limit": 100000,
+        "realtime_start": "1776-07-04", "realtime_end": "9999-12-31",
+    }
+    observations: list[dict] = []
+    offset = 0
+    expected_count: int | None = None
+    try:
+        while expected_count is None or offset < expected_count:
+            params["offset"] = offset
+            url = f"https://api.stlouisfed.org/fred/series/observations?{urlencode(params)}"
+            payload = json.loads(_fetch_url(url, timeout=30).decode("utf-8"))
+            batch = payload.get("observations")
+            if not isinstance(batch, list) or not batch:
+                raise ValueError("FRED returned an incomplete CPI first-release history.")
+            expected_count = int(payload.get("count", len(batch)))
+            observations.extend(batch)
+            offset += len(batch)
+        if len(observations) != expected_count:
+            raise ValueError(f"FRED returned {len(observations)} of {expected_count} CPI observations.")
+        data = pd.DataFrame(observations)
+        return _parse_date_value(data[["date", "value"]], "CPIAUCSL"), "ALFRED full first-release history fetched fresh"
+    except Exception as exc:
+        raise RuntimeError("Fresh ALFRED first-release CPI fetch failed.") from exc
 
 
-def _shiller_earnings(*, refresh: bool) -> tuple[pd.Series, pd.Series, str]:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cached_path = CACHE_DIR / "sp500_earnings.csv"
-    fallback_path = DATA_DIR / "sp500_earnings.csv"
-    source = "cache" if cached_path.exists() else "bundled Shiller snapshot"
-    if refresh:
-        try:
-            remote = _fetch_csv("https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv")
-            if cached_path.exists():
-                old = pd.read_csv(cached_path)
-                date_column = "Date"
-                remote = pd.concat([old, remote], ignore_index=True)
-                remote = remote.drop_duplicates(date_column, keep="last").sort_values(date_column)
-            remote.to_csv(cached_path, index=False)
-            source = "Shiller dataset merged with latest source rows"
-        except Exception as exc:
-            if os.getenv("CPM_REQUIRE_FRESH_DATA") == "1":
-                raise RuntimeError("Required Shiller earnings refresh failed.") from exc
-            source += " (refresh unavailable)"
-    path = cached_path if cached_path.exists() else fallback_path
-    if not path.exists():
-        raise FileNotFoundError("Missing S&P 500 earnings history.")
-    data = pd.read_csv(path)
+def _shiller_earnings() -> tuple[pd.Series, pd.Series, str]:
+    """Fetch the complete Shiller-derived history without keeping a local copy."""
+    try:
+        data = _fetch_csv("https://raw.githubusercontent.com/datasets/s-and-p-500/main/data/data.csv")
+    except Exception as exc:
+        raise RuntimeError("Fresh Shiller earnings source fetch failed.") from exc
+    if not {"Date", "Earnings", "SP500"}.issubset(data.columns):
+        raise ValueError("Shiller source CSV is missing Date, Earnings, or SP500 columns.")
     data["Date"] = pd.to_datetime(data["Date"], errors="coerce")
     data = data.dropna(subset=["Date"]).set_index("Date").sort_index()
     earnings = pd.to_numeric(data["Earnings"], errors="coerce")
     earnings = earnings.where(earnings > 0).ffill().dropna()
     price = pd.to_numeric(data["SP500"], errors="coerce").dropna()
-    return earnings, price, source
+    return earnings, price, "Shiller history fetched fresh"
 
 
 def _rolling_zscores(premia: pd.DataFrame) -> pd.DataFrame:
@@ -161,11 +130,11 @@ def _rolling_zscores(premia: pd.DataFrame) -> pd.DataFrame:
     ))
 
 
-def load_rpv_signals(prices: pd.DataFrame, *, refresh: bool = True) -> tuple[pd.DataFrame, str]:
+def load_rpv_signals(prices: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     """Build the old RPV 5-premia z-score panel using lagged first-release CPI."""
-    loaded = {series_id: _fred_series(series_id, refresh=refresh) for series_id in FRED_SERIES}
-    cpi, cpi_status = _cpi_first_release(refresh=refresh)
-    earnings, shiller_price, earnings_status = _shiller_earnings(refresh=refresh)
+    loaded = {series_id: _fred_series(series_id) for series_id in FRED_SERIES}
+    cpi, cpi_status = _cpi_first_release()
+    earnings, shiller_price, earnings_status = _shiller_earnings()
     monthly = lambda series: series.resample("ME").last()
 
     dgs10, dgs10_status = loaded["DGS10"]
