@@ -11,7 +11,7 @@ def schedule(session: date) -> tuple[bool, date | None]:
     last_day = calendar.monthrange(session.year, session.month)[1]
     start = session.replace(day=1)
     end = session.replace(day=last_day)
-    market = xc.get_calendar("XNYS", start=start.isoformat(), end=(end + timedelta(days=14)).isoformat())
+    market = xc.get_calendar("XNYS", start=(start - timedelta(days=14)).isoformat(), end=(end + timedelta(days=14)).isoformat())
     sessions = market.sessions_in_range(start.isoformat(), end.isoformat())
     if sessions.empty or sessions[-1].date() != session:
         return False, None
