@@ -25,6 +25,7 @@ def build_dashboard(
     fee_bps: float,
     rebalance_dates: list[pd.Timestamp],
     strategy_notes: dict[str, str] | None = None,
+    notification_targets: dict[str, pd.DataFrame] | None = None,
 ) -> Path:
     """Write a mobile-friendly static dashboard without publishing price bars."""
     as_of = prices.index[-1]
@@ -76,24 +77,30 @@ def build_dashboard(
         for name in blendable_names
     )
     rebalance_date_values = [pd.Timestamp(date).strftime("%Y-%m-%d") for date in rebalance_dates]
-    blend_target_state = {}
-    for name in blendable_names:
-        events = strategy_targets[name].dropna(how="all")
-        if events.empty:
-            continue
-        current_targets = events.iloc[-1].fillna(0.0)
-        previous_targets = events.iloc[-2].fillna(0.0) if len(events) > 1 else pd.Series(0.0, index=events.columns)
-        blend_target_state[name] = {
-            "current_date": events.index[-1].strftime("%Y-%m-%d"),
-            "previous_date": events.index[-2].strftime("%Y-%m-%d") if len(events) > 1 else None,
-            "current": {str(ticker): float(weight) for ticker, weight in current_targets.items() if abs(float(weight)) > 1e-8},
-            "previous": {str(ticker): float(weight) for ticker, weight in previous_targets.items() if abs(float(weight)) > 1e-8},
-        }
+    def target_state(targets: dict[str, pd.DataFrame]) -> dict:
+        state = {}
+        for name in blendable_names:
+            events = targets[name].dropna(how="all")
+            if events.empty:
+                continue
+            current_targets = events.iloc[-1].fillna(0.0)
+            previous_targets = events.iloc[-2].fillna(0.0) if len(events) > 1 else pd.Series(0.0, index=events.columns)
+            state[name] = {
+                "current_date": events.index[-1].strftime("%Y-%m-%d"),
+                "previous_date": events.index[-2].strftime("%Y-%m-%d") if len(events) > 1 else None,
+                "current": {str(ticker): float(weight) for ticker, weight in current_targets.items() if abs(float(weight)) > 1e-8},
+                "previous": {str(ticker): float(weight) for ticker, weight in previous_targets.items() if abs(float(weight)) > 1e-8},
+            }
+        return state
+
+    blend_target_state = target_state(notification_targets if notification_targets is not None else strategy_targets)
     notification_data = {
         "as_of": as_of.strftime("%Y-%m-%d"),
         "targets": blend_target_state,
         "notes": strategy_notes or {},
     }
+    if notification_targets is not None:
+        notification_data["allocation_month"] = next(iter(notification_targets.values())).index[-1].strftime("%Y-%m")
     strategy_descriptions = {
         "CPM": "Ranks risky assets by trend-adjusted momentum and scales risk with market breadth.",
         "HAA-Simple": "Uses the SPY trend signal with a TIP canary and BIL as the defensive asset.",

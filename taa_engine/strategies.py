@@ -49,7 +49,12 @@ def _best_safe(monthly: pd.DataFrame, pool: tuple[str, ...]) -> str:
     return max(valid, key=valid.get) if valid else pool[0]
 
 
-def _events_from_signals(prices: pd.DataFrame, signal_weights: list[tuple[pd.Timestamp, dict[str, float]]]) -> pd.DataFrame:
+def _events_from_signals(
+    prices: pd.DataFrame,
+    signal_weights: list[tuple[pd.Timestamp, dict[str, float]]],
+    *,
+    pending_execution_date: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     events = pd.DataFrame(np.nan, index=prices.index, columns=prices.columns)
     for signal_date, weights in signal_weights:
         signal_position = prices.index.get_indexer([signal_date])[0]
@@ -58,10 +63,40 @@ def _events_from_signals(prices: pd.DataFrame, signal_weights: list[tuple[pd.Tim
             events.iloc[execution_position] = 0.0
             for ticker, weight in weights.items():
                 events.iat[execution_position, events.columns.get_loc(ticker)] = weight
-    return events.dropna(how="all")
+    events = events.dropna(how="all")
+    if pending_execution_date is None or not signal_weights:
+        return events
+
+    signal_date, weights = signal_weights[-1]
+    pending_date = pd.Timestamp(pending_execution_date)
+    if pending_date.tz is not None:
+        raise ValueError("pending_execution_date must be timezone-naive.")
+    if pending_date <= signal_date:
+        raise ValueError("pending_execution_date must be after the latest signal date.")
+    if pending_date <= prices.index[-1]:
+        raise ValueError("pending_execution_date must be after the latest observed price date.")
+
+    latest_month_end = prices.groupby(prices.index.to_period("M")).tail(1).index[-1]
+    if signal_date != latest_month_end:
+        return events
+
+    signal_position = prices.index.get_indexer([signal_date])[0]
+    execution_position = signal_position + 1
+    if execution_position < len(prices.index):
+        events = events.drop(index=prices.index[execution_position], errors="ignore")
+    pending_row = pd.Series(0.0, index=prices.columns)
+    for ticker, weight in weights.items():
+        pending_row[ticker] = weight
+    events.loc[pending_date] = pending_row
+    return events.sort_index()
 
 
-def ndx_monthly_targets(etf_prices: pd.DataFrame, constituent_prices: pd.DataFrame) -> pd.DataFrame:
+def ndx_monthly_targets(
+    etf_prices: pd.DataFrame,
+    constituent_prices: pd.DataFrame,
+    *,
+    pending_execution_date: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     """NDX stock-momentum sleeve with PIT membership and TIP/SPY/volatility gate.
 
     On gate-off months, hold the better 13612U asset from BIL/IEF. When on,
@@ -112,7 +147,7 @@ def ndx_monthly_targets(etf_prices: pd.DataFrame, constituent_prices: pd.DataFra
     stock_prices = constituent_prices.reindex(etf_prices.index).ffill()
     combined = pd.concat([etf_prices, stock_prices], axis=1)
     combined = combined.loc[:, ~combined.columns.duplicated(keep="first")]
-    return _events_from_signals(combined, signals)
+    return _events_from_signals(combined, signals, pending_execution_date=pending_execution_date)
 
 
 def ndx_backtest_inputs(
@@ -161,7 +196,12 @@ def ndx_backtest_inputs(
     return events.dropna(how="all"), prices
 
 
-def haa_monthly_targets(prices: pd.DataFrame, *, top_k: int) -> pd.DataFrame:
+def haa_monthly_targets(
+    prices: pd.DataFrame,
+    *,
+    top_k: int,
+    pending_execution_date: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     """HAA G8 with TIP canary and 13612U momentum; K=1 or K=4."""
     required = (*HAA_OFFENSIVE, *HAA_SAFE, "TIP")
     missing = sorted(set(required) - set(prices.columns))
@@ -198,10 +238,10 @@ def haa_monthly_targets(prices: pd.DataFrame, *, top_k: int) -> pd.DataFrame:
         if len(ranked) < top_k:
             weights[safe] = weights.get(safe, 0.0) + slot * (top_k - len(ranked))
         history.append((signal_date, weights))
-    return _events_from_signals(prices, history)
+    return _events_from_signals(prices, history, pending_execution_date=pending_execution_date)
 
 
-def haa_simple_targets(prices: pd.DataFrame) -> pd.DataFrame:
+def haa_simple_targets(prices: pd.DataFrame, *, pending_execution_date: pd.Timestamp | None = None) -> pd.DataFrame:
     """HAA-Simple: TIP canary, then SPY trend; otherwise best of BIL/IEF."""
     required = ("SPY", "TIP", *HAA_SAFE)
     missing = sorted(set(required) - set(prices.columns))
@@ -221,14 +261,14 @@ def haa_simple_targets(prices: pd.DataFrame) -> pd.DataFrame:
         else:
             weights = {_best_safe(available_history, HAA_SAFE): 1.0}
         history.append((signal_date, weights))
-    return _events_from_signals(prices, history)
+    return _events_from_signals(prices, history, pending_execution_date=pending_execution_date)
 
 
-def haa_balanced_targets(prices: pd.DataFrame) -> pd.DataFrame:
-    return haa_monthly_targets(prices, top_k=4)
+def haa_balanced_targets(prices: pd.DataFrame, *, pending_execution_date: pd.Timestamp | None = None) -> pd.DataFrame:
+    return haa_monthly_targets(prices, top_k=4, pending_execution_date=pending_execution_date)
 
 
-def aaa_monthly_targets(prices: pd.DataFrame) -> pd.DataFrame:
+def aaa_monthly_targets(prices: pd.DataFrame, *, pending_execution_date: pd.Timestamp | None = None) -> pd.DataFrame:
     """Canonical AAA: top five by six-month return, min-var weighted covariance."""
     required = AAA_UNIVERSE
     missing = sorted(set(required) - set(prices.columns))
@@ -262,10 +302,10 @@ def aaa_monthly_targets(prices: pd.DataFrame) -> pd.DataFrame:
         weights = np.clip(weights, 0.0, 1.0)
         weights /= weights.sum()
         history.append((signal_date, {ticker: float(weights[i]) for i, ticker in enumerate(selected)}))
-    return _events_from_signals(prices, history)
+    return _events_from_signals(prices, history, pending_execution_date=pending_execution_date)
 
 
-def baa_g12_targets(prices: pd.DataFrame) -> pd.DataFrame:
+def baa_g12_targets(prices: pd.DataFrame, *, pending_execution_date: pd.Timestamp | None = None) -> pd.DataFrame:
     """BAA-G12/T6: four 13612W canaries; SMA12-ranked offensive/defensive sleeves."""
     required = (*BAA_CANARIES, *BAA_OFFENSIVE, *BAA_DEFENSIVE)
     missing = sorted(set(required) - set(prices.columns))
@@ -300,10 +340,10 @@ def baa_g12_targets(prices: pd.DataFrame) -> pd.DataFrame:
                 if len(selected) < 3:
                     weights["BIL"] = weights.get("BIL", 0.0) + (3 - len(selected)) / 3.0
         history.append((signal_date, weights))
-    return _events_from_signals(prices, history)
+    return _events_from_signals(prices, history, pending_execution_date=pending_execution_date)
 
 
-def vaa_g12_targets(prices: pd.DataFrame) -> pd.DataFrame:
+def vaa_g12_targets(prices: pd.DataFrame, *, pending_execution_date: pd.Timestamp | None = None) -> pd.DataFrame:
     """VAA-G12: 13612W breadth defense, top-two offensive and top bond sleeves."""
     required = (*VAA_G12_OFFENSIVE, *VAA_G12_DEFENSIVE)
     missing = sorted(set(required) - set(prices.columns))
@@ -340,4 +380,4 @@ def vaa_g12_targets(prices: pd.DataFrame) -> pd.DataFrame:
         else:
             weights = {ranked[0]: 0.5, ranked[1]: 0.5}
         history.append((signal_date, weights))
-    return _events_from_signals(prices, history)
+    return _events_from_signals(prices, history, pending_execution_date=pending_execution_date)

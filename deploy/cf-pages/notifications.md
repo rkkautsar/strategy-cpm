@@ -21,10 +21,12 @@ Configure these GitHub repository secrets and variables:
 
 The workflow copies the Resend credentials into Pages during deployment. Configure `UNSUBSCRIBE_SIGNING_SECRET` as a Pages production secret. The Pages `DASHBOARD_URL` variable comes from `wrangler.toml`; the workflow reads the GitHub `DASHBOARD_URL` variable when dispatching email.
 
-After setup, the workflow posts the generated target-only payload to Pages after the dashboard deploy succeeds. Delivery is idempotent per subscription and signal month, so rerunning a failed workflow retries only subscribers who were not recorded as delivered.
+After setup, the workflow posts the generated target-only payload to Pages after the dashboard deploy succeeds. Delivery is idempotent per subscription and allocation month, so rerunning a failed workflow retries only subscribers who were not recorded as delivered.
 
 The earlier single-recipient sender used Resend's `onboarding@resend.dev` default. Resend restricts that sender to the account owner's verified address, so a verified sender domain is required for subscriptions from other people.
 
 ## Schedule
 
-GitHub Actions schedules the monthly workflow for 02:17 UTC on the 4th, which is 9:17 PM EST or 10:17 PM EDT on the 3rd in New York. This is after the prior month has closed and leaves time for Yahoo Finance to settle before the next market session. Scheduled runs fail if the notification dispatch token is missing. If GitHub delays or misses a scheduled run, use the Actions tab to start the workflow manually and select “Send this month's allocation to every eligible subscriber”; D1 delivery records prevent duplicate sends.
+The Cloudflare scheduler starts a calendar check at 10 p.m. New York time. On the last NYSE trading day of the month, the workflow checks that prices include that day's close, builds the next-session targets, and sends the allocation email. A missing close stops the send. The exchange calendar must be kept current for exceptional market closures.
+
+For same-day recovery, start the workflow manually with the final trading date in `scheduled_session_date` and select “Send this month's allocation to every eligible subscriber”. D1 delivery records prevent duplicate sends for that allocation month. Worker dispatch errors are recorded in Cloudflare Workers Observability; build and delivery errors appear in GitHub Actions logs.

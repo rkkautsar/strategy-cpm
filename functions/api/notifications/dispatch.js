@@ -36,7 +36,7 @@ function renderMessage(blend, current, previous, currentDate, previousDate, dash
   const actionText = item => `${action(item)} ${item.ticker} · ${percent(item.before)} → ${percent(item.after)} · ${points(item.delta)}`;
   const text = [
     `TAA MONTHLY BRIEF  |  ${monthLabel.toUpperCase()}`,
-    `Your allocation is ready. Signal date: ${currentDate}.`,
+    `Your allocation is ready. Target date: ${currentDate}.`,
     `YOUR BLEND  ${blendLabel}`,
     ...(blendNotes.length ? ["", "STRATEGY DATA NOTES", ...blendNotes.map(note => `  ${note}`)] : []),
     "",
@@ -83,7 +83,10 @@ export async function onRequestPost({ request, env }) {
   if (data.target_email != null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
     return json({ error: "target_email must be a valid email address." }, 400);
   }
-  const month = data.as_of.slice(0, 7);
+  if (data.allocation_month != null && !/^\d{4}-(0[1-9]|1[0-2])$/.test(data.allocation_month)) {
+    return json({ error: "Invalid allocation month." }, 400);
+  }
+  const month = data.allocation_month || data.as_of.slice(0, 7);
   const dashboardUrl = env.DASHBOARD_URL || new URL(request.url).origin;
   const users = targetEmail
     ? await env.DB.prepare("SELECT id, email, blend_json FROM subscriptions WHERE status='active' AND lower(email)=?").bind(targetEmail).all()

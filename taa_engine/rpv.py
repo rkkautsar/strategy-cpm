@@ -184,7 +184,12 @@ def load_rpv_signals(prices: pd.DataFrame) -> tuple[pd.DataFrame, str]:
     return zscores, "; ".join(dict.fromkeys(statuses))
 
 
-def rpv_monthly_targets(prices: pd.DataFrame, zscores: pd.DataFrame) -> pd.DataFrame:
+def rpv_monthly_targets(
+    prices: pd.DataFrame,
+    zscores: pd.DataFrame,
+    *,
+    pending_execution_date: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     """Old sequential positive-premium/SMA200 gate and z-strength weighting."""
     missing = sorted(set(RPV_ASSETS) - set(prices.columns))
     if missing:
@@ -224,4 +229,4 @@ def rpv_monthly_targets(prices: pd.DataFrame, zscores: pd.DataFrame) -> pd.DataF
                 if invested < 1.0:
                     weights["BIL"] = weights.get("BIL", 0.0) + 1.0 - invested
         history.append((date, weights))
-    return _events_from_signals(prices, history)
+    return _events_from_signals(prices, history, pending_execution_date=pending_execution_date)

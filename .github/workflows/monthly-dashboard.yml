@@ -12,6 +12,10 @@ on:
         required: false
         default: false
         type: boolean
+      scheduled_session_date:
+        description: "New York date supplied by the monthly scheduler"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -21,7 +25,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  schedule-check:
+    runs-on: ubuntu-latest
+    outputs:
+      due: ${{ steps.calendar.outputs.due }}
+      execution_date: ${{ steps.calendar.outputs.execution_date }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - id: calendar
+        env:
+          SESSION_DATE: ${{ inputs.scheduled_session_date }}
+        run: |
+          if [ -z "$SESSION_DATE" ]; then
+            echo 'due=true' >> "$GITHUB_OUTPUT"
+          else
+            uv run python scripts/monthly_schedule.py "$SESSION_DATE" | tee -a "$GITHUB_OUTPUT"
+          fi
+
   build-and-deploy:
+    needs: schedule-check
+    if: needs.schedule-check.outputs.due == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -38,6 +63,8 @@ jobs:
       DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
       VALUEIN_MAX_PARTITION_DOWNLOADS: "100"
       CPM_MAX_PRICE_AGE_DAYS: "7"
+      CPM_SIGNAL_DATE: ${{ inputs.scheduled_session_date }}
+      CPM_PENDING_EXECUTION_DATE: ${{ needs.schedule-check.outputs.execution_date }}
 
     steps:
       - name: Checkout

@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .data import RISKY_ASSETS, SAFE_ASSETS
+from .strategies import _events_from_signals
 
 
 TOP_N = 4
@@ -45,7 +46,11 @@ def _min_variance_trio(
     return best_names
 
 
-def cpm_monthly_targets(prices: pd.DataFrame) -> pd.DataFrame:
+def cpm_monthly_targets(
+    prices: pd.DataFrame,
+    *,
+    pending_execution_date: pd.Timestamp | None = None,
+) -> pd.DataFrame:
     """Return target-weight rows on the next trading day after each month end.
 
     CPM ranks the top four ETFs by 10-month Faber trend distance divided by
@@ -62,10 +67,10 @@ def cpm_monthly_targets(prices: pd.DataFrame) -> pd.DataFrame:
     prices = prices.sort_index()
     monthly = prices.groupby(prices.index.to_period("M")).tail(1)
     daily_returns = prices.pct_change(fill_method=None)
-    events = pd.DataFrame(np.nan, index=prices.index, columns=prices.columns)
+    signals: list[tuple[pd.Timestamp, dict[str, float]]] = []
 
     for month_index, signal_date in enumerate(monthly.index):
-        if month_index + 1 >= len(monthly.index):
+        if month_index + 1 >= len(monthly.index) and pending_execution_date is None:
             break
         if signal_date not in prices.index:
             continue
@@ -110,10 +115,6 @@ def cpm_monthly_targets(prices: pd.DataFrame) -> pd.DataFrame:
                 weights[ticker] = per_asset_weight
         weights[safe_asset] += 1.0 - risky_fraction
 
-        signal_position = prices.index.get_loc(signal_date)
-        execution_position = signal_position + 1
-        if execution_position < len(prices.index):
-            execution_date = prices.index[execution_position]
-            events.loc[execution_date] = pd.Series(weights)
+        signals.append((signal_date, weights))
 
-    return events.dropna(how="all")
+    return _events_from_signals(prices, signals, pending_execution_date=pending_execution_date)

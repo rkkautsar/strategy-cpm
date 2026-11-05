@@ -566,6 +566,8 @@ def val_monthly_targets(
     constituent_prices: pd.DataFrame,
     flows: dict,
     balance_sheets: dict,
+    *,
+    pending_execution_date: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """Port of VAL: PIT quality/value selection, trend hysteresis, and defensive gate."""
     required = ("SPY", "TIP", *NDX_SAFE)
@@ -628,4 +630,4 @@ def val_monthly_targets(
             weights[safe] = weights.get(safe, 0.0) + residual
         histories.append((signal_date, weights))
 
-    return _events_from_signals(combined, histories)
+    return _events_from_signals(combined, histories, pending_execution_date=pending_execution_date)

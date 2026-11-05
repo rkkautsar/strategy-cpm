@@ -62,10 +62,13 @@ def _build_monthly_outputs(args: argparse.Namespace) -> None:
     if requires_fresh_data:
         max_price_age_days = int(os.getenv("CPM_MAX_PRICE_AGE_DAYS", "7"))
         today_ny = pd.Timestamp.now(tz="America/New_York").date()
+        expected_signal = os.getenv("CPM_SIGNAL_DATE", "")
         for label, panel in (("ETF", prices), ("Nasdaq-100 constituent", ndx_prices)):
             if panel.empty:
                 raise RuntimeError(f"Required {label} price panel is empty.")
             latest = pd.Timestamp(panel.index[-1]).date()
+            if expected_signal and latest != pd.Timestamp(expected_signal).date():
+                raise RuntimeError(f"Required {label} prices do not include the expected closing session {expected_signal}; latest is {latest}.")
             age_days = (today_ny - latest).days
             if age_days < 0 or age_days > max_price_age_days:
                 raise RuntimeError(
@@ -73,6 +76,9 @@ def _build_monthly_outputs(args: argparse.Namespace) -> None:
                     f"{age_days} calendar days before today in New York; "
                     f"maximum allowed is {max_price_age_days}."
                 )
+        if expected_signal and prices.loc[pd.Timestamp(expected_signal)].isna().any():
+            missing = prices.loc[pd.Timestamp(expected_signal)].index[prices.loc[pd.Timestamp(expected_signal)].isna()].tolist()
+            raise RuntimeError(f"Required ETF closing prices are missing for {expected_signal}: {', '.join(missing)}")
     rpv_signals, rpv_data_status = load_rpv_signals(prices)
     if args.no_refresh_valuein and requires_fresh_data:
         raise RuntimeError("CPM_REQUIRE_FRESH_DATA=1 forbids --no-refresh-valuein.")
@@ -87,17 +93,34 @@ def _build_monthly_outputs(args: argparse.Namespace) -> None:
         )
     val_flows, val_balance_sheets, val_data_status = load_valuein_cache(args.valuein_cache)
     val_data_status = f"{val_data_status}; {valuein_refresh_status}"
-    targets = cpm_monthly_targets(prices)
+    pending_date_text = os.getenv("CPM_PENDING_EXECUTION_DATE", "")
+    pending_date = pd.Timestamp(pending_date_text) if pending_date_text else None
+    pending_option = {"pending_execution_date": pending_date} if pending_date is not None else {}
+    targets = cpm_monthly_targets(prices, **pending_option)
     additional_targets = {
-        "HAA-Simple": haa_simple_targets(prices),
-        "HAA-Balanced": haa_balanced_targets(prices),
-        "BAA-G12": baa_g12_targets(prices),
-        "AAA": aaa_monthly_targets(prices),
-        "VAA-G12": vaa_g12_targets(prices),
-        "NDX": ndx_monthly_targets(prices, ndx_prices),
-        "RPV": rpv_monthly_targets(prices, rpv_signals),
-        "VAL": val_monthly_targets(prices, ndx_prices, val_flows, val_balance_sheets),
+        "HAA-Simple": haa_simple_targets(prices, **pending_option),
+        "HAA-Balanced": haa_balanced_targets(prices, **pending_option),
+        "BAA-G12": baa_g12_targets(prices, **pending_option),
+        "AAA": aaa_monthly_targets(prices, **pending_option),
+        "VAA-G12": vaa_g12_targets(prices, **pending_option),
+        "NDX": ndx_monthly_targets(prices, ndx_prices, **pending_option),
+        "RPV": rpv_monthly_targets(prices, rpv_signals, **pending_option),
+        "VAL": val_monthly_targets(prices, ndx_prices, val_flows, val_balance_sheets, **pending_option),
     }
+    pending_rows = {}
+    if pending_date is not None:
+        for name, events in {"CPM": targets, **additional_targets}.items():
+            if pending_date not in events.index:
+                raise RuntimeError(f"No pending target for {name} on {pending_date.date()}.")
+            pending_rows[name] = events.loc[[pending_date]]
+            if name in ("NDX", "VAL"):
+                holdings = events.loc[pending_date]
+                stocks = [ticker for ticker, weight in holdings.items() if weight > 0 and ticker not in prices.columns]
+                missing_stocks = [ticker for ticker in stocks if ticker not in ndx_prices.columns or pd.isna(ndx_prices.at[prices.index[-1], ticker])]
+                if missing_stocks:
+                    raise RuntimeError(f"Missing latest closing prices for {name} holdings: {', '.join(missing_stocks)}")
+        targets = targets.drop(index=pending_date)
+        additional_targets = {name: events.drop(index=pending_date) for name, events in additional_targets.items()}
     additional_targets["NDX"], ndx_backtest_prices = ndx_backtest_inputs(
         prices, ndx_prices, additional_targets["NDX"],
     )
@@ -111,6 +134,12 @@ def _build_monthly_outputs(args: argparse.Namespace) -> None:
         additional_prices={"NDX": ndx_backtest_prices, "VAL": val_backtest_prices},
     )
     metrics = summarize(portfolios, initial_cash=args.cash)
+    notification_targets = None
+    if pending_date is not None:
+        notification_targets = {
+            name: pd.concat([events, pending_rows[name]])
+            for name, events in {"CPM": targets, **additional_targets}.items()
+        }
 
     args.output.mkdir(parents=True, exist_ok=True)
     metrics.to_csv(args.output / "performance.csv")
@@ -135,6 +164,7 @@ def _build_monthly_outputs(args: argparse.Namespace) -> None:
                 "Valuein plan; the current S&P 500 plan does not cover every member."
             ),
         },
+        notification_targets=notification_targets,
     )
     snapshot_status = publish_snapshot()
 
